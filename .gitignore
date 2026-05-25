@@ -44,3 +44,5 @@ coverage/
 
 # Power Apps (if you want to exclude legacy artefacts)
 # YPC_Ticket_Management_Copy_*/
+backend-hrms/local_export.sql
+backend-hrms/users_export.csv
