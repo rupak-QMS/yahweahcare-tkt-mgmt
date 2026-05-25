@@ -4,6 +4,7 @@
 
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
 import { pool } from '../../db/pool';
 import { validateEmail } from '../../utils/emailDomain';
 import { signAccessToken, signRefreshToken, generateSessionToken } from '../../utils/tokens';
@@ -230,9 +231,6 @@ export async function revokeAllUserSessions(userId: number, reason: string, req?
 // (In-memory Map was used previously, but serverless cold starts
 // would lose it. Cookies work in both server and serverless.)
 // ============================================================
-import jwt from 'jsonwebtoken';
-import { env } from '../../config/env';
-
 const PKCE_TTL_SECONDS = 10 * 60;
 const PKCE_COOKIE = 'yc_pkce';
 
