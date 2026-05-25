@@ -1,0 +1,162 @@
+name: Deploy HRMS Backend
+
+# ============================================================
+# Build, test, and deploy the backend-hrms TypeScript service
+# to Azure App Service whenever main changes.
+# Pull requests run only the CI checks (lint/build/tests).
+# ============================================================
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend-hrms/**'
+      - '.github/workflows/deploy-backend.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend-hrms/**'
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20'
+  AZURE_WEBAPP_NAME: yahwehcare-hrms-api    # ← Azure App Service name (override in repo Variables)
+  AZURE_WEBAPP_PACKAGE_PATH: ./backend-hrms
+
+jobs:
+  # ─── CI: lint, typecheck, build, integration tests ──────────
+  ci:
+    name: CI — Build & Test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: yahweahcare_ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend-hrms/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backend-hrms
+        run: npm ci
+
+      - name: Type-check
+        working-directory: backend-hrms
+        run: npx tsc --noEmit
+
+      - name: Apply schema to test DB
+        working-directory: backend-hrms
+        env:
+          DATABASE_URL: postgres://ci:ci@localhost:5432/yahweahcare_ci
+        run: |
+          # Use psql client to apply the SQL directly
+          sudo apt-get update && sudo apt-get install -y postgresql-client
+          psql "$DATABASE_URL" -f src/db/schema.sql
+
+      - name: Run tests (if present)
+        working-directory: backend-hrms
+        env:
+          DATABASE_URL: postgres://ci:ci@localhost:5432/yahweahcare_ci
+          JWT_SECRET: ci-jwt-secret-32-bytes-padding-padding
+          SESSION_SECRET: ci-session-secret-32-bytes-padding-pad
+          NODE_ENV: test
+          BACKEND_URL: http://localhost:4001
+          FRONTEND_URL: http://localhost:3000
+          AZURE_CLIENT_ID: ci-client-id
+          AZURE_CLIENT_SECRET: ci-client-secret
+          AZURE_TENANT_ID: ci-tenant-id
+          AZURE_REDIRECT_URI: http://localhost:4001/auth/microsoft/callback
+          AZURE_POST_LOGOUT_REDIRECT_URI: http://localhost:3000/auth/logged-out
+        run: npm test --if-present
+
+      - name: Build TypeScript
+        working-directory: backend-hrms
+        run: npm run build
+
+  # ─── Deploy: only runs on push to main ──────────────────────
+  deploy:
+    name: Deploy to Azure App Service
+    needs: ci
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net
+    permissions:
+      id-token: write     # for OIDC auth to Azure (no client secret needed)
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend-hrms/package-lock.json
+
+      - name: Install production dependencies + build
+        working-directory: backend-hrms
+        run: |
+          npm ci
+          npm run build
+          # Pre-bake schema.sql into dist so it ships with the deploy
+          cp src/db/schema.sql dist/db/schema.sql || true
+
+      - name: Authenticate to Azure (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Run DB migration (apply schema)
+        env:
+          PGSSLMODE: require
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: |
+          sudo apt-get update && sudo apt-get install -y postgresql-client
+          # Apply schema.sql — idempotent (drops + recreates ddl)
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f backend-hrms/src/db/schema.sql
+          echo "✓ Schema migration applied"
+
+      - name: Seed roles + permissions + bootstrap admins
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        working-directory: backend-hrms
+        run: |
+          # Idempotent — safe to run on every deploy
+          npx ts-node src/db/seed.ts || node dist/db/seed.js
+          echo "✓ Seed complete"
+
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+
+      - name: Health probe
+        run: |
+          sleep 20
+          curl --fail --retry 5 --retry-delay 5 \
+            https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/health
+          echo "✓ Backend deployed & healthy"
+
+      - name: Logout from Azure
+        if: always()
+        run: az logout

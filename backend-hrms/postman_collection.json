@@ -1,0 +1,98 @@
+{
+  "info": {
+    "name": "Yahwehcare HRMS Auth API",
+    "description": "Microsoft Entra SSO + RBAC + Audit + User Management",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl",     "value": "http://localhost:4001" },
+    { "key": "accessToken", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "request": { "method": "GET", "url": "{{baseUrl}}/health" }
+    },
+    {
+      "name": "Auth — get config",
+      "request": { "method": "GET", "url": "{{baseUrl}}/auth/config" }
+    },
+    {
+      "name": "Auth — validate email",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/auth/validate-email",
+        "body": { "mode": "raw", "raw": "{\n  \"email\": \"user@yahwehcare.com.au\"\n}" }
+      }
+    },
+    {
+      "name": "Auth — start Microsoft SSO (open in browser)",
+      "request": { "method": "GET", "url": "{{baseUrl}}/auth/microsoft" }
+    },
+    {
+      "name": "Auth — me",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": "{{baseUrl}}/auth/me"
+      }
+    },
+    {
+      "name": "Auth — refresh",
+      "request": { "method": "POST", "url": "{{baseUrl}}/auth/refresh" }
+    },
+    {
+      "name": "Auth — logout",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": "{{baseUrl}}/auth/logout"
+      }
+    },
+    {
+      "name": "Users — list",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": "{{baseUrl}}/users?limit=50"
+      }
+    },
+    {
+      "name": "Users — create",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": "{{baseUrl}}/users",
+        "body": { "mode": "raw", "raw": "{\n  \"email\": \"new.user@yahwehcare.com.au\",\n  \"name\": \"New User\",\n  \"roleId\": 5,\n  \"department\": \"Operations\",\n  \"designation\": \"Coordinator\"\n}" }
+      }
+    },
+    {
+      "name": "Roles — list",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": "{{baseUrl}}/roles"
+      }
+    },
+    {
+      "name": "Audit logs — last 50",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": "{{baseUrl}}/audit-logs?limit=50"
+      }
+    },
+    {
+      "name": "Audit logs — export CSV",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": "{{baseUrl}}/audit-logs/export"
+      }
+    }
+  ]
+}
