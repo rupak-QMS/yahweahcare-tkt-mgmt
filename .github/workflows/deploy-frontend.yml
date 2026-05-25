@@ -1,8 +1,15 @@
 name: Deploy Frontend
 
 # ============================================================
-# Deploy the static Yahweh Care frontend to Azure App Service.
-# Uses the tiny Node static server in frontend/server.js.
+# Deploys the static Yahweh Care frontend to Vercel.
+# Injects the production backend URL into the <meta> tag
+# before uploading so the app knows where the API lives.
+#
+# Required GitHub Secrets (Settings → Secrets → Actions):
+#   VERCEL_TOKEN                — vercel.com/account/tokens
+#   VERCEL_ORG_ID               — found in .vercel/project.json after `vercel link`
+#   VERCEL_FRONTEND_PROJECT_ID  — found in .vercel/project.json for the frontend project
+#   PROD_BACKEND_URL            — e.g. https://yahweahcare-backend.vercel.app
 # ============================================================
 
 on:
@@ -13,94 +20,56 @@ on:
       - '.github/workflows/deploy-frontend.yml'
   workflow_dispatch:
 
-env:
-  NODE_VERSION: '20'
-  AZURE_WEBAPP_NAME: yahwehcare-hrms-web    # ← Azure App Service name (override in repo Variables)
-
 jobs:
   deploy:
-    name: Deploy frontend
+    name: Deploy Frontend to Vercel
     runs-on: ubuntu-latest
     environment:
       name: production
-      url: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net
-    permissions:
-      id-token: write
-      contents: read
+      url: ${{ steps.deploy.outputs.url }}
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Inject production HRMS API URL
-        run: |
-          # Replace localhost API URL with the production backend
-          sed -i.bak "s|http://localhost:4001|${{ secrets.PROD_BACKEND_URL }}|g" frontend/index.html
-          # Or use the <meta name="hrms-api"> tag — add it to the <head>
-          sed -i.bak "s|<title>Yahweh Care|<meta name=\"hrms-api\" content=\"${{ secrets.PROD_BACKEND_URL }}\" />\n<title>Yahweh Care|" frontend/index.html
-          echo "✓ API URL baked in: ${{ secrets.PROD_BACKEND_URL }}"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
-      - name: Create web.config for IIS/Azure App Service
+      - name: Inject production backend URL into meta tag
         run: |
-          cat > frontend/web.config <<'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <configuration>
-            <system.webServer>
-              <handlers>
-                <add name="iisnode" path="server.js" verb="*" modules="iisnode" />
-              </handlers>
-              <rewrite>
-                <rules>
-                  <rule name="DynamicContent">
-                    <match url="/*" />
-                    <action type="Rewrite" url="server.js" />
-                  </rule>
-                </rules>
-              </rewrite>
-              <httpProtocol>
-                <customHeaders>
-                  <add name="X-Content-Type-Options" value="nosniff" />
-                  <add name="X-Frame-Options" value="SAMEORIGIN" />
-                  <add name="Referrer-Policy" value="strict-origin-when-cross-origin" />
-                </customHeaders>
-              </httpProtocol>
-            </system.webServer>
-          </configuration>
-          EOF
+          sed -i "s|content=\"http://localhost:4002\"|content=\"${{ secrets.PROD_BACKEND_URL }}\"|g" \
+            frontend/index.html
+          echo "✓ HRMS API URL set to ${{ secrets.PROD_BACKEND_URL }}"
 
-      - name: Create package.json for the static server
+      - name: Verify injection
+        run: grep 'name="hrms-api"' frontend/index.html
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Pull Vercel environment
         working-directory: frontend
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_FRONTEND_PROJECT_ID }}
+        run: vercel pull --yes --environment=production --token=$VERCEL_TOKEN
+
+      - name: Deploy (production)
+        id: deploy
+        working-directory: frontend
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_FRONTEND_PROJECT_ID }}
         run: |
-          if [ ! -f package.json ]; then
-            cat > package.json <<'EOF'
-          {
-            "name": "yahwehcare-frontend",
-            "version": "1.0.0",
-            "private": true,
-            "scripts": { "start": "node server.js" },
-            "engines": { "node": ">=18" }
-          }
-          EOF
-          fi
+          url=$(vercel deploy --prod --token=$VERCEL_TOKEN)
+          echo "url=$url" >> $GITHUB_OUTPUT
+          echo "✓ Frontend deployed → $url"
 
-      - name: Authenticate to Azure (OIDC)
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Deploy to Azure App Service
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          package: ./frontend
-
-      - name: Health probe
+      - name: Smoke test
         run: |
-          sleep 15
+          sleep 10
           curl --fail --retry 5 --retry-delay 5 \
-            https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/
-          echo "✓ Frontend deployed"
-
-      - name: Logout from Azure
-        if: always()
-        run: az logout
+            "${{ steps.deploy.outputs.url }}/" && \
+            echo "✓ Frontend responding OK"

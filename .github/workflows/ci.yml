@@ -1,0 +1,58 @@
+name: CI
+
+# ============================================================
+# Continuous Integration — runs on every push and pull request.
+# Catches TypeScript errors and build failures before they
+# reach Vercel or production.
+# ============================================================
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── Backend: type-check + build ────────────────────────────
+  backend:
+    name: Backend — Type-check & Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: backend-hrms/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backend-hrms
+        run: npm ci
+
+      - name: TypeScript type-check
+        working-directory: backend-hrms
+        run: npx tsc --noEmit
+
+      - name: Build (tsc compile)
+        working-directory: backend-hrms
+        run: npm run build
+
+  # ── Frontend: basic sanity checks ─────────────────────────
+  frontend:
+    name: Frontend — Sanity Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify index.html exists
+        run: test -f frontend/index.html && echo "✓ frontend/index.html present"
+
+      - name: Verify server.js exists
+        run: test -f frontend/server.js && echo "✓ frontend/server.js present"
+
+      - name: Check for obvious syntax issues in server.js
+        run: node --check frontend/server.js && echo "✓ server.js syntax OK"
