@@ -36,7 +36,7 @@
   #loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #10b981 0%, #14b8a6 100%); color: white; flex-direction: column; z-index: 9999; }
   #loading .spinner { width: 48px; height: 48px; border: 4px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .card { background: white; border: 1px solid var(--border); border-radius: 14px; }
+  .card { background: white; border: 1px solid var(--border); border-radius: 14px; transition: box-shadow 0.25s ease, border-color 0.25s ease; }
   .stat-total { background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%); }
   .stat-open  { background: linear-gradient(135deg, #ecfeff 0%, #f8fafc 100%); }
   .stat-prog  { background: linear-gradient(135deg, #f0f9ff 0%, #f8fafc 100%); }
@@ -242,6 +242,88 @@
   html.dark .recharts-cartesian-grid line { stroke: rgba(148,163,184,0.12) !important; }
   html.dark .recharts-polar-grid line, html.dark .recharts-polar-grid path { stroke: rgba(148,163,184,0.15) !important; }
   html.dark .recharts-active-sector path { filter: drop-shadow(0 0 14px currentColor) brightness(1.12) saturate(1.2) !important; }
+
+  /* ============================================================
+     GLOW EFFECTS — brand emerald / teal accent across the UI
+     ============================================================ */
+
+  /* Brand gradient buttons — smooth lift + glow on hover */
+  .brand-gradient {
+    transition: box-shadow 0.25s ease, filter 0.2s ease, transform 0.15s ease !important;
+  }
+  .brand-gradient:hover {
+    box-shadow: 0 0 22px rgba(16,185,129,0.5), 0 4px 18px rgba(16,185,129,0.28), 0 1px 4px rgba(0,0,0,0.12);
+    filter: brightness(1.06);
+  }
+  .brand-gradient:active { transform: scale(0.976); box-shadow: 0 0 12px rgba(16,185,129,0.4); }
+
+  /* Cards — hover glow (light mode: whisper; dark mode: emerald bloom) */
+  .card:hover {
+    box-shadow: 0 0 0 1px rgba(16,185,129,0.18), 0 6px 24px rgba(16,185,129,0.07);
+  }
+  html.dark .card:hover {
+    border-color: rgba(16,185,129,0.32) !important;
+    box-shadow: 0 0 0 1px rgba(16,185,129,0.24), 0 0 30px rgba(16,185,129,0.11), 0 8px 32px rgba(0,0,0,0.28) !important;
+  }
+
+  /* Stat cards — colour-matched glow on hover (dark mode only) */
+  html.dark .stat-total { transition: box-shadow 0.25s ease; }
+  html.dark .stat-open  { transition: box-shadow 0.25s ease; }
+  html.dark .stat-prog  { transition: box-shadow 0.25s ease; }
+  html.dark .stat-res   { transition: box-shadow 0.25s ease; }
+  html.dark .stat-esc   { transition: box-shadow 0.25s ease; }
+  html.dark .stat-urg   { transition: box-shadow 0.25s ease; }
+  html.dark .stat-total:hover { box-shadow: 0 0 0 1px rgba(59,130,246,0.32), 0 0 26px rgba(59,130,246,0.18) !important; }
+  html.dark .stat-open:hover  { box-shadow: 0 0 0 1px rgba(6,182,212,0.32), 0 0 26px rgba(6,182,212,0.18) !important; }
+  html.dark .stat-prog:hover  { box-shadow: 0 0 0 1px rgba(14,165,233,0.32), 0 0 26px rgba(14,165,233,0.18) !important; }
+  html.dark .stat-res:hover   { box-shadow: 0 0 0 1px rgba(16,185,129,0.32), 0 0 26px rgba(16,185,129,0.18) !important; }
+  html.dark .stat-esc:hover   { box-shadow: 0 0 0 1px rgba(249,115,22,0.32), 0 0 26px rgba(249,115,22,0.18) !important; }
+  html.dark .stat-urg:hover   { box-shadow: 0 0 0 1px rgba(239,68,68,0.32), 0 0 26px rgba(239,68,68,0.18) !important; }
+
+  /* Input / select / textarea focus — stronger emerald ring */
+  html.dark input:focus, html.dark select:focus, html.dark textarea:focus {
+    border-color: rgba(16,185,129,0.68) !important;
+    box-shadow: 0 0 0 3px rgba(16,185,129,0.22), 0 0 16px rgba(16,185,129,0.14) !important;
+  }
+
+  /* Status / priority badges — colour-matched outer glow (dark mode) */
+  html.dark span.bg-emerald-50 { box-shadow: 0 0 8px rgba(16,185,129,0.25); }
+  html.dark span.bg-teal-50    { box-shadow: 0 0 8px rgba(20,184,166,0.25); }
+  html.dark span.bg-blue-50    { box-shadow: 0 0 8px rgba(59,130,246,0.22); }
+  html.dark span.bg-sky-50     { box-shadow: 0 0 8px rgba(14,165,233,0.22); }
+  html.dark span.bg-cyan-50    { box-shadow: 0 0 8px rgba(6,182,212,0.22); }
+  html.dark span.bg-red-50     { box-shadow: 0 0 8px rgba(239,68,68,0.22); }
+  html.dark span.bg-rose-50    { box-shadow: 0 0 8px rgba(244,63,94,0.22); }
+  html.dark span.bg-orange-50  { box-shadow: 0 0 8px rgba(249,115,22,0.22); }
+  html.dark span.bg-amber-50   { box-shadow: 0 0 8px rgba(245,158,11,0.22); }
+  html.dark span.bg-purple-50  { box-shadow: 0 0 8px rgba(168,85,247,0.22); }
+  html.dark span.bg-indigo-50  { box-shadow: 0 0 8px rgba(99,102,241,0.22); }
+
+  /* Live dot — glowing pulse */
+  .live-dot { box-shadow: 0 0 6px 1px rgba(16,185,129,0.65); }
+
+  /* Sidebar — brand-tinted right edge + depth shadow (dark mode) */
+  html.dark aside {
+    box-shadow: 4px 0 28px rgba(0,0,0,0.35), 1px 0 0 rgba(16,185,129,0.07) !important;
+  }
+
+  /* Sidebar nav links — active/selected item gets an emerald left bar */
+  html.dark aside a[class*="bg-emerald"],
+  html.dark aside button[class*="bg-emerald"] {
+    box-shadow: inset 3px 0 0 #10b981, 0 0 14px rgba(16,185,129,0.12);
+  }
+
+  /* Table rows — brand accent on hover (dark mode) */
+  html.dark tbody tr:hover {
+    background-color: rgba(16,185,129,0.04) !important;
+    box-shadow: inset 3px 0 0 rgba(16,185,129,0.38);
+  }
+
+  /* Generic interactive buttons/links in sidebar — subtle glow on hover */
+  html.dark aside a:hover,
+  html.dark aside button:hover {
+    box-shadow: inset 0 0 0 1px rgba(16,185,129,0.14);
+  }
 </style>
 </head>
 <body>
