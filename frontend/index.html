@@ -509,6 +509,54 @@
     animation: breathe 3.5s ease-in-out infinite;
   }
 
+  /* ── Calendar ─────────────────────────────────────────────────
+     Day cells, weekend/today tints, nav buttons in dark mode     */
+
+  /* Base day cell */
+  .yc-cal-day { background: white; }
+  html.dark .yc-cal-day { background: #161e30; }
+
+  /* Off-month (greyed out) */
+  .yc-cal-offmonth { background: #f8fafc; }
+  html.dark .yc-cal-offmonth { background: #0f1623; }
+
+  /* Weekend columns */
+  .yc-cal-weekend { background: #f8fafc; }
+  html.dark .yc-cal-weekend { background: #131a28; }
+
+  /* Today cell */
+  .yc-cal-today { background: rgba(16,185,129,0.05) !important; }
+  html.dark .yc-cal-today { background: rgba(16,185,129,0.07) !important; }
+
+  /* Hover (non-today, in-month only) */
+  html:not(.dark) .yc-cal-day:not(.yc-cal-today):not(.yc-cal-offmonth):hover { background: #f1f5f9; }
+  html.dark       .yc-cal-day:not(.yc-cal-today):not(.yc-cal-offmonth):hover { background: #1a2236; }
+
+  /* Grid dividers */
+  html.dark .divide-slate-100 > * { border-color: rgba(148,163,184,0.08) !important; }
+
+  /* Day-header row */
+  html.dark .grid.grid-cols-7 > div.bg-slate-50\/80 { background: rgba(15,22,35,0.9) !important; }
+  html.dark .grid.grid-cols-7 > div.bg-white        { background: rgba(22,30,48,0.8) !important; }
+  html.dark .border-slate-100 { border-color: rgba(148,163,184,0.08) !important; }
+
+  /* Nav arrow buttons */
+  html.dark .yc-cal-nav {
+    background: #1a2236 !important;
+    border-color: rgba(148,163,184,0.15) !important;
+    color: #94a3b8 !important;
+  }
+  html.dark .yc-cal-nav:hover {
+    border-color: rgba(16,185,129,0.4) !important;
+    color: #34d399 !important;
+    background: rgba(16,185,129,0.08) !important;
+  }
+
+  /* Today circle shadow */
+  html.dark .shadow-emerald-300 { box-shadow: 0 1px 4px rgba(16,185,129,0.35) !important; }
+
+  /* Ticket pill inline-style colours are already correct in dark — they use rgba */
+
   /* ── Corporate palette overrides ──────────────────────────────
      Breadcrumb, policy-notice banner, violet authority badges     */
 
@@ -2867,13 +2915,13 @@ const CalendarView = ({ tickets, onOpen, onNavigate }) => {
     { label: 'Calendar', clickable: false }
   ];
 
-  const monthName = cursor.toLocaleString('en-AU', { month: 'long', year: 'numeric' });
-  const firstDay = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
-  const startOffset = firstDay.getDay(); // 0 = Sunday
+  const monthName = cursor.toLocaleString('en-AU', { month: 'long' });
+  const yearName  = cursor.getFullYear();
+  const firstDay  = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+  const startOffset = firstDay.getDay();
   const gridStart = new Date(firstDay);
   gridStart.setDate(gridStart.getDate() - startOffset);
 
-  // Generate 6 weeks (42 cells)
   const days = [];
   for (let i = 0; i < 42; i++) {
     const d = new Date(gridStart);
@@ -2881,9 +2929,11 @@ const CalendarView = ({ tickets, onOpen, onNavigate }) => {
     days.push(d);
   }
 
-  const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  const sameDay = (a, b) =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth()    === b.getMonth()    &&
+    a.getDate()     === b.getDate();
 
-  // Map of YYYY-MM-DD -> tickets due that day
   const ticketsByDay = useMemo(() => {
     const map = {};
     tickets.forEach(t => {
@@ -2897,15 +2947,14 @@ const CalendarView = ({ tickets, onOpen, onNavigate }) => {
 
   const dayKey = (d) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 
-  // Pill color based on priority
-  const pillStyles = {
-    urgent: 'bg-red-100 text-red-700 border border-red-200',
-    high:   'bg-orange-100 text-orange-700 border border-orange-200',
-    medium: 'bg-amber-100 text-amber-700 border border-amber-200',
-    low:    'bg-blue-100 text-blue-700 border border-blue-200',
+  // Priority pill config — dot colour + pill surface
+  const pillCfg = {
+    urgent: { dot: '#ef4444', bg: 'rgba(239,68,68,0.10)',   border: 'rgba(239,68,68,0.22)',   text: '#b91c1c' },
+    high:   { dot: '#f97316', bg: 'rgba(249,115,22,0.10)',  border: 'rgba(249,115,22,0.22)',  text: '#c2410c' },
+    medium: { dot: '#f59e0b', bg: 'rgba(245,158,11,0.10)',  border: 'rgba(245,158,11,0.22)',  text: '#b45309' },
+    low:    { dot: '#3b82f6', bg: 'rgba(59,130,246,0.10)',  border: 'rgba(59,130,246,0.22)',  text: '#1d4ed8' },
   };
 
-  // Short ticket number (e.g., "26-3385" from "YPC-TKT-2026-3385")
   const shortNumber = (tn) => {
     if (!tn) return '';
     const m = tn.match(/(\d{2})(\d{2})-(\d+)/);
@@ -2913,97 +2962,146 @@ const CalendarView = ({ tickets, onOpen, onNavigate }) => {
     return tn.slice(-7);
   };
 
-  const goPrev = () => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1));
-  const goNext = () => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1));
+  const goPrev  = () => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1));
+  const goNext  = () => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1));
   const goToday = () => setCursor(new Date(today.getFullYear(), today.getMonth(), 1));
 
   const weekDays = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
+  // Month-level stats
+  const monthTickets = useMemo(() => {
+    const ms = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+    const me = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0, 23, 59, 59);
+    return tickets.filter(t => { if (!t.dueAt) return false; const d = new Date(t.dueAt); return d >= ms && d <= me; });
+  }, [tickets, cursor]);
+  const urgentCount = monthTickets.filter(t => t.priority === 'urgent').length;
+
   return (
-    <div className="p-8 flex-1 overflow-y-auto scrollbar-thin">
-      {/* Header */}
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">Calendar View</h1>
-          <p className="text-sm text-slate-500 mt-1">Track ticket timelines and deadlines</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={goPrev} className="p-2 border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-600">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><polyline points="15 18 9 12 15 6"/></svg>
-          </button>
-          <button onClick={goToday} className="px-5 py-2 border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50 text-slate-700">Today</button>
-          <button onClick={goNext} className="p-2 border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-600">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><polyline points="9 18 15 12 9 6"/></svg>
-          </button>
-        </div>
-      </div>
+    <div className="flex-1 overflow-y-auto scrollbar-thin">
+      <Breadcrumb items={breadcrumbs} onNavigate={onNavigate} />
 
-      {/* Calendar card */}
-      <div className="card p-6">
-        {/* Month label */}
-        <div className="flex items-center gap-2 mb-4">
-          <Icon name="calendar" className="w-5 h-5 text-blue-600" />
-          <h2 className="text-xl font-bold text-slate-800">{monthName}</h2>
+      <div className="p-6">
+        {/* ── Hero header ─────────────────────────────────────────── */}
+        <div className="flex items-end justify-between mb-5">
+          <div>
+            <div className="flex items-baseline gap-3">
+              <h1 className="text-4xl font-black text-slate-900 tracking-tight">{monthName}</h1>
+              <span className="text-2xl font-light text-slate-400">{yearName}</span>
+            </div>
+            <div className="flex items-center gap-3 mt-1.5">
+              <p className="text-sm text-slate-500">Track ticket timelines and deadlines</p>
+              {monthTickets.length > 0 && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold border border-emerald-200">
+                  <span className="live-dot"></span>
+                  {monthTickets.length} due this month
+                  {urgentCount > 0 && <span className="text-red-500 font-bold">· {urgentCount} urgent</span>}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Navigation */}
+          <div className="flex items-center gap-1.5">
+            <button onClick={goPrev} className="yc-cal-nav w-9 h-9 flex items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:border-emerald-300 hover:text-emerald-600 hover:bg-emerald-50 transition-all">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <button onClick={goToday} className="brand-gradient px-4 py-2 rounded-xl text-sm font-semibold text-white shadow-sm">Today</button>
+            <button onClick={goNext} className="yc-cal-nav w-9 h-9 flex items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:border-emerald-300 hover:text-emerald-600 hover:bg-emerald-50 transition-all">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
         </div>
 
-        {/* Day headers */}
-        <div className="grid grid-cols-7 gap-2 mb-2">
-          {weekDays.map(d => (
-            <div key={d} className="text-center text-xs font-semibold text-slate-500 tracking-wider py-2">{d}</div>
-          ))}
-        </div>
+        {/* ── Calendar card ───────────────────────────────────────── */}
+        <div className="card overflow-hidden">
 
-        {/* Day grid */}
-        <div className="grid grid-cols-7 gap-2">
-          {days.map((d, i) => {
-            const inMonth = d.getMonth() === cursor.getMonth();
-            const isToday = sameDay(d, today);
-            const dayTickets = ticketsByDay[dayKey(d)] || [];
-            return (
-              <div
-                key={i}
-                className={`min-h-[110px] rounded-xl border p-2 transition ${
-                  isToday
-                    ? 'border-blue-500 border-2 bg-blue-50/30'
-                    : 'border-slate-200'
-                } ${!inMonth ? 'bg-slate-50/50' : 'bg-white hover:bg-slate-50/40'}`}
-              >
-                <div className={`text-sm font-medium mb-2 ${
-                  isToday ? 'text-blue-600 font-bold' : (inMonth ? 'text-slate-700' : 'text-slate-300')
+          {/* Day-of-week header row */}
+          <div className="grid grid-cols-7 border-b border-slate-100">
+            {weekDays.map((d, i) => (
+              <div key={d} className={`py-3 text-center text-[11px] font-bold tracking-widest select-none ${
+                i === 0 || i === 6 ? 'text-slate-400 bg-slate-50/80' : 'text-slate-500 bg-white'
+              }`}>{d}</div>
+            ))}
+          </div>
+
+          {/* Thin brand divider */}
+          <div style={{height:'2px', background:'linear-gradient(90deg,transparent 0%,#10b981 30%,#14b8a6 70%,transparent 100%)', opacity:0.35}}></div>
+
+          {/* Day grid — no gap, divided by CSS borders */}
+          <div className="grid grid-cols-7 divide-x divide-y divide-slate-100">
+            {days.map((d, i) => {
+              const inMonth  = d.getMonth() === cursor.getMonth();
+              const isToday  = sameDay(d, today);
+              const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+              const dayTickets = ticketsByDay[dayKey(d)] || [];
+              return (
+                <div key={i} className={`yc-cal-day relative min-h-[96px] p-2 transition-colors duration-150 ${
+                  isToday   ? 'yc-cal-today'   :
+                  !inMonth  ? 'yc-cal-offmonth' :
+                  isWeekend ? 'yc-cal-weekend'  : ''
                 }`}>
-                  {d.getDate()}
-                </div>
-                <div className="space-y-1">
-                  {dayTickets.slice(0, 3).map(t => (
-                    <button
-                      key={t.id}
-                      onClick={() => onOpen(t.id)}
-                      title={`${t.ticketNumber} — ${t.title}`}
-                      className={`w-full px-2 py-0.5 rounded text-[10px] font-mono font-semibold truncate text-left transition hover:opacity-80 ${
-                        pillStyles[t.priority] || pillStyles.medium
-                      }`}
-                    >
-                      {shortNumber(t.ticketNumber)}
-                    </button>
-                  ))}
-                  {dayTickets.length > 3 && (
-                    <div className="text-[10px] text-slate-500 pl-1">+ {dayTickets.length - 3} more</div>
+                  {/* Today indicator dot */}
+                  {isToday && (
+                    <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-emerald-400 ring-2 ring-emerald-100 ring-offset-1"></span>
                   )}
+
+                  {/* Date number — filled circle on today */}
+                  <div className={`w-7 h-7 flex items-center justify-center rounded-full text-sm font-bold mb-1 transition-colors ${
+                    isToday
+                      ? 'bg-emerald-500 text-white shadow shadow-emerald-300'
+                      : inMonth
+                      ? 'text-slate-700'
+                      : 'text-slate-300'
+                  }`}>
+                    {d.getDate()}
+                  </div>
+
+                  {/* Ticket pills */}
+                  <div className="space-y-0.5">
+                    {dayTickets.slice(0, 3).map(t => {
+                      const cfg = pillCfg[t.priority] || pillCfg.medium;
+                      return (
+                        <button
+                          key={t.id}
+                          onClick={() => onOpen(t.id)}
+                          title={`${t.ticketNumber} — ${t.title}`}
+                          style={{background: cfg.bg, border:`1px solid ${cfg.border}`, color: cfg.text}}
+                          className="w-full flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold font-mono truncate text-left hover:opacity-75 transition-opacity"
+                        >
+                          <span style={{background: cfg.dot, flexShrink:0}} className="w-1.5 h-1.5 rounded-full"></span>
+                          {shortNumber(t.ticketNumber)}
+                        </button>
+                      );
+                    })}
+                    {dayTickets.length > 3 && (
+                      <p className="text-[10px] text-slate-400 pl-1 font-medium">+{dayTickets.length - 3} more</p>
+                    )}
+                  </div>
                 </div>
-              </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── Legend ──────────────────────────────────────────────── */}
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mr-1">Priority</span>
+          {PRIORITIES.map(p => {
+            const cfg = pillCfg[p.id];
+            if (!cfg) return null;
+            return (
+              <span key={p.id} style={{background: cfg.bg, border:`1px solid ${cfg.border}`, color: cfg.text}}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold">
+                <span style={{background: cfg.dot}} className="w-2 h-2 rounded-full flex-shrink-0"></span>
+                {p.label}
+              </span>
             );
           })}
-        </div>
-
-        {/* Legend */}
-        <div className="mt-5 pt-4 border-t border-slate-100 flex flex-wrap items-center gap-4 text-xs">
-          <span className="text-slate-500 font-medium">Priority:</span>
-          {PRIORITIES.map(p => (
-            <div key={p.id} className="flex items-center gap-1.5">
-              <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold ${pillStyles[p.id]}`}>YY-XXXX</span>
-              <span className="text-slate-600">{p.label}</span>
-            </div>
-          ))}
+          <span style={{background:'rgba(16,185,129,0.12)', border:'1px solid rgba(16,185,129,0.3)', color:'#059669'}}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ml-1">
+            <span style={{background:'#10b981'}} className="w-2 h-2 rounded-full flex-shrink-0"></span>
+            Today
+          </span>
         </div>
       </div>
     </div>
