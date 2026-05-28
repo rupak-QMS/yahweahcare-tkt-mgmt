@@ -509,6 +509,64 @@
     animation: breathe 3.5s ease-in-out infinite;
   }
 
+  /* ── Modern Sidebar ───────────────────────────────────────────
+     Section labels, icon chips, user profile card               */
+
+  /* Section label colour */
+  .yc-nav-section-label { color: #94a3b8; }
+  html.dark .yc-nav-section-label { color: #334155; }
+
+  /* Inactive nav item */
+  .yc-nav-inactive { color: #475569; }
+  .yc-nav-inactive:hover { background: rgba(148,163,184,0.08); color: #0f172a; }
+  html.dark .yc-nav-inactive { color: #64748b; }
+  html.dark .yc-nav-inactive:hover { background: rgba(148,163,184,0.08); color: #e2e8f0; }
+
+  /* Icon chip — inactive */
+  .yc-nav-icon-bg { background: #f1f5f9; }
+  html.dark .yc-nav-icon-bg { background: rgba(148,163,184,0.1); }
+
+  /* Icon chip — hover */
+  .yc-nav-item:not(.brand-gradient):hover .yc-nav-icon-bg { background: rgba(16,185,129,0.1); }
+
+  /* Icon colour — inactive */
+  .yc-nav-icon-color { color: #64748b; }
+  html.dark .yc-nav-icon-color { color: #475569; }
+
+  /* Active shadow (dark) */
+  html.dark .brand-gradient.shadow-md { box-shadow: 0 4px 14px rgba(16,185,129,0.25) !important; }
+
+  /* "CARE" word in sidebar */
+  .yc-sidebar-care { color: #94a3b8; }
+  html.dark .yc-sidebar-care { color: #334155; }
+
+  /* User profile card */
+  .yc-sidebar-user { border: 1px solid rgba(226,232,240,0.8); }
+  html.dark .yc-sidebar-user { border-color: rgba(148,163,184,0.1); background: rgba(15,22,35,0.5); }
+
+  .yc-sidebar-user-btn:hover { background: rgba(248,250,252,1); }
+  html.dark .yc-sidebar-user-btn:hover { background: rgba(148,163,184,0.06); }
+
+  .yc-sidebar-user-name { color: #1e293b; }
+  html.dark .yc-sidebar-user-name { color: #e2e8f0; }
+
+  /* Role mini-badges in sidebar user profile */
+  html.dark .yc-sidebar-user .bg-violet-100 { background: rgba(139,92,246,0.18) !important; }
+  html.dark .yc-sidebar-user .text-violet-600 { color: #a78bfa !important; }
+  html.dark .yc-sidebar-user .bg-sky-100 { background: rgba(14,165,233,0.15) !important; }
+  html.dark .yc-sidebar-user .text-sky-600 { color: #38bdf8 !important; }
+
+  /* Stat card overflow fix for accent strip */
+  .card.overflow-hidden { overflow: hidden; }
+
+  /* Stat card active ring (dark) */
+  html.dark .ring-2.ring-emerald-400 { --tw-ring-color: rgba(52,211,153,0.5); }
+  html.dark .shadow-emerald-100\/60 { box-shadow: 0 4px 20px rgba(16,185,129,0.15) !important; }
+
+  /* Filter pill toggle (dark mode) */
+  html.dark .bg-slate-100 { background-color: rgba(148,163,184,0.1) !important; }
+  html.dark .bg-white.shadow-sm { background-color: #1a2236 !important; color: #e2e8f0 !important; }
+
   /* ── Calendar ─────────────────────────────────────────────────
      Day cells, weekend/today tints, nav buttons in dark mode     */
 
@@ -1180,55 +1238,112 @@ const LoginScreen = ({ users, onSelect, loginError }) => {
 // SIDEBAR
 // ============================================================
 const Sidebar = ({ view, setView, currentUser, onLogout, mobileOpen, onCloseMobile }) => {
-  const mgmt = isManager(currentUser); // Admin or Manager
-  const allItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: 'dashboard', dot: true,  show: true },
-    { id: 'new',       label: 'Create Ticket', icon: 'plus',              show: true },
-    { id: 'tickets',   label: 'Tickets', icon: 'list',                    show: true },
-    { id: 'calendar',  label: 'Calendar', icon: 'calendar',               show: true },
-    { id: 'logs',      label: 'Ticket Logs', icon: 'log',                 show: mgmt },
-    { id: 'staff-perf',label: 'Staff Performance', icon: 'users',         show: mgmt },
-    { id: 'team-comp', label: 'Team Comparison', icon: 'branch',          show: mgmt },
-    { id: 'staff',     label: 'Staff Management', icon: 'cog',            show: mgmt },
-    { id: 'reports',   label: 'Scheduled Reports', icon: 'mail',          show: mgmt },
+  const mgmt = isManager(currentUser);
+  const sections = [
+    {
+      label: null,
+      items: [
+        { id: 'dashboard', label: 'Dashboard',     icon: 'dashboard', show: true },
+        { id: 'new',       label: 'Create Ticket', icon: 'plus',      show: true },
+      ]
+    },
+    {
+      label: 'WORKSPACE',
+      items: [
+        { id: 'tickets',   label: 'Tickets',       icon: 'list',     show: true },
+        { id: 'calendar',  label: 'Calendar',      icon: 'calendar', show: true },
+        { id: 'logs',      label: 'Ticket Logs',   icon: 'log',      show: mgmt },
+      ]
+    },
+    {
+      label: 'MANAGEMENT',
+      items: [
+        { id: 'staff-perf', label: 'Staff Performance', icon: 'users',  show: mgmt },
+        { id: 'team-comp',  label: 'Team Comparison',   icon: 'branch', show: mgmt },
+        { id: 'staff',      label: 'Staff Management',  icon: 'cog',    show: mgmt },
+        { id: 'reports',    label: 'Scheduled Reports', icon: 'mail',   show: mgmt },
+      ]
+    }
   ];
-  const items = allItems.filter(i => i.show);
   const handle = (id) => { setView(id); if (onCloseMobile) onCloseMobile(); };
+
   return (
     <Fragment>
-      {/* Backdrop for mobile */}
       {mobileOpen && <div onClick={onCloseMobile} className="lg:hidden fixed inset-0 bg-black/40 z-40" />}
-      <aside className={`sidebar-drawer w-64 bg-white border-r border-slate-200 flex flex-col flex-shrink-0 fixed inset-y-0 left-0 z-50 lg:relative lg:translate-x-0 ${mobileOpen ? '' : 'closed'}`}>
-      <div className="px-5 py-5">
-        <div className="text-2xl font-extrabold tracking-tight leading-none">
-          <span style={{ background: 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>YAHWEH</span>
-          <span className="ml-1.5" style={{ background: 'linear-gradient(135deg, #10b981 0%, #14b8a6 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>CARE</span>
-          <sup className="text-[10px] ml-0.5 text-slate-400 font-medium">™</sup>
-        </div>
-      </div>
-      <nav className="flex-1 px-3 space-y-1 overflow-y-auto scrollbar-thin pb-4">
-        {items.map(it => {
-          const active = view === it.id || (it.id === 'tickets' && view === 'detail');
-          return (
-            <button key={it.id} onClick={() => handle(it.id)} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition relative ${active ? 'brand-gradient text-white font-semibold shadow-md' : 'text-slate-700 hover:bg-slate-50'}`}>
-              <Icon name={it.icon} className="w-4 h-4 flex-shrink-0" />
-              <span className="flex-1 text-left">{it.label}</span>
-              {active && it.dot && <span className="w-2 h-2 rounded-full bg-emerald-300"></span>}
-            </button>
-          );
-        })}
-      </nav>
-      <div className="p-3 border-t border-slate-100">
-        <button onClick={onLogout} className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition">
-          <Avatar user={currentUser} size="md" />
-          <div className="flex-1 min-w-0 text-left">
-            <div className="text-sm font-semibold text-slate-800 truncate">{currentUser.name}</div>
-            <div className="text-xs text-slate-500 truncate">{currentUser.department}</div>
+      <aside className={`sidebar-drawer w-64 flex flex-col flex-shrink-0 fixed inset-y-0 left-0 z-50 lg:relative lg:translate-x-0 ${mobileOpen ? '' : 'closed'}`}>
+
+        {/* ── Brand logo ──────────────────────────────────────── */}
+        <div className="px-4 pt-5 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 brand-gradient rounded-xl flex items-center justify-center shadow-md shadow-emerald-200/50 flex-shrink-0">
+              <span className="text-white font-black text-base leading-none">Y</span>
+            </div>
+            <div>
+              <div className="text-[15px] font-extrabold tracking-tight leading-none flex items-baseline gap-0.5">
+                <span style={{background:'linear-gradient(135deg,#10b981,#14b8a6)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>YAHWEH</span>
+                <span className="yc-sidebar-care ml-1 font-light text-slate-400">CARE</span>
+              </div>
+              <div className="text-[9px] text-slate-400 font-semibold tracking-[0.15em] uppercase mt-0.5">Ticket Management</div>
+            </div>
           </div>
-          <Icon name="chevronDown" className="w-4 h-4 text-slate-400" />
-        </button>
-      </div>
-    </aside>
+        </div>
+
+        {/* ── Navigation sections ─────────────────────────────── */}
+        <nav className="flex-1 px-3 overflow-y-auto scrollbar-thin pb-4">
+          {sections.map((section, si) => {
+            const visible = section.items.filter(i => i.show);
+            if (!visible.length) return null;
+            return (
+              <div key={si} className={si > 0 ? 'mt-5' : ''}>
+                {section.label && (
+                  <div className="px-2 mb-2 text-[9px] font-black tracking-[0.18em] yc-nav-section-label">{section.label}</div>
+                )}
+                <div className="space-y-0.5">
+                  {visible.map(it => {
+                    const active = view === it.id || (it.id === 'tickets' && view === 'detail');
+                    return (
+                      <button key={it.id} onClick={() => handle(it.id)}
+                        className={`yc-nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${
+                          active ? 'brand-gradient text-white shadow-md' : 'yc-nav-inactive'
+                        }`}
+                      >
+                        <span className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-all ${
+                          active ? 'bg-white/20' : 'yc-nav-icon-bg group-hover:yc-nav-icon-hover'
+                        }`}>
+                          <Icon name={it.icon} className={`w-3.5 h-3.5 transition-colors ${active ? 'text-white' : 'yc-nav-icon-color group-hover:text-emerald-600'}`} />
+                        </span>
+                        <span className="flex-1 text-left leading-tight">{it.label}</span>
+                        {active && <span className="w-1.5 h-1.5 rounded-full bg-white/50 flex-shrink-0"></span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </nav>
+
+        {/* ── User profile ────────────────────────────────────── */}
+        <div className="px-3 pb-4">
+          <div className="yc-sidebar-user rounded-2xl overflow-hidden">
+            <button onClick={onLogout} className="w-full flex items-center gap-3 p-3 transition-colors text-left yc-sidebar-user-btn">
+              <Avatar user={currentUser} size="md" />
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-bold truncate yc-sidebar-user-name">{currentUser.name}</div>
+                <div className="mt-0.5">
+                  {(currentUser.isAdmin || currentUser.role === 'super_admin')
+                    ? <span className="text-[9px] font-black tracking-wide text-violet-600 bg-violet-100 px-1.5 py-0.5 rounded-md">SUPER ADMIN</span>
+                    : currentUser.role === 'manager'
+                    ? <span className="text-[9px] font-black tracking-wide text-sky-600 bg-sky-100 px-1.5 py-0.5 rounded-md">MANAGER</span>
+                    : <span className="text-[10px] text-slate-400 font-medium">{currentUser.department}</span>
+                  }
+                </div>
+              </div>
+              <Icon name="chevronDown" className="w-4 h-4 flex-shrink-0 text-slate-400" />
+            </button>
+          </div>
+        </div>
+      </aside>
     </Fragment>
   );
 };
@@ -1538,18 +1653,22 @@ const Modal = ({ open, onClose, title, children, maxWidth = 'max-w-lg' }) => {
 // ============================================================
 // DASHBOARD
 // ============================================================
-const StatCard = ({ label, value, icon, bgClass, iconBg, iconColor, onClick, isActive }) => (
+const StatCard = ({ label, value, icon, bgClass, iconBg, iconColor, onClick, isActive, accent }) => (
   <div
     onClick={onClick}
-    className={`card p-5 ${bgClass} hover:shadow-md transition cursor-pointer ${isActive ? 'ring-2 ring-emerald-500 shadow-lg' : ''}`}
+    className={`card ${bgClass} hover:shadow-lg transition-all cursor-pointer overflow-hidden ${isActive ? 'ring-2 ring-emerald-400 shadow-lg shadow-emerald-100/60' : ''}`}
   >
-    <div className="flex items-start justify-between">
-      <div>
-        <div className="text-sm text-slate-600 font-medium">{label}</div>
-        <div className="text-4xl font-bold text-slate-800 mt-2">{value}</div>
-      </div>
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${iconBg} ${iconColor}`}>
-        <Icon name={icon} className="w-5 h-5" />
+    {/* Gradient accent strip */}
+    {accent && <div className="h-[3px] w-full" style={{background: accent}}></div>}
+    <div className="p-5">
+      <div className="flex items-start justify-between">
+        <div>
+          <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.12em]">{label}</div>
+          <div className="text-4xl font-black text-slate-800 mt-2 tabular-nums leading-none">{value}</div>
+        </div>
+        <div className={`w-11 h-11 rounded-2xl flex items-center justify-center ${iconBg} ${iconColor} shadow-sm`}>
+          <Icon name={icon} className="w-5 h-5" />
+        </div>
       </div>
     </div>
   </div>
@@ -1725,31 +1844,38 @@ const Dashboard = ({ tickets, users, currentUser, filter, setFilter, onOpenTicke
     return items.sort((a, b) => new Date(b.at) - new Date(a.at)).slice(0, 6);
   }, [filtered]);
 
+  const greeting = (() => { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'; })();
+  const firstName = currentUser.name?.split(' ')[0] || 'there';
+  const dateStr = new Date().toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' });
+
   return (
     <div className="p-6 flex-1 overflow-y-auto scrollbar-thin">
-        <div className="flex items-start justify-between mb-6">
+      <div className="flex items-end justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
-          <p className="text-sm text-slate-500 mt-1">Welcome to Yahweh Care Ticket Management</p>
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.15em] mb-1">{dateStr}</p>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight leading-none">
+            {greeting}, <span className="brand-text-animated">{firstName}</span>
+          </h1>
+          <p className="text-sm text-slate-500 mt-1.5">Here's what's happening with your tickets today.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => { setFilter('all'); setStatFilter(null); }} className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border text-sm ${filter === 'all' ? 'bg-white border-slate-200 text-slate-700 shadow-sm' : 'bg-transparent border-transparent text-slate-500 hover:bg-white/50'}`}>
-            <Icon name="calendar" className="w-4 h-4" /> All Time
+        <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-2xl">
+          <button onClick={() => { setFilter('all'); setStatFilter(null); }} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${filter === 'all' ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+            <Icon name="calendar" className="w-4 h-4" /> All
           </button>
-          <button onClick={() => { setFilter('mine'); setStatFilter(null); }} className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm ${filter === 'mine' ? 'brand-gradient text-white shadow-md' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
-            <Icon name="dashboard" className="w-4 h-4" /> My Tickets
-            <Badge className={filter === 'mine' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-700'}>{myTicketsActiveCount}</Badge>
+          <button onClick={() => { setFilter('mine'); setStatFilter(null); }} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${filter === 'mine' ? 'brand-gradient text-white shadow-md' : 'text-slate-500 hover:text-slate-700'}`}>
+            <Icon name="dashboard" className="w-4 h-4" /> Mine
+            <span className={`text-[11px] font-black px-1.5 py-0.5 rounded-lg ${filter === 'mine' ? 'bg-white/25 text-white' : 'bg-emerald-100 text-emerald-700'}`}>{myTicketsActiveCount}</span>
           </button>
         </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-6">
-        <StatCard label="Total Tickets" value={counts.total} icon="document" bgClass="stat-total" iconBg="bg-blue-100" iconColor="text-blue-600" onClick={() => setStatFilter(null)} isActive={statFilter === null && filterLabel === null} />
-        <StatCard label="Open Tickets" value={counts.open} icon="clock" bgClass="stat-open" iconBg="bg-cyan-100" iconColor="text-cyan-600" onClick={() => setStatFilter('open')} isActive={statFilter === 'open'} />
-        <StatCard label="In Progress" value={counts.in_progress} icon="activity" bgClass="stat-prog" iconBg="bg-sky-100" iconColor="text-sky-600" onClick={() => setStatFilter('in_progress')} isActive={statFilter === 'in_progress'} />
-        <StatCard label="Resolved" value={counts.resolved} icon="check" bgClass="stat-res" iconBg="bg-emerald-100" iconColor="text-emerald-600" onClick={() => setStatFilter('resolved')} isActive={statFilter === 'resolved'} />
-        <StatCard label="Escalated" value={counts.escalated} icon="alert" bgClass="stat-esc" iconBg="bg-orange-100" iconColor="text-orange-600" onClick={() => setStatFilter('escalated')} isActive={statFilter === 'escalated'} />
-        <StatCard label="Urgent" value={counts.urgent} icon="fire" bgClass="stat-urg" iconBg="bg-red-100" iconColor="text-red-600" onClick={() => setStatFilter('urgent')} isActive={statFilter === 'urgent'} />
+        <StatCard label="Total Tickets" value={counts.total} icon="document" bgClass="stat-total" iconBg="bg-blue-100" iconColor="text-blue-600" onClick={() => setStatFilter(null)} isActive={statFilter === null && filterLabel === null} accent="linear-gradient(90deg,#3b82f6,#60a5fa)" />
+        <StatCard label="Open" value={counts.open} icon="clock" bgClass="stat-open" iconBg="bg-cyan-100" iconColor="text-cyan-600" onClick={() => setStatFilter('open')} isActive={statFilter === 'open'} accent="linear-gradient(90deg,#06b6d4,#22d3ee)" />
+        <StatCard label="In Progress" value={counts.in_progress} icon="activity" bgClass="stat-prog" iconBg="bg-sky-100" iconColor="text-sky-600" onClick={() => setStatFilter('in_progress')} isActive={statFilter === 'in_progress'} accent="linear-gradient(90deg,#0ea5e9,#38bdf8)" />
+        <StatCard label="Resolved" value={counts.resolved} icon="check" bgClass="stat-res" iconBg="bg-emerald-100" iconColor="text-emerald-600" onClick={() => setStatFilter('resolved')} isActive={statFilter === 'resolved'} accent="linear-gradient(90deg,#10b981,#34d399)" />
+        <StatCard label="Escalated" value={counts.escalated} icon="alert" bgClass="stat-esc" iconBg="bg-orange-100" iconColor="text-orange-600" onClick={() => setStatFilter('escalated')} isActive={statFilter === 'escalated'} accent="linear-gradient(90deg,#f97316,#fb923c)" />
+        <StatCard label="Urgent" value={counts.urgent} icon="fire" bgClass="stat-urg" iconBg="bg-red-100" iconColor="text-red-600" onClick={() => setStatFilter('urgent')} isActive={statFilter === 'urgent'} accent="linear-gradient(90deg,#ef4444,#f87171)" />
       </div>
 
       {/* My Ticket Summary - With Status Breakdown & Click Navigation */}
