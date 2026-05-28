@@ -3871,20 +3871,44 @@ const StarRating = ({ rating, max = 5 }) => (
 
 const computeStaffMetrics = (user, tickets) => {
   const assigned = tickets.filter(t => t.assigneeId === user.id);
-  const resolved = assigned.filter(t => ['resolved', 'closed'].includes(t.status));
-  const closedWithTime = resolved.filter(t => t.resolvedAt);
-  const avgHours = closedWithTime.length === 0 ? 0 :
-    closedWithTime.reduce((sum, t) => sum + ((new Date(t.resolvedAt).getTime() - new Date(t.createdAt).getTime()) / 3600000), 0) / closedWithTime.length;
-  const slaMetCount = closedWithTime.filter(t => computeSLA(t).met).length;
-  const slaPct = closedWithTime.length ? Math.round((slaMetCount / closedWithTime.length) * 100) : 100;
-  const urgentOpen = assigned.filter(t => t.priority === 'urgent' && !['resolved', 'closed'].includes(t.status)).length;
-  // Rating: 0–5 based on resolved count + SLA
-  let rating = 0;
-  if (resolved.length > 0) rating = 2;
-  if (resolved.length >= 3) rating = 3;
-  if (resolved.length >= 5 && slaPct >= 70) rating = 4;
-  if (resolved.length >= 8 && slaPct >= 90) rating = 5;
-  return { assigned: assigned.length, resolved: resolved.length, slaPct, avgHours, urgentOpen, rating };
+  const open     = assigned.filter(t => !['resolved','closed'].includes(t.status));
+  const resolved = assigned.filter(t => ['resolved','closed'].includes(t.status));
+
+  // Average resolution time — use resolvedAt if present, fall back to updatedAt (same as computeSLA)
+  const avgHours = resolved.length === 0 ? 0 :
+    resolved.reduce((sum, t) => {
+      const end   = new Date(t.resolvedAt || t.updatedAt).getTime();
+      const start = new Date(t.createdAt).getTime();
+      return sum + Math.max(0, (end - start) / 3600000);
+    }, 0) / resolved.length;
+
+  // SLA compliance — only tickets that have a due date count against SLA.
+  // Tickets without dueAt have no SLA deadline so they are treated as met.
+  const withDue    = resolved.filter(t => t.dueAt);
+  const slaMetCount = withDue.filter(t => {
+    const resolvedTime = new Date(t.resolvedAt || t.updatedAt).getTime();
+    const dueTime      = new Date(t.dueAt).getTime();
+    return resolvedTime <= dueTime;
+  }).length;
+  // If no tickets have a due date, SLA is 100% (no breaches possible).
+  // Otherwise calculate against those that do have a deadline.
+  const slaPct = withDue.length === 0
+    ? (resolved.length > 0 ? 100 : 100)
+    : Math.round((slaMetCount / withDue.length) * 100);
+
+  const urgentOpen = open.filter(t => t.priority === 'urgent').length;
+
+  // Resolution rate as a percentage of all assigned tickets
+  const resolutionRate = assigned.length ? Math.round((resolved.length / assigned.length) * 100) : 0;
+
+  // Rating 0–5: weighted blend of resolution volume (60%) + SLA compliance (40%)
+  // Volume score: scales from 0→3 as resolved count goes 0→10+
+  const volumeScore = resolved.length === 0 ? 0 : Math.min(3, (resolved.length / 10) * 3);
+  // SLA score: 0→2 proportional to slaPct
+  const slaScore    = (slaPct / 100) * 2;
+  const rating      = assigned.length === 0 ? 0 : Math.min(5, Math.round((volumeScore + slaScore) * 10) / 10);
+
+  return { assigned: assigned.length, open: open.length, resolved: resolved.length, resolutionRate, slaPct, avgHours, urgentOpen, rating };
 };
 
 const StaffStatCard = ({ label, value, icon, bgClass, iconColor }) => (
@@ -3942,14 +3966,28 @@ const StaffPerformance = ({ tickets, users, currentUser, onOpen, onOpenStaff, on
   const totalResolved = tickets.filter(t => ['resolved', 'closed'].includes(t.status)).length;
   const totalAssigned = tickets.filter(t => t.assigneeId).length;
   const closedAll = tickets.filter(t => ['resolved', 'closed'].includes(t.status));
-  const slaMet = closedAll.filter(t => computeSLA(t).met).length;
-  const teamSLA = closedAll.length ? Math.round((slaMet / closedAll.length) * 100) : 100;
-  const avgHoursAll = closedAll.length === 0 ? 0 :
-    closedAll.reduce((sum, t) => sum + ((new Date(t.resolvedAt || t.updatedAt).getTime() - new Date(t.createdAt).getTime()) / 3600000), 0) / closedAll.length;
 
-  // Top performers — sorted by resolved desc
+  // Team SLA — only tickets with a dueAt matter; tickets without a deadline are excluded
+  // (they can't breach an SLA that was never set).
+  const closedWithDue = closedAll.filter(t => t.dueAt);
+  const slaMet = closedWithDue.filter(t => {
+    const resolvedTime = new Date(t.resolvedAt || t.updatedAt).getTime();
+    const dueTime      = new Date(t.dueAt).getTime();
+    return resolvedTime <= dueTime;
+  }).length;
+  const teamSLA = closedWithDue.length ? Math.round((slaMet / closedWithDue.length) * 100) : 100;
+
+  // Average resolution hours — use resolvedAt || updatedAt fallback
+  const avgHoursAll = closedAll.length === 0 ? 0 :
+    closedAll.reduce((sum, t) => {
+      const end   = new Date(t.resolvedAt || t.updatedAt).getTime();
+      const start = new Date(t.createdAt).getTime();
+      return sum + Math.max(0, (end - start) / 3600000);
+    }, 0) / closedAll.length;
+
+  // Top performers — all staff with at least 1 assigned ticket, ranked by resolved + SLA
   const topPerformers = [...allMetrics]
-    .filter(m => isManager(m.user))
+    .filter(m => m.assigned > 0)
     .sort((a, b) => b.resolved - a.resolved || b.slaPct - a.slaPct)
     .slice(0, 3);
 
@@ -4367,7 +4405,7 @@ const StaffDetail = ({ staffId, tickets, users, currentUser, onBack, onOpenTicke
   const inProgressTickets = assignedTickets.filter(t => t.status === 'in_progress');
   const escalatedTickets = assignedTickets.filter(t => t.status === 'escalated');
   const metrics = computeStaffMetrics(user, tickets);
-  const rating = metrics.rating * 1.0 + (metrics.slaPct >= 90 ? 0.5 : 0);
+  const rating = metrics.rating;
   const ratingDisplay = Math.min(5, rating).toFixed(1);
 
   // Weekly trend over last 4 weeks
@@ -4379,7 +4417,7 @@ const StaffDetail = ({ staffId, tickets, users, currentUser, onBack, onOpenTicke
       const end = new Date();
       end.setDate(end.getDate() - w * 7);
       const count = resolvedTickets.filter(t => {
-        const r = t.resolvedAt ? new Date(t.resolvedAt) : null;
+        const r = t.resolvedAt ? new Date(t.resolvedAt) : t.updatedAt ? new Date(t.updatedAt) : null;
         return r && r >= start && r < end;
       }).length;
       weeks.push({ name: `Week ${4 - w}`, resolved: count });
@@ -4397,10 +4435,13 @@ const StaffDetail = ({ staffId, tickets, users, currentUser, onBack, onOpenTicke
   }, [tickets, user]);
 
   // Radar data — normalised 0-100 across 5 axes
+  // Speed: 100 = resolved in ≤4h, 0 = resolved in ≥96h (4 days). Linear between.
+  const speedScore = metrics.avgHours === 0 ? 0
+    : Math.max(0, Math.round(100 - (metrics.avgHours / 96) * 100));
   const radarData = [
     { axis: 'Resolution', value: Math.min(100, resolvedTickets.length * 10) },
     { axis: 'SLA',        value: metrics.slaPct },
-    { axis: 'Speed',      value: metrics.avgHours ? Math.max(0, 100 - metrics.avgHours) : 0 },
+    { axis: 'Speed',      value: speedScore },
     { axis: 'Volume',     value: Math.min(100, assignedTickets.length * 8) },
     { axis: 'Activity',   value: Math.min(100, actions7d * 10) },
   ];
@@ -4648,7 +4689,7 @@ const TeamInsightModal = ({ open, team, tickets, users, onClose, onOpenStaff, on
       const start = new Date(); start.setDate(start.getDate() - (w + 1) * 7);
       const end   = new Date(); end.setDate(end.getDate() - w * 7);
       const count = resolvedTickets.filter(t => {
-        const r = t.resolvedAt ? new Date(t.resolvedAt) : null;
+        const r = t.resolvedAt ? new Date(t.resolvedAt) : t.updatedAt ? new Date(t.updatedAt) : null;
         return r && r >= start && r < end;
       }).length;
       weeks.push({ name: `Week ${4 - w}`, resolved: count });
