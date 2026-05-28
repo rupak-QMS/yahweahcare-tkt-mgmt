@@ -3,14 +3,19 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<!-- Resource hints: start DNS + TCP/TLS handshakes early for all CDN origins -->
+<link rel="preconnect" href="https://unpkg.com" crossorigin />
+<link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin />
+<link rel="dns-prefetch" href="https://unpkg.com" />
+<link rel="dns-prefetch" href="https://cdn.tailwindcss.com" />
 <title>Yahweh Care — Ticket Management</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
 <link rel="apple-touch-icon" href="apple-touch-icon.svg" />
 <meta name="theme-color" content="#10b981" />
 <meta name="hrms-api" content="https://yahweahcare-tkt-mgmt-hx48.vercel.app" />
 <script src="https://cdn.tailwindcss.com"></script>
-<script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
 <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
@@ -33,10 +38,62 @@
   @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
   .live-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10b981; animation: pulse 1.5s infinite; }
   @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-  #loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #10b981 0%, #14b8a6 100%); color: white; flex-direction: column; z-index: 9999; }
-  #loading .spinner { width: 48px; height: 48px; border: 4px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .card { background: white; border: 1px solid var(--border); border-radius: 14px; }
+  /* ── Loading screen ─────────────────────────────────────────────────────── */
+  #loading {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; z-index: 9999; overflow: hidden;
+    background: linear-gradient(135deg, #0d9268 0%, #10b981 45%, #14b8a6 100%);
+    color: white;
+  }
+  /* Animated mesh orbs behind the spinner */
+  #loading::before, #loading::after {
+    content: ''; position: absolute; border-radius: 50%; pointer-events: none;
+    animation: orbFloat 6s ease-in-out infinite alternate;
+  }
+  #loading::before {
+    width: 520px; height: 520px; top: -160px; left: -140px;
+    background: radial-gradient(circle, rgba(255,255,255,0.18) 0%, transparent 70%);
+  }
+  #loading::after {
+    width: 400px; height: 400px; bottom: -120px; right: -100px;
+    background: radial-gradient(circle, rgba(255,255,255,0.14) 0%, transparent 70%);
+    animation-delay: -3s;
+  }
+  @keyframes orbFloat {
+    from { transform: translate(0,0) scale(1); }
+    to   { transform: translate(30px, 20px) scale(1.08); }
+  }
+  /* Neon-ring spinner */
+  #loading .spinner {
+    position: relative; width: 56px; height: 56px; margin-bottom: 24px;
+  }
+  #loading .spinner::before, #loading .spinner::after {
+    content: ''; position: absolute; inset: 0; border-radius: 50%;
+  }
+  #loading .spinner::before {
+    border: 4px solid rgba(255,255,255,0.22);
+  }
+  #loading .spinner::after {
+    border: 4px solid transparent;
+    border-top-color: white;
+    border-right-color: rgba(255,255,255,0.6);
+    animation: spin 0.85s cubic-bezier(0.6,0.1,0.4,0.9) infinite;
+    box-shadow: 0 0 18px rgba(255,255,255,0.4), inset 0 0 10px rgba(255,255,255,0.1);
+    filter: drop-shadow(0 0 8px rgba(255,255,255,0.6));
+  }
+  #loading h1 {
+    font-size: 22px; font-weight: 700; margin: 0; letter-spacing: -0.3px;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.2);
+    animation: fadeSlideUp 0.5s ease both 0.1s;
+  }
+  #loading p {
+    margin-top: 8px; opacity: 0.82; font-size: 13px;
+    animation: fadeSlideUp 0.5s ease both 0.25s;
+  }
+  @keyframes spin        { to { transform: rotate(360deg); } }
+  @keyframes fadeSlideUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+  .card { background: white; border: 1px solid var(--border); border-radius: 14px; transition: box-shadow 0.25s ease, border-color 0.25s ease; }
   .stat-total { background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%); }
   .stat-open  { background: linear-gradient(135deg, #ecfeff 0%, #f8fafc 100%); }
   .stat-prog  { background: linear-gradient(135deg, #f0f9ff 0%, #f8fafc 100%); }
@@ -242,6 +299,269 @@
   html.dark .recharts-cartesian-grid line { stroke: rgba(148,163,184,0.12) !important; }
   html.dark .recharts-polar-grid line, html.dark .recharts-polar-grid path { stroke: rgba(148,163,184,0.15) !important; }
   html.dark .recharts-active-sector path { filter: drop-shadow(0 0 14px currentColor) brightness(1.12) saturate(1.2) !important; }
+
+  /* ============================================================
+     GLOW EFFECTS — brand emerald / teal accent across the UI
+     ============================================================ */
+
+  /* Brand gradient buttons — smooth lift + glow on hover */
+  .brand-gradient {
+    transition: box-shadow 0.25s ease, filter 0.2s ease, transform 0.15s ease !important;
+  }
+  .brand-gradient:hover {
+    box-shadow: 0 0 22px rgba(16,185,129,0.5), 0 4px 18px rgba(16,185,129,0.28), 0 1px 4px rgba(0,0,0,0.12);
+    filter: brightness(1.06);
+  }
+  .brand-gradient:active { transform: scale(0.976); box-shadow: 0 0 12px rgba(16,185,129,0.4); }
+
+  /* Cards — hover glow (light mode: whisper; dark mode: emerald bloom) */
+  .card:hover {
+    box-shadow: 0 0 0 1px rgba(16,185,129,0.18), 0 6px 24px rgba(16,185,129,0.07);
+  }
+  html.dark .card:hover {
+    border-color: rgba(16,185,129,0.32) !important;
+    box-shadow: 0 0 0 1px rgba(16,185,129,0.24), 0 0 30px rgba(16,185,129,0.11), 0 8px 32px rgba(0,0,0,0.28) !important;
+  }
+
+  /* Stat cards — colour-matched glow on hover (dark mode only) */
+  html.dark .stat-total { transition: box-shadow 0.25s ease; }
+  html.dark .stat-open  { transition: box-shadow 0.25s ease; }
+  html.dark .stat-prog  { transition: box-shadow 0.25s ease; }
+  html.dark .stat-res   { transition: box-shadow 0.25s ease; }
+  html.dark .stat-esc   { transition: box-shadow 0.25s ease; }
+  html.dark .stat-urg   { transition: box-shadow 0.25s ease; }
+  html.dark .stat-total:hover { box-shadow: 0 0 0 1px rgba(59,130,246,0.32), 0 0 26px rgba(59,130,246,0.18) !important; }
+  html.dark .stat-open:hover  { box-shadow: 0 0 0 1px rgba(6,182,212,0.32), 0 0 26px rgba(6,182,212,0.18) !important; }
+  html.dark .stat-prog:hover  { box-shadow: 0 0 0 1px rgba(14,165,233,0.32), 0 0 26px rgba(14,165,233,0.18) !important; }
+  html.dark .stat-res:hover   { box-shadow: 0 0 0 1px rgba(16,185,129,0.32), 0 0 26px rgba(16,185,129,0.18) !important; }
+  html.dark .stat-esc:hover   { box-shadow: 0 0 0 1px rgba(249,115,22,0.32), 0 0 26px rgba(249,115,22,0.18) !important; }
+  html.dark .stat-urg:hover   { box-shadow: 0 0 0 1px rgba(239,68,68,0.32), 0 0 26px rgba(239,68,68,0.18) !important; }
+
+  /* Input / select / textarea focus — stronger emerald ring */
+  html.dark input:focus, html.dark select:focus, html.dark textarea:focus {
+    border-color: rgba(16,185,129,0.68) !important;
+    box-shadow: 0 0 0 3px rgba(16,185,129,0.22), 0 0 16px rgba(16,185,129,0.14) !important;
+  }
+
+  /* Status / priority badges — colour-matched outer glow (dark mode) */
+  html.dark span.bg-emerald-50 { box-shadow: 0 0 8px rgba(16,185,129,0.25); }
+  html.dark span.bg-teal-50    { box-shadow: 0 0 8px rgba(20,184,166,0.25); }
+  html.dark span.bg-blue-50    { box-shadow: 0 0 8px rgba(59,130,246,0.22); }
+  html.dark span.bg-sky-50     { box-shadow: 0 0 8px rgba(14,165,233,0.22); }
+  html.dark span.bg-cyan-50    { box-shadow: 0 0 8px rgba(6,182,212,0.22); }
+  html.dark span.bg-red-50     { box-shadow: 0 0 8px rgba(239,68,68,0.22); }
+  html.dark span.bg-rose-50    { box-shadow: 0 0 8px rgba(244,63,94,0.22); }
+  html.dark span.bg-orange-50  { box-shadow: 0 0 8px rgba(249,115,22,0.22); }
+  html.dark span.bg-amber-50   { box-shadow: 0 0 8px rgba(245,158,11,0.22); }
+  html.dark span.bg-purple-50  { box-shadow: 0 0 8px rgba(168,85,247,0.22); }
+  html.dark span.bg-indigo-50  { box-shadow: 0 0 8px rgba(99,102,241,0.22); }
+
+  /* Live dot — glowing pulse */
+  .live-dot { box-shadow: 0 0 6px 1px rgba(16,185,129,0.65); }
+
+  /* Sidebar — brand-tinted right edge + depth shadow (dark mode) */
+  html.dark aside {
+    box-shadow: 4px 0 28px rgba(0,0,0,0.35), 1px 0 0 rgba(16,185,129,0.07) !important;
+  }
+
+  /* Sidebar nav links — active/selected item gets an emerald left bar */
+  html.dark aside a[class*="bg-emerald"],
+  html.dark aside button[class*="bg-emerald"] {
+    box-shadow: inset 3px 0 0 #10b981, 0 0 14px rgba(16,185,129,0.12);
+  }
+
+  /* Table rows — brand accent on hover (dark mode) */
+  html.dark tbody tr:hover {
+    background-color: rgba(16,185,129,0.04) !important;
+    box-shadow: inset 3px 0 0 rgba(16,185,129,0.38);
+  }
+
+  /* Generic interactive buttons/links in sidebar — subtle glow on hover */
+  html.dark aside a:hover,
+  html.dark aside button:hover {
+    box-shadow: inset 0 0 0 1px rgba(16,185,129,0.14);
+  }
+
+  /* ============================================================
+     ADVANCED CSS EFFECTS
+     ============================================================ */
+
+  /* ── 1. Glassmorphism cards (dark mode) ───────────────────────
+     Cards float above the background with a frosted-glass look   */
+  html.dark .card {
+    background: linear-gradient(145deg,
+      rgba(26,34,54,0.85) 0%,
+      rgba(22,30,48,0.92) 100%) !important;
+    backdrop-filter: blur(12px) saturate(160%);
+    -webkit-backdrop-filter: blur(12px) saturate(160%);
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.04) inset,
+      0 2px 8px rgba(0,0,0,0.22),
+      0 0 0 1px rgba(148,163,184,0.09);
+  }
+
+  /* ── 2. Shimmer sweep on brand-gradient buttons ───────────────
+     A travelling light beam moves across on hover                 */
+  .brand-gradient { position: relative; overflow: hidden; }
+  .brand-gradient::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(
+      105deg,
+      transparent 30%,
+      rgba(255,255,255,0.28) 50%,
+      transparent 70%
+    );
+    transform: translateX(-100%);
+    transition: none;
+  }
+  .brand-gradient:hover::after {
+    transform: translateX(100%);
+    transition: transform 0.55s ease;
+  }
+
+  /* ── 3. CSS @property — smooth animated gradient on headings ──
+     Browsers that support @property get an animated brand shimmer */
+  @supports (background: paint(something)) {}
+  @property --grad-pos {
+    syntax: '<percentage>';
+    inherits: false;
+    initial-value: 0%;
+  }
+  .brand-text-animated {
+    background: linear-gradient(90deg, #10b981 var(--grad-pos), #14b8a6 calc(var(--grad-pos) + 40%), #10b981 calc(var(--grad-pos) + 80%));
+    background-size: 200%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: gradShift 4s linear infinite;
+  }
+  @keyframes gradShift {
+    0%   { background-position: 0% center; }
+    100% { background-position: 200% center; }
+  }
+
+  /* ── 4. 3-D perspective lift on stat cards ───────────────────
+     Cards subtly tilt toward the cursor on hover (CSS only)       */
+  .stat-total, .stat-open, .stat-prog, .stat-res, .stat-esc, .stat-urg {
+    transform-style: preserve-3d;
+    transition: transform 0.3s cubic-bezier(.2,.8,.4,1), box-shadow 0.25s ease;
+  }
+  .stat-total:hover, .stat-open:hover, .stat-prog:hover,
+  .stat-res:hover,  .stat-esc:hover,  .stat-urg:hover {
+    transform: translateY(-3px) scale(1.015);
+  }
+
+  /* ── 5. Smooth scroll & scroll-margin for jump links ─────────  */
+  html { scroll-behavior: smooth; }
+  [id] { scroll-margin-top: 72px; }
+
+  /* ── 6. Staggered fade-in for card grids ─────────────────────
+     Direct children of a grid stagger in on first paint           */
+  @keyframes cardReveal {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .card {
+    animation: cardReveal 0.35s ease both;
+  }
+  /* Stagger up to 8 siblings */
+  .card:nth-child(1) { animation-delay: 0.03s; }
+  .card:nth-child(2) { animation-delay: 0.07s; }
+  .card:nth-child(3) { animation-delay: 0.11s; }
+  .card:nth-child(4) { animation-delay: 0.15s; }
+  .card:nth-child(5) { animation-delay: 0.19s; }
+  .card:nth-child(6) { animation-delay: 0.23s; }
+  .card:nth-child(7) { animation-delay: 0.27s; }
+  .card:nth-child(8) { animation-delay: 0.31s; }
+
+  /* ── 7. Skeleton shimmer class (use on loading placeholders) ──
+     <div class="skeleton">  renders an animated shimmer bar       */
+  .skeleton {
+    background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+    background-size: 200% 100%;
+    border-radius: 6px;
+    animation: skeletonShimmer 1.4s ease infinite;
+  }
+  html.dark .skeleton {
+    background: linear-gradient(90deg, #1a2236 25%, #232c44 50%, #1a2236 75%);
+    background-size: 200% 100%;
+  }
+  @keyframes skeletonShimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* ── 8. Focus-visible ring — keyboard-accessible branded ring ─  */
+  :focus-visible {
+    outline: 2px solid #10b981;
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+
+  /* ── 9. Floating/breathing animation on sidebar logo area ─────  */
+  @keyframes breathe {
+    0%, 100% { transform: scale(1);    filter: drop-shadow(0 0 4px rgba(16,185,129,0.3)); }
+    50%       { transform: scale(1.04); filter: drop-shadow(0 0 10px rgba(16,185,129,0.6)); }
+  }
+  aside .brand-gradient.rounded-xl,
+  aside [class*="brand-gradient"][class*="rounded"] {
+    animation: breathe 3.5s ease-in-out infinite;
+  }
+
+  /* ── Corporate palette overrides ──────────────────────────────
+     Breadcrumb, policy-notice banner, violet authority badges     */
+
+  /* Breadcrumb bar — dark mode
+     Override the bg-white class AND remove any Tailwind gradient variables */
+  html.dark .yc-breadcrumb {
+    background: #0c1420 !important;
+    border-bottom: 1px solid rgba(148,163,184,0.09) !important;
+  }
+  html.dark .yc-breadcrumb button { color: #34d399 !important; }
+  html.dark .yc-breadcrumb button:hover { color: #6ee7b7 !important; }
+  html.dark .yc-breadcrumb span   { color: #334155 !important; }
+  html.dark .yc-breadcrumb svg    { color: #1e293b !important; }
+
+  /* Policy/notice banner — dark mode via direct style overrides */
+  html.dark .yc-policy-notice {
+    background: #0d1526 !important;
+    border: 1px solid rgba(148,163,184,0.1) !important;
+    border-left: 4px solid rgba(217,119,6,0.5) !important;
+  }
+  html.dark .yc-policy-notice .text-slate-600 { color: #64748b !important; }
+  html.dark .yc-policy-notice .text-slate-700 { color: #94a3b8 !important; }
+  html.dark .yc-policy-notice .text-slate-800 { color: #cbd5e1 !important; }
+
+  /* Violet authority badges — dark mode */
+  html.dark .bg-violet-100 { background-color: rgba(139,92,246,0.18) !important; }
+  html.dark .bg-violet-50  { background-color: rgba(139,92,246,0.12) !important; }
+  html.dark .text-violet-700 { color: #a78bfa !important; }
+  html.dark .border-violet-200 { border-color: rgba(139,92,246,0.3) !important; }
+
+  /* System (formerly Bootstrap) badge — dark mode */
+  html.dark .bg-slate-100 { background-color: rgba(148,163,184,0.1) !important; }
+  html.dark .text-slate-500.font-medium { color: #64748b !important; }
+  html.dark .border-slate-200 { border-color: rgba(148,163,184,0.14) !important; }
+
+  /* ── 10. Table row reveal animation ───────────────────────────  */
+  @keyframes rowReveal {
+    from { opacity: 0; transform: translateX(-6px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  tbody tr {
+    animation: rowReveal 0.25s ease both;
+  }
+  tbody tr:nth-child(1)  { animation-delay: 0.02s; }
+  tbody tr:nth-child(2)  { animation-delay: 0.05s; }
+  tbody tr:nth-child(3)  { animation-delay: 0.08s; }
+  tbody tr:nth-child(4)  { animation-delay: 0.11s; }
+  tbody tr:nth-child(5)  { animation-delay: 0.14s; }
+  tbody tr:nth-child(6)  { animation-delay: 0.17s; }
+  tbody tr:nth-child(7)  { animation-delay: 0.20s; }
+  tbody tr:nth-child(8)  { animation-delay: 0.23s; }
+  tbody tr:nth-child(9)  { animation-delay: 0.26s; }
+  tbody tr:nth-child(10) { animation-delay: 0.29s; }
 </style>
 </head>
 <body>
@@ -347,7 +667,7 @@ const DEMO_USERS = [
 ];
 
 const ROLE_LABELS = {
-  super_admin: { label: 'Super Admin', color: 'bg-red-500',     soft: 'bg-red-50 text-red-700 border-red-200' },
+  super_admin: { label: 'Super Admin', color: 'bg-violet-600',  soft: 'bg-violet-50 text-violet-700 border-violet-200' },
   manager:     { label: 'Manager',     color: 'bg-amber-500',   soft: 'bg-amber-50 text-amber-700 border-amber-200' },
   user:        { label: 'User',        color: 'bg-slate-400',   soft: 'bg-slate-50 text-slate-700 border-slate-200' },
 };
@@ -995,7 +1315,7 @@ const UserProfileDropdown = ({ currentUser, onClose }) => {
                 <div className="font-semibold text-slate-800 truncate">{displayName}</div>
                 <div className="text-xs text-slate-500 truncate">{currentUser.email}</div>
                 <div className="flex items-center gap-1.5 mt-1">
-                  {(currentUser.isAdmin || currentUser.role === 'super_admin') && <Badge className="bg-red-100 text-red-700 text-[10px]">Super Admin</Badge>}
+                  {(currentUser.isAdmin || currentUser.role === 'super_admin') && <Badge className="bg-violet-100 text-violet-700 text-[10px]">Super Admin</Badge>}
                   {!currentUser.isAdmin && currentUser.role === 'manager' && <Badge className="bg-amber-100 text-amber-700 text-[10px]">Manager</Badge>}
                   {currentUser.role === 'user' && <Badge className="bg-slate-100 text-slate-700 text-[10px]">{currentUser.department}</Badge>}
                 </div>
@@ -1029,7 +1349,7 @@ const UserProfileDropdown = ({ currentUser, onClose }) => {
               <div className="text-xl font-bold">{displayName}</div>
               <div className="text-sm text-slate-500">{currentUser.email}</div>
               <div className="flex items-center gap-1.5 mt-1">
-                {(currentUser.isAdmin || currentUser.role === 'super_admin') && <Badge className="bg-red-100 text-red-700">Super Admin</Badge>}
+                {(currentUser.isAdmin || currentUser.role === 'super_admin') && <Badge className="bg-violet-100 text-violet-700">Super Admin</Badge>}
                 {!currentUser.isAdmin && currentUser.role === 'manager' && <Badge className="bg-amber-100 text-amber-700">Manager</Badge>}
                 {currentUser.role === 'user' && <Badge className="bg-slate-100 text-slate-700">Department User</Badge>}
               </div>
@@ -1119,21 +1439,25 @@ const Breadcrumb = ({ items, onNavigate }) => {
   if (!items || items.length === 0) return null;
 
   return (
-    <nav className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-slate-50 to-white border-b border-slate-200">
+    <nav className="yc-breadcrumb flex items-center gap-1.5 px-6 py-2.5 border-b border-slate-100 bg-white">
       {items.map((item, idx) => (
-        <div key={idx} className="flex items-center gap-2">
-          {idx > 0 && <Icon name="chevronDown" className="w-4 h-4 text-slate-400 rotate-[-90deg]" />}
+        <div key={idx} className="flex items-center gap-1.5">
+          {idx > 0 && (
+            <svg className="w-3.5 h-3.5 text-slate-300 flex-shrink-0" fill="none" viewBox="0 0 16 16">
+              <path d="M6 3l5 5-5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          )}
           {item.clickable ? (
             <button
               onClick={() => onNavigate(item.action)}
-              className="text-sm font-medium text-indigo-600 hover:text-indigo-700 hover:underline transition-colors flex items-center gap-1"
+              className="text-xs font-semibold tracking-wide text-emerald-600 hover:text-emerald-500 transition-colors flex items-center gap-1 uppercase"
             >
-              {item.icon && <Icon name={item.icon} className="w-4 h-4" />}
+              {item.icon && <Icon name={item.icon} className="w-3.5 h-3.5" />}
               {item.label}
             </button>
           ) : (
-            <span className="text-sm font-medium text-slate-600 flex items-center gap-1">
-              {item.icon && <Icon name={item.icon} className="w-4 h-4 text-slate-400" />}
+            <span className="text-xs font-medium text-slate-400 flex items-center gap-1 uppercase tracking-wide">
+              {item.icon && <Icon name={item.icon} className="w-3.5 h-3.5 text-slate-300" />}
               {item.label}
             </span>
           )}
@@ -3274,7 +3598,7 @@ const StaffPerformance = ({ tickets, users, currentUser, onOpen, onOpenStaff, on
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-slate-800 truncate">{m.user.name}</span>
-                    {(m.user.isAdmin || m.user.role === 'super_admin') && <Badge className="bg-red-50 text-red-700 border border-red-200">Super Admin</Badge>}
+                    {(m.user.isAdmin || m.user.role === 'super_admin') && <Badge className="bg-violet-50 text-violet-700 border border-violet-200">Super Admin</Badge>}
                     {!m.user.isAdmin && m.user.role === 'manager' && <Badge className="bg-amber-50 text-amber-700 border border-amber-200">Manager</Badge>}
                   </div>
                   <div className="text-xs text-slate-500 truncate">{m.user.department} · {m.user.email}</div>
@@ -4769,10 +5093,11 @@ const StaffManagement = ({ users, tickets, currentUser, onAddStaff, onUpdateStaf
 
       {/* Admin-count guard banner */}
       {admin && activeAdminCount <= MIN_ADMINS && (
-        <div className="card p-3 mb-4 bg-amber-50 border-amber-200 flex items-center gap-3">
-          <Icon name="alert" className="w-5 h-5 text-amber-600 flex-shrink-0" />
-          <div className="text-sm text-amber-900 flex-1">
-            <strong>Minimum admin threshold:</strong> Only <strong>{activeAdminCount}</strong> active Super Admin{activeAdminCount === 1 ? '' : 's'} in the system. The system requires at least {MIN_ADMINS} — deleting, deactivating, or demoting an admin below this threshold is blocked. Promote another user to admin to relax this restriction.
+        <div className="yc-policy-notice mb-4 flex items-start gap-3 rounded-r-lg bg-slate-50 px-4 py-3" style={{border:'1px solid #e2e8f0', borderLeft:'4px solid #d97706'}}>
+          <Icon name="alert" className="w-4 h-4 flex-shrink-0 mt-0.5" style={{color:'#b45309'}} />
+          <div className="text-sm text-slate-600 flex-1 leading-relaxed">
+            <span className="font-semibold text-slate-700">Policy — minimum admin threshold: </span>
+            Only <strong className="text-slate-800">{activeAdminCount}</strong> active Super Admin{activeAdminCount === 1 ? '' : 's'} in the system. The system requires at least {MIN_ADMINS} — deleting, deactivating, or demoting an admin below this threshold is blocked. Promote another user to admin to relax this restriction.
           </div>
         </div>
       )}
@@ -4850,7 +5175,7 @@ const StaffManagement = ({ users, tickets, currentUser, onAddStaff, onUpdateStaf
                           <div className="flex items-center gap-1 text-xs text-red-600 font-medium mt-0.5">
                             <Icon name="cog" className="w-3 h-3" />
                             <span>Super Admin</span>
-                            {u.bootstrapAdmin && <Badge className="bg-red-100 text-red-700 border border-red-200 ml-1 text-[10px]">Bootstrap</Badge>}
+                            {u.bootstrapAdmin && <Badge className="bg-slate-100 text-slate-500 border border-slate-200 ml-1 text-[10px] font-medium tracking-wide">System</Badge>}
                           </div>
                         )}
                         {!u.isAdmin && u.role === 'manager' && <div className="flex items-center gap-1 text-xs text-amber-600 font-medium mt-0.5"><Icon name="users" className="w-3 h-3" /> Manager</div>}
