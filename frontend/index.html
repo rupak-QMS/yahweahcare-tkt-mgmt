@@ -560,7 +560,7 @@
   .card.overflow-hidden { overflow: hidden; }
 
   /* Stat card active ring (dark) */
-  html.dark .ring-2.ring-emerald-400 { --tw-ring-color: rgba(52,211,153,0.5); }
+  /* ring color is now driven by inline style — no static emerald override needed */
   html.dark .shadow-emerald-100\/60 { box-shadow: 0 4px 20px rgba(16,185,129,0.15) !important; }
 
   /* Filter pill toggle (dark mode) */
@@ -727,8 +727,8 @@
   /* Ticket table wrapper — no border-radius bleed */
   .yc-ticket-table-wrap { overflow-x: auto; }
 
-  /* Active stat card glow — ensure accent strip visible */
-  .ring-2.ring-emerald-400 .h-\[3px\] { opacity: 1; }
+  /* Active stat card — accent strip always visible when selected */
+  .card .h-\[3px\] { opacity: 1; }
 
   /* All page section headings — live dot before title */
   .card h3.font-semibold, .card h3.font-bold { letter-spacing: -0.01em; }
@@ -758,6 +758,137 @@
   tbody tr:nth-child(8)  { animation-delay: 0.23s; }
   tbody tr:nth-child(9)  { animation-delay: 0.26s; }
   tbody tr:nth-child(10) { animation-delay: 0.29s; }
+
+  /* ── Filter chips ─────────────────────────────────────────────── */
+  .filter-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px 3px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+    background: rgba(16,185,129,0.1); color: #059669;
+    border: 1px solid rgba(16,185,129,0.25);
+    cursor: pointer; transition: all 0.15s ease;
+  }
+  .filter-chip:hover { background: rgba(16,185,129,0.18); border-color: rgba(16,185,129,0.4); }
+  html.dark .filter-chip { background: rgba(16,185,129,0.12); color: #34d399; border-color: rgba(16,185,129,0.28); }
+
+  /* ── SLA badge ────────────────────────────────────────────────── */
+  .sla-ok      { background: rgba(16,185,129,0.1); color: #059669; border: 1px solid rgba(16,185,129,0.2); }
+  .sla-warning { background: rgba(245,158,11,0.1); color: #b45309; border: 1px solid rgba(245,158,11,0.2); }
+  .sla-breached{ background: rgba(239,68,68,0.1);  color: #dc2626; border: 1px solid rgba(239,68,68,0.2); }
+  .sla-met     { background: rgba(99,102,241,0.1); color: #4f46e5; border: 1px solid rgba(99,102,241,0.2); }
+  html.dark .sla-ok       { background: rgba(16,185,129,0.14); color: #34d399; border-color: rgba(16,185,129,0.28); }
+  html.dark .sla-warning  { background: rgba(245,158,11,0.14); color: #fbbf24; border-color: rgba(245,158,11,0.28); }
+  html.dark .sla-breached { background: rgba(239,68,68,0.14);  color: #f87171; border-color: rgba(239,68,68,0.28); }
+  html.dark .sla-met      { background: rgba(99,102,241,0.14); color: #818cf8; border-color: rgba(99,102,241,0.28); }
+
+  /* ── Sort button in table header ─────────────────────────────── */
+  .sort-btn { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; user-select: none; }
+  .sort-btn:hover { color: #10b981; }
+  .sort-arrow { font-size: 10px; opacity: 0.5; transition: opacity 0.15s; }
+  .sort-btn.active .sort-arrow { opacity: 1; color: #10b981; }
+
+  /* ── Priority left-border on ticket rows ─────────────────────── */
+  .pri-urgent { border-left: 3px solid #ef4444 !important; }
+  .pri-high   { border-left: 3px solid #f97316 !important; }
+  .pri-medium { border-left: 3px solid #eab308 !important; }
+  .pri-low    { border-left: 3px solid #06b6d4 !important; }
+
+  /* ── Sidebar badge ────────────────────────────────────────────── */
+  .sidebar-badge {
+    min-width: 18px; height: 18px; border-radius: 9px;
+    background: #ef4444; color: white;
+    font-size: 10px; font-weight: 800;
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 0 5px; line-height: 1;
+    animation: notifPulse 2.5s ease-in-out infinite;
+  }
+
+  /* ── Results count bar ───────────────────────────────────────── */
+  .results-bar {
+    font-size: 11.5px; color: #94a3b8; letter-spacing: 0.02em;
+  }
+  html.dark .results-bar { color: #475569; }
+
+  /* ── Empty state ─────────────────────────────────────────────── */
+  .empty-state-ring {
+    width: 80px; height: 80px; border-radius: 50%;
+    background: linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(20,184,166,0.05) 100%);
+    border: 2px dashed rgba(16,185,129,0.25);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 16px;
+  }
+  html.dark .empty-state-ring { background: rgba(16,185,129,0.06); border-color: rgba(16,185,129,0.18); }
+
+  /* ── Keyboard shortcut hint ──────────────────────────────────── */
+  .kbd {
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 700;
+    background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0;
+    font-family: monospace;
+  }
+  html.dark .kbd { background: #1a2236; color: #475569; border-color: rgba(148,163,184,0.15); }
+
+  /* ── View transition — fade+slide when switching pages ────────── */
+  @keyframes viewEnter {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .view-enter { animation: viewEnter 0.22s cubic-bezier(0.4,0,0.2,1) both; }
+
+  /* ── Button loading spinner ───────────────────────────────────── */
+  @keyframes btnSpin { to { transform: rotate(360deg); } }
+  .btn-spinner {
+    display: inline-block;
+    width: 15px; height: 15px;
+    border: 2px solid rgba(255,255,255,0.35);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: btnSpin 0.65s linear infinite;
+    flex-shrink: 0;
+  }
+  .btn-spinner-dark {
+    border-color: rgba(15,23,42,0.2);
+    border-top-color: #334155;
+  }
+
+  /* ── Toast — progress bar + glow shadow ──────────────────────── */
+  @keyframes toastProgress {
+    from { transform: scaleX(1); }
+    to   { transform: scaleX(0); }
+  }
+  .toast-progress {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 3px;
+    background: rgba(255,255,255,0.45);
+    border-radius: 0 0 12px 12px;
+    transform-origin: left;
+    animation: toastProgress 4s linear forwards;
+  }
+
+  /* ── Skeleton table rows ──────────────────────────────────────── */
+  .skeleton-cell {
+    border-radius: 5px;
+    background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+    background-size: 200% 100%;
+    animation: skeletonShimmer 1.4s ease infinite;
+  }
+  html.dark .skeleton-cell {
+    background: linear-gradient(90deg, #1a2236 25%, #232c44 50%, #1a2236 75%);
+    background-size: 200% 100%;
+  }
+
+  /* ── Optimistic feedback — success flash on row save ─────────── */
+  @keyframes rowFlash {
+    0%   { background: rgba(16,185,129,0.15); }
+    100% { background: transparent; }
+  }
+  .row-flash { animation: rowFlash 0.8s ease forwards; }
+
+  /* ── Form input — spring transition on focus ─────────────────── */
+  input, select, textarea {
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.15s ease;
+  }
 </style>
 </head>
 <body>
@@ -771,7 +902,34 @@
 <div id="root"></div>
 
 <script type="text/babel" data-presets="react">
-const { useState, useEffect, useMemo, useRef, Fragment } = React;
+const { useState, useEffect, useMemo, useRef, useCallback, Fragment } = React;
+
+// ── Debounce hook: delays a value by `delay` ms after the last change ──
+const useDebounce = (value, delay = 250) => {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return debounced;
+};
+
+// ── Loading-button hook: wraps any fn, shows spinner while it runs ──────
+// Usage: const [busy, run] = useLoadingBtn(() => doSomething(), 500)
+const useLoadingBtn = (fn, minDuration = 500) => {
+  const [busy, setBusy] = useState(false);
+  const run = useCallback(async (...args) => {
+    if (busy) return;
+    setBusy(true);
+    const start = Date.now();
+    try { await fn(...args); } finally {
+      const elapsed = Date.now() - start;
+      const wait = Math.max(0, minDuration - elapsed);
+      setTimeout(() => setBusy(false), wait);
+    }
+  }, [fn, busy, minDuration]);
+  return [busy, run];
+};
 const { BarChart, Bar, PieChart, Pie, Cell, RadialBarChart, RadialBar, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } = Recharts;
 
 // ============================================================
@@ -1327,7 +1485,7 @@ const LoginScreen = ({ users, onSelect, loginError }) => {
 // ============================================================
 // SIDEBAR
 // ============================================================
-const Sidebar = ({ view, setView, currentUser, onLogout, mobileOpen, onCloseMobile }) => {
+const Sidebar = ({ view, setView, currentUser, onLogout, mobileOpen, onCloseMobile, openTicketCount }) => {
   const mgmt = isManager(currentUser);
   const sections = [
     {
@@ -1403,6 +1561,9 @@ const Sidebar = ({ view, setView, currentUser, onLogout, mobileOpen, onCloseMobi
                           <Icon name={it.icon} className={`w-3.5 h-3.5 transition-colors ${active ? 'text-white' : 'yc-nav-icon-color group-hover:text-emerald-600'}`} />
                         </span>
                         <span className="flex-1 text-left leading-tight">{it.label}</span>
+                        {it.id === 'tickets' && openTicketCount > 0 && !active && (
+                          <span className="sidebar-badge">{openTicketCount > 99 ? '99+' : openTicketCount}</span>
+                        )}
                         {active && <span className="w-1.5 h-1.5 rounded-full bg-white/50 flex-shrink-0"></span>}
                       </button>
                     );
@@ -1662,25 +1823,37 @@ const UserProfileDropdown = ({ currentUser, onClose }) => {
 // TOAST
 // ============================================================
 const Toast = ({ toast, onClose }) => {
+  const [key, setKey] = useState(0); // remount progress bar on each new toast
   useEffect(() => {
     if (!toast) return;
+    setKey(k => k + 1);
     const t = setTimeout(onClose, 4000);
     return () => clearTimeout(t);
   }, [toast]);
   if (!toast) return null;
-  const styles = {
-    success: 'bg-emerald-600 text-white',
-    error:   'bg-red-600 text-white',
-    info:    'bg-blue-600 text-white',
+  const configs = {
+    success: { cls: 'bg-emerald-600 text-white', glow: 'rgba(16,185,129,0.4)', icon: 'check' },
+    error:   { cls: 'bg-red-600 text-white',     glow: 'rgba(239,68,68,0.4)',  icon: 'alert' },
+    info:    { cls: 'bg-blue-600 text-white',     glow: 'rgba(59,130,246,0.4)', icon: 'bell' },
   };
+  const cfg = configs[toast.kind] || configs.info;
   return (
-    <div className={`fixed top-4 right-4 z-[100] ${styles[toast.kind] || styles.info} px-4 py-3 rounded-xl shadow-2xl slide-in-right max-w-md flex items-start gap-3`}>
-      <Icon name={toast.kind === 'success' ? 'check' : (toast.kind === 'error' ? 'alert' : 'bell')} className="w-5 h-5 flex-shrink-0 mt-0.5" />
-      <div className="flex-1">
-        <div className="font-semibold text-sm">{toast.title}</div>
-        {toast.body && <div className="text-xs opacity-90 mt-0.5">{toast.body}</div>}
+    <div
+      className={`fixed top-4 right-4 z-[100] ${cfg.cls} px-4 py-3 rounded-xl slide-in-right max-w-sm flex items-start gap-3 overflow-hidden`}
+      style={{
+        minWidth: '280px',
+        boxShadow: `0 8px 32px ${cfg.glow}, 0 2px 8px rgba(0,0,0,0.18)`,
+      }}
+    >
+      <div className="flex-shrink-0 mt-0.5 w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center">
+        <Icon name={cfg.icon} className="w-4.5 h-4.5" />
       </div>
-      <button onClick={onClose} className="text-white/70 hover:text-white"><Icon name="x" className="w-4 h-4" /></button>
+      <div className="flex-1 min-w-0">
+        <div className="font-bold text-sm leading-snug">{toast.title}</div>
+        {toast.body && <div className="text-xs opacity-88 mt-0.5 leading-relaxed">{toast.body}</div>}
+      </div>
+      <button onClick={onClose} className="text-white/60 hover:text-white flex-shrink-0 mt-0.5"><Icon name="x" className="w-4 h-4" /></button>
+      <div key={key} className="toast-progress"></div>
     </div>
   );
 };
@@ -1743,10 +1916,14 @@ const Modal = ({ open, onClose, title, children, maxWidth = 'max-w-lg' }) => {
 // ============================================================
 // DASHBOARD
 // ============================================================
-const StatCard = ({ label, value, icon, bgClass, iconBg, iconColor, onClick, isActive, accent }) => (
+const StatCard = ({ label, value, icon, bgClass, iconBg, iconColor, onClick, isActive, accent, ringColor }) => (
   <div
     onClick={onClick}
-    className={`card ${bgClass} hover:shadow-lg transition-all cursor-pointer overflow-hidden ${isActive ? 'ring-2 ring-emerald-400 shadow-lg shadow-emerald-100/60' : ''}`}
+    className={`card ${bgClass} hover:shadow-lg transition-all cursor-pointer overflow-hidden`}
+    style={isActive && ringColor ? {
+      boxShadow: `0 0 0 2.5px ${ringColor}, 0 10px 28px ${ringColor}35`,
+      borderColor: `${ringColor}55`,
+    } : {}}
   >
     {/* Gradient accent strip */}
     {accent && <div className="h-[3px] w-full" style={{background: accent}}></div>}
@@ -1855,19 +2032,6 @@ const Dashboard = ({ tickets, users, currentUser, filter, setFilter, onOpenTicke
     return false;
   });
 
-  // Debug: Log user matching info
-  if (filter === 'mine') {
-    console.log('🔍 User Matching Debug:', {
-      currentUserEmail: currentUser.email,
-      currentUserName: currentUser.name,
-      currentUserId: currentUser.id,
-      currentUserBackendId: currentUser.backendId,
-      matchingDemoUser: matchingDemoUser,
-      effectiveUserId: matchingDemoUser?.id || currentUser.id || currentUser.backendId,
-      myTicketCount: tickets.filter(t => (t.assigneeId === (matchingDemoUser?.id || currentUser.id || currentUser.backendId)) || (t.requesterId === (matchingDemoUser?.id || currentUser.id || currentUser.backendId))).length
-    });
-  }
-
   // Use the matching demo user's ID, or current user's ID as fallback
   const effectiveUserId = matchingDemoUser?.id || currentUser.id || currentUser.backendId;
   const backendId = currentUser.backendId;
@@ -1960,12 +2124,12 @@ const Dashboard = ({ tickets, users, currentUser, filter, setFilter, onOpenTicke
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-6">
-        <StatCard label="Total Tickets" value={counts.total} icon="document" bgClass="stat-total" iconBg="bg-blue-100" iconColor="text-blue-600" onClick={() => setStatFilter(null)} isActive={statFilter === null && filterLabel === null} accent="linear-gradient(90deg,#3b82f6,#60a5fa)" />
-        <StatCard label="Open" value={counts.open} icon="clock" bgClass="stat-open" iconBg="bg-cyan-100" iconColor="text-cyan-600" onClick={() => setStatFilter('open')} isActive={statFilter === 'open'} accent="linear-gradient(90deg,#06b6d4,#22d3ee)" />
-        <StatCard label="In Progress" value={counts.in_progress} icon="activity" bgClass="stat-prog" iconBg="bg-sky-100" iconColor="text-sky-600" onClick={() => setStatFilter('in_progress')} isActive={statFilter === 'in_progress'} accent="linear-gradient(90deg,#0ea5e9,#38bdf8)" />
-        <StatCard label="Resolved" value={counts.resolved} icon="check" bgClass="stat-res" iconBg="bg-emerald-100" iconColor="text-emerald-600" onClick={() => setStatFilter('resolved')} isActive={statFilter === 'resolved'} accent="linear-gradient(90deg,#10b981,#34d399)" />
-        <StatCard label="Escalated" value={counts.escalated} icon="alert" bgClass="stat-esc" iconBg="bg-orange-100" iconColor="text-orange-600" onClick={() => setStatFilter('escalated')} isActive={statFilter === 'escalated'} accent="linear-gradient(90deg,#f97316,#fb923c)" />
-        <StatCard label="Urgent" value={counts.urgent} icon="fire" bgClass="stat-urg" iconBg="bg-red-100" iconColor="text-red-600" onClick={() => setStatFilter('urgent')} isActive={statFilter === 'urgent'} accent="linear-gradient(90deg,#ef4444,#f87171)" />
+        <StatCard label="Total Tickets" value={counts.total} icon="document" bgClass="stat-total" iconBg="bg-blue-100" iconColor="text-blue-600" onClick={() => setStatFilter(null)} isActive={statFilter === null && filterLabel === null} accent="linear-gradient(90deg,#3b82f6,#60a5fa)" ringColor="#3b82f6" />
+        <StatCard label="Open" value={counts.open} icon="clock" bgClass="stat-open" iconBg="bg-cyan-100" iconColor="text-cyan-600" onClick={() => setStatFilter('open')} isActive={statFilter === 'open'} accent="linear-gradient(90deg,#06b6d4,#22d3ee)" ringColor="#06b6d4" />
+        <StatCard label="In Progress" value={counts.in_progress} icon="activity" bgClass="stat-prog" iconBg="bg-sky-100" iconColor="text-sky-600" onClick={() => setStatFilter('in_progress')} isActive={statFilter === 'in_progress'} accent="linear-gradient(90deg,#0ea5e9,#38bdf8)" ringColor="#0ea5e9" />
+        <StatCard label="Resolved" value={counts.resolved} icon="check" bgClass="stat-res" iconBg="bg-emerald-100" iconColor="text-emerald-600" onClick={() => setStatFilter('resolved')} isActive={statFilter === 'resolved'} accent="linear-gradient(90deg,#10b981,#34d399)" ringColor="#10b981" />
+        <StatCard label="Escalated" value={counts.escalated} icon="alert" bgClass="stat-esc" iconBg="bg-orange-100" iconColor="text-orange-600" onClick={() => setStatFilter('escalated')} isActive={statFilter === 'escalated'} accent="linear-gradient(90deg,#f97316,#fb923c)" ringColor="#f97316" />
+        <StatCard label="Urgent" value={counts.urgent} icon="fire" bgClass="stat-urg" iconBg="bg-red-100" iconColor="text-red-600" onClick={() => setStatFilter('urgent')} isActive={statFilter === 'urgent'} accent="linear-gradient(90deg,#ef4444,#f87171)" ringColor="#ef4444" />
       </div>
 
       {/* My Ticket Summary - With Status Breakdown & Click Navigation */}
@@ -2201,24 +2365,6 @@ const Dashboard = ({ tickets, users, currentUser, filter, setFilter, onOpenTicke
           </div>
         );
       })()}
-
-      {/* Debug Panel - User Matching Info */}
-      <div className="card p-4 mb-6 bg-slate-50 border-l-4 border-slate-300">
-        <details className="cursor-pointer">
-          <summary className="text-sm font-semibold text-slate-700 hover:text-slate-900">🔍 Debug: User Matching & Filter Info</summary>
-          <div className="mt-3 text-xs text-slate-600 font-mono space-y-1 bg-white p-3 rounded border border-slate-200">
-            <div><span className="font-bold">Logged In User:</span> {currentUser.name} ({currentUser.email})</div>
-            <div><span className="font-bold">User ID:</span> {currentUser.id}</div>
-            <div><span className="font-bold">Backend ID:</span> {currentUser.backendId}</div>
-            <div><span className="font-bold">Matching Demo User:</span> {matchingDemoUser ? `${matchingDemoUser.name} (${matchingDemoUser.id})` : 'NOT FOUND ❌'}</div>
-            <div><span className="font-bold">Effective User ID:</span> {effectiveUserId}</div>
-            <div><span className="font-bold">Current Filter:</span> {filter}</div>
-            <div><span className="font-bold">Filtered Tickets:</span> {filtered.length}</div>
-            <div><span className="font-bold">Active Badge Count:</span> {myTicketsActiveCount}</div>
-            <div><span className="font-bold">My Issued:</span> {myIssuedCount} | <span className="font-bold">My Assigned:</span> {myAssignedCount}</div>
-          </div>
-        </details>
-      </div>
 
       {/* Duplicate Tickets Alert */}
       {duplicates.length > 0 && (isManager(currentUser) || isAdmin(currentUser)) && (
@@ -2584,8 +2730,15 @@ const Dashboard = ({ tickets, users, currentUser, filter, setFilter, onOpenTicke
 const NewTicket = ({ currentUser, users, onCreate, onCancel }) => {
   const [form, setForm] = useState({ titleType: 'Service Request', subtitle: '', category: 'client', subcategory: '', description: '', priority: 'medium', status: 'open', expectedCompletion: '', assigneeId: '', ndisRelated: false });
   const [attachments, setAttachments] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
   const inputCls = "w-full px-3.5 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 text-sm bg-white";
-  const submit = (e) => { e.preventDefault(); if (!form.subtitle.trim()) return; onCreate({ ...form, title: form.subtitle, attachments }); };
+  const submit = (e) => {
+    e.preventDefault();
+    if (!form.subtitle.trim() || submitting) return;
+    setSubmitting(true);
+    // Brief optimistic delay so the spinner is visible, then call onCreate
+    setTimeout(() => onCreate({ ...form, title: form.subtitle, attachments }), 200);
+  };
 
   const assignableUsers = users.filter(u => u.id !== currentUser.id && isManager(u));
 
@@ -2674,8 +2827,11 @@ const NewTicket = ({ currentUser, users, onCreate, onCancel }) => {
                 {assignableUsers.map(u => <option key={u.id} value={u.id}>{u.name} — {u.department}</option>)}
               </select>
             </div>
-            <button type="submit" disabled={!form.subtitle.trim()} className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
-              <Icon name="send" className="w-5 h-5" /> Create Ticket
+            <button type="submit" disabled={!form.subtitle.trim() || submitting}
+              className="w-full flex items-center justify-center gap-2.5 px-5 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              style={submitting ? {boxShadow:'0 0 20px rgba(59,130,246,0.45)'} : {}}>
+              {submitting ? <span className="btn-spinner"></span> : <Icon name="send" className="w-5 h-5" />}
+              {submitting ? 'Creating ticket…' : 'Create Ticket'}
             </button>
           </div>
         </form>
@@ -2692,39 +2848,81 @@ const TicketsList = ({ tickets, users, currentUser, onOpen, onAssign, onDelete, 
   const [filters, setFilters] = useState({ status: 'all', category: 'all', priority: 'all' });
   const [search, setSearch] = useState('');
   const [menuOpen, setMenuOpen] = useState(null);
+  const [sortBy, setSortBy] = useState('createdAt');
+  const [sortDir, setSortDir] = useState('desc');
+  // Skeleton: show shimmer rows for 400ms on first render, feels snappy
+  const [skelDone, setSkelDone] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setSkelDone(true), 400); return () => clearTimeout(t); }, []);
+  // Debounce search so we don't re-filter on every keystroke
+  const debouncedSearch = useDebounce(search, 220);
+
+  const toggleSort = (col) => {
+    if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortBy(col); setSortDir('asc'); }
+  };
+  const SortIcon = ({ col }) => (
+    <span className={`sort-arrow ml-0.5 ${sortBy === col ? 'text-emerald-500 opacity-100' : ''}`}>
+      {sortBy === col ? (sortDir === 'asc' ? '↑' : '↓') : '↕'}
+    </span>
+  );
   const admin = isAdmin(currentUser);
   const breadcrumbs = [
     { label: 'Dashboard', clickable: true, action: 'dashboard', icon: 'dashboard' },
     { label: 'Tickets', clickable: false },
   ];
 
+  // ── Resolve the correct user ID for ticket ownership checks ──────────────
+  // Microsoft SSO users get id='ms_xxx' but tickets store demo IDs (u1, u2…).
+  // Match by email or name first, fall back to raw id.
+  const matchingUser = users.find(u =>
+    (u.email && currentUser.email && u.email.toLowerCase() === currentUser.email.toLowerCase()) ||
+    (u.name  && currentUser.name  && u.name === currentUser.name) ||
+    u.id === currentUser.id ||
+    u.id === currentUser.backendId
+  );
+  const effectiveUserId = matchingUser?.id || currentUser.backendId || currentUser.id;
+  // Helper — true if this ticket was issued by or assigned to the current user
+  const isMyTicket = (t) =>
+    t.requesterId === effectiveUserId || t.assigneeId === effectiveUserId ||
+    (currentUser.backendId && (t.requesterId === currentUser.backendId || t.assigneeId === currentUser.backendId));
 
   const tabbed = useMemo(() => {
     let list = tickets;
     if (teamFilterIds && teamFilterIds.length > 0) list = list.filter(t => teamFilterIds.includes(t.assigneeId));
-    if (tab === 'issued') list = list.filter(t => t.requesterId === currentUser.id);
-    else if (tab === 'assigned') list = list.filter(t => t.assigneeId === currentUser.id);
+    if (tab === 'issued')   list = list.filter(t => t.requesterId === effectiveUserId || (currentUser.backendId && t.requesterId === currentUser.backendId));
+    else if (tab === 'assigned') list = list.filter(t => t.assigneeId === effectiveUserId || (currentUser.backendId && t.assigneeId === currentUser.backendId));
     return list;
-  }, [tickets, tab, currentUser, teamFilterIds]);
+  }, [tickets, tab, effectiveUserId, teamFilterIds]);
 
-  const filtered = useMemo(() => tabbed.filter(t => {
-    if (filters.status !== 'all' && t.status !== filters.status) return false;
-    if (filters.category !== 'all' && t.category !== filters.category) return false;
-    if (filters.priority !== 'all' && t.priority !== filters.priority) return false;
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      if (!t.title.toLowerCase().includes(q) && !(t.ticketNumber || '').toLowerCase().includes(q) && !(t.description || '').toLowerCase().includes(q)) return false;
-    }
-    return true;
-  }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)), [tabbed, filters, search]);
+  const filtered = useMemo(() => {
+    const PRIORITY_ORDER = { urgent: 0, high: 1, medium: 2, low: 3 };
+    const STATUS_ORDER = { open: 0, in_progress: 1, escalated: 2, pending_approval: 3, resolved: 4, closed: 5 };
+    return tabbed.filter(t => {
+      if (filters.status !== 'all' && t.status !== filters.status) return false;
+      if (filters.category !== 'all' && t.category !== filters.category) return false;
+      if (filters.priority !== 'all' && t.priority !== filters.priority) return false;
+      if (debouncedSearch.trim()) {
+        const q = debouncedSearch.toLowerCase();
+        if (!t.title.toLowerCase().includes(q) && !(t.ticketNumber || '').toLowerCase().includes(q) && !(t.description || '').toLowerCase().includes(q)) return false;
+      }
+      return true;
+    }).sort((a, b) => {
+      let cmp = 0;
+      if (sortBy === 'title')    cmp = (a.titleType || a.title).localeCompare(b.titleType || b.title);
+      else if (sortBy === 'priority') cmp = (PRIORITY_ORDER[a.priority] ?? 99) - (PRIORITY_ORDER[b.priority] ?? 99);
+      else if (sortBy === 'status')   cmp = (STATUS_ORDER[a.status] ?? 99) - (STATUS_ORDER[b.status] ?? 99);
+      else cmp = new Date(a.createdAt) - new Date(b.createdAt);
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [tabbed, filters, debouncedSearch, sortBy, sortDir]);
 
   const tabCount = (t) => {
-    if (t === 'all') return tickets.length;
-    if (t === 'issued') return tickets.filter(x => x.requesterId === currentUser.id).length;
-    if (t === 'assigned') return tickets.filter(x => x.assigneeId === currentUser.id).length;
+    if (t === 'all')      return tickets.length;
+    if (t === 'issued')   return tickets.filter(x => x.requesterId === effectiveUserId || (currentUser.backendId && x.requesterId === currentUser.backendId)).length;
+    if (t === 'assigned') return tickets.filter(x => x.assigneeId === effectiveUserId  || (currentUser.backendId && x.assigneeId === currentUser.backendId)).length;
     return 0;
   };
-  const myOpenCount = tickets.filter(t => (t.requesterId === currentUser.id || t.assigneeId === currentUser.id) && !['resolved','closed'].includes(t.status)).length;
+  const myOpenCount = tickets.filter(t => isMyTicket(t) && !['resolved','closed'].includes(t.status)).length;
 
   return (
     <>
@@ -2778,9 +2976,20 @@ const TicketsList = ({ tickets, users, currentUser, onOpen, onAssign, onDelete, 
       <div className="card p-4 mb-4">
         <div className="relative mb-3">
           <Icon name="search" className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search tickets..." className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/30 text-sm" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search tickets..." className="w-full pl-10 pr-10 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/30 text-sm" />
+          {/* Debounce indicator: tiny spinner while user is still typing */}
+          {search !== debouncedSearch && (
+            <div className="absolute right-3 top-3" title="Searching...">
+              <span className="btn-spinner btn-spinner-dark" style={{width:'14px',height:'14px',borderWidth:'1.5px'}}></span>
+            </div>
+          )}
+          {search && search === debouncedSearch && (
+            <button onClick={() => setSearch('')} className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 transition-colors">
+              <Icon name="x" className="w-4 h-4" />
+            </button>
+          )}
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 items-center">
           <select value={filters.status} onChange={e => setFilters({...filters, status: e.target.value})} className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
             <option value="all">All Status</option>
             {STATUSES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
@@ -2793,35 +3002,137 @@ const TicketsList = ({ tickets, users, currentUser, onOpen, onAssign, onDelete, 
             <option value="all">All Priorities</option>
             {PRIORITIES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
           </select>
+          {/* Reset all filters button — visible when any filter is active */}
+          {(filters.status !== 'all' || filters.category !== 'all' || filters.priority !== 'all' || search) && (
+            <button onClick={() => { setFilters({ status:'all', category:'all', priority:'all' }); setSearch(''); }}
+              className="px-3 py-2 rounded-lg text-xs font-bold text-slate-500 hover:text-red-600 hover:bg-red-50 border border-slate-200 transition-all">
+              ✕ Clear all
+            </button>
+          )}
         </div>
+
+        {/* Active filter chips */}
+        {(filters.status !== 'all' || filters.category !== 'all' || filters.priority !== 'all') && (
+          <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-slate-100">
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider self-center mr-1">Active:</span>
+            {filters.status !== 'all' && (
+              <span className="filter-chip" onClick={() => setFilters({...filters, status:'all'})}>
+                Status: {STATUSES.find(s=>s.id===filters.status)?.label} ×
+              </span>
+            )}
+            {filters.category !== 'all' && (
+              <span className="filter-chip" onClick={() => setFilters({...filters, category:'all'})}>
+                Category: {CATEGORIES.find(c=>c.id===filters.category)?.label} ×
+              </span>
+            )}
+            {filters.priority !== 'all' && (
+              <span className="filter-chip" onClick={() => setFilters({...filters, priority:'all'})}>
+                Priority: {PRIORITIES.find(p=>p.id===filters.priority)?.label} ×
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Results count bar */}
+      <div className="flex items-center justify-between mb-2 px-1">
+        <p className="results-bar">
+          Showing <strong>{filtered.length}</strong> of <strong>{tickets.length}</strong> tickets
+          {debouncedSearch && <span> matching "<em>{debouncedSearch}</em>"</span>}
+        </p>
+        {filtered.length > 0 && (
+          <p className="results-bar text-[10px]">
+            Sort: <button className={`font-bold transition-colors ${sortBy==='createdAt'?'text-emerald-500':''}`} onClick={()=>toggleSort('createdAt')}>Date</button>
+            {' · '}<button className={`font-bold transition-colors ${sortBy==='priority'?'text-emerald-500':''}`} onClick={()=>toggleSort('priority')}>Priority</button>
+            {' · '}<button className={`font-bold transition-colors ${sortBy==='status'?'text-emerald-500':''}`} onClick={()=>toggleSort('status')}>Status</button>
+            {' '}<span className="opacity-60">{sortDir==='asc'?'↑':'↓'}</span>
+          </p>
+        )}
       </div>
 
       {/* Table */}
       <div className="card yc-ticket-table-wrap overflow-x-auto -webkit-overflow-scrolling-touch">
-        <table className="w-full text-sm" style={{minWidth:'860px'}}>
+        <table className="w-full text-sm" style={{minWidth:'900px'}}>
           <thead className="yc-table-head border-b border-slate-100">
             <tr>
               <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap" style={{width:'160px'}}>Ticket ID</th>
-              <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Title</th>
+              <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest cursor-pointer hover:text-emerald-500 transition-colors" onClick={() => toggleSort('title')}>
+                <span className="sort-btn">Title <SortIcon col="title" /></span>
+              </th>
               <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Category</th>
-              <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Priority</th>
-              <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+              <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest cursor-pointer hover:text-emerald-500 transition-colors" onClick={() => toggleSort('priority')}>
+                <span className="sort-btn">Priority <SortIcon col="priority" /></span>
+              </th>
+              <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest cursor-pointer hover:text-emerald-500 transition-colors" onClick={() => toggleSort('status')}>
+                <span className="sort-btn">Status <SortIcon col="status" /></span>
+              </th>
+              <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">SLA</th>
               <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Assigned To</th>
-              <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Created</th>
+              <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap cursor-pointer hover:text-emerald-500 transition-colors" onClick={() => toggleSort('createdAt')}>
+                <span className="sort-btn">Created <SortIcon col="createdAt" /></span>
+              </th>
               <th className="w-12"></th>
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 ? (
-              <tr><td colSpan="8" className="px-4 py-12 text-center text-slate-500">No tickets found</td></tr>
+            {!skelDone ? (
+              // Skeleton shimmer rows — shown for 400ms while JS settles
+              Array.from({length: 6}).map((_, i) => (
+                <tr key={`skel-${i}`} className="border-b border-slate-100">
+                  <td className="px-4 py-3.5"><div className="skeleton-cell" style={{height:'22px',width:'120px'}}></div></td>
+                  <td className="px-4 py-3.5">
+                    <div className="skeleton-cell mb-1.5" style={{height:'14px',width:'200px'}}></div>
+                    <div className="skeleton-cell" style={{height:'11px',width:'130px'}}></div>
+                  </td>
+                  <td className="px-4 py-3.5"><div className="skeleton-cell" style={{height:'22px',width:'80px'}}></div></td>
+                  <td className="px-4 py-3.5"><div className="skeleton-cell" style={{height:'22px',width:'60px'}}></div></td>
+                  <td className="px-4 py-3.5"><div className="skeleton-cell" style={{height:'28px',width:'100px'}}></div></td>
+                  <td className="px-4 py-3.5"><div className="skeleton-cell" style={{height:'14px',width:'90px'}}></div></td>
+                  <td className="px-4 py-3.5"><div className="skeleton-cell" style={{height:'14px',width:'65px'}}></div></td>
+                  <td></td>
+                </tr>
+              ))
+            ) : filtered.length === 0 ? (
+              <tr>
+                <td colSpan="9" className="px-4 py-16 text-center">
+                  <div className="empty-state-ring">
+                    <Icon name="search" className="w-8 h-8 text-emerald-400" />
+                  </div>
+                  <p className="font-bold text-slate-700 mb-1">No tickets found</p>
+                  <p className="text-sm text-slate-400 mb-4">
+                    {debouncedSearch ? `No results for "${debouncedSearch}"` : 'Try adjusting your filters or create a new ticket'}
+                  </p>
+                  {(filters.status !== 'all' || filters.category !== 'all' || filters.priority !== 'all' || search) && (
+                    <button onClick={() => { setFilters({status:'all',category:'all',priority:'all'}); setSearch(''); }}
+                      className="px-4 py-2 rounded-lg text-sm font-semibold text-emerald-600 border border-emerald-200 hover:bg-emerald-50 transition-all">
+                      Clear filters
+                    </button>
+                  )}
+                </td>
+              </tr>
             ) : filtered.map(t => {
               const requester = getUser(users, t.requesterId);
               const assignee = getUser(users, t.assigneeId);
               const cat = getCategory(t.category);
               const pri = getPriority(t.priority);
               const stat = getStatus(t.status);
+              const sla = computeSLA(t);
+              const priColorClass = { urgent:'pri-urgent', high:'pri-high', medium:'pri-medium', low:'pri-low' }[t.priority] || '';
+              // SLA badge label + css class
+              const slaInfo = (() => {
+                if (sla.state === 'na') return null;
+                if (sla.state === 'met') return { label: '✓ Met', cls: 'sla-met' };
+                if (sla.state === 'breached') return { label: '⚠ Breached', cls: 'sla-breached' };
+                if (sla.state === 'warning') {
+                  const h = Math.floor(sla.remainingMs / 3600000);
+                  const m = Math.floor((sla.remainingMs % 3600000) / 60000);
+                  return { label: h > 0 ? `${h}h ${m}m` : `${m}m`, cls: 'sla-warning' };
+                }
+                const h = Math.floor(sla.remainingMs / 3600000);
+                return { label: h > 0 ? `${h}h left` : '<1h', cls: 'sla-ok' };
+              })();
               return (
-                <tr key={t.id} className="yc-ticket-row border-b border-slate-100 group relative">
+                <tr key={t.id} className={`yc-ticket-row border-b border-slate-100 group relative ${priColorClass}`}>
                   <td className="px-4 py-3 whitespace-nowrap" style={{width:'160px'}}>
                     <button onClick={() => onOpen(t.id)} className="yc-ticket-id inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-mono text-xs font-bold whitespace-nowrap transition-all">
                       <span className="yc-ticket-id-dot w-1.5 h-1.5 rounded-full flex-shrink-0"></span>
@@ -2849,6 +3160,11 @@ const TicketsList = ({ tickets, users, currentUser, onOpen, onAssign, onDelete, 
                         </select>
                       );
                     })()}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {slaInfo ? (
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold ${slaInfo.cls}`}>{slaInfo.label}</span>
+                    ) : <span className="text-slate-300 text-xs">—</span>}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-slate-600 text-sm">{assignee ? assignee.name : <span className="text-slate-400 italic text-xs">Unassigned</span>}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-slate-400 text-xs tabular-nums">{fmtShortDate(t.createdAt)}</td>
@@ -2891,8 +3207,16 @@ const TicketDetail = ({ ticketId, tickets, users, currentUser, onUpdate, onAddCo
   const stat = getStatus(ticket.status);
   const pri = getPriority(ticket.priority);
   const admin = isAdmin(currentUser);
-  const isRequester = ticket.requesterId === currentUser.id;
-  const isAssignee = ticket.assigneeId === currentUser.id;
+  // Resolve effective user ID — handles Microsoft SSO where currentUser.id = 'ms_xxx'
+  // but tickets store demo IDs (u1, u2…) or backend UUIDs
+  const _matchedUser = users.find(u =>
+    (u.email && currentUser.email && u.email.toLowerCase() === currentUser.email.toLowerCase()) ||
+    (u.name && currentUser.name && u.name === currentUser.name) ||
+    u.id === currentUser.id || u.id === currentUser.backendId
+  );
+  const _effId = _matchedUser?.id || currentUser.backendId || currentUser.id;
+  const isRequester = ticket.requesterId === _effId || (currentUser.backendId && ticket.requesterId === currentUser.backendId);
+  const isAssignee  = ticket.assigneeId  === _effId || (currentUser.backendId && ticket.assigneeId  === currentUser.backendId);
   const canMarkComplete = isAssignee && !['resolved', 'closed', 'pending_approval'].includes(ticket.status);
   const canApproveReopen = isRequester && ticket.status === 'pending_approval';
 
@@ -4848,6 +5172,22 @@ const scheduleSummary = (s) => {
 // ============================================================
 // Create / Edit Report Schedule Modal
 // ============================================================
+const ScheduleSaveBtn = ({ canSave, isEdit, onSave }) => {
+  const [busy, setBusy] = useState(false);
+  const handle = () => {
+    if (!canSave || busy) return;
+    setBusy(true);
+    setTimeout(() => { onSave(); setBusy(false); }, 350);
+  };
+  return (
+    <button onClick={handle} disabled={!canSave || busy}
+      className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition bg-blue-600 hover:bg-blue-700 text-white shadow-sm disabled:opacity-50"
+      style={busy ? {boxShadow:'0 0 16px rgba(59,130,246,0.4)'} : {}}>
+      {busy ? <span className="btn-spinner" style={{width:'14px',height:'14px'}}></span> : null}
+      {busy ? 'Saving…' : (isEdit ? 'Save Changes' : 'Create Schedule')}
+    </button>
+  );
+};
 const ScheduleModal = ({ open, initial, users, onClose, onSave }) => {
   const isEdit = !!initial?.id;
   const [form, setForm] = useState({
@@ -5049,7 +5389,7 @@ const ScheduleModal = ({ open, initial, users, onClose, onSave }) => {
         {/* Footer */}
         <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-2">
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button variant="primary" disabled={!canSave} onClick={() => onSave(form)}>{isEdit ? 'Save Changes' : 'Create Schedule'}</Button>
+          <ScheduleSaveBtn canSave={canSave} isEdit={isEdit} onSave={() => onSave(form)} />
         </div>
       </div>
     </div>
@@ -5207,6 +5547,23 @@ const ScheduledReports = ({ schedules, users, currentUser, onCreate, onUpdate, o
 // ============================================================
 // STAFF MANAGEMENT — Add / Edit Staff modal
 // ============================================================
+// Small helper — save button with a loading spinner for StaffModal
+const StaffSaveButton = ({ canSave, isEdit, onSave }) => {
+  const [busy, setBusy] = useState(false);
+  const handle = () => {
+    if (!canSave || busy) return;
+    setBusy(true);
+    setTimeout(() => { onSave(); setBusy(false); }, 300);
+  };
+  return (
+    <button onClick={handle} disabled={!canSave || busy}
+      className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition bg-blue-600 hover:bg-blue-700 text-white shadow-sm disabled:opacity-50"
+      style={busy ? {boxShadow:'0 0 16px rgba(59,130,246,0.4)'} : {}}>
+      {busy ? <span className="btn-spinner" style={{width:'14px',height:'14px'}}></span> : null}
+      {busy ? (isEdit ? 'Saving…' : 'Adding…') : (isEdit ? 'Save Changes' : 'Add Staff')}
+    </button>
+  );
+};
 const StaffModal = ({ open, initial, currentUser, onClose, onSave }) => {
   const isEdit = !!initial?.id;
   const isBootstrap = !!initial?.bootstrapAdmin;
@@ -5333,7 +5690,7 @@ const StaffModal = ({ open, initial, currentUser, onClose, onSave }) => {
         </div>
         <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-2">
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button variant="primary" disabled={!canSave} onClick={() => onSave(form)}>{isEdit ? 'Save Changes' : 'Add Staff'}</Button>
+          <StaffSaveButton canSave={canSave} isEdit={isEdit} onSave={() => onSave(form)} />
         </div>
       </div>
     </div>
@@ -5673,6 +6030,18 @@ const App = () => {
 
   const currentUser = msUser || state.users.find(u => u.id === state.currentUserId);
 
+  // ── App-level effective user ID ───────────────────────────────────────────
+  // Microsoft SSO users get id='ms_xxx' but localStorage tickets use demo IDs.
+  // Resolve the canonical ID by matching email → name → direct id → backendId.
+  const _appMatchedUser = currentUser && state.users.find(u =>
+    (u.email && currentUser.email && u.email.toLowerCase() === currentUser.email.toLowerCase()) ||
+    (u.name  && currentUser.name  && u.name === currentUser.name) ||
+    u.id === currentUser.id ||
+    u.id === currentUser.backendId
+  );
+  // This is the ID that should be written into ticket.requesterId / ticket.assigneeId
+  const appEffectiveUserId = _appMatchedUser?.id || currentUser?.backendId || currentUser?.id;
+
   if (authMode === 'checking') {
     return (
       <div className="min-h-screen flex items-center justify-center brand-gradient text-white">
@@ -5728,14 +6097,14 @@ const App = () => {
       subcategory: data.subcategory,
       priority: data.priority,
       status: data.status || 'open',
-      requesterId: currentUser.id,
+      requesterId: appEffectiveUserId,
       assigneeId: data.assigneeId || null,
       expectedCompletion: data.expectedCompletion,
       ndisRelated: data.ndisRelated,
       attachments: data.attachments || [],
       createdAt, updatedAt: createdAt, dueAt,
       comments: [],
-      activity: [{ id: uid(), at: createdAt, userId: currentUser.id, text: 'Created' }],
+      activity: [{ id: uid(), at: createdAt, userId: appEffectiveUserId, text: 'Created' }],
     };
     setState(s => ({ ...s, tickets: [ticket, ...s.tickets] }));
     if (ticket.assigneeId) notifyUser(ticket.assigneeId, ticket, 'Ticket assigned to you', `${currentUser.name} assigned a new ${getPriority(ticket.priority).label.toLowerCase()}-priority ticket to you.`);
@@ -5757,14 +6126,14 @@ const App = () => {
 
   const addComment = (ticketId, body) => {
     const t = state.tickets.find(x => x.id === ticketId);
-    setState(s => ({ ...s, tickets: s.tickets.map(x => x.id !== ticketId ? x : { ...x, updatedAt: now(), comments: [...(x.comments || []), { id: uid(), userId: currentUser.id, body, createdAt: now() }], activity: [...(x.activity || []), { id: uid(), at: now(), userId: currentUser.id, text: 'Comment added' }] }) }));
-    if (t) [t.requesterId, t.assigneeId].filter(uid => uid && uid !== currentUser.id).forEach(uid => {
+    setState(s => ({ ...s, tickets: s.tickets.map(x => x.id !== ticketId ? x : { ...x, updatedAt: now(), comments: [...(x.comments || []), { id: uid(), userId: appEffectiveUserId, body, createdAt: now() }], activity: [...(x.activity || []), { id: uid(), at: now(), userId: appEffectiveUserId, text: 'Comment added' }] }) }));
+    if (t) [t.requesterId, t.assigneeId].filter(uid => uid && uid !== appEffectiveUserId).forEach(uid => {
       notifyUser(uid, t, 'New comment on ticket', `${currentUser.name} commented: "${body.slice(0, 120)}${body.length > 120 ? '...' : ''}"`);
     });
   };
 
   const assignTicket = (ticket, assigneeId) => {
-    if (assigneeId === currentUser.id) {
+    if (assigneeId === appEffectiveUserId || assigneeId === currentUser.id || assigneeId === currentUser.backendId) {
       showToast('error', 'Cannot self-assign', 'You cannot assign tickets to yourself.');
       return;
     }
@@ -6049,12 +6418,33 @@ const App = () => {
     default:           content = <Dashboard tickets={state.tickets} users={state.users} currentUser={currentUser} filter={filter} setFilter={setFilter} onOpenTicket={(id) => { setCurrentTicketId(id); setView('detail'); }} onMergeTickets={mergeTicketsHandler} />;
   }
 
+  // ── Keyboard shortcuts ───────────────────────────────────────────────────
+  // N = new ticket, ESC = go back / close, T = tickets list
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT' || e.target.isContentEditable) return;
+      if (e.key === 'n' || e.key === 'N') { e.preventDefault(); setView('new'); }
+      if (e.key === 't' || e.key === 'T') { e.preventDefault(); setView('tickets'); }
+      if (e.key === 'd' || e.key === 'D') { e.preventDefault(); setView('dashboard'); }
+      if (e.key === 'Escape') {
+        if (view === 'new' || view === 'detail') setView('tickets');
+        else if (view !== 'dashboard') setView('dashboard');
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [view]);
+
+  // Count for sidebar badge — open + in_progress + escalated + urgent tickets
+  const openTicketCount = state.tickets.filter(t => !['resolved','closed'].includes(t.status)).length;
+
   return (
     <div className="flex h-screen brand-gradient-soft">
-      <Sidebar view={view} setView={(v) => { if (v === 'tickets') setTeamFilterIds(null); setView(v); }} currentUser={currentUser} onLogout={handleLogout} mobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} />
+      <Sidebar view={view} setView={(v) => { if (v === 'tickets') setTeamFilterIds(null); setView(v); }} currentUser={currentUser} onLogout={handleLogout} mobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} openTicketCount={openTicketCount} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <TopBar currentUser={currentUser} onClose={handleLogout} onOpenMobileMenu={() => setMobileNavOpen(true)} notifications={state.notifications || []} onMarkAllRead={markAllNotifsRead} theme={theme} onToggleTheme={toggleTheme} />
-        {content}
+        {/* key=view triggers remount → view-enter animation fires on every page switch */}
+        <div key={view} className="view-enter flex flex-col flex-1 overflow-hidden">{content}</div>
       </div>
       <AssignModal open={assignModal.open} ticket={assignModal.ticket} users={state.users} currentUser={currentUser} onClose={() => setAssignModal({ open: false, ticket: null })} onAssign={assignTicket} />
       <DeleteModal open={deleteModal.open} ticket={deleteModal.ticket} onClose={() => setDeleteModal({ open: false, ticket: null })} onDelete={deleteTicket} />
