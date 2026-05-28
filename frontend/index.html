@@ -6042,6 +6042,26 @@ const App = () => {
   // This is the ID that should be written into ticket.requesterId / ticket.assigneeId
   const appEffectiveUserId = _appMatchedUser?.id || currentUser?.backendId || currentUser?.id;
 
+  // ── Keyboard shortcuts — MUST be before any early returns (Rules of Hooks) ─
+  // N = new ticket, ESC = go back / close, T = tickets list, D = dashboard
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT' || e.target.isContentEditable) return;
+      if (e.key === 'n' || e.key === 'N') { e.preventDefault(); setView('new'); }
+      if (e.key === 't' || e.key === 'T') { e.preventDefault(); setView('tickets'); }
+      if (e.key === 'd' || e.key === 'D') { e.preventDefault(); setView('dashboard'); }
+      if (e.key === 'Escape') {
+        if (view === 'new' || view === 'detail') setView('tickets');
+        else if (view !== 'dashboard') setView('dashboard');
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [view]);
+
+  // Count for sidebar badge — must be before early returns too
+  const openTicketCount = state.tickets.filter(t => !['resolved','closed'].includes(t.status)).length;
+
   if (authMode === 'checking') {
     return (
       <div className="min-h-screen flex items-center justify-center brand-gradient text-white">
@@ -6417,26 +6437,6 @@ const App = () => {
     case 'reports':    content = isManager(currentUser) ? <ScheduledReports schedules={state.schedules || []} users={state.users} currentUser={currentUser} onCreate={createSchedule} onUpdate={updateSchedule} onDelete={deleteSchedule} onSendNow={sendScheduleNow} onToggleActive={toggleScheduleActive} /> : <AccessDenied />; break;
     default:           content = <Dashboard tickets={state.tickets} users={state.users} currentUser={currentUser} filter={filter} setFilter={setFilter} onOpenTicket={(id) => { setCurrentTicketId(id); setView('detail'); }} onMergeTickets={mergeTicketsHandler} />;
   }
-
-  // ── Keyboard shortcuts ───────────────────────────────────────────────────
-  // N = new ticket, ESC = go back / close, T = tickets list
-  useEffect(() => {
-    const handler = (e) => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT' || e.target.isContentEditable) return;
-      if (e.key === 'n' || e.key === 'N') { e.preventDefault(); setView('new'); }
-      if (e.key === 't' || e.key === 'T') { e.preventDefault(); setView('tickets'); }
-      if (e.key === 'd' || e.key === 'D') { e.preventDefault(); setView('dashboard'); }
-      if (e.key === 'Escape') {
-        if (view === 'new' || view === 'detail') setView('tickets');
-        else if (view !== 'dashboard') setView('dashboard');
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [view]);
-
-  // Count for sidebar badge — open + in_progress + escalated + urgent tickets
-  const openTicketCount = state.tickets.filter(t => !['resolved','closed'].includes(t.status)).length;
 
   return (
     <div className="flex h-screen brand-gradient-soft">
