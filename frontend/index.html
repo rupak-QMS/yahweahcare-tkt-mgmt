@@ -512,27 +512,26 @@
   /* ── Corporate palette overrides ──────────────────────────────
      Breadcrumb, policy-notice banner, violet authority badges     */
 
-  /* Breadcrumb bar — dark mode */
+  /* Breadcrumb bar — dark mode
+     Override the bg-white class AND remove any Tailwind gradient variables */
   html.dark .yc-breadcrumb {
-    background: linear-gradient(90deg, rgba(10,15,28,0.95) 0%, rgba(8,13,24,0.9) 100%) !important;
-    border-bottom-color: rgba(148,163,184,0.09) !important;
-    backdrop-filter: blur(10px);
+    background: #0c1420 !important;
+    border-bottom: 1px solid rgba(148,163,184,0.09) !important;
   }
-  html.dark .yc-breadcrumb .text-emerald-600 { color: #34d399 !important; }
-  html.dark .yc-breadcrumb .text-emerald-500 { color: #6ee7b7 !important; }
-  html.dark .yc-breadcrumb .text-slate-400   { color: #334155 !important; }
-  html.dark .yc-breadcrumb .text-slate-300   { color: #1e293b !important; }
+  html.dark .yc-breadcrumb button { color: #34d399 !important; }
+  html.dark .yc-breadcrumb button:hover { color: #6ee7b7 !important; }
+  html.dark .yc-breadcrumb span   { color: #334155 !important; }
+  html.dark .yc-breadcrumb svg    { color: #1e293b !important; }
 
-  /* Policy/notice banner — dark mode: near-invisible amber left bar, slate body */
+  /* Policy/notice banner — dark mode via direct style overrides */
   html.dark .yc-policy-notice {
-    background: rgba(15,23,42,0.6) !important;
-    border-color: rgba(148,163,184,0.12) !important;
-    border-left-color: rgba(251,191,36,0.45) !important;
+    background: #0d1526 !important;
+    border: 1px solid rgba(148,163,184,0.1) !important;
+    border-left: 4px solid rgba(217,119,6,0.5) !important;
   }
-  html.dark .yc-policy-notice .text-slate-600 { color: #94a3b8 !important; }
-  html.dark .yc-policy-notice .text-slate-700 { color: #cbd5e1 !important; }
-  html.dark .yc-policy-notice .text-slate-800 { color: #e2e8f0 !important; }
-  html.dark .yc-policy-notice .text-amber-500 { color: rgba(251,191,36,0.7) !important; }
+  html.dark .yc-policy-notice .text-slate-600 { color: #64748b !important; }
+  html.dark .yc-policy-notice .text-slate-700 { color: #94a3b8 !important; }
+  html.dark .yc-policy-notice .text-slate-800 { color: #cbd5e1 !important; }
 
   /* Violet authority badges — dark mode */
   html.dark .bg-violet-100 { background-color: rgba(139,92,246,0.18) !important; }
@@ -5094,8 +5093,8 @@ const StaffManagement = ({ users, tickets, currentUser, onAddStaff, onUpdateStaf
 
       {/* Admin-count guard banner */}
       {admin && activeAdminCount <= MIN_ADMINS && (
-        <div className="yc-policy-notice mb-4 flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 border-l-4 border-l-amber-400">
-          <Icon name="alert" className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+        <div className="yc-policy-notice mb-4 flex items-start gap-3 rounded-r-lg bg-slate-50 px-4 py-3" style={{border:'1px solid #e2e8f0', borderLeft:'4px solid #d97706'}}>
+          <Icon name="alert" className="w-4 h-4 flex-shrink-0 mt-0.5" style={{color:'#b45309'}} />
           <div className="text-sm text-slate-600 flex-1 leading-relaxed">
             <span className="font-semibold text-slate-700">Policy — minimum admin threshold: </span>
             Only <strong className="text-slate-800">{activeAdminCount}</strong> active Super Admin{activeAdminCount === 1 ? '' : 's'} in the system. The system requires at least {MIN_ADMINS} — deleting, deactivating, or demoting an admin below this threshold is blocked. Promote another user to admin to relax this restriction.
