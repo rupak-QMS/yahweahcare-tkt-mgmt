@@ -650,6 +650,96 @@
   html.dark .text-slate-500.font-medium { color: #64748b !important; }
   html.dark .border-slate-200 { border-color: rgba(148,163,184,0.14) !important; }
 
+  /* ── Global glow layer ─────────────────────────────────────────
+     Ticket ID chip, table rows, page headings, chips & inputs    */
+
+  /* Ticket ID chip — light mode */
+  .yc-ticket-id {
+    background: rgba(16,185,129,0.07);
+    border: 1px solid rgba(16,185,129,0.18);
+    color: #059669;
+    transition: box-shadow 0.2s ease, background 0.2s ease;
+  }
+  .yc-ticket-id:hover {
+    background: rgba(16,185,129,0.12);
+    box-shadow: 0 0 0 2px rgba(16,185,129,0.2), 0 0 10px rgba(16,185,129,0.18);
+  }
+  .yc-ticket-id-dot { background: #10b981; }
+
+  /* Ticket ID chip — dark mode */
+  html.dark .yc-ticket-id {
+    background: rgba(16,185,129,0.1);
+    border-color: rgba(16,185,129,0.25);
+    color: #34d399;
+  }
+  html.dark .yc-ticket-id:hover {
+    background: rgba(16,185,129,0.16);
+    box-shadow: 0 0 0 2px rgba(16,185,129,0.25), 0 0 14px rgba(16,185,129,0.2);
+  }
+
+  /* Table row — left-border glow on hover */
+  .yc-ticket-row { transition: background 0.15s ease; }
+  .yc-ticket-row:hover { background: rgba(16,185,129,0.03); box-shadow: inset 3px 0 0 rgba(16,185,129,0.45); }
+  html.dark .yc-ticket-row:hover { background: rgba(16,185,129,0.05) !important; box-shadow: inset 3px 0 0 rgba(16,185,129,0.5); }
+
+  /* Table header — dark mode */
+  .yc-table-head { background: #f8fafc; }
+  html.dark .yc-table-head { background: #0f1623 !important; }
+  html.dark .yc-table-head th { color: #334155 !important; }
+
+  /* Page h1 — emerald underline accent glow */
+  h1.font-black {
+    position: relative;
+    display: inline-block;
+  }
+
+  /* Brand-gradient animated text */
+  .brand-text-animated {
+    background: linear-gradient(90deg, #10b981 0%, #14b8a6 40%, #10b981 80%);
+    background-size: 200%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: gradShift 4s linear infinite;
+  }
+
+  /* Search input focus glow */
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(16,185,129,0.15), 0 0 10px rgba(16,185,129,0.08);
+    border-color: rgba(16,185,129,0.5) !important;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+
+  /* Priority badge glow — light mode */
+  .yc-ticket-row:hover [class*="bg-red-"]    { box-shadow: 0 0 6px rgba(239,68,68,0.35); }
+  .yc-ticket-row:hover [class*="bg-orange-"] { box-shadow: 0 0 6px rgba(249,115,22,0.35); }
+  .yc-ticket-row:hover [class*="bg-amber-"]  { box-shadow: 0 0 6px rgba(245,158,11,0.3); }
+  .yc-ticket-row:hover [class*="bg-blue-"]   { box-shadow: 0 0 6px rgba(59,130,246,0.3); }
+
+  /* Context menu (action dropdown) — glassmorphism shadow */
+  html.dark .bg-white.border.border-slate-200.rounded-lg.shadow-xl {
+    background: #1a2236 !important;
+    border-color: rgba(148,163,184,0.12) !important;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(16,185,129,0.08) !important;
+  }
+
+  /* Ticket table wrapper — no border-radius bleed */
+  .yc-ticket-table-wrap { overflow-x: auto; }
+
+  /* Active stat card glow — ensure accent strip visible */
+  .ring-2.ring-emerald-400 .h-\[3px\] { opacity: 1; }
+
+  /* All page section headings — live dot before title */
+  .card h3.font-semibold, .card h3.font-bold { letter-spacing: -0.01em; }
+
+  /* Notification badge pulse */
+  @keyframes notifPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
+    50%       { box-shadow: 0 0 0 4px rgba(239,68,68,0); }
+  }
+  header .bg-red-500.rounded-full { animation: notifPulse 2s ease-in-out infinite; }
+
   /* ── 10. Table row reveal animation ───────────────────────────  */
   @keyframes rowReveal {
     from { opacity: 0; transform: translateX(-6px); }
@@ -2640,15 +2730,15 @@ const TicketsList = ({ tickets, users, currentUser, onOpen, onAssign, onDelete, 
     <>
       <Breadcrumb items={breadcrumbs} onNavigate={onNavigate} />
       <div className="p-6 flex-1 overflow-y-auto scrollbar-thin" onClick={() => setMenuOpen(null)}>
-      <div className="flex items-start justify-between mb-5">
+      <div className="flex items-end justify-between mb-5">
         <div>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1">Support Centre</p>
           <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold text-slate-900">Tickets</h1>
-            {admin && <Badge className="bg-red-500 text-white">Admin</Badge>}
-            <button className="ml-3 flex items-center gap-2 px-4 py-2 rounded-xl brand-gradient text-white shadow-md text-sm">
-              <Icon name="dashboard" className="w-4 h-4" /> My Tickets
-              <Badge className="bg-white/20 text-white">{myOpenCount}</Badge>
-            </button>
+            <h1 className="text-3xl font-black text-slate-900 tracking-tight">Tickets</h1>
+            {admin && <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-violet-100 text-violet-700 text-[10px] font-black tracking-wide">ADMIN</span>}
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold border border-emerald-200">
+              <span className="live-dot"></span>{myOpenCount} active
+            </span>
           </div>
           <p className="text-sm text-slate-500 mt-1">Manage and track all support tickets</p>
         </div>
@@ -2667,16 +2757,21 @@ const TicketsList = ({ tickets, users, currentUser, onOpen, onAssign, onDelete, 
       )}
 
       {/* Tabs */}
-      <div className="flex gap-3 mb-5">
-        <button onClick={() => setTab('all')} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm transition ${tab === 'all' ? 'border-blue-500 bg-blue-50 text-blue-700 font-semibold shadow-sm' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}>
-          <Icon name="dashboard" className="w-4 h-4" /> All Tickets <Badge className={tab === 'all' ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-700'}>{tabCount('all')}</Badge>
-        </button>
-        <button onClick={() => setTab('issued')} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm transition ${tab === 'issued' ? 'border-blue-500 bg-blue-50 text-blue-700 font-semibold shadow-sm' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}>
-          <Icon name="send" className="w-4 h-4" /> Issued by Me <Badge className={tab === 'issued' ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-700'}>{tabCount('issued')}</Badge>
-        </button>
-        <button onClick={() => setTab('assigned')} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm transition ${tab === 'assigned' ? 'border-blue-500 bg-blue-50 text-blue-700 font-semibold shadow-sm' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}>
-          <Icon name="userPlus" className="w-4 h-4" /> Issued to Me <Badge className={tab === 'assigned' ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-700'}>{tabCount('assigned')}</Badge>
-        </button>
+      <div className="flex gap-2 mb-5 p-1 bg-slate-100 rounded-2xl w-fit">
+        {[
+          { id: 'all',      label: 'All Tickets', icon: 'dashboard' },
+          { id: 'issued',   label: 'Issued by Me', icon: 'send' },
+          { id: 'assigned', label: 'Assigned to Me', icon: 'userPlus' },
+        ].map(tb => (
+          <button key={tb.id} onClick={() => setTab(tb.id)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+              tab === tb.id ? 'brand-gradient text-white shadow-md' : 'text-slate-500 hover:text-slate-800'
+            }`}>
+            <Icon name={tb.icon} className="w-4 h-4" />
+            {tb.label}
+            <span className={`text-[11px] font-black px-1.5 py-0.5 rounded-md ${tab === tb.id ? 'bg-white/25 text-white' : 'bg-slate-200 text-slate-600'}`}>{tabCount(tb.id)}</span>
+          </button>
+        ))}
       </div>
 
       {/* Search and filters */}
@@ -2702,17 +2797,17 @@ const TicketsList = ({ tickets, users, currentUser, onOpen, onAssign, onDelete, 
       </div>
 
       {/* Table */}
-      <div className="card responsive-table-wrap">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 border-b border-slate-200">
+      <div className="card yc-ticket-table-wrap overflow-x-auto -webkit-overflow-scrolling-touch">
+        <table className="w-full text-sm" style={{minWidth:'860px'}}>
+          <thead className="yc-table-head border-b border-slate-100">
             <tr>
-              <th className="text-left px-4 py-3 font-semibold text-slate-600">ID</th>
-              <th className="text-left px-4 py-3 font-semibold text-slate-600">Title</th>
-              <th className="text-left px-4 py-3 font-semibold text-slate-600">Category</th>
-              <th className="text-left px-4 py-3 font-semibold text-slate-600">Priority</th>
-              <th className="text-left px-4 py-3 font-semibold text-slate-600">Status</th>
-              <th className="text-left px-4 py-3 font-semibold text-slate-600">Assigned To</th>
-              <th className="text-left px-4 py-3 font-semibold text-slate-600">Issue Date</th>
+              <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap" style={{width:'160px'}}>Ticket ID</th>
+              <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Title</th>
+              <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Category</th>
+              <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Priority</th>
+              <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+              <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Assigned To</th>
+              <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Created</th>
               <th className="w-12"></th>
             </tr>
           </thead>
@@ -2726,11 +2821,16 @@ const TicketsList = ({ tickets, users, currentUser, onOpen, onAssign, onDelete, 
               const pri = getPriority(t.priority);
               const stat = getStatus(t.status);
               return (
-                <tr key={t.id} className="border-b border-slate-100 hover:bg-slate-50 group relative">
-                  <td className="px-4 py-3"><button onClick={() => onOpen(t.id)} className="text-blue-600 hover:underline font-medium font-mono text-xs">{t.ticketNumber || `#${t.id.slice(-6).toUpperCase()}`}</button></td>
-                  <td className="px-4 py-3 max-w-xs"><div className="font-medium text-slate-800">{t.titleType || t.title}</div><div className="text-xs text-slate-500 truncate">{t.title !== (t.titleType || t.title) ? t.title : t.description}</div></td>
-                  <td className="px-4 py-3"><Badge className="border border-slate-200 bg-white text-slate-700">{cat.label}</Badge></td>
-                  <td className="px-4 py-3"><Badge className={`${pri.chip} border`}>{pri.label}</Badge></td>
+                <tr key={t.id} className="yc-ticket-row border-b border-slate-100 group relative">
+                  <td className="px-4 py-3 whitespace-nowrap" style={{width:'160px'}}>
+                    <button onClick={() => onOpen(t.id)} className="yc-ticket-id inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-mono text-xs font-bold whitespace-nowrap transition-all">
+                      <span className="yc-ticket-id-dot w-1.5 h-1.5 rounded-full flex-shrink-0"></span>
+                      {t.ticketNumber || `#${t.id.slice(-6).toUpperCase()}`}
+                    </button>
+                  </td>
+                  <td className="px-4 py-3 max-w-xs"><div className="font-semibold text-slate-800 leading-snug">{t.titleType || t.title}</div><div className="text-xs text-slate-400 truncate mt-0.5">{t.title !== (t.titleType || t.title) ? t.title : t.description}</div></td>
+                  <td className="px-4 py-3 whitespace-nowrap"><Badge className="border border-slate-200 bg-white text-slate-600 text-xs">{cat.label}</Badge></td>
+                  <td className="px-4 py-3 whitespace-nowrap"><Badge className={`${pri.chip} border text-xs`}>{pri.label}</Badge></td>
                   <td className="px-4 py-3">
                     {(() => {
                       const isClosed = ['resolved', 'closed'].includes(t.status);
@@ -2750,8 +2850,8 @@ const TicketsList = ({ tickets, users, currentUser, onOpen, onAssign, onDelete, 
                       );
                     })()}
                   </td>
-                  <td className="px-4 py-3 text-slate-700">{assignee ? assignee.name : <span className="text-slate-400">Unassigned</span>}</td>
-                  <td className="px-4 py-3 text-slate-600">{fmtShortDate(t.createdAt)}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-slate-600 text-sm">{assignee ? assignee.name : <span className="text-slate-400 italic text-xs">Unassigned</span>}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-slate-400 text-xs tabular-nums">{fmtShortDate(t.createdAt)}</td>
                   <td className="px-4 py-3 relative">
                     <button onClick={e => { e.stopPropagation(); setMenuOpen(menuOpen === t.id ? null : t.id); }} className="row-hover-actions p-1.5 rounded hover:bg-emerald-100 text-emerald-600">
                       <Icon name="moreV" className="w-5 h-5" />
