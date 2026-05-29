@@ -1417,242 +1417,243 @@
   }
 
   /* ╔══════════════════════════════════════════════════════════════
-     ║  DARK THEME — Premium Glossy Jet Black  (v2 — prominent)
+     ║  DARK THEME — YPC PowerApps Navy (matched from live app)
+     ║
+     ║  Palette extracted from YPC Ticket Management PowerApps:
+     ║  Body     #08090E  Sidebar   #0A0E15  Card      #0D1623
+     ║  NavActive #162035  Text     #FFFFFF  Muted     #6B7A8E
+     ║  Blue icon #3B8AF5  Green    #22C55E  Amber     #F59E0B
+     ║  Red       #EF4444  Brand    #7EB842
      ╚══════════════════════════════════════════════════════════════ */
 
-  /* ── Body: deep lacquer black — dual-crown reflection + green orb */
+  /* ── Body: deep navy — same depth as PowerApps canvas ──────── */
   html.dark body {
     background:
-      radial-gradient(ellipse 90% 28% at 50% 0%,   rgba(255,255,255,0.055) 0%, transparent 70%),
-      radial-gradient(ellipse 50% 45% at 8%   8%,  rgba(126,184,66,0.10)   0%, transparent 55%),
-      radial-gradient(ellipse 40% 35% at 92%  12%, rgba(126,184,66,0.06)   0%, transparent 50%),
-      radial-gradient(ellipse 60% 30% at 50% 100%, rgba(0,0,0,0.60)        0%, transparent 80%),
-      linear-gradient(175deg, #111111 0%, #0a0a0a 40%, #060606 75%, #030303 100%) !important;
-    color: #f0f0f0;
+      radial-gradient(ellipse 70% 40% at 10% 0%,  rgba(59,138,245,0.06)  0%, transparent 60%),
+      radial-gradient(ellipse 50% 35% at 90% 10%, rgba(126,184,66,0.05)  0%, transparent 55%),
+      linear-gradient(175deg, #0c0f18 0%, #090c14 40%, #08090e 80%, #070810 100%) !important;
+    color: #e8edf5;
   }
 
-  /* App shell wrapper dark */
+  /* App shell wrapper */
   html.dark .brand-gradient-soft {
     background:
-      radial-gradient(ellipse 80% 28% at 50% 0%, rgba(255,255,255,0.040) 0%, transparent 65%),
-      radial-gradient(ellipse 45% 40% at 8% 8%,  rgba(126,184,66,0.08)  0%, transparent 55%),
-      linear-gradient(175deg, #111111 0%, #0a0a0a 45%, #060606 100%) !important;
+      radial-gradient(ellipse 65% 38% at 8% 0%, rgba(59,138,245,0.05) 0%, transparent 58%),
+      linear-gradient(175deg, #0c0f18 0%, #090c14 45%, #08090e 100%) !important;
   }
 
-  /* ── Sidebar: lacquered piano-black with green crown glow ─── */
+  /* ── Sidebar: dark navy — exactly the PowerApps sidebar tone ── */
   html.dark aside {
-    background:
-      radial-gradient(ellipse 100% 25% at 50% 0%, rgba(126,184,66,0.12) 0%, transparent 70%),
-      linear-gradient(180deg,
-        #1a1a1a 0%,
-        #111111 30%,
-        #0a0a0a 65%,
-        #070707 100%) !important;
+    background: linear-gradient(180deg,
+      #0f1420 0%,
+      #0b1019 45%,
+      #080d16 100%) !important;
     box-shadow:
-      6px 0 48px rgba(0,0,0,0.90),
-      2px 0 0 rgba(255,255,255,0.04),
-      inset -1px 0 0 rgba(255,255,255,0.04),
-      inset 0 1px 0 rgba(126,184,66,0.10) !important;
-    border-right: 1px solid rgba(126,184,66,0.12) !important;
+      1px 0 0 rgba(255,255,255,0.05),
+      4px 0 24px rgba(0,0,0,0.55),
+      inset -1px 0 0 rgba(59,138,245,0.08) !important;
+    border-right: 1px solid rgba(255,255,255,0.06) !important;
   }
 
-  /* Sidebar active item — vivid green accent bar + glow */
+  /* Active nav item — PowerApps teal-navy pill with left green bar */
   html.dark aside a[class*="brand-gradient"],
   html.dark aside button[class*="brand-gradient"] {
+    background: linear-gradient(135deg,
+      rgba(59,138,245,0.18) 0%,
+      rgba(22,32,53,0.95)  50%,
+      rgba(16,24,42,0.90)  100%) !important;
+    border-radius: 12px !important;
     box-shadow:
       inset 4px 0 0 #7eb842,
-      0 0 24px rgba(126,184,66,0.22),
-      inset 0 0 20px rgba(126,184,66,0.06) !important;
+      0 2px 16px rgba(0,0,0,0.40) !important;
+    border: 1px solid rgba(59,138,245,0.12) !important;
+    color: #ffffff !important;
   }
-  html.dark aside a:hover,
-  html.dark aside button:hover {
-    box-shadow: inset 0 0 0 1px rgba(126,184,66,0.20) !important;
+  html.dark aside a:hover:not([class*="brand-gradient"]),
+  html.dark aside button:hover:not([class*="brand-gradient"]) {
+    background: rgba(59,138,245,0.08) !important;
+    border-radius: 10px;
   }
 
-  /* ── Topbar dark: ultra-dark glass + green accent line ─────── */
+  /* ── Topbar: dark navy bar matching PowerApps header ───────── */
   html.dark header.h-14 {
     background: linear-gradient(90deg,
-      rgba(12,12,12,0.99) 0%,
-      rgba(18,18,18,0.97) 60%,
-      rgba(14,14,14,0.99) 100%) !important;
-    border-color: rgba(255,255,255,0.04) !important;
-    backdrop-filter: blur(28px) saturate(140%) !important;
+      rgba(8,9,14,0.99) 0%,
+      rgba(10,12,18,0.98) 60%,
+      rgba(9,10,16,0.99) 100%) !important;
+    border-color: rgba(255,255,255,0.06) !important;
+    backdrop-filter: blur(20px) saturate(150%) !important;
     box-shadow:
-      0 1px 0 rgba(255,255,255,0.04),
-      0 2px 0 rgba(126,184,66,0.18),
-      0 6px 32px rgba(0,0,0,0.80),
-      0 0 0 1px rgba(0,0,0,0.90) !important;
+      0 1px 0 rgba(255,255,255,0.05),
+      0 1px 0 rgba(126,184,66,0.15),
+      0 4px 20px rgba(0,0,0,0.50) !important;
   }
 
-  /* ── Cards: deep black gloss with multi-layer depth ────────── */
+  /* ── Cards: dark blue-navy — PowerApps stat card tone ──────── */
   html.dark .card {
-    background: linear-gradient(150deg,
-      rgba(32,32,32,0.95) 0%,
-      rgba(20,20,20,0.97) 35%,
-      rgba(14,14,14,0.99) 70%,
-      rgba(10,10,10,1.0)  100%) !important;
-    border: 1px solid rgba(255,255,255,0.08) !important;
-    backdrop-filter: blur(24px) saturate(140%) !important;
+    background: linear-gradient(145deg,
+      #111b2e 0%,
+      #0e1828 55%,
+      #0c1522 100%) !important;
+    border: 1px solid rgba(59,138,245,0.12) !important;
+    backdrop-filter: blur(12px) !important;
     box-shadow:
-      inset 0 1.5px 0 rgba(255,255,255,0.09),
-      inset 0 -1px 0 rgba(0,0,0,0.60),
-      inset 1px 0 0 rgba(255,255,255,0.03),
-      0 6px 36px rgba(0,0,0,0.75),
-      0 2px 8px rgba(0,0,0,0.60),
-      0 1px 2px rgba(0,0,0,0.90) !important;
-    color: #f0f0f0;
+      inset 0 1px 0 rgba(255,255,255,0.06),
+      0 4px 24px rgba(0,0,0,0.45),
+      0 1px 4px rgba(0,0,0,0.35) !important;
+    color: #e8edf5;
   }
-  /* Card top accent — vivid green line */
+  /* Card accent line — green + blue matching PowerApps palette */
   html.dark .card::before {
-    height: 3px !important;
+    height: 2px !important;
     background: linear-gradient(90deg,
       transparent 0%,
-      rgba(126,184,66,0.50) 20%,
-      rgba(176,228,85,0.65) 50%,
-      rgba(126,184,66,0.50) 80%,
+      rgba(59,138,245,0.45) 30%,
+      rgba(126,184,66,0.50) 60%,
       transparent 100%) !important;
   }
   html.dark .card:hover {
-    border-color: rgba(126,184,66,0.30) !important;
+    border-color: rgba(59,138,245,0.25) !important;
     box-shadow:
-      inset 0 1.5px 0 rgba(255,255,255,0.12),
-      inset 0 -1px 0 rgba(0,0,0,0.50),
-      0 0 0 1px rgba(126,184,66,0.25),
-      0 24px 60px rgba(0,0,0,0.80),
-      0 8px 24px rgba(0,0,0,0.50),
-      0 0 48px rgba(126,184,66,0.14) !important;
-    transform: translateY(-4px) !important;
+      inset 0 1px 0 rgba(255,255,255,0.08),
+      0 0 0 1px rgba(59,138,245,0.20),
+      0 16px 48px rgba(0,0,0,0.55),
+      0 0 32px rgba(59,138,245,0.08) !important;
+    transform: translateY(-3px) !important;
   }
 
-  /* General dark backgrounds */
-  html.dark .bg-white     { background: rgba(16,16,16,0.97) !important; }
-  html.dark .bg-slate-50  { background-color: #0c0c0c !important; }
-  html.dark .bg-slate-100 { background-color: #0f0f0f !important; }
-  html.dark .bg-slate-200 { background-color: #181818 !important; }
+  /* General dark surfaces */
+  html.dark .bg-white     { background: #0e1828 !important; }
+  html.dark .bg-slate-50  { background-color: #090c14 !important; }
+  html.dark .bg-slate-100 { background-color: #0c1020 !important; }
+  html.dark .bg-slate-200 { background-color: #111b2e !important; }
 
-  /* Stat cards — rich black gloss with vivid color leads */
+  /* ── Stat cards — PowerApps color-tinted dark cards ─────────── */
+  /* Total: blue-navy (same as base card) */
   html.dark .stat-total {
     background: linear-gradient(145deg,
-      rgba(126,184,66,0.28) 0%,
-      rgba(85,140,30,0.14) 40%,
-      rgba(12,12,12,0.97) 100%) !important;
-    border: 1px solid rgba(126,184,66,0.28) !important;
-    box-shadow: inset 0 1px 0 rgba(176,228,85,0.12), 0 4px 20px rgba(0,0,0,0.60) !important;
+      #0f1d32 0%, #0c1828 55%, #0a1422 100%) !important;
+    border: 1px solid rgba(59,138,245,0.18) !important;
+    box-shadow: inset 0 1px 0 rgba(59,138,245,0.10), 0 4px 20px rgba(0,0,0,0.45) !important;
   }
+  /* Open: cyan-navy */
   html.dark .stat-open {
     background: linear-gradient(145deg,
-      rgba(6,182,212,0.28) 0%,
-      rgba(3,110,140,0.14) 40%,
-      rgba(12,12,12,0.97) 100%) !important;
-    border: 1px solid rgba(6,182,212,0.28) !important;
-    box-shadow: inset 0 1px 0 rgba(100,230,255,0.12), 0 4px 20px rgba(0,0,0,0.60) !important;
+      #0c1e30 0%, #091928 55%, #081422 100%) !important;
+    border: 1px solid rgba(6,182,212,0.18) !important;
+    box-shadow: inset 0 1px 0 rgba(6,182,212,0.10), 0 4px 20px rgba(0,0,0,0.45) !important;
   }
+  /* In Progress: blue-navy (lighter blue tint) */
   html.dark .stat-prog {
     background: linear-gradient(145deg,
-      rgba(14,165,233,0.28) 0%,
-      rgba(7,90,130,0.14) 40%,
-      rgba(12,12,12,0.97) 100%) !important;
-    border: 1px solid rgba(14,165,233,0.28) !important;
-    box-shadow: inset 0 1px 0 rgba(100,210,255,0.12), 0 4px 20px rgba(0,0,0,0.60) !important;
+      #0d1c30 0%, #0a1828 55%, #081322 100%) !important;
+    border: 1px solid rgba(14,165,233,0.18) !important;
+    box-shadow: inset 0 1px 0 rgba(14,165,233,0.10), 0 4px 20px rgba(0,0,0,0.45) !important;
   }
+  /* Resolved: dark forest green — exact PowerApps match */
   html.dark .stat-res {
     background: linear-gradient(145deg,
-      rgba(20,184,166,0.28) 0%,
-      rgba(10,100,90,0.14) 40%,
-      rgba(12,12,12,0.97) 100%) !important;
-    border: 1px solid rgba(20,184,166,0.28) !important;
-    box-shadow: inset 0 1px 0 rgba(80,230,210,0.12), 0 4px 20px rgba(0,0,0,0.60) !important;
+      #0c1e14 0%, #091a10 55%, #07140c 100%) !important;
+    border: 1px solid rgba(34,197,94,0.20) !important;
+    box-shadow: inset 0 1px 0 rgba(34,197,94,0.10), 0 4px 20px rgba(0,0,0,0.45) !important;
   }
+  /* Escalated: dark amber-brown — exact PowerApps match */
   html.dark .stat-esc {
     background: linear-gradient(145deg,
-      rgba(249,115,22,0.28) 0%,
-      rgba(150,65,5,0.14) 40%,
-      rgba(12,12,12,0.97) 100%) !important;
-    border: 1px solid rgba(249,115,22,0.28) !important;
-    box-shadow: inset 0 1px 0 rgba(255,160,80,0.12), 0 4px 20px rgba(0,0,0,0.60) !important;
+      #22160a 0%, #1c1108 55%, #160d06 100%) !important;
+    border: 1px solid rgba(245,158,11,0.22) !important;
+    box-shadow: inset 0 1px 0 rgba(245,158,11,0.10), 0 4px 20px rgba(0,0,0,0.45) !important;
   }
+  /* Urgent: dark red-maroon — exact PowerApps match */
   html.dark .stat-urg {
     background: linear-gradient(145deg,
-      rgba(239,68,68,0.28) 0%,
-      rgba(140,20,20,0.14) 40%,
-      rgba(12,12,12,0.97) 100%) !important;
-    border: 1px solid rgba(239,68,68,0.28) !important;
-    box-shadow: inset 0 1px 0 rgba(255,120,120,0.12), 0 4px 20px rgba(0,0,0,0.60) !important;
+      #200c0c 0%, #180808 55%, #120606 100%) !important;
+    border: 1px solid rgba(239,68,68,0.22) !important;
+    box-shadow: inset 0 1px 0 rgba(239,68,68,0.10), 0 4px 20px rgba(0,0,0,0.45) !important;
   }
 
-  /* Stat card hover glows — more dramatic */
-  html.dark .stat-total:hover { box-shadow: 0 0 0 1.5px rgba(126,184,66,0.50), 0 0 40px rgba(126,184,66,0.26), 0 12px 32px rgba(0,0,0,0.60) !important; transform: translateY(-3px) !important; }
-  html.dark .stat-open:hover  { box-shadow: 0 0 0 1.5px rgba(6,182,212,0.50),  0 0 40px rgba(6,182,212,0.26),  0 12px 32px rgba(0,0,0,0.60) !important; transform: translateY(-3px) !important; }
-  html.dark .stat-prog:hover  { box-shadow: 0 0 0 1.5px rgba(14,165,233,0.50), 0 0 40px rgba(14,165,233,0.26), 0 12px 32px rgba(0,0,0,0.60) !important; transform: translateY(-3px) !important; }
-  html.dark .stat-res:hover   { box-shadow: 0 0 0 1.5px rgba(20,184,166,0.50), 0 0 40px rgba(20,184,166,0.26), 0 12px 32px rgba(0,0,0,0.60) !important; transform: translateY(-3px) !important; }
-  html.dark .stat-esc:hover   { box-shadow: 0 0 0 1.5px rgba(249,115,22,0.50), 0 0 40px rgba(249,115,22,0.26), 0 12px 32px rgba(0,0,0,0.60) !important; transform: translateY(-3px) !important; }
-  html.dark .stat-urg:hover   { box-shadow: 0 0 0 1.5px rgba(239,68,68,0.50),  0 0 40px rgba(239,68,68,0.26),  0 12px 32px rgba(0,0,0,0.60) !important; transform: translateY(-3px) !important; }
+  /* Stat card hover — clean glow matching their accent color */
+  html.dark .stat-total:hover { box-shadow: 0 0 0 1px rgba(59,138,245,0.35),  0 0 32px rgba(59,138,245,0.18),  0 8px 28px rgba(0,0,0,0.50) !important; transform: translateY(-3px) !important; }
+  html.dark .stat-open:hover  { box-shadow: 0 0 0 1px rgba(6,182,212,0.35),   0 0 32px rgba(6,182,212,0.18),   0 8px 28px rgba(0,0,0,0.50) !important; transform: translateY(-3px) !important; }
+  html.dark .stat-prog:hover  { box-shadow: 0 0 0 1px rgba(14,165,233,0.35),  0 0 32px rgba(14,165,233,0.18),  0 8px 28px rgba(0,0,0,0.50) !important; transform: translateY(-3px) !important; }
+  html.dark .stat-res:hover   { box-shadow: 0 0 0 1px rgba(34,197,94,0.40),   0 0 32px rgba(34,197,94,0.20),   0 8px 28px rgba(0,0,0,0.50) !important; transform: translateY(-3px) !important; }
+  html.dark .stat-esc:hover   { box-shadow: 0 0 0 1px rgba(245,158,11,0.40),  0 0 32px rgba(245,158,11,0.20),  0 8px 28px rgba(0,0,0,0.50) !important; transform: translateY(-3px) !important; }
+  html.dark .stat-urg:hover   { box-shadow: 0 0 0 1px rgba(239,68,68,0.40),   0 0 32px rgba(239,68,68,0.20),   0 8px 28px rgba(0,0,0,0.50) !important; transform: translateY(-3px) !important; }
 
-  /* Dark table */
+  /* ── Table rows — PowerApps subtle navy highlight ───────────── */
   html.dark tbody tr:hover {
     background: linear-gradient(90deg,
-      rgba(126,184,66,0.08) 0%,
-      rgba(126,184,66,0.03) 60%,
+      rgba(59,138,245,0.08) 0%,
+      rgba(59,138,245,0.04) 60%,
       transparent 100%) !important;
     box-shadow: inset 4px 0 0 rgba(126,184,66,0.70) !important;
   }
   html.dark thead.bg-slate-50 {
-    background: linear-gradient(90deg, #0d0d0d 0%, #111111 100%) !important;
-    box-shadow: 0 1px 0 rgba(126,184,66,0.10) !important;
+    background: linear-gradient(90deg, #090c14 0%, #0c1020 100%) !important;
+    border-bottom: 1px solid rgba(59,138,245,0.10) !important;
   }
-  html.dark tbody tr { border-color: rgba(255,255,255,0.035) !important; }
+  html.dark tbody tr { border-color: rgba(255,255,255,0.04) !important; }
 
-  /* Dark scrollbar */
-  html.dark .scrollbar-thin::-webkit-scrollbar-track { background: #080808; }
+  /* ── Scrollbar — PowerApps green brand ─────────────────────── */
+  html.dark .scrollbar-thin::-webkit-scrollbar-track { background: #090c14; }
   html.dark .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, #8ec940, #6aaa30);
+    background: linear-gradient(180deg, #7eb842, #5f9a28);
+    border-radius: 10px;
     border: 1px solid rgba(255,255,255,0.06);
   }
   html.dark .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(180deg, #b0e455, #7eb842);
+    background: linear-gradient(180deg, #a8d857, #7eb842);
   }
 
-  /* Dark input focus */
+  /* ── Input focus — PowerApps blue ring ─────────────────────── */
   html.dark input:focus, html.dark select:focus, html.dark textarea:focus {
-    border-color: rgba(126,184,66,0.80) !important;
+    border-color: rgba(59,138,245,0.70) !important;
     box-shadow:
-      0 0 0 1px rgba(126,184,66,0.50),
-      0 0 0 4px rgba(126,184,66,0.20),
-      0 0 24px rgba(126,184,66,0.14) !important;
+      0 0 0 1px rgba(59,138,245,0.45),
+      0 0 0 4px rgba(59,138,245,0.15),
+      0 0 20px rgba(59,138,245,0.10) !important;
   }
 
-  /* Dark modal / popover */
+  /* ── Modals / popovers — dark navy glass ────────────────────── */
   html.dark .bg-white.rounded-2xl,
   html.dark .bg-white.rounded-xl,
   html.dark div[class*="bg-white"][class*="rounded"] {
-    background: linear-gradient(150deg,
-      rgba(24,24,24,0.98) 0%,
-      rgba(14,14,14,0.99) 100%) !important;
-    border: 1px solid rgba(255,255,255,0.07) !important;
+    background: linear-gradient(145deg,
+      #111b2e 0%,
+      #0e1828 100%) !important;
+    border: 1px solid rgba(59,138,245,0.14) !important;
     box-shadow:
-      inset 0 1px 0 rgba(255,255,255,0.07),
-      0 32px 80px rgba(0,0,0,0.85) !important;
+      inset 0 1px 0 rgba(255,255,255,0.06),
+      0 32px 80px rgba(0,0,0,0.70) !important;
   }
 
-  /* Dark recharts tooltip */
+  /* ── Recharts tooltip — dark navy ──────────────────────────── */
   html.dark .recharts-default-tooltip {
-    background: rgba(14,14,14,0.99) !important;
-    border: 1px solid rgba(126,184,66,0.20) !important;
+    background: #0e1828 !important;
+    border: 1px solid rgba(59,138,245,0.22) !important;
     box-shadow:
-      0 24px 48px rgba(0,0,0,0.85),
-      0 0 0 1px rgba(126,184,66,0.12),
+      0 16px 40px rgba(0,0,0,0.65),
+      0 0 0 1px rgba(59,138,245,0.10),
       inset 0 1px 0 rgba(255,255,255,0.06) !important;
   }
   html.dark .recharts-default-tooltip .recharts-tooltip-label,
-  html.dark .recharts-default-tooltip .recharts-tooltip-item { color: #f0f0f0 !important; }
+  html.dark .recharts-default-tooltip .recharts-tooltip-item { color: #e8edf5 !important; }
 
-  /* Dark badge glows — more vivid */
-  html.dark span.bg-emerald-50  { background: rgba(16,185,129,0.16) !important; box-shadow: 0 0 14px rgba(16,185,129,0.35); }
-  html.dark span.bg-blue-50     { background: rgba(59,130,246,0.16)  !important; box-shadow: 0 0 14px rgba(59,130,246,0.30); }
-  html.dark span.bg-amber-50    { background: rgba(245,158,11,0.16)  !important; box-shadow: 0 0 14px rgba(245,158,11,0.30); }
-  html.dark span.bg-red-50      { background: rgba(239,68,68,0.16)   !important; box-shadow: 0 0 14px rgba(239,68,68,0.30); }
-  html.dark span.bg-violet-50   { background: rgba(139,92,246,0.16)  !important; box-shadow: 0 0 14px rgba(139,92,246,0.35); }
-  html.dark span.bg-cyan-50     { background: rgba(6,182,212,0.16)   !important; box-shadow: 0 0 14px rgba(6,182,212,0.30); }
+  /* ── Badges — PowerApps clean dark tints ────────────────────── */
+  html.dark span.bg-emerald-50  { background: rgba(34,197,94,0.14)  !important; box-shadow: 0 0 12px rgba(34,197,94,0.20); }
+  html.dark span.bg-blue-50     { background: rgba(59,130,246,0.14) !important; box-shadow: 0 0 12px rgba(59,130,246,0.20); }
+  html.dark span.bg-amber-50    { background: rgba(245,158,11,0.14) !important; box-shadow: 0 0 12px rgba(245,158,11,0.20); }
+  html.dark span.bg-red-50      { background: rgba(239,68,68,0.14)  !important; box-shadow: 0 0 12px rgba(239,68,68,0.20); }
+  html.dark span.bg-violet-50   { background: rgba(139,92,246,0.14) !important; box-shadow: 0 0 12px rgba(139,92,246,0.20); }
+  html.dark span.bg-cyan-50     { background: rgba(6,182,212,0.14)  !important; box-shadow: 0 0 12px rgba(6,182,212,0.20); }
+
+  /* ── Text colours in dark — PowerApps exact tones ───────────── */
+  html.dark .text-slate-400  { color: #6b7a8e !important; }
+  html.dark .text-slate-500  { color: #8090a8 !important; }
+  html.dark .text-slate-600  { color: #9aaabf !important; }
+  html.dark .text-slate-700  { color: #b8c8dc !important; }
+  html.dark .text-slate-800  { color: #d0dcea !important; }
+  html.dark .text-slate-900  { color: #e8edf5 !important; }
 
   /* ══════════════════════════════════════════════════════════════
      ██  ALL BUTTONS — Glossy #7eb842 Lime Green  (v2 — 3D gloss)
