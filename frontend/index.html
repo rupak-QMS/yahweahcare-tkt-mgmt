@@ -11,8 +11,11 @@
 <title>Yahweh Care — Ticket Management</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
 <link rel="apple-touch-icon" href="apple-touch-icon.svg" />
-<meta name="theme-color" content="#10b981" />
+<meta name="theme-color" content="#6366F1" />
 <meta name="hrms-api" content="https://yahweahcare-tkt-mgmt-hx48.vercel.app" />
+<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
 <script src="https://cdn.tailwindcss.com"></script>
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -20,86 +23,215 @@
 <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
 <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
 <style>
+  /* ═══════════════════════════════════════════════════════════════
+     PREMIUM ENTERPRISE THEME — Yahweh Care CRM
+     Inspired by Linear · Notion · Vercel · Stripe · Salesforce
+     ═══════════════════════════════════════════════════════════════ */
   :root {
-    --brand-from: #10b981;
-    --brand-to: #14b8a6;
-    --bg: #f8fafc;
-    --border: #e2e8f0;
+    /* Brand palette — Indigo / Violet / Cyan */
+    --brand-from:    #6366F1;
+    --brand-mid:     #8B5CF6;
+    --brand-to:      #06B6D4;
+    --brand-accent:  #0EA5E9;
+    --brand-teal:    #14B8A6;
+
+    /* Light mode surfaces */
+    --bg:            #F4F7FB;
+    --bg-secondary:  #FFFFFF;
+    --border:        rgba(15,23,42,0.06);
+    --border-card:   rgba(15,23,42,0.08);
+
+    /* Elevation shadows */
+    --shadow-xs:  0 1px 3px rgba(99,102,241,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-sm:  0 2px 8px rgba(99,102,241,0.08), 0 1px 3px rgba(0,0,0,0.05);
+    --shadow-md:  0 4px 20px rgba(99,102,241,0.10), 0 2px 6px rgba(0,0,0,0.05);
+    --shadow-lg:  0 8px 32px rgba(99,102,241,0.12), 0 4px 12px rgba(0,0,0,0.06);
+    --shadow-xl:  0 20px 45px rgba(15,23,42,0.12), 0 8px 20px rgba(0,0,0,0.05);
+
+    /* Transitions */
+    --ease-premium: cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-sm: all 0.2s var(--ease-premium);
+    --transition-md: all 0.3s var(--ease-premium);
   }
   html, body, #root { height: 100%; margin: 0; }
-  body { background: var(--bg); color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; }
-  .brand-gradient { background: linear-gradient(135deg, var(--brand-from) 0%, var(--brand-to) 100%); }
-  .brand-gradient-soft { background: linear-gradient(135deg, rgba(16,185,129,0.06) 0%, rgba(20,184,166,0.04) 100%); }
-  .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
-  .scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-  .fade-in { animation: fadeIn 0.25s ease-in; }
-  .slide-in-right { animation: slideInRight 0.3s cubic-bezier(.4,0,.2,1); }
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: translateY(0); } }
-  @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-  .live-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10b981; animation: pulse 1.5s infinite; }
-  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-  /* ── Loading screen ─────────────────────────────────────────────────────── */
+  body {
+    /* Light mode — soft lavender-white premium base */
+    background:
+      radial-gradient(ellipse 110% 55% at 0%   0%,   rgba(99,102,241,0.10)  0%, transparent 52%),
+      radial-gradient(ellipse 75%  75% at 100% 0%,   rgba(139,92,246,0.08)  0%, transparent 50%),
+      radial-gradient(ellipse 55%  50% at 50%  100%,  rgba(6,182,212,0.07)  0%, transparent 55%),
+      linear-gradient(170deg, #F4F7FB 0%, #F8FAFC 50%, #F0F4FF 100%);
+    color: #0F172A;
+    font-family: 'Inter', 'SF Pro Display', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: -0.011em;
+  }
+  /* ── Brand gradient — Indigo → Violet → Cyan ──────────────────── */
+  .brand-gradient {
+    background: linear-gradient(135deg, var(--brand-from) 0%, var(--brand-mid) 48%, var(--brand-to) 100%);
+  }
+  /* ── App shell wrapper (the flex h-screen container) ─────────── */
+  .brand-gradient-soft {
+    background:
+      radial-gradient(ellipse 95% 50% at 0%   0%, rgba(99,102,241,0.08)  0%, transparent 52%),
+      radial-gradient(ellipse 65% 65% at 100% 0%, rgba(139,92,246,0.06)  0%, transparent 50%),
+      linear-gradient(165deg, #F4F7FB 0%, #F8FAFC 55%, #F0F4FF 100%);
+  }
+  /* ── Premium scrollbar ─────────────────────────────────────────── */
+  .scrollbar-thin::-webkit-scrollbar { width: 5px; height: 5px; }
+  .scrollbar-thin::-webkit-scrollbar-track { background: rgba(241,245,249,0.6); border-radius: 10px; }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #818CF8, #A78BFA);
+    border-radius: 10px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #6366F1, #8B5CF6); }
+  html.dark .scrollbar-thin::-webkit-scrollbar-track { background: #111827; }
+  html.dark .scrollbar-thin::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #6366F1, #8B5CF6); }
+
+  /* ── Core animations ──────────────────────────────────────────── */
+  .fade-in { animation: fadeIn 0.28s var(--ease-premium); }
+  .slide-in-right { animation: slideInRight 0.32s var(--ease-premium); }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes slideInRight {
+    from { transform: translateX(100%); opacity: 0; }
+    to   { transform: translateX(0);    opacity: 1; }
+  }
+
+  /* ── Fade-up (premium entry) ──────────────────────────────────── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .fade-up { animation: fadeUp 0.4s var(--ease-premium) both; }
+
+  /* ── Live dot ─────────────────────────────────────────────────── */
+  .live-dot {
+    display: inline-block; width: 6px; height: 6px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #6366F1, #8B5CF6);
+    animation: liveGlow 1.8s ease-in-out infinite;
+    box-shadow: 0 0 6px rgba(99,102,241,0.7);
+  }
+  @keyframes liveGlow {
+    0%, 100% { opacity: 1;   box-shadow: 0 0 6px 1px rgba(99,102,241,0.65); }
+    50%       { opacity: 0.5; box-shadow: 0 0 3px 0  rgba(99,102,241,0.30); }
+  }
+  /* ── Loading screen — premium animated gradient ─────────────────── */
   #loading {
     position: fixed; inset: 0;
     display: flex; align-items: center; justify-content: center;
     flex-direction: column; z-index: 9999; overflow: hidden;
-    background: linear-gradient(135deg, #0d9268 0%, #10b981 45%, #14b8a6 100%);
+    background: linear-gradient(135deg, #4338CA 0%, #6366F1 30%, #8B5CF6 65%, #06B6D4 100%);
     color: white;
+    font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif;
   }
-  /* Animated mesh orbs behind the spinner */
+  /* Animated mesh orbs */
   #loading::before, #loading::after {
     content: ''; position: absolute; border-radius: 50%; pointer-events: none;
-    animation: orbFloat 6s ease-in-out infinite alternate;
+    animation: orbFloat 7s ease-in-out infinite alternate;
   }
   #loading::before {
-    width: 520px; height: 520px; top: -160px; left: -140px;
-    background: radial-gradient(circle, rgba(255,255,255,0.18) 0%, transparent 70%);
+    width: 560px; height: 560px; top: -180px; left: -160px;
+    background: radial-gradient(circle, rgba(255,255,255,0.16) 0%, transparent 68%);
   }
   #loading::after {
-    width: 400px; height: 400px; bottom: -120px; right: -100px;
-    background: radial-gradient(circle, rgba(255,255,255,0.14) 0%, transparent 70%);
-    animation-delay: -3s;
+    width: 440px; height: 440px; bottom: -130px; right: -110px;
+    background: radial-gradient(circle, rgba(6,182,212,0.22) 0%, transparent 68%);
+    animation-delay: -3.5s;
   }
   @keyframes orbFloat {
     from { transform: translate(0,0) scale(1); }
-    to   { transform: translate(30px, 20px) scale(1.08); }
+    to   { transform: translate(28px, 18px) scale(1.09); }
   }
-  /* Neon-ring spinner */
+  /* Premium neon-ring spinner */
   #loading .spinner {
-    position: relative; width: 56px; height: 56px; margin-bottom: 24px;
+    position: relative; width: 60px; height: 60px; margin-bottom: 28px;
   }
   #loading .spinner::before, #loading .spinner::after {
     content: ''; position: absolute; inset: 0; border-radius: 50%;
   }
   #loading .spinner::before {
-    border: 4px solid rgba(255,255,255,0.22);
+    border: 3px solid rgba(255,255,255,0.20);
   }
   #loading .spinner::after {
-    border: 4px solid transparent;
+    border: 3px solid transparent;
     border-top-color: white;
-    border-right-color: rgba(255,255,255,0.6);
-    animation: spin 0.85s cubic-bezier(0.6,0.1,0.4,0.9) infinite;
-    box-shadow: 0 0 18px rgba(255,255,255,0.4), inset 0 0 10px rgba(255,255,255,0.1);
-    filter: drop-shadow(0 0 8px rgba(255,255,255,0.6));
+    border-right-color: rgba(255,255,255,0.55);
+    animation: spin 0.9s cubic-bezier(0.6,0.1,0.4,0.9) infinite;
+    box-shadow: 0 0 20px rgba(255,255,255,0.35), inset 0 0 12px rgba(255,255,255,0.08);
+    filter: drop-shadow(0 0 10px rgba(255,255,255,0.5));
   }
   #loading h1 {
-    font-size: 22px; font-weight: 700; margin: 0; letter-spacing: -0.3px;
-    text-shadow: 0 2px 12px rgba(0,0,0,0.2);
-    animation: fadeSlideUp 0.5s ease both 0.1s;
+    font-size: 23px; font-weight: 700; margin: 0; letter-spacing: -0.4px;
+    text-shadow: 0 2px 16px rgba(0,0,0,0.25);
+    animation: fadeSlideUp 0.55s ease both 0.1s;
   }
   #loading p {
-    margin-top: 8px; opacity: 0.82; font-size: 13px;
-    animation: fadeSlideUp 0.5s ease both 0.25s;
+    margin-top: 9px; opacity: 0.80; font-size: 13.5px;
+    animation: fadeSlideUp 0.55s ease both 0.28s;
   }
   @keyframes spin        { to { transform: rotate(360deg); } }
-  @keyframes fadeSlideUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
-  .card { background: white; border: 1px solid var(--border); border-radius: 14px; transition: box-shadow 0.25s ease, border-color 0.25s ease; }
-  .stat-total { background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%); }
-  .stat-open  { background: linear-gradient(135deg, #ecfeff 0%, #f8fafc 100%); }
-  .stat-prog  { background: linear-gradient(135deg, #f0f9ff 0%, #f8fafc 100%); }
-  .stat-res   { background: linear-gradient(135deg, #ecfdf5 0%, #f8fafc 100%); }
-  .stat-esc   { background: linear-gradient(135deg, #fff7ed 0%, #f8fafc 100%); }
-  .stat-urg   { background: linear-gradient(135deg, #fef2f2 0%, #f8fafc 100%); }
+  @keyframes fadeSlideUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+  /* ── Base card — premium glassmorphism ─────────────────────────── */
+  .card {
+    background: rgba(255,255,255,0.82);
+    border: 1px solid var(--border-card);
+    border-radius: 18px;
+    box-shadow: var(--shadow-xs);
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
+    transition: box-shadow 0.3s var(--ease-premium),
+                border-color 0.3s var(--ease-premium),
+                transform 0.25s var(--ease-premium);
+    position: relative;
+    overflow: hidden;
+  }
+  /* Top gradient accent line — indigo → violet → cyan */
+  .card::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 2px;
+    border-radius: 18px 18px 0 0;
+    background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(99,102,241,0.40) 25%,
+      rgba(139,92,246,0.35) 55%,
+      rgba(6,182,212,0.30) 80%,
+      transparent 100%);
+    pointer-events: none;
+  }
+
+  /* ── Stat cards — premium gradient bands (light mode) ────────── */
+  .stat-total {
+    background: linear-gradient(135deg, #C7D2FE 0%, #DDE4FF 50%, #EEF2FF 100%);
+    border-color: #C7D2FE;
+  }
+  .stat-open {
+    background: linear-gradient(135deg, #A5F3FC 0%, #CFFAFE 50%, #ECFEFF 100%);
+    border-color: #A5F3FC;
+  }
+  .stat-prog {
+    background: linear-gradient(135deg, #BAE6FD 0%, #E0F2FE 50%, #F0F9FF 100%);
+    border-color: #BAE6FD;
+  }
+  .stat-res {
+    background: linear-gradient(135deg, #99F6E4 0%, #CCFBF1 50%, #F0FDFA 100%);
+    border-color: #99F6E4;
+  }
+  .stat-esc {
+    background: linear-gradient(135deg, #FED7AA 0%, #FFEDD5 50%, #FFF7ED 100%);
+    border-color: #FED7AA;
+  }
+  .stat-urg {
+    background: linear-gradient(135deg, #FECACA 0%, #FEE2E2 50%, #FFF5F5 100%);
+    border-color: #FECACA;
+  }
   .row-hover-actions { opacity: 0; transition: opacity 0.15s; }
   tr:hover .row-hover-actions, .group:hover .row-hover-actions { opacity: 1; }
   /* On touch devices, action menus are always visible (no hover state) */
@@ -135,14 +267,15 @@
     padding: 10px 14px !important;
   }
   html.dark .recharts-default-tooltip {
-    background: rgba(30,41,59,0.96) !important;
-    border-color: rgba(148,163,184,0.18) !important;
-    color: #f1f5f9 !important;
-    box-shadow: 0 12px 32px rgba(0,0,0,0.5) !important;
+    background: rgba(18,26,43,0.96) !important;
+    border-color: rgba(255,255,255,0.10) !important;
+    color: #F1F5F9 !important;
+    backdrop-filter: blur(20px) !important;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.55), 0 0 0 1px rgba(99,102,241,0.12) !important;
   }
   html.dark .recharts-default-tooltip .recharts-tooltip-label,
-  html.dark .recharts-default-tooltip .recharts-tooltip-item { color: #f1f5f9 !important; }
-  html.dark .recharts-default-tooltip .recharts-tooltip-item-name { color: #cbd5e1 !important; }
+  html.dark .recharts-default-tooltip .recharts-tooltip-item { color: #F1F5F9 !important; }
+  html.dark .recharts-default-tooltip .recharts-tooltip-item-name { color: #CBD5E1 !important; }
 
   /* Responsive padding on page-level containers (the p-6/p-8 main scroll regions) */
   @media (max-width: 767px) {
@@ -160,37 +293,90 @@
     .fixed.inset-0.z-50 > .bg-white { max-height: 95vh; width: calc(100% - 1rem); }
   }
 
-  /* ============================================================
-     DARK MODE — refined palette for a more pleasant look
-     ============================================================ */
+  /* ═══════════════════════════════════════════════════════════════
+     DARK MODE — premium deep space palette
+     ═══════════════════════════════════════════════════════════════ */
   html.dark { color-scheme: dark; }
+
+  /* ── Body — deep space #0B1020 with indigo/violet/cyan orbs ─── */
   html.dark body {
-    background: radial-gradient(ellipse at top left, #0f1729 0%, #0b1220 50%, #080d18 100%);
-    color: #e2e8f0;
+    background:
+      radial-gradient(ellipse 90% 55% at 5%  0%,   rgba(99,102,241,0.16)  0%, transparent 52%),
+      radial-gradient(ellipse 65% 65% at 95% 0%,   rgba(139,92,246,0.12)  0%, transparent 50%),
+      radial-gradient(ellipse 50% 45% at 50% 100%, rgba(6,182,212,0.09)   0%, transparent 60%),
+      linear-gradient(170deg, #0B1020 0%, #0D1428 45%, #0A0F1E 100%);
+    color: #F8FAFC;
   }
-  html.dark .brand-gradient-soft { background: transparent !important; }
 
-  /* Cards have a subtle elevated feel */
+  /* ── App shell wrapper ──────────────────────────────────────── */
+  html.dark .brand-gradient-soft {
+    background:
+      radial-gradient(ellipse 88% 52% at 0%   0%, rgba(99,102,241,0.12)  0%, transparent 52%),
+      radial-gradient(ellipse 62% 62% at 100% 0%, rgba(139,92,246,0.09)  0%, transparent 50%),
+      linear-gradient(170deg, #0B1020 0%, #0D1428 50%, #0A0F1E 100%) !important;
+  }
+
+  /* ── Cards — glassmorphism on #121A2B ───────────────────────── */
   html.dark .card {
-    background: linear-gradient(180deg, #1a2236 0%, #161e30 100%);
-    border-color: rgba(148,163,184,0.12);
-    color: #e2e8f0;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.03);
+    background: rgba(18,26,43,0.80) !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    backdrop-filter: blur(20px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.06),
+      0 4px 24px rgba(0,0,0,0.40),
+      0 1px 4px rgba(0,0,0,0.30),
+      0 0 0 1px rgba(99,102,241,0.06) !important;
+    color: #F8FAFC;
   }
-  html.dark .card:hover { border-color: rgba(148,163,184,0.18); }
+  html.dark .card::before {
+    background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(99,102,241,0.35) 25%,
+      rgba(139,92,246,0.30) 60%,
+      rgba(6,182,212,0.25) 85%,
+      transparent 100%) !important;
+  }
+  html.dark .card:hover {
+    border-color: rgba(99,102,241,0.30) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.08),
+      0 0 0 1px rgba(99,102,241,0.22),
+      0 20px 45px rgba(0,0,0,0.45),
+      0 0 32px rgba(99,102,241,0.12) !important;
+    transform: translateY(-2px) !important;
+  }
 
-  html.dark .bg-white { background-color: #1a2236 !important; }
-  html.dark .bg-slate-50 { background-color: #131a2b !important; }
-  html.dark .bg-slate-100 { background-color: #232c44 !important; }
-  html.dark .bg-slate-200 { background-color: #2c3650 !important; }
+  html.dark .bg-white     { background: rgba(18,26,43,0.90) !important; }
+  html.dark .bg-slate-50  { background-color: #0E1627 !important; }
+  html.dark .bg-slate-100 { background-color: #121A2B !important; }
+  html.dark .bg-slate-200 { background-color: #1A2540 !important; }
 
-  /* Stat cards keep their colour tint but on a deeper base */
-  html.dark .stat-total { background: linear-gradient(135deg, rgba(59,130,246,0.16) 0%, #1a2236 100%) !important; }
-  html.dark .stat-open  { background: linear-gradient(135deg, rgba(6,182,212,0.16) 0%, #1a2236 100%) !important; }
-  html.dark .stat-prog  { background: linear-gradient(135deg, rgba(14,165,233,0.16) 0%, #1a2236 100%) !important; }
-  html.dark .stat-res   { background: linear-gradient(135deg, rgba(16,185,129,0.16) 0%, #1a2236 100%) !important; }
-  html.dark .stat-esc   { background: linear-gradient(135deg, rgba(249,115,22,0.16) 0%, #1a2236 100%) !important; }
-  html.dark .stat-urg   { background: linear-gradient(135deg, rgba(239,68,68,0.16) 0%, #1a2236 100%) !important; }
+  /* ── Stat cards — vivid gradients on dark ────────────────────── */
+  html.dark .stat-total {
+    background: linear-gradient(135deg, rgba(99,102,241,0.32) 0%, rgba(67,56,202,0.20) 55%, rgba(10,15,32,0.92) 100%) !important;
+    border-color: rgba(99,102,241,0.30) !important;
+  }
+  html.dark .stat-open {
+    background: linear-gradient(135deg, rgba(6,182,212,0.30) 0%, rgba(8,116,145,0.20) 55%, rgba(10,15,30,0.92) 100%) !important;
+    border-color: rgba(6,182,212,0.28) !important;
+  }
+  html.dark .stat-prog {
+    background: linear-gradient(135deg, rgba(14,165,233,0.30) 0%, rgba(3,105,161,0.20) 55%, rgba(10,15,30,0.92) 100%) !important;
+    border-color: rgba(14,165,233,0.28) !important;
+  }
+  html.dark .stat-res {
+    background: linear-gradient(135deg, rgba(20,184,166,0.30) 0%, rgba(13,116,105,0.20) 55%, rgba(10,15,30,0.92) 100%) !important;
+    border-color: rgba(20,184,166,0.28) !important;
+  }
+  html.dark .stat-esc {
+    background: linear-gradient(135deg, rgba(249,115,22,0.30) 0%, rgba(154,52,18,0.20) 55%, rgba(10,15,30,0.92) 100%) !important;
+    border-color: rgba(249,115,22,0.28) !important;
+  }
+  html.dark .stat-urg {
+    background: linear-gradient(135deg, rgba(239,68,68,0.30) 0%, rgba(153,27,27,0.20) 55%, rgba(10,15,30,0.92) 100%) !important;
+    border-color: rgba(239,68,68,0.28) !important;
+  }
 
   /* Text */
   html.dark .text-slate-900 { color: #f8fafc !important; }
@@ -206,18 +392,19 @@
   html.dark .border-slate-200 { border-color: rgba(148,163,184,0.14) !important; }
   html.dark .border-slate-300 { border-color: rgba(148,163,184,0.22) !important; }
 
-  /* Form inputs */
+  /* Form inputs — dark mode */
   html.dark input, html.dark select, html.dark textarea {
-    background-color: #131a2b !important;
-    color: #f1f5f9 !important;
-    border-color: rgba(148,163,184,0.18) !important;
+    background-color: rgba(18,26,43,0.85) !important;
+    color: #F8FAFC !important;
+    border-color: rgba(255,255,255,0.10) !important;
+    border-radius: 10px;
   }
   html.dark input:focus, html.dark select:focus, html.dark textarea:focus {
-    border-color: rgba(16,185,129,0.6) !important;
-    box-shadow: 0 0 0 3px rgba(16,185,129,0.12) !important;
+    border-color: rgba(99,102,241,0.65) !important;
+    box-shadow: 0 0 0 4px rgba(99,102,241,0.18) !important;
   }
-  html.dark input::placeholder, html.dark textarea::placeholder { color: #64748b !important; }
-  html.dark input:disabled { background-color: #0e1525 !important; color: #64748b !important; }
+  html.dark input::placeholder, html.dark textarea::placeholder { color: #64748B !important; }
+  html.dark input:disabled { background-color: rgba(15,23,42,0.7) !important; color: #475569 !important; }
 
   /* Pastel chip backgrounds — boosted for visibility on dark */
   html.dark .bg-emerald-50 { background-color: rgba(16,185,129,0.16) !important; }
@@ -255,8 +442,13 @@
   html.dark .text-blue-500 { color: #60a5fa !important; }
   html.dark .text-emerald-500 { color: #34d399 !important; }
 
-  /* gradient utility backgrounds flatten to dark card colour */
-  html.dark [class*="bg-gradient-to-br"] { background: linear-gradient(180deg, #1a2236 0%, #161e30 100%) !important; }
+  /* gradient utility backgrounds — deep space with indigo tint */
+  html.dark [class*="bg-gradient-to-br"] {
+    background: linear-gradient(135deg,
+      rgba(18,26,43,0.96) 0%,
+      rgba(12,18,36,0.98) 55%,
+      rgba(10,14,30,0.99) 100%) !important;
+  }
 
   /* Hover states */
   html.dark .hover\:bg-slate-50:hover { background-color: rgba(148,163,184,0.08) !important; }
@@ -268,16 +460,24 @@
   /* Modal backdrop */
   html.dark .bg-black\/40 { background-color: rgba(2,6,15,0.7) !important; }
 
-  /* Sidebar — same gradient as cards */
+  /* Sidebar — deep slate per spec #0F172A → #111827 → #1E293B */
   html.dark aside {
-    background: linear-gradient(180deg, #1a2236 0%, #131a2b 100%) !important;
-    border-color: rgba(148,163,184,0.12) !important;
+    background: linear-gradient(180deg,
+      #0F172A 0%,
+      #111827 35%,
+      #1E293B 100%) !important;
+    border-color: rgba(255,255,255,0.08) !important;
   }
 
-  /* Top bar */
+  /* Top bar — frosted navbar per spec */
   html.dark header.h-14 {
-    background: linear-gradient(180deg, #1a2236 0%, #161e30 100%) !important;
-    border-color: rgba(148,163,184,0.12) !important;
+    background: linear-gradient(90deg,
+      rgba(15,23,42,0.97) 0%,
+      rgba(30,41,59,0.90) 100%) !important;
+    border-color: rgba(255,255,255,0.07) !important;
+    backdrop-filter: blur(20px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+    box-shadow: 0 1px 0 rgba(99,102,241,0.12), 0 4px 24px rgba(0,0,0,0.30) !important;
   }
 
   /* Tables */
@@ -294,92 +494,163 @@
   html.dark .border-purple-200 { border-color: rgba(168,85,247,0.35) !important; }
   html.dark .border-cyan-200 { border-color: rgba(6,182,212,0.35) !important; }
 
-  /* Recharts text + grid */
-  html.dark .recharts-text { fill: #94a3b8 !important; }
-  html.dark .recharts-cartesian-grid line { stroke: rgba(148,163,184,0.12) !important; }
-  html.dark .recharts-polar-grid line, html.dark .recharts-polar-grid path { stroke: rgba(148,163,184,0.15) !important; }
-  html.dark .recharts-active-sector path { filter: drop-shadow(0 0 14px currentColor) brightness(1.12) saturate(1.2) !important; }
+  /* Recharts — premium dark mode chart styling */
+  html.dark .recharts-text { fill: #94A3B8 !important; }
+  html.dark .recharts-cartesian-grid line { stroke: rgba(255,255,255,0.06) !important; }
+  html.dark .recharts-polar-grid line, html.dark .recharts-polar-grid path { stroke: rgba(255,255,255,0.08) !important; }
+  html.dark .recharts-active-sector path { filter: drop-shadow(0 0 16px currentColor) brightness(1.14) saturate(1.25) !important; }
 
   /* ============================================================
      GLOW EFFECTS — brand emerald / teal accent across the UI
      ============================================================ */
 
-  /* Brand gradient buttons — smooth lift + glow on hover */
+  /* ── Brand gradient buttons — premium hover with glow + lift ─── */
   .brand-gradient {
-    transition: box-shadow 0.25s ease, filter 0.2s ease, transform 0.15s ease !important;
+    transition: box-shadow 0.3s var(--ease-premium), filter 0.2s ease, transform 0.2s var(--ease-premium) !important;
   }
   .brand-gradient:hover {
-    box-shadow: 0 0 22px rgba(16,185,129,0.5), 0 4px 18px rgba(16,185,129,0.28), 0 1px 4px rgba(0,0,0,0.12);
-    filter: brightness(1.06);
+    box-shadow: 0 10px 30px rgba(99,102,241,0.40), 0 4px 16px rgba(139,92,246,0.25), 0 1px 4px rgba(0,0,0,0.12);
+    filter: brightness(1.07) saturate(1.08);
+    transform: translateY(-2px) scale(1.01);
   }
-  .brand-gradient:active { transform: scale(0.976); box-shadow: 0 0 12px rgba(16,185,129,0.4); }
+  .brand-gradient:active {
+    transform: scale(0.974);
+    box-shadow: 0 4px 14px rgba(99,102,241,0.35);
+    transition-duration: 0.08s;
+  }
 
-  /* Cards — hover glow (light mode: whisper; dark mode: emerald bloom) */
+  /* Cards — hover glow (light mode) */
   .card:hover {
-    box-shadow: 0 0 0 1px rgba(16,185,129,0.18), 0 6px 24px rgba(16,185,129,0.07);
-  }
-  html.dark .card:hover {
-    border-color: rgba(16,185,129,0.32) !important;
-    box-shadow: 0 0 0 1px rgba(16,185,129,0.24), 0 0 30px rgba(16,185,129,0.11), 0 8px 32px rgba(0,0,0,0.28) !important;
+    box-shadow: 0 0 0 1.5px rgba(99,102,241,0.25), 0 20px 45px rgba(15,23,42,0.12), 0 4px 10px rgba(0,0,0,0.05);
+    border-color: rgba(99,102,241,0.30);
+    transform: translateY(-3px);
   }
 
-  /* Stat cards — colour-matched glow on hover (dark mode only) */
-  html.dark .stat-total { transition: box-shadow 0.25s ease; }
-  html.dark .stat-open  { transition: box-shadow 0.25s ease; }
-  html.dark .stat-prog  { transition: box-shadow 0.25s ease; }
-  html.dark .stat-res   { transition: box-shadow 0.25s ease; }
-  html.dark .stat-esc   { transition: box-shadow 0.25s ease; }
-  html.dark .stat-urg   { transition: box-shadow 0.25s ease; }
-  html.dark .stat-total:hover { box-shadow: 0 0 0 1px rgba(59,130,246,0.32), 0 0 26px rgba(59,130,246,0.18) !important; }
-  html.dark .stat-open:hover  { box-shadow: 0 0 0 1px rgba(6,182,212,0.32), 0 0 26px rgba(6,182,212,0.18) !important; }
-  html.dark .stat-prog:hover  { box-shadow: 0 0 0 1px rgba(14,165,233,0.32), 0 0 26px rgba(14,165,233,0.18) !important; }
-  html.dark .stat-res:hover   { box-shadow: 0 0 0 1px rgba(16,185,129,0.32), 0 0 26px rgba(16,185,129,0.18) !important; }
-  html.dark .stat-esc:hover   { box-shadow: 0 0 0 1px rgba(249,115,22,0.32), 0 0 26px rgba(249,115,22,0.18) !important; }
-  html.dark .stat-urg:hover   { box-shadow: 0 0 0 1px rgba(239,68,68,0.32), 0 0 26px rgba(239,68,68,0.18) !important; }
+  /* Stat cards — colour-matched glow on hover (dark mode) */
+  html.dark .stat-total,
+  html.dark .stat-open,
+  html.dark .stat-prog,
+  html.dark .stat-res,
+  html.dark .stat-esc,
+  html.dark .stat-urg { transition: box-shadow 0.3s var(--ease-premium), transform 0.3s var(--ease-premium); }
+  html.dark .stat-total:hover { box-shadow: 0 0 0 1px rgba(99,102,241,0.35), 0 0 30px rgba(99,102,241,0.20) !important; }
+  html.dark .stat-open:hover  { box-shadow: 0 0 0 1px rgba(6,182,212,0.35), 0 0 30px rgba(6,182,212,0.20) !important; }
+  html.dark .stat-prog:hover  { box-shadow: 0 0 0 1px rgba(14,165,233,0.35), 0 0 30px rgba(14,165,233,0.20) !important; }
+  html.dark .stat-res:hover   { box-shadow: 0 0 0 1px rgba(20,184,166,0.35), 0 0 30px rgba(20,184,166,0.20) !important; }
+  html.dark .stat-esc:hover   { box-shadow: 0 0 0 1px rgba(249,115,22,0.35), 0 0 30px rgba(249,115,22,0.20) !important; }
+  html.dark .stat-urg:hover   { box-shadow: 0 0 0 1px rgba(239,68,68,0.35), 0 0 30px rgba(239,68,68,0.20) !important; }
 
-  /* Input / select / textarea focus — stronger emerald ring */
+  /* ── LIGHT MODE — premium polish ─────────────────────────────── */
+
+  /* Input / select / textarea — indigo focus ring */
+  input:focus, select:focus, textarea:focus {
+    border-color: #6366F1 !important;
+    box-shadow: 0 0 0 4px rgba(99,102,241,0.15), 0 1px 4px rgba(99,102,241,0.10) !important;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  /* Table rows — indigo left-bar on hover */
+  tbody tr:hover {
+    background: linear-gradient(90deg, rgba(99,102,241,0.05) 0%, rgba(99,102,241,0.01) 100%) !important;
+    box-shadow: inset 3px 0 0 rgba(99,102,241,0.50) !important;
+  }
+
+  /* Sidebar light mode — elegant white gradient per spec */
+  aside {
+    background: linear-gradient(180deg,
+      #FFFFFF 0%,
+      #F1F5F9 45%,
+      #E8EDF8 100%) !important;
+    box-shadow: 4px 0 28px rgba(15,23,42,0.10), 1px 0 0 rgba(15,23,42,0.06) !important;
+  }
+
+  /* Stat cards — colour-matched hover glow (light mode) */
+  .stat-total:hover { box-shadow: 0 0 0 1.5px #A5B4FC, 0 20px 45px rgba(99,102,241,0.18) !important; border-color: #A5B4FC !important; }
+  .stat-open:hover  { box-shadow: 0 0 0 1.5px #67E8F9, 0 20px 45px rgba(6,182,212,0.18)  !important; border-color: #67E8F9 !important; }
+  .stat-prog:hover  { box-shadow: 0 0 0 1.5px #7DD3FC, 0 20px 45px rgba(14,165,233,0.18) !important; border-color: #7DD3FC !important; }
+  .stat-res:hover   { box-shadow: 0 0 0 1.5px #5EEAD4, 0 20px 45px rgba(20,184,166,0.18) !important; border-color: #5EEAD4 !important; }
+  .stat-esc:hover   { box-shadow: 0 0 0 1.5px #FB923C, 0 20px 45px rgba(249,115,22,0.18) !important; border-color: #FB923C !important; }
+  .stat-urg:hover   { box-shadow: 0 0 0 1.5px #F87171, 0 20px 45px rgba(239,68,68,0.18)  !important; border-color: #F87171 !important; }
+
+  /* Page section headings — indigo → violet gradient text */
+  .page-heading-gradient {
+    background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 50%, #0EA5E9 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* TopBar — frosted glass per spec */
+  header.yc-topbar, div.yc-topbar {
+    background: linear-gradient(90deg, rgba(255,255,255,0.96), rgba(241,245,249,0.94)) !important;
+    backdrop-filter: blur(20px) saturate(200%);
+    -webkit-backdrop-filter: blur(20px) saturate(200%);
+    border-bottom: 1px solid rgba(15,23,42,0.07) !important;
+    box-shadow: 0 1px 0 rgba(99,102,241,0.08), 0 2px 12px rgba(15,23,42,0.06) !important;
+  }
+
+  /* Breadcrumb bar — indigo-tinted strip */
+  .yc-breadcrumb {
+    background: linear-gradient(90deg, rgba(99,102,241,0.05) 0%, rgba(6,182,212,0.03) 100%) !important;
+    border-bottom: 1px solid rgba(99,102,241,0.10) !important;
+  }
+
+  /* Section divider — gradient line */
+  .section-divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, rgba(16,185,129,0.30) 30%, rgba(8,145,178,0.20) 70%, transparent 100%);
+    border: none;
+    margin: 1.5rem 0;
+  }
+
+  /* Input / select / textarea focus — stronger indigo ring (dark) */
   html.dark input:focus, html.dark select:focus, html.dark textarea:focus {
-    border-color: rgba(16,185,129,0.68) !important;
-    box-shadow: 0 0 0 3px rgba(16,185,129,0.22), 0 0 16px rgba(16,185,129,0.14) !important;
+    border-color: rgba(99,102,241,0.70) !important;
+    box-shadow: 0 0 0 4px rgba(99,102,241,0.20), 0 0 18px rgba(99,102,241,0.12) !important;
   }
 
-  /* Status / priority badges — colour-matched outer glow (dark mode) */
-  html.dark span.bg-emerald-50 { box-shadow: 0 0 8px rgba(16,185,129,0.25); }
-  html.dark span.bg-teal-50    { box-shadow: 0 0 8px rgba(20,184,166,0.25); }
-  html.dark span.bg-blue-50    { box-shadow: 0 0 8px rgba(59,130,246,0.22); }
-  html.dark span.bg-sky-50     { box-shadow: 0 0 8px rgba(14,165,233,0.22); }
-  html.dark span.bg-cyan-50    { box-shadow: 0 0 8px rgba(6,182,212,0.22); }
-  html.dark span.bg-red-50     { box-shadow: 0 0 8px rgba(239,68,68,0.22); }
-  html.dark span.bg-rose-50    { box-shadow: 0 0 8px rgba(244,63,94,0.22); }
-  html.dark span.bg-orange-50  { box-shadow: 0 0 8px rgba(249,115,22,0.22); }
-  html.dark span.bg-amber-50   { box-shadow: 0 0 8px rgba(245,158,11,0.22); }
-  html.dark span.bg-purple-50  { box-shadow: 0 0 8px rgba(168,85,247,0.22); }
-  html.dark span.bg-indigo-50  { box-shadow: 0 0 8px rgba(99,102,241,0.22); }
+  /* Status / priority badges — premium glow (dark mode) */
+  html.dark span.bg-emerald-50  { box-shadow: 0 0 10px rgba(16,185,129,0.28); }
+  html.dark span.bg-teal-50     { box-shadow: 0 0 10px rgba(20,184,166,0.28); }
+  html.dark span.bg-blue-50     { box-shadow: 0 0 10px rgba(59,130,246,0.25); }
+  html.dark span.bg-sky-50      { box-shadow: 0 0 10px rgba(14,165,233,0.25); }
+  html.dark span.bg-cyan-50     { box-shadow: 0 0 10px rgba(6,182,212,0.25); }
+  html.dark span.bg-red-50      { box-shadow: 0 0 10px rgba(239,68,68,0.25); }
+  html.dark span.bg-rose-50     { box-shadow: 0 0 10px rgba(244,63,94,0.25); }
+  html.dark span.bg-orange-50   { box-shadow: 0 0 10px rgba(249,115,22,0.25); }
+  html.dark span.bg-amber-50    { box-shadow: 0 0 10px rgba(245,158,11,0.25); }
+  html.dark span.bg-purple-50   { box-shadow: 0 0 10px rgba(168,85,247,0.28); }
+  html.dark span.bg-indigo-50   { box-shadow: 0 0 10px rgba(99,102,241,0.28); }
+  html.dark span.bg-violet-50   { box-shadow: 0 0 10px rgba(139,92,246,0.28); }
 
   /* Live dot — glowing pulse */
   .live-dot { box-shadow: 0 0 6px 1px rgba(16,185,129,0.65); }
 
-  /* Sidebar — brand-tinted right edge + depth shadow (dark mode) */
+  /* Sidebar — premium depth shadow (dark mode) */
   html.dark aside {
-    box-shadow: 4px 0 28px rgba(0,0,0,0.35), 1px 0 0 rgba(16,185,129,0.07) !important;
+    box-shadow: 4px 0 32px rgba(0,0,0,0.55), 1px 0 0 rgba(99,102,241,0.15),
+      inset -1px 0 0 rgba(99,102,241,0.06) !important;
   }
 
-  /* Sidebar nav links — active/selected item gets an emerald left bar */
+  /* Sidebar nav links — active item gets indigo left bar */
   html.dark aside a[class*="bg-emerald"],
-  html.dark aside button[class*="bg-emerald"] {
-    box-shadow: inset 3px 0 0 #10b981, 0 0 14px rgba(16,185,129,0.12);
+  html.dark aside button[class*="bg-emerald"],
+  html.dark aside a[class*="brand-gradient"],
+  html.dark aside button[class*="brand-gradient"] {
+    box-shadow: inset 3px 0 0 #6366F1, 0 0 16px rgba(99,102,241,0.15) !important;
   }
 
-  /* Table rows — brand accent on hover (dark mode) */
+  /* Table rows — indigo accent on hover (dark mode) */
   html.dark tbody tr:hover {
-    background-color: rgba(16,185,129,0.04) !important;
-    box-shadow: inset 3px 0 0 rgba(16,185,129,0.38);
+    background-color: rgba(99,102,241,0.05) !important;
+    box-shadow: inset 3px 0 0 rgba(99,102,241,0.45) !important;
   }
 
   /* Generic interactive buttons/links in sidebar — subtle glow on hover */
   html.dark aside a:hover,
   html.dark aside button:hover {
-    box-shadow: inset 0 0 0 1px rgba(16,185,129,0.14);
+    box-shadow: inset 0 0 0 1px rgba(99,102,241,0.18) !important;
   }
 
   /* ============================================================
@@ -400,24 +671,24 @@
       0 0 0 1px rgba(148,163,184,0.09);
   }
 
-  /* ── 2. Shimmer sweep on brand-gradient buttons ───────────────
-     A travelling light beam moves across on hover                 */
+  /* ── 2. Shimmer sweep on brand-gradient buttons ───────────────── */
   .brand-gradient { position: relative; overflow: hidden; }
   .brand-gradient::after {
     content: '';
     position: absolute; inset: 0;
     background: linear-gradient(
       105deg,
-      transparent 30%,
-      rgba(255,255,255,0.28) 50%,
-      transparent 70%
+      transparent 25%,
+      rgba(255,255,255,0.32) 50%,
+      transparent 75%
     );
-    transform: translateX(-100%);
+    transform: translateX(-130%);
     transition: none;
+    pointer-events: none;
   }
   .brand-gradient:hover::after {
-    transform: translateX(100%);
-    transition: transform 0.55s ease;
+    transform: translateX(130%);
+    transition: transform 0.58s var(--ease-premium);
   }
 
   /* ── 3. CSS @property — smooth animated gradient on headings ──
@@ -429,7 +700,11 @@
     initial-value: 0%;
   }
   .brand-text-animated {
-    background: linear-gradient(90deg, #10b981 var(--grad-pos), #14b8a6 calc(var(--grad-pos) + 40%), #10b981 calc(var(--grad-pos) + 80%));
+    background: linear-gradient(90deg,
+      #6366F1 var(--grad-pos),
+      #8B5CF6 calc(var(--grad-pos) + 20%),
+      #06B6D4 calc(var(--grad-pos) + 45%),
+      #6366F1 calc(var(--grad-pos) + 80%));
     background-size: 200%;
     -webkit-background-clip: text;
     background-clip: text;
@@ -492,69 +767,98 @@
     100% { background-position: -200% 0; }
   }
 
-  /* ── 8. Focus-visible ring — keyboard-accessible branded ring ─  */
+  /* ── 8. Focus-visible ring — keyboard-accessible branded ring ─── */
   :focus-visible {
-    outline: 2px solid #10b981;
+    outline: 2px solid #6366F1;
     outline-offset: 3px;
-    border-radius: 6px;
+    border-radius: 8px;
+    box-shadow: 0 0 0 4px rgba(99,102,241,0.15);
   }
 
-  /* ── 9. Floating/breathing animation on sidebar logo area ─────  */
+  /* ── 9. Floating/breathing animation on sidebar logo area ─────── */
   @keyframes breathe {
-    0%, 100% { transform: scale(1);    filter: drop-shadow(0 0 4px rgba(16,185,129,0.3)); }
-    50%       { transform: scale(1.04); filter: drop-shadow(0 0 10px rgba(16,185,129,0.6)); }
+    0%, 100% { transform: scale(1);    filter: drop-shadow(0 0 5px rgba(99,102,241,0.35)); }
+    50%       { transform: scale(1.04); filter: drop-shadow(0 0 12px rgba(139,92,246,0.55)); }
   }
   aside .brand-gradient.rounded-xl,
   aside [class*="brand-gradient"][class*="rounded"] {
-    animation: breathe 3.5s ease-in-out infinite;
+    animation: breathe 3.8s ease-in-out infinite;
   }
 
   /* ── Modern Sidebar ───────────────────────────────────────────
      Section labels, icon chips, user profile card               */
 
   /* Section label colour */
-  .yc-nav-section-label { color: #94a3b8; }
-  html.dark .yc-nav-section-label { color: #334155; }
+  /* ── Sidebar fonts — light mode: dark text on white gradient ─────
+     Dark mode: light text on deep slate sidebar                   */
 
-  /* Inactive nav item */
+  /* Section labels */
+  .yc-nav-section-label { color: #94A3B8; letter-spacing: 0.09em; font-size: 10px; font-weight: 700; }
+  html.dark .yc-nav-section-label { color: #475569; }
+
+  /* Inactive nav item — slate on white sidebar (light), muted on dark */
   .yc-nav-inactive { color: #475569; }
-  .yc-nav-inactive:hover { background: rgba(148,163,184,0.08); color: #0f172a; }
-  html.dark .yc-nav-inactive { color: #64748b; }
-  html.dark .yc-nav-inactive:hover { background: rgba(148,163,184,0.08); color: #e2e8f0; }
+  .yc-nav-inactive:hover {
+    background: rgba(99,102,241,0.08);
+    color: #3730A3;
+    border-radius: 10px;
+  }
+  html.dark .yc-nav-inactive { color: #94A3B8; }
+  html.dark .yc-nav-inactive:hover { background: rgba(148,163,184,0.09); color: #E2E8F0; border-radius: 10px; }
 
-  /* Icon chip — inactive */
-  .yc-nav-icon-bg { background: #f1f5f9; }
-  html.dark .yc-nav-icon-bg { background: rgba(148,163,184,0.1); }
+  /* Icon chip */
+  .yc-nav-icon-bg { background: rgba(99,102,241,0.10); }
+  html.dark .yc-nav-icon-bg { background: rgba(148,163,184,0.10); }
+  .yc-nav-item:not(.brand-gradient):hover .yc-nav-icon-bg { background: rgba(99,102,241,0.18); }
 
-  /* Icon chip — hover */
-  .yc-nav-item:not(.brand-gradient):hover .yc-nav-icon-bg { background: rgba(16,185,129,0.1); }
+  /* Icon colour */
+  .yc-nav-icon-color { color: #6366F1; }
+  html.dark .yc-nav-icon-color { color: #818CF8; }
 
-  /* Icon colour — inactive */
-  .yc-nav-icon-color { color: #64748b; }
-  html.dark .yc-nav-icon-color { color: #475569; }
+  /* Active item shadow */
+  html.dark .brand-gradient.shadow-md { box-shadow: 0 0 20px rgba(99,102,241,0.35), 0 4px 14px rgba(99,102,241,0.20) !important; }
+  aside .brand-gradient.shadow-md { box-shadow: 0 4px 16px rgba(99,102,241,0.30), 0 0 14px rgba(139,92,246,0.15) !important; }
 
-  /* Active shadow (dark) */
-  html.dark .brand-gradient.shadow-md { box-shadow: 0 4px 14px rgba(16,185,129,0.25) !important; }
+  /* "CARE" word in sidebar logo */
+  .yc-sidebar-care { color: #6366F1; }
+  html.dark .yc-sidebar-care { color: #818CF8; }
 
-  /* "CARE" word in sidebar */
-  .yc-sidebar-care { color: #94a3b8; }
-  html.dark .yc-sidebar-care { color: #334155; }
+  /* User profile card at bottom */
+  .yc-sidebar-user { border: 1px solid rgba(15,23,42,0.10); background: rgba(241,245,249,0.70); border-radius: 14px; }
+  html.dark .yc-sidebar-user { border-color: rgba(255,255,255,0.08); background: rgba(15,23,42,0.50); }
 
-  /* User profile card */
-  .yc-sidebar-user { border: 1px solid rgba(226,232,240,0.8); }
-  html.dark .yc-sidebar-user { border-color: rgba(148,163,184,0.1); background: rgba(15,22,35,0.5); }
+  .yc-sidebar-user-btn:hover { background: rgba(99,102,241,0.08) !important; }
+  html.dark .yc-sidebar-user-btn:hover { background: rgba(148,163,184,0.08) !important; }
 
-  .yc-sidebar-user-btn:hover { background: rgba(248,250,252,1); }
-  html.dark .yc-sidebar-user-btn:hover { background: rgba(148,163,184,0.06); }
+  .yc-sidebar-user-name { color: #1E293B; }
+  html.dark .yc-sidebar-user-name { color: #E2E8F0; }
 
-  .yc-sidebar-user-name { color: #1e293b; }
-  html.dark .yc-sidebar-user-name { color: #e2e8f0; }
-
-  /* Role mini-badges in sidebar user profile */
+  /* Role mini-badges */
+  aside .yc-sidebar-user .bg-violet-100 { background: rgba(99,102,241,0.12) !important; }
+  aside .yc-sidebar-user .text-violet-600 { color: #6366F1 !important; }
+  aside .yc-sidebar-user .bg-sky-100 { background: rgba(14,165,233,0.12) !important; }
+  aside .yc-sidebar-user .text-sky-600 { color: #0EA5E9 !important; }
   html.dark .yc-sidebar-user .bg-violet-100 { background: rgba(139,92,246,0.18) !important; }
-  html.dark .yc-sidebar-user .text-violet-600 { color: #a78bfa !important; }
+  html.dark .yc-sidebar-user .text-violet-600 { color: #A78BFA !important; }
   html.dark .yc-sidebar-user .bg-sky-100 { background: rgba(14,165,233,0.15) !important; }
-  html.dark .yc-sidebar-user .text-sky-600 { color: #38bdf8 !important; }
+  html.dark .yc-sidebar-user .text-sky-600 { color: #38BDF8 !important; }
+
+  /* Sidebar badge count */
+  aside .sidebar-badge { background: #EF4444; color: white; }
+
+  /* Sidebar Tailwind utility class overrides — light mode: dark text on white sidebar */
+  aside .text-slate-400 { color: #94A3B8 !important; }
+  aside .text-slate-500 { color: #64748B !important; }
+  aside .text-slate-600 { color: #475569 !important; }
+  aside .text-slate-700 { color: #334155 !important; }
+  aside .text-slate-800 { color: #1E293B !important; }
+  aside .text-slate-900 { color: #0F172A !important; }
+  html.dark aside .text-slate-400 { color: #475569 !important; }
+  html.dark aside .text-slate-500 { color: #64748B !important; }
+  html.dark aside .text-slate-600 { color: #94A3B8 !important; }
+  html.dark aside .text-slate-700 { color: #CBD5E1 !important; }
+  html.dark aside .text-slate-800 { color: #E2E8F0 !important; }
+  html.dark aside .text-slate-900 { color: #F1F5F9 !important; }
 
   /* Stat card overflow fix for accent strip */
   .card.overflow-hidden { overflow: hidden; }
@@ -572,46 +876,46 @@
 
   /* Base day cell */
   .yc-cal-day { background: white; }
-  html.dark .yc-cal-day { background: #161e30; }
+  html.dark .yc-cal-day { background: rgba(18,26,43,0.70); }
 
   /* Off-month (greyed out) */
-  .yc-cal-offmonth { background: #f8fafc; }
-  html.dark .yc-cal-offmonth { background: #0f1623; }
+  .yc-cal-offmonth { background: #F8FAFC; }
+  html.dark .yc-cal-offmonth { background: rgba(11,16,32,0.80); }
 
   /* Weekend columns */
-  .yc-cal-weekend { background: #f8fafc; }
-  html.dark .yc-cal-weekend { background: #131a28; }
+  .yc-cal-weekend { background: #F8FAFC; }
+  html.dark .yc-cal-weekend { background: rgba(13,20,38,0.75); }
 
   /* Today cell */
-  .yc-cal-today { background: rgba(16,185,129,0.05) !important; }
-  html.dark .yc-cal-today { background: rgba(16,185,129,0.07) !important; }
+  .yc-cal-today { background: rgba(99,102,241,0.07) !important; }
+  html.dark .yc-cal-today { background: rgba(99,102,241,0.10) !important; }
 
-  /* Hover (non-today, in-month only) */
-  html:not(.dark) .yc-cal-day:not(.yc-cal-today):not(.yc-cal-offmonth):hover { background: #f1f5f9; }
-  html.dark       .yc-cal-day:not(.yc-cal-today):not(.yc-cal-offmonth):hover { background: #1a2236; }
+  /* Hover */
+  html:not(.dark) .yc-cal-day:not(.yc-cal-today):not(.yc-cal-offmonth):hover { background: #F0F4FF; }
+  html.dark       .yc-cal-day:not(.yc-cal-today):not(.yc-cal-offmonth):hover { background: rgba(26,36,66,0.75); }
 
   /* Grid dividers */
-  html.dark .divide-slate-100 > * { border-color: rgba(148,163,184,0.08) !important; }
+  html.dark .divide-slate-100 > * { border-color: rgba(255,255,255,0.06) !important; }
 
   /* Day-header row */
-  html.dark .grid.grid-cols-7 > div.bg-slate-50\/80 { background: rgba(15,22,35,0.9) !important; }
-  html.dark .grid.grid-cols-7 > div.bg-white        { background: rgba(22,30,48,0.8) !important; }
-  html.dark .border-slate-100 { border-color: rgba(148,163,184,0.08) !important; }
+  html.dark .grid.grid-cols-7 > div.bg-slate-50\/80 { background: rgba(15,23,42,0.92) !important; }
+  html.dark .grid.grid-cols-7 > div.bg-white        { background: rgba(18,26,43,0.85) !important; }
+  html.dark .border-slate-100 { border-color: rgba(255,255,255,0.07) !important; }
 
   /* Nav arrow buttons */
   html.dark .yc-cal-nav {
-    background: #1a2236 !important;
-    border-color: rgba(148,163,184,0.15) !important;
-    color: #94a3b8 !important;
+    background: rgba(26,36,60,0.90) !important;
+    border-color: rgba(255,255,255,0.10) !important;
+    color: #94A3B8 !important;
   }
   html.dark .yc-cal-nav:hover {
-    border-color: rgba(16,185,129,0.4) !important;
-    color: #34d399 !important;
-    background: rgba(16,185,129,0.08) !important;
+    border-color: rgba(99,102,241,0.45) !important;
+    color: #818CF8 !important;
+    background: rgba(99,102,241,0.12) !important;
   }
 
   /* Today circle shadow */
-  html.dark .shadow-emerald-300 { box-shadow: 0 1px 4px rgba(16,185,129,0.35) !important; }
+  html.dark .shadow-emerald-300 { box-shadow: 0 1px 6px rgba(99,102,241,0.40) !important; }
 
   /* Ticket pill inline-style colours are already correct in dark — they use rgba */
 
@@ -621,13 +925,13 @@
   /* Breadcrumb bar — dark mode
      Override the bg-white class AND remove any Tailwind gradient variables */
   html.dark .yc-breadcrumb {
-    background: #0c1420 !important;
-    border-bottom: 1px solid rgba(148,163,184,0.09) !important;
+    background: rgba(11,16,32,0.85) !important;
+    border-bottom: 1px solid rgba(255,255,255,0.07) !important;
   }
-  html.dark .yc-breadcrumb button { color: #34d399 !important; }
-  html.dark .yc-breadcrumb button:hover { color: #6ee7b7 !important; }
+  html.dark .yc-breadcrumb button { color: #818CF8 !important; }
+  html.dark .yc-breadcrumb button:hover { color: #A5B4FC !important; }
   html.dark .yc-breadcrumb span   { color: #334155 !important; }
-  html.dark .yc-breadcrumb svg    { color: #1e293b !important; }
+  html.dark .yc-breadcrumb svg    { color: #1E293B !important; }
 
   /* Policy/notice banner — dark mode via direct style overrides */
   html.dark .yc-policy-notice {
@@ -655,37 +959,39 @@
 
   /* Ticket ID chip — light mode */
   .yc-ticket-id {
-    background: rgba(16,185,129,0.07);
-    border: 1px solid rgba(16,185,129,0.18);
-    color: #059669;
-    transition: box-shadow 0.2s ease, background 0.2s ease;
+    background: rgba(99,102,241,0.08);
+    border: 1px solid rgba(99,102,241,0.20);
+    color: #4F46E5;
+    transition: box-shadow 0.2s var(--ease-premium), background 0.2s ease;
+    border-radius: 7px;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
   }
   .yc-ticket-id:hover {
-    background: rgba(16,185,129,0.12);
-    box-shadow: 0 0 0 2px rgba(16,185,129,0.2), 0 0 10px rgba(16,185,129,0.18);
+    background: rgba(99,102,241,0.14);
+    box-shadow: 0 0 0 2px rgba(99,102,241,0.22), 0 0 12px rgba(99,102,241,0.16);
   }
-  .yc-ticket-id-dot { background: #10b981; }
+  .yc-ticket-id-dot { background: #6366F1; }
 
   /* Ticket ID chip — dark mode */
   html.dark .yc-ticket-id {
-    background: rgba(16,185,129,0.1);
-    border-color: rgba(16,185,129,0.25);
-    color: #34d399;
+    background: rgba(99,102,241,0.12);
+    border-color: rgba(99,102,241,0.28);
+    color: #818CF8;
   }
   html.dark .yc-ticket-id:hover {
-    background: rgba(16,185,129,0.16);
-    box-shadow: 0 0 0 2px rgba(16,185,129,0.25), 0 0 14px rgba(16,185,129,0.2);
+    background: rgba(99,102,241,0.18);
+    box-shadow: 0 0 0 2px rgba(99,102,241,0.28), 0 0 16px rgba(99,102,241,0.18);
   }
 
-  /* Table row — left-border glow on hover */
-  .yc-ticket-row { transition: background 0.15s ease; }
-  .yc-ticket-row:hover { background: rgba(16,185,129,0.03); box-shadow: inset 3px 0 0 rgba(16,185,129,0.45); }
-  html.dark .yc-ticket-row:hover { background: rgba(16,185,129,0.05) !important; box-shadow: inset 3px 0 0 rgba(16,185,129,0.5); }
+  /* Table row — indigo left-border glow on hover */
+  .yc-ticket-row { transition: background 0.18s var(--ease-premium); }
+  .yc-ticket-row:hover { background: rgba(99,102,241,0.04); box-shadow: inset 3px 0 0 rgba(99,102,241,0.55); }
+  html.dark .yc-ticket-row:hover { background: rgba(99,102,241,0.06) !important; box-shadow: inset 3px 0 0 rgba(99,102,241,0.55) !important; }
 
-  /* Table header — dark mode */
-  .yc-table-head { background: #f8fafc; }
-  html.dark .yc-table-head { background: #0f1623 !important; }
-  html.dark .yc-table-head th { color: #334155 !important; }
+  /* Table header */
+  .yc-table-head { background: #F8FAFC; }
+  html.dark .yc-table-head { background: #0E1627 !important; }
+  html.dark .yc-table-head th { color: #475569 !important; }
 
   /* Page h1 — emerald underline accent glow */
   h1.font-black {
@@ -693,9 +999,9 @@
     display: inline-block;
   }
 
-  /* Brand-gradient animated text */
+  /* Brand-gradient animated text (second instance — override) */
   .brand-text-animated {
-    background: linear-gradient(90deg, #10b981 0%, #14b8a6 40%, #10b981 80%);
+    background: linear-gradient(90deg, #6366F1 0%, #8B5CF6 35%, #06B6D4 65%, #6366F1 100%);
     background-size: 200%;
     -webkit-background-clip: text;
     background-clip: text;
@@ -703,12 +1009,12 @@
     animation: gradShift 4s linear infinite;
   }
 
-  /* Search input focus glow */
+  /* Search input focus glow — indigo */
   input:focus, select:focus, textarea:focus {
     outline: none;
-    box-shadow: 0 0 0 3px rgba(16,185,129,0.15), 0 0 10px rgba(16,185,129,0.08);
-    border-color: rgba(16,185,129,0.5) !important;
-    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    box-shadow: 0 0 0 4px rgba(99,102,241,0.15), 0 0 12px rgba(99,102,241,0.08);
+    border-color: #6366F1 !important;
+    transition: box-shadow 0.22s var(--ease-premium), border-color 0.22s ease;
   }
 
   /* Priority badge glow — light mode */
@@ -717,11 +1023,12 @@
   .yc-ticket-row:hover [class*="bg-amber-"]  { box-shadow: 0 0 6px rgba(245,158,11,0.3); }
   .yc-ticket-row:hover [class*="bg-blue-"]   { box-shadow: 0 0 6px rgba(59,130,246,0.3); }
 
-  /* Context menu (action dropdown) — glassmorphism shadow */
+  /* Context menu (action dropdown) — premium glassmorphism */
   html.dark .bg-white.border.border-slate-200.rounded-lg.shadow-xl {
-    background: #1a2236 !important;
-    border-color: rgba(148,163,184,0.12) !important;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(16,185,129,0.08) !important;
+    background: rgba(18,26,43,0.95) !important;
+    border-color: rgba(255,255,255,0.10) !important;
+    backdrop-filter: blur(20px) !important;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.55), 0 0 0 1px rgba(99,102,241,0.10) !important;
   }
 
   /* Ticket table wrapper — no border-radius bleed */
@@ -759,17 +1066,17 @@
   tbody tr:nth-child(9)  { animation-delay: 0.26s; }
   tbody tr:nth-child(10) { animation-delay: 0.29s; }
 
-  /* ── Filter chips ─────────────────────────────────────────────── */
+  /* ── Filter chips — indigo ────────────────────────────────────── */
   .filter-chip {
     display: inline-flex; align-items: center; gap: 5px;
-    padding: 3px 10px 3px 10px; border-radius: 20px;
+    padding: 3px 10px; border-radius: 20px;
     font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
-    background: rgba(16,185,129,0.1); color: #059669;
-    border: 1px solid rgba(16,185,129,0.25);
-    cursor: pointer; transition: all 0.15s ease;
+    background: rgba(99,102,241,0.10); color: #4F46E5;
+    border: 1px solid rgba(99,102,241,0.22);
+    cursor: pointer; transition: var(--transition-sm);
   }
-  .filter-chip:hover { background: rgba(16,185,129,0.18); border-color: rgba(16,185,129,0.4); }
-  html.dark .filter-chip { background: rgba(16,185,129,0.12); color: #34d399; border-color: rgba(16,185,129,0.28); }
+  .filter-chip:hover { background: rgba(99,102,241,0.18); border-color: rgba(99,102,241,0.40); }
+  html.dark .filter-chip { background: rgba(99,102,241,0.14); color: #818CF8; border-color: rgba(99,102,241,0.30); }
 
   /* ── SLA badge ────────────────────────────────────────────────── */
   .sla-ok      { background: rgba(16,185,129,0.1); color: #059669; border: 1px solid rgba(16,185,129,0.2); }
@@ -782,10 +1089,10 @@
   html.dark .sla-met      { background: rgba(99,102,241,0.14); color: #818cf8; border-color: rgba(99,102,241,0.28); }
 
   /* ── Sort button in table header ─────────────────────────────── */
-  .sort-btn { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; user-select: none; }
-  .sort-btn:hover { color: #10b981; }
-  .sort-arrow { font-size: 10px; opacity: 0.5; transition: opacity 0.15s; }
-  .sort-btn.active .sort-arrow { opacity: 1; color: #10b981; }
+  .sort-btn { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; user-select: none; transition: color 0.15s ease; }
+  .sort-btn:hover { color: #6366F1; }
+  .sort-arrow { font-size: 10px; opacity: 0.45; transition: opacity 0.15s; }
+  .sort-btn.active .sort-arrow { opacity: 1; color: #6366F1; }
 
   /* ── Priority left-border on ticket rows ─────────────────────── */
   .pri-urgent { border-left: 3px solid #ef4444 !important; }
@@ -812,12 +1119,12 @@
   /* ── Empty state ─────────────────────────────────────────────── */
   .empty-state-ring {
     width: 80px; height: 80px; border-radius: 50%;
-    background: linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(20,184,166,0.05) 100%);
-    border: 2px dashed rgba(16,185,129,0.25);
+    background: linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(139,92,246,0.05) 100%);
+    border: 2px dashed rgba(99,102,241,0.22);
     display: flex; align-items: center; justify-content: center;
     margin: 0 auto 16px;
   }
-  html.dark .empty-state-ring { background: rgba(16,185,129,0.06); border-color: rgba(16,185,129,0.18); }
+  html.dark .empty-state-ring { background: rgba(99,102,241,0.08); border-color: rgba(99,102,241,0.20); }
 
   /* ── Keyboard shortcut hint ──────────────────────────────────── */
   .kbd {
@@ -880,15 +1187,212 @@
 
   /* ── Optimistic feedback — success flash on row save ─────────── */
   @keyframes rowFlash {
-    0%   { background: rgba(16,185,129,0.15); }
+    0%   { background: rgba(99,102,241,0.18); }
     100% { background: transparent; }
   }
-  .row-flash { animation: rowFlash 0.8s ease forwards; }
+  .row-flash { animation: rowFlash 0.9s ease forwards; }
 
   /* ── Form input — spring transition on focus ─────────────────── */
   input, select, textarea {
-    transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.15s ease;
+    transition: border-color 0.20s var(--ease-premium), box-shadow 0.20s var(--ease-premium), background-color 0.15s ease;
+    border-radius: 10px;
   }
+
+  /* ═══════════════════════════════════════════════════════════════
+     PREMIUM ENTERPRISE ADDITIONS — per design spec
+     ═══════════════════════════════════════════════════════════════ */
+
+  /* ── Section divider — indigo gradient line ───────────────────── */
+  .section-divider {
+    height: 1px;
+    background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(99,102,241,0.30) 25%,
+      rgba(139,92,246,0.22) 60%,
+      rgba(6,182,212,0.18) 85%,
+      transparent 100%);
+    border: none;
+    margin: 1.5rem 0;
+  }
+
+  /* ── Premium table — enterprise design ───────────────────────── */
+  .yc-premium-table thead th {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+    text-transform: uppercase; color: #64748B;
+    padding: 10px 14px;
+    position: sticky; top: 0; z-index: 2;
+    background: rgba(248,250,252,0.95);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid rgba(15,23,42,0.08);
+  }
+  html.dark .yc-premium-table thead th {
+    background: rgba(14,22,39,0.96) !important;
+    color: #475569 !important;
+    border-bottom-color: rgba(255,255,255,0.07) !important;
+  }
+  /* Zebra row transparency */
+  .yc-premium-table tbody tr:nth-child(even) {
+    background: rgba(248,250,252,0.45);
+  }
+  html.dark .yc-premium-table tbody tr:nth-child(even) {
+    background: rgba(18,26,43,0.35) !important;
+  }
+
+  /* ── Toast — premium floating glass card ─────────────────────── */
+  .yc-toast {
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 14px;
+    box-shadow: 0 20px 45px rgba(0,0,0,0.30), 0 0 0 1px rgba(99,102,241,0.08);
+  }
+  .yc-toast-success { border-left: 3px solid #10B981 !important; }
+  .yc-toast-error   { border-left: 3px solid #EF4444 !important; }
+  .yc-toast-warning { border-left: 3px solid #F59E0B !important; }
+  .yc-toast-info    { border-left: 3px solid #6366F1 !important; }
+
+  /* ── Keyboard shortcut hint — premium glass chip ─────────────── */
+  .kbd {
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 2px 7px; border-radius: 6px; font-size: 10.5px; font-weight: 700;
+    background: rgba(241,245,249,0.90); color: #64748B;
+    border: 1px solid rgba(15,23,42,0.12);
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    box-shadow: 0 1px 3px rgba(15,23,42,0.08), inset 0 1px 0 rgba(255,255,255,0.8);
+  }
+  html.dark .kbd {
+    background: rgba(26,36,60,0.85);
+    color: #64748B;
+    border-color: rgba(255,255,255,0.10);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+
+  /* ── Notification pulse — indigo ──────────────────────────────── */
+  @keyframes notifPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.55); }
+    50%       { box-shadow: 0 0 0 5px rgba(239,68,68,0); }
+  }
+  header .bg-red-500.rounded-full { animation: notifPulse 2.2s ease-in-out infinite; }
+
+  /* ── 3-D stat card lift ───────────────────────────────────────── */
+  .stat-total, .stat-open, .stat-prog, .stat-res, .stat-esc, .stat-urg {
+    transform-style: preserve-3d;
+    transition: transform 0.32s var(--ease-premium), box-shadow 0.28s ease;
+  }
+  .stat-total:hover, .stat-open:hover, .stat-prog:hover,
+  .stat-res:hover, .stat-esc:hover, .stat-urg:hover {
+    transform: translateY(-4px) scale(1.016);
+  }
+
+  /* ── Premium button ripple — via :active scale ────────────────── */
+  button:active:not(:disabled) {
+    transform: scale(0.978);
+    transition: transform 0.07s ease !important;
+  }
+
+  /* ── Staggered card reveal ────────────────────────────────────── */
+  @keyframes cardReveal {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .card { animation: cardReveal 0.38s var(--ease-premium) both; }
+  .card:nth-child(1) { animation-delay: 0.03s; }
+  .card:nth-child(2) { animation-delay: 0.07s; }
+  .card:nth-child(3) { animation-delay: 0.11s; }
+  .card:nth-child(4) { animation-delay: 0.15s; }
+  .card:nth-child(5) { animation-delay: 0.19s; }
+  .card:nth-child(6) { animation-delay: 0.23s; }
+  .card:nth-child(7) { animation-delay: 0.27s; }
+  .card:nth-child(8) { animation-delay: 0.31s; }
+
+  /* ── Premium login page background ───────────────────────────── */
+  .yc-login-bg {
+    background:
+      radial-gradient(ellipse 100% 80% at 0% 0%,   rgba(99,102,241,0.25)  0%, transparent 55%),
+      radial-gradient(ellipse 80%  80% at 100% 100%,rgba(139,92,246,0.20) 0%, transparent 55%),
+      radial-gradient(ellipse 60%  60% at 50% 50%,  rgba(6,182,212,0.12)  0%, transparent 60%),
+      linear-gradient(135deg, #F0F4FF 0%, #F8FAFC 50%, #F4F0FF 100%);
+    min-height: 100vh;
+    overflow: hidden;
+  }
+  html.dark .yc-login-bg {
+    background:
+      radial-gradient(ellipse 100% 80% at 0% 0%,   rgba(99,102,241,0.22)  0%, transparent 52%),
+      radial-gradient(ellipse 80%  80% at 100% 100%,rgba(139,92,246,0.18) 0%, transparent 52%),
+      radial-gradient(ellipse 60%  60% at 50% 50%,  rgba(6,182,212,0.10)  0%, transparent 60%),
+      linear-gradient(135deg, #0B1020 0%, #0D1428 50%, #0A0F1E 100%) !important;
+  }
+
+  /* Login card — glassmorphism */
+  .yc-login-card {
+    background: rgba(255,255,255,0.88);
+    border: 1px solid rgba(15,23,42,0.08);
+    border-radius: 24px;
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    box-shadow: 0 20px 60px rgba(15,23,42,0.16), 0 8px 24px rgba(99,102,241,0.08);
+  }
+  html.dark .yc-login-card {
+    background: rgba(18,26,43,0.88) !important;
+    border-color: rgba(255,255,255,0.10) !important;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.50), 0 0 0 1px rgba(99,102,241,0.12) !important;
+  }
+
+  /* ── Floating abstract shapes (login bg decoration) ──────────── */
+  @keyframes floatShapeA {
+    0%, 100% { transform: translate(0, 0) rotate(0deg); }
+    50%       { transform: translate(20px, -15px) rotate(8deg); }
+  }
+  @keyframes floatShapeB {
+    0%, 100% { transform: translate(0, 0) rotate(0deg); }
+    50%       { transform: translate(-15px, 20px) rotate(-6deg); }
+  }
+  .yc-shape-a { animation: floatShapeA 8s ease-in-out infinite; }
+  .yc-shape-b { animation: floatShapeB 10s ease-in-out infinite; }
+
+  /* ── Premium dark mode filter pill active state ───────────────── */
+  html.dark .bg-white.shadow-sm { background-color: rgba(18,26,43,0.95) !important; color: #E2E8F0 !important; }
+  html.dark .bg-slate-100 { background-color: rgba(18,26,43,0.70) !important; }
+
+  /* ── Policy notice dark ───────────────────────────────────────── */
+  html.dark .yc-policy-notice {
+    background: rgba(11,16,32,0.85) !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    border-left: 4px solid rgba(245,158,11,0.55) !important;
+  }
+
+  /* ── Table head dark ──────────────────────────────────────────── */
+  html.dark thead.bg-slate-50 { background-color: rgba(14,22,39,0.95) !important; }
+  html.dark thead th { color: #475569 !important; }
+  html.dark tbody tr { border-color: rgba(255,255,255,0.05) !important; }
+
+  /* ── Active stat card ring matches card colour ────────────────── */
+  html.dark .shadow-emerald-100\/60 { box-shadow: 0 4px 20px rgba(99,102,241,0.18) !important; }
+
+  /* ── Skeleton shimmer — premium ──────────────────────────────── */
+  .skeleton, .skeleton-cell {
+    background: linear-gradient(90deg, #EEF2FF 25%, #E0E7FF 50%, #EEF2FF 75%);
+    background-size: 200% 100%;
+    border-radius: 8px;
+    animation: skeletonShimmer 1.5s ease infinite;
+  }
+  html.dark .skeleton, html.dark .skeleton-cell {
+    background: linear-gradient(90deg, #111B30 25%, #1A263E 50%, #111B30 75%);
+    background-size: 200% 100%;
+  }
+  @keyframes skeletonShimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* ── Sidebar — premium shadow + border (light mode) ──────────── */
+  aside {
+    border-right: 1px solid rgba(15,23,42,0.06);
+  }
+
+  /* ── Smooth scroll + scroll-margin ───────────────────────────── */
+  html { scroll-behavior: smooth; }
+  [id] { scroll-margin-top: 72px; }
 </style>
 </head>
 <body>
@@ -1355,7 +1859,6 @@ const Icon = ({ name, className = 'w-5 h-5' }) => {
 // ============================================================
 const LoginScreen = ({ users, onSelect, loginError }) => {
   const [rememberMe, setRememberMe] = useState(false);
-  const [showDemo, setShowDemo] = useState(false);
   const [backendReachable, setBackendReachable] = useState(null); // null = unknown, true/false otherwise
 
   // Probe the backend on mount so we can show a helpful note if it's down
@@ -1381,8 +1884,8 @@ const LoginScreen = ({ users, onSelect, loginError }) => {
         <div className="text-center mb-6">
           <div className="inline-flex bg-white rounded-2xl px-6 py-3 shadow-lg mb-4">
             <div className="text-3xl font-extrabold tracking-tight leading-none">
-              <span style={{ background: 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>YAHWEH</span>
-              <span className="ml-2" style={{ background: 'linear-gradient(135deg, #10b981 0%, #14b8a6 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>CARE</span>
+              <span style={{ background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>YAHWEH</span>
+              <span className="ml-2" style={{ background: 'linear-gradient(135deg, #8B5CF6 0%, #06B6D4 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>CARE</span>
               <sup className="text-[11px] ml-0.5 text-slate-400 font-medium">™</sup>
             </div>
           </div>
@@ -1428,7 +1931,7 @@ const LoginScreen = ({ users, onSelect, loginError }) => {
                 <Icon name="alert" className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
                 <div>
                   <strong>HRMS backend not reachable</strong> at {API_BASE}.
-                  Start it with <code className="text-[10px] bg-amber-100 px-1 py-0.5 rounded">cd backend-hrms && npm run dev</code> or use Demo Mode below.
+                  Please contact your system administrator or try again shortly.
                 </div>
               </div>
             </div>
@@ -1439,44 +1942,7 @@ const LoginScreen = ({ users, onSelect, loginError }) => {
             Contact your administrator for access.
           </p>
 
-          {/* Demo mode toggle */}
-          <div className="mt-5 pt-4 border-t border-slate-100">
-            <button onClick={() => setShowDemo(s => !s)} className="text-xs text-slate-500 hover:text-emerald-700 flex items-center gap-1 mx-auto">
-              <Icon name={showDemo ? 'chevronDown' : 'chevronRight'} className="w-3 h-3" />
-              {showDemo ? 'Hide demo mode' : 'Use demo mode (dev only)'}
-            </button>
-          </div>
         </div>
-
-        {/* Demo profile picker (collapsible) */}
-        {showDemo && (
-          <div className="bg-white/95 rounded-2xl shadow-2xl p-5 mt-4 fade-in">
-            <div className="mb-4 text-xs text-slate-500">
-              ⚠️ <strong>Development only</strong> — no Microsoft authentication. Data is stored in your browser's localStorage.
-            </div>
-            <div className="space-y-4">
-              {['super_admin', 'manager', 'user'].map(role => byRole[role].length > 0 && (
-                <div key={role}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Badge className={`${ROLE_LABELS[role].color} text-white text-[10px]`}>{byRole[role].length}</Badge>
-                    <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">{meta[role].label}</span>
-                  </div>
-                  <div className="space-y-1 max-h-48 overflow-y-auto scrollbar-thin">
-                    {byRole[role].map(u => (
-                      <button key={u.id} onClick={() => onSelect(u.id)} className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-emerald-50 transition text-left">
-                        <Avatar user={u} size="sm" />
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium text-slate-800 truncate">{u.name}</div>
-                          <div className="text-xs text-slate-500 truncate">{u.email} · {u.department}</div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -1487,6 +1953,7 @@ const LoginScreen = ({ users, onSelect, loginError }) => {
 // ============================================================
 const Sidebar = ({ view, setView, currentUser, onLogout, mobileOpen, onCloseMobile, openTicketCount }) => {
   const mgmt = isManager(currentUser);
+  const admin = isAdmin(currentUser);
   const sections = [
     {
       label: null,
@@ -1506,6 +1973,7 @@ const Sidebar = ({ view, setView, currentUser, onLogout, mobileOpen, onCloseMobi
     {
       label: 'MANAGEMENT',
       items: [
+        { id: 'analytics',  label: 'Analytics',          icon: 'activity', show: admin },
         { id: 'staff-perf', label: 'Staff Performance', icon: 'users',  show: mgmt },
         { id: 'team-comp',  label: 'Team Comparison',   icon: 'branch', show: mgmt },
         { id: 'staff',      label: 'Staff Management',  icon: 'cog',    show: mgmt },
@@ -1528,7 +1996,7 @@ const Sidebar = ({ view, setView, currentUser, onLogout, mobileOpen, onCloseMobi
             </div>
             <div>
               <div className="text-[15px] font-extrabold tracking-tight leading-none flex items-baseline gap-0.5">
-                <span style={{background:'linear-gradient(135deg,#10b981,#14b8a6)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>YAHWEH</span>
+                <span style={{background:'linear-gradient(135deg,#6366F1,#8B5CF6)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>YAHWEH</span>
                 <span className="yc-sidebar-care ml-1 font-light text-slate-400">CARE</span>
               </div>
               <div className="text-[9px] text-slate-400 font-semibold tracking-[0.15em] uppercase mt-0.5">Ticket Management</div>
@@ -3575,7 +4043,7 @@ const CalendarView = ({ tickets, onOpen, onNavigate }) => {
           </div>
 
           {/* Thin brand divider */}
-          <div style={{height:'2px', background:'linear-gradient(90deg,transparent 0%,#10b981 30%,#14b8a6 70%,transparent 100%)', opacity:0.35}}></div>
+          <div style={{height:'2px', background:'linear-gradient(90deg,transparent 0%,#6366F1 25%,#8B5CF6 55%,#06B6D4 80%,transparent 100%)', opacity:0.40}}></div>
 
           {/* Day grid — no gap, divided by CSS borders */}
           <div className="grid grid-cols-7 divide-x divide-y divide-slate-100">
@@ -3647,9 +4115,9 @@ const CalendarView = ({ tickets, onOpen, onNavigate }) => {
               </span>
             );
           })}
-          <span style={{background:'rgba(16,185,129,0.12)', border:'1px solid rgba(16,185,129,0.3)', color:'#059669'}}
+          <span style={{background:'rgba(99,102,241,0.12)', border:'1px solid rgba(99,102,241,0.28)', color:'#6366F1'}}
             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ml-1">
-            <span style={{background:'#10b981'}} className="w-2 h-2 rounded-full flex-shrink-0"></span>
+            <span style={{background:'#6366F1'}} className="w-2 h-2 rounded-full flex-shrink-0"></span>
             Today
           </span>
         </div>
@@ -4141,8 +4609,8 @@ const StaffPerformance = ({ tickets, users, currentUser, onOpen, onOpenStaff, on
               <YAxis tick={{ fontSize: 11, fill: '#64748b' }} />
               <Tooltip />
               <Legend wrapperStyle={{ fontSize: '11px' }} />
-              <Bar dataKey="resolved" fill="#3b82f6" name="Resolved" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="assigned" fill="#10b981" name="Assigned" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="resolved" fill="#6366F1" name="Resolved" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="assigned" fill="#06B6D4" name="Assigned" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -4513,7 +4981,7 @@ const StaffDetail = ({ staffId, tickets, users, currentUser, onBack, onOpenTicke
                   <PolarGrid stroke="#e2e8f0" />
                   <PolarAngleAxis dataKey="axis" tick={{ fontSize: 12, fill: '#475569' }} />
                   <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                  <Radar dataKey="value" stroke="#10b981" fill="#10b981" fillOpacity={0.35} strokeWidth={2} />
+                  <Radar dataKey="value" stroke="#6366F1" fill="#6366F1" fillOpacity={0.28} strokeWidth={2} />
                   <Tooltip />
                 </RadarChart>
               </ResponsiveContainer>
@@ -4527,7 +4995,7 @@ const StaffDetail = ({ staffId, tickets, users, currentUser, onBack, onOpenTicke
                   <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} />
                   <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#64748b' }} />
                   <Tooltip />
-                  <Line type="monotone" dataKey="resolved" stroke="#10b981" strokeWidth={3} dot={{ r: 5, fill: '#10b981' }} />
+                  <Line type="monotone" dataKey="resolved" stroke="#6366F1" strokeWidth={3} dot={{ r: 5, fill: '#6366F1' }} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -4774,7 +5242,7 @@ const TeamInsightModal = ({ open, team, tickets, users, onClose, onOpenStaff, on
                 <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} />
                 <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#64748b' }} />
                 <Tooltip />
-                <Line type="monotone" dataKey="resolved" stroke="#10b981" strokeWidth={3} dot={{ r: 5, fill: '#10b981' }} />
+                <Line type="monotone" dataKey="resolved" stroke="#6366F1" strokeWidth={3} dot={{ r: 5, fill: '#6366F1' }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -4882,7 +5350,7 @@ const TeamComparison = ({ tickets, users, currentUser, onOpenStaff, onViewTeamTi
     });
   }, [selectedTeams, teams]);
 
-  const radarColors = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6'];
+  const radarColors = ['#6366F1', '#06B6D4', '#F59E0B', '#8B5CF6'];
 
   const toggleTeam = (dept) => {
     setSelectedTeams(prev => {
@@ -4964,8 +5432,8 @@ const TeamComparison = ({ tickets, users, currentUser, onOpenStaff, onViewTeamTi
               <YAxis tick={{ fontSize: 11, fill: '#64748b' }} />
               <Tooltip />
               <Legend wrapperStyle={{ fontSize: '11px' }} />
-              <Bar dataKey="resolved" fill="#10b981" name="Resolved" radius={[4,4,0,0]} />
-              <Bar dataKey="assigned" fill="#3b82f6" name="Assigned" radius={[4,4,0,0]} />
+              <Bar dataKey="resolved" fill="#6366F1" name="Resolved" radius={[4,4,0,0]} />
+              <Bar dataKey="assigned" fill="#06B6D4" name="Assigned" radius={[4,4,0,0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -5978,6 +6446,494 @@ const StaffManagement = ({ users, tickets, currentUser, onAddStaff, onUpdateStaf
 };
 
 // ============================================================
+// ANALYTICS DASHBOARD — Super Admin / Admin only
+// ============================================================
+const AnalyticsDashboard = ({ tickets = [], users = [], currentUser, onOpenTicket, onNavigate }) => {
+  const [range, setRange] = React.useState('30d');
+
+  /* ── helpers ── */
+  const now = Date.now();
+  const msDay = 86400000;
+  const rangeMs = { '7d': 7*msDay, '30d': 30*msDay, '90d': 90*msDay, '12m': 365*msDay, 'all': Infinity };
+
+  const filtered = React.useMemo(() => {
+    const cutoff = range === 'all' ? 0 : now - rangeMs[range];
+    return tickets.filter(t => {
+      const ts = t.createdAt ? new Date(t.createdAt).getTime() : 0;
+      return ts >= cutoff;
+    });
+  }, [tickets, range, now]);
+
+  /* ── KPI calculations ── */
+  const kpi = React.useMemo(() => {
+    const total = filtered.length;
+    const open  = filtered.filter(t => t.status === 'open' || t.status === 'in_progress' || t.status === 'escalated').length;
+    const resolved = filtered.filter(t => t.status === 'resolved' || t.status === 'closed').length;
+    const resRate = total ? Math.round((resolved / total) * 100) : 0;
+    const slaResults = filtered.map(t => computeSLA(t));
+    const slaMet = slaResults.filter(s => s.met).length;
+    const slaTotal = slaResults.filter(s => s.state !== 'na').length;
+    const slaPct = slaTotal ? Math.round((slaMet / slaTotal) * 100) : 0;
+    const resolvedWithTime = filtered.filter(t => (t.status === 'resolved' || t.status === 'closed') && t.resolvedAt && t.createdAt);
+    const avgHours = resolvedWithTime.length
+      ? Math.round(resolvedWithTime.reduce((acc, t) => acc + (new Date(t.resolvedAt) - new Date(t.createdAt)) / 3600000, 0) / resolvedWithTime.length)
+      : 0;
+    const activeStaff = users.filter(u => u.active && u.role !== 'super_admin' && !u.isAdmin).length;
+    return { total, open, resRate, slaPct, avgHours, activeStaff };
+  }, [filtered, users]);
+
+  /* ── monthly trend (last 12 months) ── */
+  const trendData = React.useMemo(() => {
+    const months = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(1);
+      d.setMonth(d.getMonth() - i);
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      const label = d.toLocaleString('default', { month: 'short', year: '2-digit' });
+      months.push({ key, label, created: 0, resolved: 0 });
+    }
+    tickets.forEach(t => {
+      if (t.createdAt) {
+        const d = new Date(t.createdAt);
+        const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+        const m = months.find(x => x.key === k);
+        if (m) m.created++;
+      }
+      if ((t.status === 'resolved' || t.status === 'closed') && t.resolvedAt) {
+        const d = new Date(t.resolvedAt);
+        const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+        const m = months.find(x => x.key === k);
+        if (m) m.resolved++;
+      }
+    });
+    return months;
+  }, [tickets]);
+
+  /* ── status distribution ── */
+  const statusData = React.useMemo(() => {
+    const counts = {};
+    STATUSES.forEach(s => { counts[s.id] = 0; });
+    filtered.forEach(t => { if (counts[t.status] !== undefined) counts[t.status]++; });
+    return STATUSES.map(s => ({ name: s.label, value: counts[s.id] || 0, color: s.color })).filter(x => x.value > 0);
+  }, [filtered]);
+
+  /* ── priority breakdown ── */
+  const priorityData = React.useMemo(() => {
+    return PRIORITIES.map(p => ({
+      name: p.label,
+      count: filtered.filter(t => t.priority === p.id).length,
+      color: p.color || '#6366F1',
+    }));
+  }, [filtered]);
+
+  /* ── category breakdown ── */
+  const categoryData = React.useMemo(() => {
+    return CATEGORIES.map(c => ({
+      name: c.label,
+      count: filtered.filter(t => t.category === c.id).length,
+      color: c.color,
+    })).sort((a, b) => b.count - a.count);
+  }, [filtered]);
+
+  /* ── department performance ── */
+  const deptData = React.useMemo(() => {
+    const depts = {};
+    filtered.forEach(t => {
+      const d = t.department || 'Unassigned';
+      if (!depts[d]) depts[d] = { dept: d, total: 0, open: 0, resolved: 0, slaMetCount: 0, slaTotalCount: 0, resHours: [] };
+      depts[d].total++;
+      if (t.status === 'open' || t.status === 'in_progress' || t.status === 'escalated') depts[d].open++;
+      if (t.status === 'resolved' || t.status === 'closed') depts[d].resolved++;
+      const sla = computeSLA(t);
+      if (sla.state !== 'na') { depts[d].slaTotalCount++; if (sla.met) depts[d].slaMetCount++; }
+      if ((t.status === 'resolved' || t.status === 'closed') && t.resolvedAt && t.createdAt) {
+        depts[d].resHours.push((new Date(t.resolvedAt) - new Date(t.createdAt)) / 3600000);
+      }
+    });
+    return Object.values(depts).map(d => ({
+      dept: d.dept, total: d.total, open: d.open, resolved: d.resolved,
+      rate: d.total ? Math.round((d.resolved / d.total) * 100) : 0,
+      slaPct: d.slaTotalCount ? Math.round((d.slaMetCount / d.slaTotalCount) * 100) : 0,
+      avgHours: d.resHours.length ? Math.round(d.resHours.reduce((a, b) => a + b, 0) / d.resHours.length) : 0,
+    })).sort((a, b) => b.total - a.total).slice(0, 8);
+  }, [filtered]);
+
+  /* ── top performers ── */
+  const topPerformers = React.useMemo(() => {
+    const staff = users.filter(u => u.active && (u.role === 'staff' || u.role === 'manager'));
+    return staff.map(u => {
+      const m = computeStaffMetrics(u, filtered);
+      return { ...u, ...m };
+    }).sort((a, b) => b.resolved - a.resolved).slice(0, 5);
+  }, [users, filtered]);
+
+  /* ── users by role ── */
+  const roleData = React.useMemo(() => {
+    const roleCounts = {};
+    users.filter(u => u.active).forEach(u => {
+      const r = u.role === 'super_admin' || u.isAdmin ? 'Super Admin' : u.role === 'manager' ? 'Manager' : 'Staff';
+      roleCounts[r] = (roleCounts[r] || 0) + 1;
+    });
+    const colors = { 'Super Admin': '#6366F1', 'Manager': '#8B5CF6', 'Staff': '#06B6D4' };
+    return Object.entries(roleCounts).map(([name, value]) => ({ name, value, color: colors[name] || '#94a3b8' }));
+  }, [users]);
+
+  /* ── recent activity ── */
+  const recentActivity = React.useMemo(() => {
+    const events = [];
+    [...tickets].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)).slice(0, 5).forEach(t => {
+      events.push({ type: 'created', ticket: t, ts: t.createdAt });
+    });
+    [...tickets].filter(t => t.resolvedAt).sort((a, b) => new Date(b.resolvedAt) - new Date(a.resolvedAt)).slice(0, 5).forEach(t => {
+      events.push({ type: 'resolved', ticket: t, ts: t.resolvedAt });
+    });
+    return events.sort((a, b) => new Date(b.ts || 0) - new Date(a.ts || 0)).slice(0, 10);
+  }, [tickets]);
+
+  /* ── KPI card component ── */
+  const KpiCard = ({ label, value, sub, icon, gradient, delta }) => (
+    <div className="card rounded-2xl p-5 flex flex-col gap-3" style={{ boxShadow: 'var(--shadow-sm)' }}>
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">{label}</span>
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: gradient }}>
+          <Icon name={icon} className="w-4 h-4 text-white" />
+        </div>
+      </div>
+      <div>
+        <div className="text-3xl font-bold text-slate-800" style={{ fontFamily: 'Poppins, Inter, sans-serif' }}>{value}</div>
+        {sub && <div className="text-xs text-slate-500 mt-1">{sub}</div>}
+      </div>
+      {delta !== undefined && (
+        <div className={`text-xs font-medium ${delta >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+          {delta >= 0 ? '▲' : '▼'} {Math.abs(delta)}% vs prior period
+        </div>
+      )}
+    </div>
+  );
+
+  const RANGES = [
+    { id: '7d', label: '7 Days' },
+    { id: '30d', label: '30 Days' },
+    { id: '90d', label: '90 Days' },
+    { id: '12m', label: '12 Months' },
+    { id: 'all', label: 'All Time' },
+  ];
+
+  const CUSTOM_TOOLTIP = ({ active, payload, label }) => {
+    if (!active || !payload || !payload.length) return null;
+    return (
+      <div className="card rounded-xl p-3 text-xs shadow-lg border border-slate-200">
+        <div className="font-semibold text-slate-700 mb-1">{label}</div>
+        {payload.map((p, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full inline-block" style={{ background: p.color }}></span>
+            <span className="text-slate-600">{p.name}:</span>
+            <span className="font-bold text-slate-800">{p.value}</span>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  return (
+    <div className="flex-1 overflow-y-auto p-6" style={{ background: 'transparent' }}>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold" style={{ fontFamily: 'Poppins, Inter, sans-serif', background: 'linear-gradient(135deg,#6366F1,#8B5CF6,#06B6D4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            Analytics Dashboard
+          </h1>
+          <p className="text-sm text-slate-500 mt-0.5">Operational insights across all tickets and staff</p>
+        </div>
+        {/* Range filter */}
+        <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.15)' }}>
+          {RANGES.map(r => (
+            <button
+              key={r.id}
+              onClick={() => setRange(r.id)}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+              style={range === r.id ? {
+                background: 'linear-gradient(135deg,#6366F1,#8B5CF6)',
+                color: '#fff',
+                boxShadow: '0 2px 8px rgba(99,102,241,0.35)',
+              } : { color: '#64748B' }}
+            >{r.label}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
+        <KpiCard label="Total Tickets"     value={kpi.total}          sub={`In selected period`}       icon="list"      gradient="linear-gradient(135deg,#6366F1,#8B5CF6)" />
+        <KpiCard label="Open / Active"     value={kpi.open}           sub="Open · In Progress · Esc."  icon="alert"     gradient="linear-gradient(135deg,#f59e0b,#ef4444)" />
+        <KpiCard label="Resolution Rate"   value={`${kpi.resRate}%`}  sub="Resolved or Closed"         icon="check"     gradient="linear-gradient(135deg,#10b981,#059669)" />
+        <KpiCard label="SLA Compliance"    value={`${kpi.slaPct}%`}   sub="Tickets meeting SLA"        icon="clock"     gradient="linear-gradient(135deg,#06b6d4,#0ea5e9)" />
+        <KpiCard label="Avg Resolution"    value={`${kpi.avgHours}h`} sub="Hours to resolve"           icon="trend"     gradient="linear-gradient(135deg,#8B5CF6,#6366F1)" />
+        <KpiCard label="Active Staff"      value={kpi.activeStaff}    sub="Non-admin users"            icon="users"     gradient="linear-gradient(135deg,#0ea5e9,#06b6d4)" />
+      </div>
+
+      {/* Row: Trend + Status Donut */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 mb-4">
+        {/* Monthly Trend */}
+        <div className="xl:col-span-2 card rounded-2xl p-5" style={{ boxShadow: 'var(--shadow-sm)' }}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-slate-700">Monthly Ticket Volume</h3>
+            <span className="text-xs text-slate-400">Last 12 months</span>
+          </div>
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={trendData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
+              <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#94a3b8' }} />
+              <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} />
+              <Tooltip content={<CUSTOM_TOOLTIP />} />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Line type="monotone" dataKey="created"  name="Created"  stroke="#6366F1" strokeWidth={2.5} dot={{ r: 3, fill: '#6366F1' }} activeDot={{ r: 5 }} />
+              <Line type="monotone" dataKey="resolved" name="Resolved" stroke="#10b981" strokeWidth={2.5} dot={{ r: 3, fill: '#10b981' }} activeDot={{ r: 5 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Status Donut */}
+        <div className="card rounded-2xl p-5" style={{ boxShadow: 'var(--shadow-sm)' }}>
+          <h3 className="font-semibold text-slate-700 mb-4">Status Distribution</h3>
+          {statusData.length > 0 ? (
+            <>
+              <ResponsiveContainer width="100%" height={170}>
+                <PieChart>
+                  <Pie data={statusData} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={3} dataKey="value">
+                    {statusData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                  </Pie>
+                  <Tooltip formatter={(value, name) => [value, name]} contentStyle={{ borderRadius: 10, fontSize: 12 }} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="flex flex-col gap-1.5 mt-2">
+                {statusData.map((s, i) => (
+                  <div key={i} className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full" style={{ background: s.color }}></span>
+                      <span className="text-slate-600">{s.name}</span>
+                    </div>
+                    <span className="font-semibold text-slate-700">{s.value}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center justify-center h-40 text-slate-400 text-sm">No data in range</div>
+          )}
+        </div>
+      </div>
+
+      {/* Row: Priority Bar + Category Horizontal Bar */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-4">
+        {/* Priority Breakdown */}
+        <div className="card rounded-2xl p-5" style={{ boxShadow: 'var(--shadow-sm)' }}>
+          <h3 className="font-semibold text-slate-700 mb-4">Tickets by Priority</h3>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={priorityData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" vertical={false} />
+              <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} />
+              <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} />
+              <Tooltip content={<CUSTOM_TOOLTIP />} />
+              <Bar dataKey="count" name="Tickets" radius={[6, 6, 0, 0]}>
+                {priorityData.map((entry, i) => <Cell key={i} fill={entry.color || '#6366F1'} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Category Horizontal Bar */}
+        <div className="card rounded-2xl p-5" style={{ boxShadow: 'var(--shadow-sm)' }}>
+          <h3 className="font-semibold text-slate-700 mb-4">Tickets by Category</h3>
+          <div className="flex flex-col gap-2.5">
+            {categoryData.map((c, i) => {
+              const pct = kpi.total > 0 ? Math.round((c.count / kpi.total) * 100) : 0;
+              return (
+                <div key={i}>
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <span className="text-slate-600 font-medium">{c.name}</span>
+                    <span className="text-slate-500">{c.count} <span className="text-slate-400">({pct}%)</span></span>
+                  </div>
+                  <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(148,163,184,0.15)' }}>
+                    <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: c.color }} />
+                  </div>
+                </div>
+              );
+            })}
+            {categoryData.every(c => c.count === 0) && (
+              <div className="text-sm text-slate-400 text-center py-8">No data in selected range</div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Row: Dept Table + Top Performers */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-4">
+        {/* Department Performance */}
+        <div className="card rounded-2xl p-5" style={{ boxShadow: 'var(--shadow-sm)' }}>
+          <h3 className="font-semibold text-slate-700 mb-4">Department Performance</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr style={{ borderBottom: '1px solid rgba(148,163,184,0.2)' }}>
+                  {['Department','Total','Open','Resolved','Rate','SLA%','Avg Hrs'].map(h => (
+                    <th key={h} className="text-left py-2 px-2 text-slate-400 font-semibold uppercase tracking-wide text-[10px]">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {deptData.length === 0 && (
+                  <tr><td colSpan={7} className="text-center py-6 text-slate-400">No data available</td></tr>
+                )}
+                {deptData.map((d, i) => (
+                  <tr key={i} className="transition-colors" style={{ borderBottom: '1px solid rgba(148,163,184,0.1)' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(99,102,241,0.05)'}
+                    onMouseLeave={e => e.currentTarget.style.background = ''}
+                  >
+                    <td className="py-2 px-2 font-medium text-slate-700">{d.dept}</td>
+                    <td className="py-2 px-2 text-slate-600">{d.total}</td>
+                    <td className="py-2 px-2">
+                      <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold" style={{ background: 'rgba(245,158,11,0.12)', color: '#d97706' }}>{d.open}</span>
+                    </td>
+                    <td className="py-2 px-2">
+                      <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold" style={{ background: 'rgba(16,185,129,0.12)', color: '#059669' }}>{d.resolved}</span>
+                    </td>
+                    <td className="py-2 px-2">
+                      <div className="flex items-center gap-1">
+                        <div className="w-10 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(148,163,184,0.2)' }}>
+                          <div className="h-full rounded-full" style={{ width: `${d.rate}%`, background: 'linear-gradient(90deg,#6366F1,#8B5CF6)' }} />
+                        </div>
+                        <span className="text-slate-600">{d.rate}%</span>
+                      </div>
+                    </td>
+                    <td className="py-2 px-2">
+                      <span className={`font-semibold ${d.slaPct >= 80 ? 'text-emerald-600' : d.slaPct >= 60 ? 'text-amber-600' : 'text-red-500'}`}>{d.slaPct}%</span>
+                    </td>
+                    <td className="py-2 px-2 text-slate-600">{d.avgHours}h</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Top Performers */}
+        <div className="card rounded-2xl p-5" style={{ boxShadow: 'var(--shadow-sm)' }}>
+          <h3 className="font-semibold text-slate-700 mb-4">Top Performers</h3>
+          <div className="flex flex-col gap-3">
+            {topPerformers.length === 0 && (
+              <div className="text-sm text-slate-400 text-center py-8">No staff data available</div>
+            )}
+            {topPerformers.map((u, i) => (
+              <div key={u.id} className="flex items-center gap-3 p-3 rounded-xl transition-all cursor-pointer"
+                style={{ background: 'rgba(99,102,241,0.04)', border: '1px solid rgba(99,102,241,0.08)' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(99,102,241,0.10)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'rgba(99,102,241,0.04)'}
+              >
+                <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+                  style={{ background: i === 0 ? 'linear-gradient(135deg,#f59e0b,#ef4444)' : i === 1 ? 'linear-gradient(135deg,#94a3b8,#64748b)' : 'linear-gradient(135deg,#92400e,#78350f)' }}>
+                  {i + 1}
+                </div>
+                <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+                  style={{ background: 'linear-gradient(135deg,#6366F1,#8B5CF6)' }}>
+                  {(u.avatar || u.name?.slice(0,2) || '??').slice(0,2).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold text-slate-700 truncate">{u.name}</div>
+                  <div className="text-xs text-slate-500">{u.department}</div>
+                </div>
+                <div className="flex flex-col items-end gap-0.5">
+                  <div className="text-xs font-bold text-slate-700">{u.resolved} resolved</div>
+                  <div className="flex gap-2 text-[10px] text-slate-400">
+                    <span>SLA {u.slaPct}%</span>
+                    {u.rating > 0 && <span>★ {u.rating.toFixed(1)}</span>}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Row: Users by Role + Recent Activity */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        {/* Users by Role */}
+        <div className="card rounded-2xl p-5" style={{ boxShadow: 'var(--shadow-sm)' }}>
+          <h3 className="font-semibold text-slate-700 mb-4">Team Composition</h3>
+          {roleData.length > 0 ? (
+            <div className="flex items-center gap-4">
+              <ResponsiveContainer width={160} height={160}>
+                <PieChart>
+                  <Pie data={roleData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={4} dataKey="value">
+                    {roleData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                  </Pie>
+                  <Tooltip formatter={(value, name) => [value, name]} contentStyle={{ borderRadius: 10, fontSize: 12 }} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="flex flex-col gap-3 flex-1">
+                {roleData.map((r, i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full" style={{ background: r.color }}></span>
+                      <span className="text-sm text-slate-600">{r.name}</span>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-bold text-slate-700">{r.value}</div>
+                      <div className="text-[10px] text-slate-400">{users.filter(u => u.active).length > 0 ? Math.round((r.value / users.filter(u => u.active).length) * 100) : 0}%</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-40 text-slate-400 text-sm">No user data</div>
+          )}
+        </div>
+
+        {/* Recent Activity */}
+        <div className="card rounded-2xl p-5" style={{ boxShadow: 'var(--shadow-sm)' }}>
+          <h3 className="font-semibold text-slate-700 mb-4">Recent Activity</h3>
+          <div className="flex flex-col gap-2">
+            {recentActivity.length === 0 && (
+              <div className="text-sm text-slate-400 text-center py-8">No recent activity</div>
+            )}
+            {recentActivity.map((evt, i) => {
+              const isResolved = evt.type === 'resolved';
+              const t = evt.ticket;
+              const assigneeName = users.find(u => u.id === t.assignedTo)?.name || 'Unassigned';
+              return (
+                <div key={i} className="flex items-start gap-3 p-2 rounded-xl cursor-pointer transition-all"
+                  style={{ borderBottom: '1px solid rgba(148,163,184,0.1)' }}
+                  onClick={() => onOpenTicket && onOpenTicket(t.id)}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(99,102,241,0.05)'}
+                  onMouseLeave={e => e.currentTarget.style.background = ''}
+                >
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
+                    style={{ background: isResolved ? 'rgba(16,185,129,0.15)' : 'rgba(99,102,241,0.15)' }}>
+                    <Icon name={isResolved ? 'check' : 'list'} className="w-3 h-3" style={{ color: isResolved ? '#10b981' : '#6366F1' }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-semibold text-slate-700 truncate">
+                      {isResolved ? 'Resolved: ' : 'Created: '}{t.title || t.subject || 'Untitled ticket'}
+                    </div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">{assigneeName} · {t.department || 'No dept'} · {fmtRelative ? fmtRelative(evt.ts) : evt.ts}</div>
+                  </div>
+                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md flex-shrink-0"
+                    style={{ background: isResolved ? 'rgba(16,185,129,0.12)' : 'rgba(99,102,241,0.12)', color: isResolved ? '#059669' : '#6366F1' }}>
+                    {isResolved ? 'Resolved' : 'New'}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
 // ACCESS DENIED page (row-level security fallback)
 // ============================================================
 const AccessDenied = () => (
@@ -6470,6 +7426,7 @@ const App = () => {
     case 'tickets':    content = <TicketsList tickets={state.tickets} users={state.users} currentUser={currentUser} onOpen={(id) => { setCurrentTicketId(id); setView('detail'); }} onAssign={(t) => setAssignModal({ open: true, ticket: t })} onDelete={(t) => setDeleteModal({ open: true, ticket: t })} onNew={() => setView('new')} teamFilterIds={teamFilterIds} onClearTeamFilter={() => setTeamFilterIds(null)} onNavigate={navigateTo} />; break;
     case 'detail':     content = <TicketDetail ticketId={currentTicketId} tickets={state.tickets} users={state.users} currentUser={currentUser} onUpdate={updateTicket} onAddComment={addComment} onAssign={(t) => setAssignModal({ open: true, ticket: t })} onDelete={(t) => setDeleteModal({ open: true, ticket: t })} onMarkComplete={markComplete} onApprove={approveTicket} onReopen={reopenTicket} onBack={() => setView('tickets')} />; break;
     case 'calendar':   content = <CalendarView tickets={state.tickets} onOpen={(id) => { setCurrentTicketId(id); setView('detail'); }} onNavigate={navigateTo} />; break;
+    case 'analytics':  content = isAdmin(currentUser) ? <AnalyticsDashboard tickets={state.tickets} users={state.users} currentUser={currentUser} onOpenTicket={(id) => { setCurrentTicketId(id); setView('detail'); }} onNavigate={navigateTo} /> : <AccessDenied />; break;
     case 'logs':       content = isManager(currentUser) ? <TicketLogs tickets={state.tickets} users={state.users} onOpen={(id) => { setCurrentTicketId(id); setView('detail'); }} onNavigate={navigateTo} /> : <AccessDenied />; break;
     case 'staff-perf': content = isManager(currentUser) ? <StaffPerformance tickets={state.tickets} users={state.users} currentUser={currentUser} onOpen={(id) => { setCurrentTicketId(id); setView('detail'); }} onOpenStaff={(id) => { setCurrentStaffId(id); setView('staff-detail'); }} onNavigate={navigateTo} /> : <AccessDenied />; break;
     case 'staff-detail': content = isManager(currentUser) ? <StaffDetail staffId={currentStaffId} tickets={state.tickets} users={state.users} currentUser={currentUser} onBack={() => setView('staff-perf')} onOpenTicket={(id) => { setCurrentTicketId(id); setView('detail'); }} onNavigate={navigateTo} /> : <AccessDenied />; break;
