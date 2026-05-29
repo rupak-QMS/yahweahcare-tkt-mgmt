@@ -1393,6 +1393,473 @@
   /* ── Smooth scroll + scroll-margin ───────────────────────────── */
   html { scroll-behavior: smooth; }
   [id] { scroll-margin-top: 72px; }
+
+  /* ═══════════════════════════════════════════════════════════════
+     ██████  THEME OVERRIDES
+     ██ DARK  — Glossy Black + Lime Green (#7eb842) buttons
+     ██ LIGHT — OxygenOS Water-Glossy
+     ═══════════════════════════════════════════════════════════════ */
+
+  /* ── Brand palette update ───────────────────────────────────── */
+  :root {
+    --green-from:   #9fd44f;
+    --green-mid:    #7eb842;
+    --green-to:     #5f9a28;
+    --green-glow:   rgba(126,184,66,0.45);
+    --green-glow-sm:rgba(126,184,66,0.25);
+  }
+
+  /* ╔══════════════════════════════════════════════════════════════
+     ║  DARK THEME — Glossy Jet Black
+     ╚══════════════════════════════════════════════════════════════ */
+
+  /* ── Body: glossy jet black with a single crown-light reflection */
+  html.dark body {
+    background:
+      radial-gradient(ellipse 80% 35% at 50% 0%, rgba(255,255,255,0.035) 0%, transparent 65%),
+      radial-gradient(ellipse 60% 40% at 10% 5%, rgba(126,184,66,0.06) 0%, transparent 55%),
+      linear-gradient(180deg, #0e0e0e 0%, #080808 60%, #050505 100%) !important;
+    color: #e8e8e8;
+  }
+
+  /* App shell wrapper dark */
+  html.dark .brand-gradient-soft {
+    background:
+      radial-gradient(ellipse 80% 35% at 50% 0%, rgba(255,255,255,0.025) 0%, transparent 60%),
+      linear-gradient(180deg, #0e0e0e 0%, #080808 55%, #050505 100%) !important;
+  }
+
+  /* ── Sidebar: polished piano-black ─────────────────────────── */
+  html.dark aside {
+    background: linear-gradient(180deg,
+      #161616 0%,
+      #0f0f0f 40%,
+      #0a0a0a 100%) !important;
+    box-shadow:
+      4px 0 32px rgba(0,0,0,0.80),
+      1px 0 0 rgba(255,255,255,0.05),
+      inset -1px 0 0 rgba(255,255,255,0.03) !important;
+    border-right: 1px solid rgba(255,255,255,0.06) !important;
+  }
+
+  /* Sidebar active item — green accent bar */
+  html.dark aside a[class*="brand-gradient"],
+  html.dark aside button[class*="brand-gradient"] {
+    box-shadow: inset 3px 0 0 #7eb842, 0 0 16px rgba(126,184,66,0.15) !important;
+  }
+  html.dark aside a:hover,
+  html.dark aside button:hover {
+    box-shadow: inset 0 0 0 1px rgba(126,184,66,0.15) !important;
+  }
+
+  /* ── Topbar dark: glossy dark glass ────────────────────────── */
+  html.dark header.h-14 {
+    background: linear-gradient(90deg,
+      rgba(14,14,14,0.98) 0%,
+      rgba(20,20,20,0.95) 100%) !important;
+    border-color: rgba(255,255,255,0.06) !important;
+    backdrop-filter: blur(20px) saturate(120%) !important;
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.04),
+      0 4px 24px rgba(0,0,0,0.60),
+      0 0 0 1px rgba(126,184,66,0.06) !important;
+  }
+
+  /* ── Cards: deep gloss black ───────────────────────────────── */
+  html.dark .card {
+    background: linear-gradient(145deg,
+      rgba(26,26,26,0.96) 0%,
+      rgba(16,16,16,0.98) 55%,
+      rgba(12,12,12,0.99) 100%) !important;
+    border: 1px solid rgba(255,255,255,0.07) !important;
+    backdrop-filter: blur(20px) saturate(120%) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.06),
+      inset 0 -1px 0 rgba(0,0,0,0.30),
+      0 4px 28px rgba(0,0,0,0.65),
+      0 1px 4px rgba(0,0,0,0.50) !important;
+    color: #e2e2e2;
+  }
+  html.dark .card::before {
+    background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(126,184,66,0.25) 30%,
+      rgba(159,212,79,0.20) 65%,
+      transparent 100%) !important;
+  }
+  html.dark .card:hover {
+    border-color: rgba(126,184,66,0.22) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.08),
+      0 0 0 1px rgba(126,184,66,0.18),
+      0 20px 50px rgba(0,0,0,0.70),
+      0 0 30px rgba(126,184,66,0.08) !important;
+    transform: translateY(-2px) !important;
+  }
+
+  /* General dark backgrounds */
+  html.dark .bg-white     { background: rgba(18,18,18,0.96) !important; }
+  html.dark .bg-slate-50  { background-color: #0e0e0e !important; }
+  html.dark .bg-slate-100 { background-color: #111111 !important; }
+  html.dark .bg-slate-200 { background-color: #1a1a1a !important; }
+
+  /* Stat cards — dark gloss */
+  html.dark .stat-total {
+    background: linear-gradient(135deg, rgba(126,184,66,0.20) 0%, rgba(80,120,30,0.12) 55%, rgba(12,12,12,0.95) 100%) !important;
+    border-color: rgba(126,184,66,0.22) !important;
+  }
+  html.dark .stat-open {
+    background: linear-gradient(135deg, rgba(6,182,212,0.20) 0%, rgba(3,100,130,0.12) 55%, rgba(12,12,12,0.95) 100%) !important;
+    border-color: rgba(6,182,212,0.22) !important;
+  }
+  html.dark .stat-prog {
+    background: linear-gradient(135deg, rgba(14,165,233,0.20) 0%, rgba(7,80,120,0.12) 55%, rgba(12,12,12,0.95) 100%) !important;
+    border-color: rgba(14,165,233,0.22) !important;
+  }
+  html.dark .stat-res {
+    background: linear-gradient(135deg, rgba(20,184,166,0.20) 0%, rgba(10,90,80,0.12) 55%, rgba(12,12,12,0.95) 100%) !important;
+    border-color: rgba(20,184,166,0.22) !important;
+  }
+  html.dark .stat-esc {
+    background: linear-gradient(135deg, rgba(249,115,22,0.20) 0%, rgba(140,60,5,0.12) 55%, rgba(12,12,12,0.95) 100%) !important;
+    border-color: rgba(249,115,22,0.22) !important;
+  }
+  html.dark .stat-urg {
+    background: linear-gradient(135deg, rgba(239,68,68,0.20) 0%, rgba(130,20,20,0.12) 55%, rgba(12,12,12,0.95) 100%) !important;
+    border-color: rgba(239,68,68,0.22) !important;
+  }
+
+  /* Stat card glows dark */
+  html.dark .stat-total:hover { box-shadow: 0 0 0 1px rgba(126,184,66,0.35), 0 0 32px rgba(126,184,66,0.18) !important; }
+  html.dark .stat-open:hover  { box-shadow: 0 0 0 1px rgba(6,182,212,0.35),  0 0 32px rgba(6,182,212,0.18)  !important; }
+  html.dark .stat-prog:hover  { box-shadow: 0 0 0 1px rgba(14,165,233,0.35), 0 0 32px rgba(14,165,233,0.18) !important; }
+  html.dark .stat-res:hover   { box-shadow: 0 0 0 1px rgba(20,184,166,0.35), 0 0 32px rgba(20,184,166,0.18) !important; }
+  html.dark .stat-esc:hover   { box-shadow: 0 0 0 1px rgba(249,115,22,0.35), 0 0 32px rgba(249,115,22,0.18) !important; }
+  html.dark .stat-urg:hover   { box-shadow: 0 0 0 1px rgba(239,68,68,0.35),  0 0 32px rgba(239,68,68,0.18)  !important; }
+
+  /* Dark table rows */
+  html.dark tbody tr:hover {
+    background-color: rgba(126,184,66,0.04) !important;
+    box-shadow: inset 3px 0 0 rgba(126,184,66,0.50) !important;
+  }
+  html.dark thead.bg-slate-50 { background-color: rgba(10,10,10,0.98) !important; }
+  html.dark tbody tr { border-color: rgba(255,255,255,0.04) !important; }
+
+  /* Dark scrollbar */
+  html.dark .scrollbar-thin::-webkit-scrollbar-track { background: #0a0a0a; }
+  html.dark .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #7eb842, #5f9a28);
+  }
+  html.dark .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #9fd44f, #7eb842);
+  }
+
+  /* Dark input focus */
+  html.dark input:focus, html.dark select:focus, html.dark textarea:focus {
+    border-color: rgba(126,184,66,0.70) !important;
+    box-shadow: 0 0 0 4px rgba(126,184,66,0.18), 0 0 18px rgba(126,184,66,0.10) !important;
+  }
+
+  /* Dark modal / popover glass */
+  html.dark .bg-white.rounded-2xl,
+  html.dark .bg-white.rounded-xl,
+  html.dark div[class*="bg-white"][class*="rounded"] {
+    background: linear-gradient(145deg,
+      rgba(22,22,22,0.97) 0%,
+      rgba(14,14,14,0.99) 100%) !important;
+    border: 1px solid rgba(255,255,255,0.06) !important;
+  }
+
+  /* Dark recharts tooltip */
+  html.dark .recharts-default-tooltip {
+    background: rgba(16,16,16,0.98) !important;
+    border-color: rgba(126,184,66,0.15) !important;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.75), 0 0 0 1px rgba(126,184,66,0.10) !important;
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     ██  ALL BUTTONS — Glossy #7eb842 Lime Green
+         Applies to BOTH themes
+     ══════════════════════════════════════════════════════════════ */
+
+  /* Override the brand-gradient for all primary buttons */
+  .brand-gradient,
+  button.brand-gradient,
+  a.brand-gradient,
+  [class*="brand-gradient"] {
+    background: linear-gradient(
+      160deg,
+      #a8d857 0%,
+      #8ec940 18%,
+      #7eb842 45%,
+      #6aaa30 72%,
+      #7eb842 100%
+    ) !important;
+    color: #fff !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.30) !important;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Gloss shine highlight on top-half */
+  .brand-gradient::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 50% 0;
+    background: linear-gradient(
+      180deg,
+      rgba(255,255,255,0.28) 0%,
+      rgba(255,255,255,0.06) 100%
+    );
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* Shimmer sweep on hover */
+  .brand-gradient::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(
+      105deg,
+      transparent 25%,
+      rgba(255,255,255,0.38) 50%,
+      transparent 75%
+    );
+    transform: translateX(-140%);
+    transition: none;
+    pointer-events: none;
+    z-index: 2;
+  }
+  .brand-gradient:hover::after {
+    transform: translateX(140%);
+    transition: transform 0.55s var(--ease-premium);
+  }
+
+  /* Button hover: lift + green glow */
+  .brand-gradient:hover {
+    background: linear-gradient(
+      160deg,
+      #b5e060 0%,
+      #98d24a 20%,
+      #7eb842 50%,
+      #6aaa30 78%,
+      #7eb842 100%
+    ) !important;
+    box-shadow:
+      0 0 0 1px rgba(126,184,66,0.40),
+      0 8px 28px rgba(126,184,66,0.50),
+      0 2px 8px rgba(0,0,0,0.20) !important;
+    transform: translateY(-2px) scale(1.015) !important;
+    filter: brightness(1.06) !important;
+  }
+  .brand-gradient:active {
+    transform: scale(0.972) !important;
+    box-shadow: 0 2px 10px rgba(126,184,66,0.45) !important;
+    transition-duration: 0.08s !important;
+  }
+
+  /* Brand gradient on sidebar active item — keep green but subdued */
+  aside .brand-gradient,
+  aside [class*="brand-gradient"] {
+    background: linear-gradient(
+      135deg,
+      rgba(168,216,87,0.18) 0%,
+      rgba(126,184,66,0.22) 50%,
+      rgba(106,160,48,0.18) 100%
+    ) !important;
+    color: #7eb842 !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+  }
+  html.dark aside .brand-gradient,
+  html.dark aside [class*="brand-gradient"] {
+    background: linear-gradient(
+      135deg,
+      rgba(126,184,66,0.16) 0%,
+      rgba(95,154,40,0.20) 100%
+    ) !important;
+    color: #9fd44f !important;
+    text-shadow: none !important;
+  }
+
+  /* Sidebar icon colour — green */
+  .yc-nav-icon-bg  { background: rgba(126,184,66,0.14) !important; }
+  .yc-nav-icon-color { color: #7eb842 !important; }
+  html.dark .yc-nav-icon-bg  { background: rgba(126,184,66,0.16) !important; }
+  html.dark .yc-nav-icon-color { color: #9fd44f !important; }
+
+  /* Sidebar active nav hover — green tint */
+  .yc-nav-inactive:hover {
+    background: rgba(126,184,66,0.10) !important;
+    color: #4d7a1a !important;
+  }
+  html.dark .yc-nav-inactive:hover {
+    background: rgba(126,184,66,0.12) !important;
+    color: #b5e060 !important;
+  }
+
+  /* Logo brand text — green */
+  .yc-sidebar-care { color: #7eb842 !important; }
+  html.dark .yc-sidebar-care { color: #9fd44f !important; }
+
+  /* ╔══════════════════════════════════════════════════════════════
+     ║  LIGHT THEME — OxygenOS Water-Glossy
+     ╚══════════════════════════════════════════════════════════════ */
+
+  /* ── Body: oxygen-os clean sky-white water glass ───────────── */
+  body {
+    background:
+      radial-gradient(ellipse 100% 50% at 50% -10%, rgba(186,230,255,0.50) 0%, transparent 55%),
+      radial-gradient(ellipse 70% 40% at 0% 30%,   rgba(210,240,255,0.35) 0%, transparent 50%),
+      radial-gradient(ellipse 60% 35% at 100% 70%,  rgba(126,184,66,0.08) 0%, transparent 55%),
+      linear-gradient(170deg, #f0f8ff 0%, #ffffff 35%, #f5fbff 70%, #eef6ff 100%) !important;
+    color: #1a1a2e;
+  }
+
+  /* App shell wrapper light */
+  .brand-gradient-soft {
+    background:
+      radial-gradient(ellipse 90% 45% at 50% -5%, rgba(186,230,255,0.40) 0%, transparent 55%),
+      linear-gradient(165deg, #f0f8ff 0%, #ffffff 40%, #f5fbff 100%) !important;
+  }
+
+  /* ── Sidebar: water-glass white with gloss reflection ─────── */
+  aside {
+    background: linear-gradient(180deg,
+      #ffffff 0%,
+      #f4faff 40%,
+      #eaf4fd 100%) !important;
+    box-shadow:
+      4px 0 32px rgba(186,230,255,0.35),
+      1px 0 0 rgba(186,230,255,0.60),
+      inset -1px 0 0 rgba(255,255,255,0.80) !important;
+    border-right: 1px solid rgba(186,210,240,0.45) !important;
+  }
+
+  /* Sidebar active item light — green left bar */
+  aside a[class*="brand-gradient"],
+  aside button[class*="brand-gradient"] {
+    box-shadow: inset 3px 0 0 #7eb842, 0 0 12px rgba(126,184,66,0.12) !important;
+  }
+
+  /* Topbar light: water-white frosted */
+  header.yc-topbar, div.yc-topbar,
+  header.h-14 {
+    background: linear-gradient(90deg,
+      rgba(255,255,255,0.98) 0%,
+      rgba(240,248,255,0.96) 100%) !important;
+    backdrop-filter: blur(24px) saturate(200%) !important;
+    border-bottom: 1px solid rgba(186,220,255,0.50) !important;
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.90),
+      0 2px 16px rgba(186,220,255,0.25) !important;
+  }
+
+  /* ── Cards: water-glass gloss effect ───────────────────────── */
+  .card {
+    background: linear-gradient(145deg,
+      rgba(255,255,255,0.95) 0%,
+      rgba(245,252,255,0.92) 55%,
+      rgba(235,248,255,0.90) 100%) !important;
+    border: 1px solid rgba(186,220,255,0.50) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,1.0),
+      inset 0 -1px 0 rgba(186,220,255,0.20),
+      0 2px 12px rgba(186,220,255,0.28),
+      0 1px 4px rgba(0,0,0,0.04) !important;
+    backdrop-filter: blur(16px) saturate(200%) !important;
+  }
+
+  /* Card top accent — water shimmer (green + sky) */
+  .card::before {
+    background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(126,184,66,0.35) 25%,
+      rgba(186,230,255,0.50) 55%,
+      rgba(126,184,66,0.20) 80%,
+      transparent 100%) !important;
+  }
+
+  /* Card hover — water ripple lift */
+  .card:hover {
+    background: linear-gradient(145deg,
+      rgba(255,255,255,0.98) 0%,
+      rgba(240,252,255,0.96) 55%,
+      rgba(228,248,255,0.94) 100%) !important;
+    border-color: rgba(126,184,66,0.35) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,1.0),
+      0 0 0 1.5px rgba(126,184,66,0.30),
+      0 16px 40px rgba(186,220,255,0.40),
+      0 4px 12px rgba(126,184,66,0.12) !important;
+    transform: translateY(-4px) !important;
+  }
+
+  /* Stat card glows light */
+  .stat-total:hover { box-shadow: 0 0 0 1.5px rgba(126,184,66,0.40), 0 20px 45px rgba(126,184,66,0.14) !important; border-color: rgba(126,184,66,0.40) !important; }
+  .stat-open:hover  { box-shadow: 0 0 0 1.5px #67E8F9, 0 20px 45px rgba(6,182,212,0.18)  !important; border-color: #67E8F9 !important; }
+  .stat-prog:hover  { box-shadow: 0 0 0 1.5px #7DD3FC, 0 20px 45px rgba(14,165,233,0.18) !important; border-color: #7DD3FC !important; }
+  .stat-res:hover   { box-shadow: 0 0 0 1.5px #5EEAD4, 0 20px 45px rgba(20,184,166,0.18) !important; border-color: #5EEAD4 !important; }
+  .stat-esc:hover   { box-shadow: 0 0 0 1.5px #FB923C, 0 20px 45px rgba(249,115,22,0.18) !important; border-color: #FB923C !important; }
+  .stat-urg:hover   { box-shadow: 0 0 0 1.5px #F87171, 0 20px 45px rgba(239,68,68,0.18)  !important; border-color: #F87171 !important; }
+
+  /* Input focus — OxygenOS water ring */
+  input:focus, select:focus, textarea:focus {
+    border-color: rgba(126,184,66,0.70) !important;
+    box-shadow:
+      0 0 0 4px rgba(126,184,66,0.14),
+      0 0 0 1.5px rgba(126,184,66,0.50),
+      0 1px 8px rgba(186,220,255,0.40) !important;
+    outline: none;
+  }
+
+  /* Table rows — water shimmer hover */
+  tbody tr:hover {
+    background: linear-gradient(90deg,
+      rgba(126,184,66,0.06) 0%,
+      rgba(186,230,255,0.10) 50%,
+      rgba(126,184,66,0.03) 100%) !important;
+    box-shadow: inset 3px 0 0 rgba(126,184,66,0.55) !important;
+  }
+
+  /* Scrollbar — OxygenOS water blue + green */
+  .scrollbar-thin::-webkit-scrollbar-track { background: rgba(240,248,255,0.80); }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #9fd44f, #7eb842);
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #b5e060, #8ec940);
+  }
+
+  /* OxygenOS water shine hover utility — used via JS or Tailwind */
+  @keyframes waterShine {
+    0%   { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  /* Page heading gradient — green + sky blue (OxygenOS feel) */
+  .page-heading-gradient {
+    background: linear-gradient(135deg, #5f9a28 0%, #7eb842 40%, #38b2c8 100%) !important;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* Breadcrumb — light water strip */
+  .yc-breadcrumb {
+    background: linear-gradient(90deg,
+      rgba(186,230,255,0.25) 0%,
+      rgba(126,184,66,0.08) 100%) !important;
+    border-bottom: 1px solid rgba(186,220,255,0.50) !important;
+  }
+
+  /* Recharts tooltip — OxygenOS frosted glass */
+  .recharts-default-tooltip {
+    background: rgba(245,252,255,0.97) !important;
+    border: 1px solid rgba(186,220,255,0.60) !important;
+    box-shadow: 0 12px 32px rgba(186,220,255,0.35) !important;
+  }
 </style>
 </head>
 <body>
