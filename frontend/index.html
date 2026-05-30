@@ -1794,184 +1794,208 @@
   html.dark .yc-sidebar-care { color: #9fd44f !important; }
 
   /* ╔══════════════════════════════════════════════════════════════
-     ║  LIGHT THEME — OxygenOS Water-Glossy  (v2 — vivid depth)
+     ║  LIGHT THEME — YPC PowerApps Clean Light
+     ║  Palette mirrors live PowerApps YPC app design language:
+     ║  White sidebar · Light-gray body · White cards · Color-tinted
+     ║  stat cards · Blue (#3B8AF5) + Green (#7EB842) accents
      ╚══════════════════════════════════════════════════════════════ */
 
-  /* ── Body: vivid sky-water gradient with dramatic crown light ── */
+  /* ── Body: clean light gray — matches PowerApps light canvas ── */
   body {
     background:
-      radial-gradient(ellipse 110% 42% at 50% -5%,  rgba(120,200,255,0.70) 0%, transparent 60%),
-      radial-gradient(ellipse  65% 50% at 0%  25%,  rgba(160,220,255,0.45) 0%, transparent 55%),
-      radial-gradient(ellipse  55% 40% at 100% 70%, rgba(126,184,66,0.12)  0%, transparent 55%),
-      radial-gradient(ellipse  80% 30% at 50% 105%, rgba(200,235,255,0.55) 0%, transparent 65%),
-      linear-gradient(175deg, #e8f6ff 0%, #f4faff 30%, #ffffff 55%, #f0f8ff 80%, #e6f3ff 100%) !important;
-    color: #0f1923;
+      radial-gradient(ellipse 80% 35% at 50% -8%, rgba(59,138,245,0.06) 0%, transparent 65%),
+      radial-gradient(ellipse 55% 30% at 0% 30%,  rgba(126,184,66,0.05) 0%, transparent 60%),
+      linear-gradient(175deg, #F3F6FB 0%, #F5F7FC 35%, #F8FAFE 60%, #F3F6FB 100%) !important;
+    color: #1E2A3B;
   }
 
   /* App shell wrapper light */
   .brand-gradient-soft {
-    background:
-      radial-gradient(ellipse 100% 40% at 50% -5%, rgba(120,200,255,0.60) 0%, transparent 60%),
-      radial-gradient(ellipse  60% 48% at 0%  22%, rgba(160,220,255,0.38) 0%, transparent 55%),
-      linear-gradient(170deg, #e8f6ff 0%, #f4faff 35%, #ffffff 60%, #f0f8ff 100%) !important;
+    background: linear-gradient(170deg, #F3F6FB 0%, #F5F7FC 40%, #F8FAFE 70%, #F3F6FB 100%) !important;
   }
 
-  /* ── Sidebar: water-white with deep blue-sky shadow ────────── */
+  /* ── Sidebar: pure white — PowerApps clean white sidebar ────── */
   aside {
-    background:
-      radial-gradient(ellipse 100% 20% at 50% 0%, rgba(120,200,255,0.25) 0%, transparent 70%),
-      linear-gradient(180deg,
-        #ffffff 0%,
-        #f2f9ff 35%,
-        #e6f3ff 70%,
-        #dff0ff 100%) !important;
+    background: #FFFFFF !important;
     box-shadow:
-      6px 0 40px rgba(100,180,255,0.30),
-      2px 0 0 rgba(160,220,255,0.50),
-      inset -1px 0 0 rgba(255,255,255,0.90),
-      inset 0 1px 0 rgba(255,255,255,1.0) !important;
-    border-right: 1px solid rgba(140,200,255,0.40) !important;
+      1px 0 0 rgba(226,232,240,0.90),
+      4px 0 16px rgba(59,138,245,0.06) !important;
+    border-right: 1px solid rgba(226,232,240,0.80) !important;
   }
 
-  /* Sidebar active item — green left bar */
+  /* Sidebar active item — green left bar + very light green tint */
   aside a[class*="brand-gradient"],
   aside button[class*="brand-gradient"] {
-    box-shadow:
-      inset 4px 0 0 #7eb842,
-      0 0 16px rgba(126,184,66,0.18),
-      inset 0 0 24px rgba(126,184,66,0.06) !important;
+    background: rgba(126,184,66,0.10) !important;
+    box-shadow: inset 4px 0 0 #7eb842 !important;
+    color: #3d7a10 !important;
   }
 
-  /* Topbar light: deep frosted water glass + green bottom accent */
+  /* Sidebar nav items — dark text on white */
+  aside nav button, aside nav a {
+    color: #374151 !important;
+  }
+  aside nav button:hover, aside nav a:hover {
+    background: rgba(59,138,245,0.07) !important;
+    color: #1E2A3B !important;
+  }
+
+  /* ── Topbar: white with subtle bottom border ─────────────────── */
   header.yc-topbar, div.yc-topbar,
   header.h-14 {
-    background: linear-gradient(90deg,
-      rgba(248,253,255,0.99) 0%,
-      rgba(232,246,255,0.97) 50%,
-      rgba(240,250,255,0.99) 100%) !important;
-    backdrop-filter: blur(32px) saturate(220%) !important;
-    border-bottom: 1px solid rgba(140,200,255,0.40) !important;
+    background: #FFFFFF !important;
+    backdrop-filter: none !important;
+    border-bottom: 1px solid rgba(226,232,240,0.90) !important;
     box-shadow:
       0 1px 0 rgba(255,255,255,1.0),
-      0 2px 0 rgba(126,184,66,0.20),
-      0 4px 24px rgba(100,180,255,0.22),
-      0 1px 6px rgba(0,0,0,0.05) !important;
+      0 2px 0 rgba(126,184,66,0.12),
+      0 2px 12px rgba(0,0,0,0.05) !important;
   }
 
-  /* ── Cards: deep water-glass with dramatic gloss ───────────── */
+  /* ── Cards: clean white with soft shadow ─────────────────────── */
   .card {
-    background: linear-gradient(150deg,
-      rgba(255,255,255,0.98) 0%,
-      rgba(240,251,255,0.95) 40%,
-      rgba(225,245,255,0.92) 70%,
-      rgba(215,240,255,0.90) 100%) !important;
-    border: 1px solid rgba(140,200,255,0.55) !important;
+    background: #FFFFFF !important;
+    border: 1px solid rgba(226,232,240,0.85) !important;
     box-shadow:
-      inset 0 2px 0 rgba(255,255,255,1.0),
-      inset 0 1px 0 rgba(255,255,255,0.90),
-      inset 0 -1px 0 rgba(140,200,255,0.25),
-      inset 1px 0 0 rgba(255,255,255,0.80),
-      0 4px 20px rgba(100,180,255,0.28),
-      0 1px 4px rgba(0,0,0,0.06),
-      0 0 0 0.5px rgba(140,200,255,0.30) !important;
-    backdrop-filter: blur(20px) saturate(220%) !important;
+      0 1px 3px rgba(0,0,0,0.05),
+      0 4px 16px rgba(59,138,245,0.07),
+      0 1px 0 rgba(255,255,255,1.0) !important;
+    backdrop-filter: none !important;
   }
 
-  /* Card accent line — vivid green + water blue */
+  /* Card accent line — green + blue PowerApps palette */
   .card::before {
     height: 3px !important;
     background: linear-gradient(90deg,
       transparent 0%,
-      rgba(126,184,66,0.60) 20%,
-      rgba(80,180,255,0.65) 50%,
-      rgba(126,184,66,0.45) 80%,
+      rgba(126,184,66,0.55) 25%,
+      rgba(59,138,245,0.55) 55%,
+      rgba(126,184,66,0.40) 80%,
       transparent 100%) !important;
   }
 
-  /* Card hover — dramatic water-lift effect */
+  /* Card hover — subtle lift */
   .card:hover {
-    background: linear-gradient(150deg,
-      rgba(255,255,255,1.0) 0%,
-      rgba(245,253,255,0.98) 40%,
-      rgba(230,248,255,0.96) 70%,
-      rgba(220,244,255,0.94) 100%) !important;
-    border-color: rgba(126,184,66,0.45) !important;
+    background: #FFFFFF !important;
+    border-color: rgba(59,138,245,0.30) !important;
     box-shadow:
-      inset 0 2px 0 rgba(255,255,255,1.0),
-      inset 0 -1px 0 rgba(140,200,255,0.30),
-      0 0 0 2px rgba(126,184,66,0.25),
-      0 20px 55px rgba(100,180,255,0.38),
-      0 8px 20px rgba(126,184,66,0.18),
-      0 2px 8px rgba(0,0,0,0.08) !important;
-    transform: translateY(-5px) !important;
+      0 0 0 1.5px rgba(59,138,245,0.18),
+      0 8px 30px rgba(59,138,245,0.12),
+      0 4px 12px rgba(126,184,66,0.08),
+      0 2px 6px rgba(0,0,0,0.06) !important;
+    transform: translateY(-3px) !important;
   }
 
-  /* Stat card glows light — vivid */
-  .stat-total:hover { box-shadow: 0 0 0 2px rgba(126,184,66,0.45), 0 20px 50px rgba(126,184,66,0.22), 0 4px 12px rgba(0,0,0,0.06) !important; border-color: rgba(126,184,66,0.50) !important; transform: translateY(-3px) !important; }
-  .stat-open:hover  { box-shadow: 0 0 0 2px rgba(6,182,212,0.45),  0 20px 50px rgba(6,182,212,0.22),  0 4px 12px rgba(0,0,0,0.06) !important; border-color: rgba(6,182,212,0.50) !important;  transform: translateY(-3px) !important; }
-  .stat-prog:hover  { box-shadow: 0 0 0 2px rgba(14,165,233,0.45), 0 20px 50px rgba(14,165,233,0.22), 0 4px 12px rgba(0,0,0,0.06) !important; border-color: rgba(14,165,233,0.50) !important; transform: translateY(-3px) !important; }
-  .stat-res:hover   { box-shadow: 0 0 0 2px rgba(20,184,166,0.45), 0 20px 50px rgba(20,184,166,0.22), 0 4px 12px rgba(0,0,0,0.06) !important; border-color: rgba(20,184,166,0.50) !important; transform: translateY(-3px) !important; }
-  .stat-esc:hover   { box-shadow: 0 0 0 2px rgba(249,115,22,0.45), 0 20px 50px rgba(249,115,22,0.22), 0 4px 12px rgba(0,0,0,0.06) !important; border-color: rgba(249,115,22,0.50) !important; transform: translateY(-3px) !important; }
-  .stat-urg:hover   { box-shadow: 0 0 0 2px rgba(239,68,68,0.45),  0 20px 50px rgba(239,68,68,0.22),  0 4px 12px rgba(0,0,0,0.06) !important; border-color: rgba(239,68,68,0.50) !important;  transform: translateY(-3px) !important; }
+  /* ── Stat cards — PowerApps color-tinted light cards ─────────── */
+  /* Total: very light blue tint */
+  .stat-total {
+    background: linear-gradient(145deg, #EFF6FF 0%, #F5F9FF 55%, #FAFCFF 100%) !important;
+    border: 1px solid rgba(59,138,245,0.20) !important;
+  }
+  /* Open: very light sky tint */
+  .stat-open {
+    background: linear-gradient(145deg, #F0FAFF 0%, #F5FBFF 55%, #FAFEFF 100%) !important;
+    border: 1px solid rgba(14,165,233,0.20) !important;
+  }
+  /* In Progress: light blue */
+  .stat-prog {
+    background: linear-gradient(145deg, #EFF6FF 0%, #F5F9FF 55%, #FAFCFF 100%) !important;
+    border: 1px solid rgba(59,130,246,0.18) !important;
+  }
+  /* Resolved: very light green — mirrors dark forest green card */
+  .stat-res {
+    background: linear-gradient(145deg, #F0FFF4 0%, #F5FFF8 55%, #FAFFFC 100%) !important;
+    border: 1px solid rgba(34,197,94,0.20) !important;
+  }
+  /* Escalated: very light amber — mirrors dark amber-brown card */
+  .stat-esc {
+    background: linear-gradient(145deg, #FFFBEB 0%, #FFFDF5 55%, #FFFEF9 100%) !important;
+    border: 1px solid rgba(245,158,11,0.22) !important;
+  }
+  /* Urgent: very light red — mirrors dark red-maroon card */
+  .stat-urg {
+    background: linear-gradient(145deg, #FFF5F5 0%, #FFF8F8 55%, #FFFCFC 100%) !important;
+    border: 1px solid rgba(239,68,68,0.22) !important;
+  }
 
-  /* Input focus — OxygenOS water + green ring */
+  /* Stat card hover glows — matched to card tint */
+  .stat-total:hover { box-shadow: 0 0 0 2px rgba(59,138,245,0.28), 0 12px 32px rgba(59,138,245,0.14), 0 4px 8px rgba(0,0,0,0.05) !important; border-color: rgba(59,138,245,0.40) !important; transform: translateY(-3px) !important; }
+  .stat-open:hover  { box-shadow: 0 0 0 2px rgba(14,165,233,0.28), 0 12px 32px rgba(14,165,233,0.14), 0 4px 8px rgba(0,0,0,0.05) !important; border-color: rgba(14,165,233,0.40) !important; transform: translateY(-3px) !important; }
+  .stat-prog:hover  { box-shadow: 0 0 0 2px rgba(59,130,246,0.28), 0 12px 32px rgba(59,130,246,0.14), 0 4px 8px rgba(0,0,0,0.05) !important; border-color: rgba(59,130,246,0.40) !important; transform: translateY(-3px) !important; }
+  .stat-res:hover   { box-shadow: 0 0 0 2px rgba(34,197,94,0.28),  0 12px 32px rgba(34,197,94,0.14),  0 4px 8px rgba(0,0,0,0.05) !important; border-color: rgba(34,197,94,0.40)  !important; transform: translateY(-3px) !important; }
+  .stat-esc:hover   { box-shadow: 0 0 0 2px rgba(245,158,11,0.28), 0 12px 32px rgba(245,158,11,0.14), 0 4px 8px rgba(0,0,0,0.05) !important; border-color: rgba(245,158,11,0.40) !important; transform: translateY(-3px) !important; }
+  .stat-urg:hover   { box-shadow: 0 0 0 2px rgba(239,68,68,0.28),  0 12px 32px rgba(239,68,68,0.14),  0 4px 8px rgba(0,0,0,0.05) !important; border-color: rgba(239,68,68,0.40)  !important; transform: translateY(-3px) !important; }
+
+  /* ── Input focus — PowerApps blue ring ──────────────────────── */
   input:focus, select:focus, textarea:focus {
-    border-color: rgba(126,184,66,0.80) !important;
+    border-color: rgba(59,138,245,0.70) !important;
     box-shadow:
-      0 0 0 1.5px rgba(126,184,66,0.55),
-      0 0 0 4px rgba(126,184,66,0.16),
-      0 0 0 6px rgba(100,180,255,0.10),
-      0 2px 12px rgba(100,180,255,0.30) !important;
+      0 0 0 1.5px rgba(59,138,245,0.45),
+      0 0 0 4px rgba(59,138,245,0.12),
+      0 2px 8px rgba(59,138,245,0.15) !important;
     outline: none;
   }
 
-  /* Table rows — vivid water shimmer */
+  /* ── Table rows — subtle hover highlight ─────────────────────── */
   tbody tr:hover {
     background: linear-gradient(90deg,
-      rgba(126,184,66,0.09) 0%,
-      rgba(100,180,255,0.12) 45%,
-      rgba(126,184,66,0.04) 100%) !important;
-    box-shadow: inset 4px 0 0 rgba(126,184,66,0.65) !important;
+      rgba(59,138,245,0.05) 0%,
+      rgba(126,184,66,0.05) 50%,
+      rgba(59,138,245,0.03) 100%) !important;
+    box-shadow: inset 4px 0 0 rgba(126,184,66,0.55) !important;
   }
 
-  /* Scrollbar — water + green */
+  /* ── Text colours — dark navy matching PowerApps light text ──── */
+  .text-slate-400  { color: #94A3B8 !important; }
+  .text-slate-500  { color: #64748B !important; }
+  .text-slate-600  { color: #475569 !important; }
+  .text-slate-800  { color: #1E2A3B !important; }
+  .text-slate-900  { color: #0F172A !important; }
+
+  /* ── Scrollbar — clean green on light gray ───────────────────── */
   .scrollbar-thin::-webkit-scrollbar-track {
-    background: linear-gradient(180deg, rgba(230,246,255,0.90), rgba(215,240,255,0.70));
+    background: rgba(241,245,249,0.90);
   }
   .scrollbar-thin::-webkit-scrollbar-thumb {
     background: linear-gradient(180deg, #9fd44f, #7eb842);
-    border: 1px solid rgba(255,255,255,0.40);
+    border: 1px solid rgba(255,255,255,0.50);
     border-radius: 10px;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
     background: linear-gradient(180deg, #b5e060, #8ec940);
   }
 
-  /* Page heading gradient */
+  /* ── Page heading gradient — green-to-blue PowerApps palette ─── */
   .page-heading-gradient {
-    background: linear-gradient(135deg, #3d7a10 0%, #5f9a28 30%, #7eb842 60%, #2196b0 100%) !important;
+    background: linear-gradient(135deg, #3d7a10 0%, #5f9a28 30%, #7eb842 60%, #3B8AF5 100%) !important;
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
   }
 
-  /* Breadcrumb — water strip */
+  /* ── Breadcrumb — very light tint strip ─────────────────────── */
   .yc-breadcrumb {
     background: linear-gradient(90deg,
-      rgba(120,200,255,0.22) 0%,
-      rgba(126,184,66,0.10) 60%,
-      rgba(120,200,255,0.15) 100%) !important;
-    border-bottom: 1px solid rgba(140,200,255,0.45) !important;
-    box-shadow: 0 1px 0 rgba(255,255,255,0.80) !important;
+      rgba(59,138,245,0.06) 0%,
+      rgba(126,184,66,0.06) 60%,
+      rgba(59,138,245,0.04) 100%) !important;
+    border-bottom: 1px solid rgba(226,232,240,0.80) !important;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.90) !important;
   }
 
-  /* Recharts tooltip — vivid water glass */
+  /* ── Recharts tooltip — clean white glass ───────────────────── */
   .recharts-default-tooltip {
-    background: rgba(242,251,255,0.98) !important;
-    border: 1px solid rgba(140,200,255,0.60) !important;
+    background: rgba(255,255,255,0.98) !important;
+    border: 1px solid rgba(226,232,240,0.90) !important;
     box-shadow:
-      0 16px 40px rgba(100,180,255,0.30),
+      0 8px 24px rgba(59,138,245,0.12),
+      0 2px 6px rgba(0,0,0,0.06),
       inset 0 1px 0 rgba(255,255,255,1.0) !important;
+  }
+
+  /* Loader — light mode clean white */
+  html:not(.dark) #yc-loader {
+    background: linear-gradient(135deg, #F3F6FB 0%, #F8FAFE 50%, #FFFFFF 100%) !important;
   }
 
   @keyframes waterShine {
