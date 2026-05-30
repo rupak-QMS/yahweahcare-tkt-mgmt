@@ -10106,8 +10106,19 @@ const App = () => {
     const roleName = safe.role || 'user';
     // ── Microsoft mode: persist to backend ──────────────────────
     if (authMode === 'microsoft') {
-      const roleObj = (state.roles || []).find(r => r.name === roleName);
-      if (!roleObj) { showToast('error', 'Role not found', 'Could not resolve role. Please refresh and try again.'); return; }
+      // Load roles on-demand if state.roles is empty (e.g. after backend redeploy)
+      let roles = state.roles || [];
+      if (!roles.length) {
+        try {
+          const rolesData = await apiClient.getRoles();
+          if (rolesData?.roles?.length) {
+            roles = rolesData.roles;
+            setState(s => ({ ...s, roles }));
+          }
+        } catch (_) {}
+      }
+      const roleObj = roles.find(r => r.name === roleName);
+      if (!roleObj) { showToast('error', 'Role not found', `Role "${roleName}" not found in the system. Please contact your admin.`); return; }
       try {
         const result = await apiClient.createUser({
           email: safe.email.toLowerCase().trim(),
