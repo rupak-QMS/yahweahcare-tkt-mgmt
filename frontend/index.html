@@ -1528,57 +1528,52 @@
   html.dark .bg-slate-100 { background-color: #0c1020 !important; }
   html.dark .bg-slate-200 { background-color: #111b2e !important; }
 
-  /* ── Stat cards — PowerApps color-tinted dark cards ─────────── */
-  /* Total: blue-navy (same as base card) */
+  /* ── Stat cards — uniform dark navy + colored 3px top border ─── */
+  /* Matches PowerApps dark: all cards same dark body, accent on top  */
   html.dark .stat-total {
-    background: linear-gradient(145deg,
-      #0f1d32 0%, #0c1828 55%, #0a1422 100%) !important;
-    border: 1px solid rgba(59,138,245,0.18) !important;
-    box-shadow: inset 0 1px 0 rgba(59,138,245,0.10), 0 4px 20px rgba(0,0,0,0.45) !important;
+    background: linear-gradient(180deg, rgba(59,138,245,0.09) 0%, #111b2e 18%, #0e1828 100%) !important;
+    border: 1px solid rgba(59,138,245,0.14) !important;
+    border-top: 3px solid #3B8AF5 !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.40) !important;
   }
-  /* Open: cyan-navy */
   html.dark .stat-open {
-    background: linear-gradient(145deg,
-      #0c1e30 0%, #091928 55%, #081422 100%) !important;
-    border: 1px solid rgba(6,182,212,0.18) !important;
-    box-shadow: inset 0 1px 0 rgba(6,182,212,0.10), 0 4px 20px rgba(0,0,0,0.45) !important;
+    background: linear-gradient(180deg, rgba(6,182,212,0.09) 0%, #111b2e 18%, #0e1828 100%) !important;
+    border: 1px solid rgba(6,182,212,0.14) !important;
+    border-top: 3px solid #06B6D4 !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.40) !important;
   }
-  /* In Progress: blue-navy (lighter blue tint) */
   html.dark .stat-prog {
-    background: linear-gradient(145deg,
-      #0d1c30 0%, #0a1828 55%, #081322 100%) !important;
-    border: 1px solid rgba(14,165,233,0.18) !important;
-    box-shadow: inset 0 1px 0 rgba(14,165,233,0.10), 0 4px 20px rgba(0,0,0,0.45) !important;
+    background: linear-gradient(180deg, rgba(14,165,233,0.09) 0%, #111b2e 18%, #0e1828 100%) !important;
+    border: 1px solid rgba(14,165,233,0.14) !important;
+    border-top: 3px solid #0EA5E9 !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.40) !important;
   }
-  /* Resolved: dark forest green — exact PowerApps match */
   html.dark .stat-res {
-    background: linear-gradient(145deg,
-      #0c1e14 0%, #091a10 55%, #07140c 100%) !important;
-    border: 1px solid rgba(34,197,94,0.20) !important;
-    box-shadow: inset 0 1px 0 rgba(34,197,94,0.10), 0 4px 20px rgba(0,0,0,0.45) !important;
+    background: linear-gradient(180deg, rgba(34,197,94,0.09) 0%, #111b2e 18%, #0e1828 100%) !important;
+    border: 1px solid rgba(34,197,94,0.14) !important;
+    border-top: 3px solid #22C55E !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.40) !important;
   }
-  /* Escalated: dark amber-brown — exact PowerApps match */
   html.dark .stat-esc {
-    background: linear-gradient(145deg,
-      #22160a 0%, #1c1108 55%, #160d06 100%) !important;
-    border: 1px solid rgba(245,158,11,0.22) !important;
-    box-shadow: inset 0 1px 0 rgba(245,158,11,0.10), 0 4px 20px rgba(0,0,0,0.45) !important;
+    background: linear-gradient(180deg, rgba(245,158,11,0.09) 0%, #111b2e 18%, #0e1828 100%) !important;
+    border: 1px solid rgba(245,158,11,0.14) !important;
+    border-top: 3px solid #F59E0B !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.40) !important;
   }
-  /* Urgent: dark red-maroon — exact PowerApps match */
   html.dark .stat-urg {
-    background: linear-gradient(145deg,
-      #200c0c 0%, #180808 55%, #120606 100%) !important;
-    border: 1px solid rgba(239,68,68,0.22) !important;
-    box-shadow: inset 0 1px 0 rgba(239,68,68,0.10), 0 4px 20px rgba(0,0,0,0.45) !important;
+    background: linear-gradient(180deg, rgba(239,68,68,0.09) 0%, #111b2e 18%, #0e1828 100%) !important;
+    border: 1px solid rgba(239,68,68,0.14) !important;
+    border-top: 3px solid #EF4444 !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.40) !important;
   }
 
-  /* Stat card hover — clean glow matching their accent color */
-  html.dark .stat-total:hover { box-shadow: 0 0 0 1px rgba(59,138,245,0.35),  0 0 32px rgba(59,138,245,0.18),  0 8px 28px rgba(0,0,0,0.50) !important; transform: translateY(-3px) !important; }
-  html.dark .stat-open:hover  { box-shadow: 0 0 0 1px rgba(6,182,212,0.35),   0 0 32px rgba(6,182,212,0.18),   0 8px 28px rgba(0,0,0,0.50) !important; transform: translateY(-3px) !important; }
-  html.dark .stat-prog:hover  { box-shadow: 0 0 0 1px rgba(14,165,233,0.35),  0 0 32px rgba(14,165,233,0.18),  0 8px 28px rgba(0,0,0,0.50) !important; transform: translateY(-3px) !important; }
-  html.dark .stat-res:hover   { box-shadow: 0 0 0 1px rgba(34,197,94,0.40),   0 0 32px rgba(34,197,94,0.20),   0 8px 28px rgba(0,0,0,0.50) !important; transform: translateY(-3px) !important; }
-  html.dark .stat-esc:hover   { box-shadow: 0 0 0 1px rgba(245,158,11,0.40),  0 0 32px rgba(245,158,11,0.20),  0 8px 28px rgba(0,0,0,0.50) !important; transform: translateY(-3px) !important; }
-  html.dark .stat-urg:hover   { box-shadow: 0 0 0 1px rgba(239,68,68,0.40),   0 0 32px rgba(239,68,68,0.20),   0 8px 28px rgba(0,0,0,0.50) !important; transform: translateY(-3px) !important; }
+  /* Stat card hover — subtle lift, border-top stays vivid */
+  html.dark .stat-total:hover { box-shadow: 0 0 0 1px rgba(59,138,245,0.28), 0 8px 28px rgba(0,0,0,0.50) !important; transform: translateY(-2px) !important; }
+  html.dark .stat-open:hover  { box-shadow: 0 0 0 1px rgba(6,182,212,0.28),   0 8px 28px rgba(0,0,0,0.50) !important; transform: translateY(-2px) !important; }
+  html.dark .stat-prog:hover  { box-shadow: 0 0 0 1px rgba(14,165,233,0.28),  0 8px 28px rgba(0,0,0,0.50) !important; transform: translateY(-2px) !important; }
+  html.dark .stat-res:hover   { box-shadow: 0 0 0 1px rgba(34,197,94,0.30),   0 8px 28px rgba(0,0,0,0.50) !important; transform: translateY(-2px) !important; }
+  html.dark .stat-esc:hover   { box-shadow: 0 0 0 1px rgba(245,158,11,0.30),  0 8px 28px rgba(0,0,0,0.50) !important; transform: translateY(-2px) !important; }
+  html.dark .stat-urg:hover   { box-shadow: 0 0 0 1px rgba(239,68,68,0.30),   0 8px 28px rgba(0,0,0,0.50) !important; transform: translateY(-2px) !important; }
 
   /* ── Table rows — PowerApps subtle navy highlight ───────────── */
   html.dark tbody tr:hover {
@@ -1794,178 +1789,130 @@
   html.dark .yc-sidebar-care { color: #9fd44f !important; }
 
   /* ╔══════════════════════════════════════════════════════════════
-     ║  LIGHT THEME — YPC PowerApps Clean Light
-     ║  Palette mirrors live PowerApps YPC app design language:
-     ║  White sidebar · Light-gray body · White cards · Color-tinted
-     ║  stat cards · Blue (#3B8AF5) + Green (#7EB842) accents
+     ║  LIGHT THEME — YPC PowerApps Clean Light (exact match)
+     ║  Body #F0F4FA · Sidebar white · Cards white · Stat cards
+     ║  white + 3px colored border-top · No glassmorphism
      ╚══════════════════════════════════════════════════════════════ */
 
-  /* ── Body: clean light gray — matches PowerApps light canvas ── */
+  /* ── Body: clean light blue-gray — PowerApps canvas ─────────── */
   body {
-    background:
-      radial-gradient(ellipse 80% 35% at 50% -8%, rgba(59,138,245,0.06) 0%, transparent 65%),
-      radial-gradient(ellipse 55% 30% at 0% 30%,  rgba(126,184,66,0.05) 0%, transparent 60%),
-      linear-gradient(175deg, #F3F6FB 0%, #F5F7FC 35%, #F8FAFE 60%, #F3F6FB 100%) !important;
-    color: #1E2A3B;
+    background: #F0F4FA !important;
+    color: #111827;
   }
 
-  /* App shell wrapper light */
+  /* App shell wrapper */
   .brand-gradient-soft {
-    background: linear-gradient(170deg, #F3F6FB 0%, #F5F7FC 40%, #F8FAFE 70%, #F3F6FB 100%) !important;
+    background: #F0F4FA !important;
   }
 
-  /* ── Sidebar: pure white — PowerApps clean white sidebar ────── */
+  /* ── Sidebar: pure white — PowerApps clean sidebar ───────────── */
   aside {
     background: #FFFFFF !important;
-    box-shadow:
-      1px 0 0 rgba(226,232,240,0.90),
-      4px 0 16px rgba(59,138,245,0.06) !important;
-    border-right: 1px solid rgba(226,232,240,0.80) !important;
+    box-shadow: 1px 0 0 #E5E7EB !important;
+    border-right: 1px solid #E5E7EB !important;
+    backdrop-filter: none !important;
   }
 
-  /* Sidebar active item — green left bar + very light green tint */
+  /* Active nav item — subtle green background + green left bar */
   aside a[class*="brand-gradient"],
   aside button[class*="brand-gradient"] {
-    background: rgba(126,184,66,0.10) !important;
-    box-shadow: inset 4px 0 0 #7eb842 !important;
-    color: #3d7a10 !important;
+    background: rgba(126,184,66,0.12) !important;
+    box-shadow: inset 3px 0 0 #7eb842 !important;
+    border-radius: 8px !important;
+    color: #2d6a08 !important;
+    border: none !important;
   }
 
-  /* Sidebar nav items — dark text on white */
+  /* Sidebar nav items */
   aside nav button, aside nav a {
     color: #374151 !important;
   }
   aside nav button:hover, aside nav a:hover {
-    background: rgba(59,138,245,0.07) !important;
-    color: #1E2A3B !important;
+    background: #F3F4F6 !important;
+    color: #111827 !important;
   }
 
-  /* ── Topbar: white with subtle bottom border ─────────────────── */
-  header.yc-topbar, div.yc-topbar,
-  header.h-14 {
+  /* ── Topbar: white with bottom border ──────────────────────── */
+  header.yc-topbar, div.yc-topbar, header.h-14 {
     background: #FFFFFF !important;
     backdrop-filter: none !important;
-    border-bottom: 1px solid rgba(226,232,240,0.90) !important;
-    box-shadow:
-      0 1px 0 rgba(255,255,255,1.0),
-      0 2px 0 rgba(126,184,66,0.12),
-      0 2px 12px rgba(0,0,0,0.05) !important;
+    border-bottom: 1px solid #E5E7EB !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06) !important;
   }
 
-  /* ── Cards: clean white with soft shadow ─────────────────────── */
+  /* ── Cards: pure white with clean shadow ─────────────────────── */
   .card {
     background: #FFFFFF !important;
-    border: 1px solid rgba(226,232,240,0.85) !important;
-    box-shadow:
-      0 1px 3px rgba(0,0,0,0.05),
-      0 4px 16px rgba(59,138,245,0.07),
-      0 1px 0 rgba(255,255,255,1.0) !important;
+    border: 1px solid #E5E7EB !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04) !important;
     backdrop-filter: none !important;
   }
 
-  /* Card accent line — green + blue PowerApps palette */
+  /* Card top accent — thin green/blue stripe */
   .card::before {
     height: 3px !important;
     background: linear-gradient(90deg,
-      transparent 0%,
-      rgba(126,184,66,0.55) 25%,
-      rgba(59,138,245,0.55) 55%,
-      rgba(126,184,66,0.40) 80%,
+      transparent 0%, rgba(126,184,66,0.50) 25%,
+      rgba(59,138,245,0.50) 55%, rgba(126,184,66,0.35) 80%,
       transparent 100%) !important;
   }
 
-  /* Card hover — subtle lift */
+  /* Card hover — gentle lift */
   .card:hover {
-    background: #FFFFFF !important;
-    border-color: rgba(59,138,245,0.30) !important;
+    border-color: rgba(59,138,245,0.25) !important;
     box-shadow:
-      0 0 0 1.5px rgba(59,138,245,0.18),
-      0 8px 30px rgba(59,138,245,0.12),
-      0 4px 12px rgba(126,184,66,0.08),
-      0 2px 6px rgba(0,0,0,0.06) !important;
-    transform: translateY(-3px) !important;
+      0 0 0 1px rgba(59,138,245,0.12),
+      0 8px 24px rgba(0,0,0,0.09),
+      0 2px 6px rgba(0,0,0,0.05) !important;
+    transform: translateY(-2px) !important;
   }
 
-  /* ── Stat cards — PowerApps color-tinted light cards ─────────── */
-  /* Total: very light blue tint */
-  .stat-total {
-    background: linear-gradient(145deg, #EFF6FF 0%, #F5F9FF 55%, #FAFCFF 100%) !important;
-    border: 1px solid rgba(59,138,245,0.20) !important;
-  }
-  /* Open: very light sky tint */
-  .stat-open {
-    background: linear-gradient(145deg, #F0FAFF 0%, #F5FBFF 55%, #FAFEFF 100%) !important;
-    border: 1px solid rgba(14,165,233,0.20) !important;
-  }
-  /* In Progress: light blue */
-  .stat-prog {
-    background: linear-gradient(145deg, #EFF6FF 0%, #F5F9FF 55%, #FAFCFF 100%) !important;
-    border: 1px solid rgba(59,130,246,0.18) !important;
-  }
-  /* Resolved: very light green — mirrors dark forest green card */
-  .stat-res {
-    background: linear-gradient(145deg, #F0FFF4 0%, #F5FFF8 55%, #FAFFFC 100%) !important;
-    border: 1px solid rgba(34,197,94,0.20) !important;
-  }
-  /* Escalated: very light amber — mirrors dark amber-brown card */
-  .stat-esc {
-    background: linear-gradient(145deg, #FFFBEB 0%, #FFFDF5 55%, #FFFEF9 100%) !important;
-    border: 1px solid rgba(245,158,11,0.22) !important;
-  }
-  /* Urgent: very light red — mirrors dark red-maroon card */
-  .stat-urg {
-    background: linear-gradient(145deg, #FFF5F5 0%, #FFF8F8 55%, #FFFCFC 100%) !important;
-    border: 1px solid rgba(239,68,68,0.22) !important;
-  }
+  /* ── Stat cards — white + colored 3px border-top (PowerApps exact) */
+  .stat-total { background: #FFFFFF !important; border: 1px solid #E5E7EB !important; border-top: 3px solid #3B8AF5 !important; box-shadow: 0 1px 4px rgba(0,0,0,0.06) !important; }
+  .stat-open  { background: #FFFFFF !important; border: 1px solid #E5E7EB !important; border-top: 3px solid #06B6D4 !important; box-shadow: 0 1px 4px rgba(0,0,0,0.06) !important; }
+  .stat-prog  { background: #FFFFFF !important; border: 1px solid #E5E7EB !important; border-top: 3px solid #0EA5E9 !important; box-shadow: 0 1px 4px rgba(0,0,0,0.06) !important; }
+  .stat-res   { background: #FFFFFF !important; border: 1px solid #E5E7EB !important; border-top: 3px solid #22C55E !important; box-shadow: 0 1px 4px rgba(0,0,0,0.06) !important; }
+  .stat-esc   { background: #FFFFFF !important; border: 1px solid #E5E7EB !important; border-top: 3px solid #F59E0B !important; box-shadow: 0 1px 4px rgba(0,0,0,0.06) !important; }
+  .stat-urg   { background: #FFFFFF !important; border: 1px solid #E5E7EB !important; border-top: 3px solid #EF4444 !important; box-shadow: 0 1px 4px rgba(0,0,0,0.06) !important; }
 
-  /* Stat card hover glows — matched to card tint */
-  .stat-total:hover { box-shadow: 0 0 0 2px rgba(59,138,245,0.28), 0 12px 32px rgba(59,138,245,0.14), 0 4px 8px rgba(0,0,0,0.05) !important; border-color: rgba(59,138,245,0.40) !important; transform: translateY(-3px) !important; }
-  .stat-open:hover  { box-shadow: 0 0 0 2px rgba(14,165,233,0.28), 0 12px 32px rgba(14,165,233,0.14), 0 4px 8px rgba(0,0,0,0.05) !important; border-color: rgba(14,165,233,0.40) !important; transform: translateY(-3px) !important; }
-  .stat-prog:hover  { box-shadow: 0 0 0 2px rgba(59,130,246,0.28), 0 12px 32px rgba(59,130,246,0.14), 0 4px 8px rgba(0,0,0,0.05) !important; border-color: rgba(59,130,246,0.40) !important; transform: translateY(-3px) !important; }
-  .stat-res:hover   { box-shadow: 0 0 0 2px rgba(34,197,94,0.28),  0 12px 32px rgba(34,197,94,0.14),  0 4px 8px rgba(0,0,0,0.05) !important; border-color: rgba(34,197,94,0.40)  !important; transform: translateY(-3px) !important; }
-  .stat-esc:hover   { box-shadow: 0 0 0 2px rgba(245,158,11,0.28), 0 12px 32px rgba(245,158,11,0.14), 0 4px 8px rgba(0,0,0,0.05) !important; border-color: rgba(245,158,11,0.40) !important; transform: translateY(-3px) !important; }
-  .stat-urg:hover   { box-shadow: 0 0 0 2px rgba(239,68,68,0.28),  0 12px 32px rgba(239,68,68,0.14),  0 4px 8px rgba(0,0,0,0.05) !important; border-color: rgba(239,68,68,0.40)  !important; transform: translateY(-3px) !important; }
+  /* Stat card hover — subtle lift with matching border glow */
+  .stat-total:hover { box-shadow: 0 0 0 1px rgba(59,138,245,0.25), 0 6px 20px rgba(0,0,0,0.09) !important; transform: translateY(-2px) !important; }
+  .stat-open:hover  { box-shadow: 0 0 0 1px rgba(6,182,212,0.25),  0 6px 20px rgba(0,0,0,0.09) !important; transform: translateY(-2px) !important; }
+  .stat-prog:hover  { box-shadow: 0 0 0 1px rgba(14,165,233,0.25), 0 6px 20px rgba(0,0,0,0.09) !important; transform: translateY(-2px) !important; }
+  .stat-res:hover   { box-shadow: 0 0 0 1px rgba(34,197,94,0.25),  0 6px 20px rgba(0,0,0,0.09) !important; transform: translateY(-2px) !important; }
+  .stat-esc:hover   { box-shadow: 0 0 0 1px rgba(245,158,11,0.25), 0 6px 20px rgba(0,0,0,0.09) !important; transform: translateY(-2px) !important; }
+  .stat-urg:hover   { box-shadow: 0 0 0 1px rgba(239,68,68,0.25),  0 6px 20px rgba(0,0,0,0.09) !important; transform: translateY(-2px) !important; }
 
   /* ── Input focus — PowerApps blue ring ──────────────────────── */
   input:focus, select:focus, textarea:focus {
-    border-color: rgba(59,138,245,0.70) !important;
-    box-shadow:
-      0 0 0 1.5px rgba(59,138,245,0.45),
-      0 0 0 4px rgba(59,138,245,0.12),
-      0 2px 8px rgba(59,138,245,0.15) !important;
+    border-color: #3B8AF5 !important;
+    box-shadow: 0 0 0 3px rgba(59,138,245,0.18) !important;
     outline: none;
   }
 
-  /* ── Table rows — subtle hover highlight ─────────────────────── */
+  /* ── Table rows — light blue hover highlight ─────────────────── */
   tbody tr:hover {
-    background: linear-gradient(90deg,
-      rgba(59,138,245,0.05) 0%,
-      rgba(126,184,66,0.05) 50%,
-      rgba(59,138,245,0.03) 100%) !important;
-    box-shadow: inset 4px 0 0 rgba(126,184,66,0.55) !important;
+    background: rgba(59,138,245,0.04) !important;
+    box-shadow: inset 3px 0 0 #7eb842 !important;
   }
 
-  /* ── Text colours — dark navy matching PowerApps light text ──── */
-  .text-slate-400  { color: #94A3B8 !important; }
-  .text-slate-500  { color: #64748B !important; }
-  .text-slate-600  { color: #475569 !important; }
-  .text-slate-800  { color: #1E2A3B !important; }
-  .text-slate-900  { color: #0F172A !important; }
+  /* ── Text colours — dark on light ───────────────────────────── */
+  .text-slate-400 { color: #9CA3AF !important; }
+  .text-slate-500 { color: #6B7280 !important; }
+  .text-slate-600 { color: #4B5563 !important; }
+  .text-slate-800 { color: #1F2937 !important; }
+  .text-slate-900 { color: #111827 !important; }
 
-  /* ── Scrollbar — clean green on light gray ───────────────────── */
-  .scrollbar-thin::-webkit-scrollbar-track {
-    background: rgba(241,245,249,0.90);
-  }
+  /* ── Scrollbar ───────────────────────────────────────────────── */
+  .scrollbar-thin::-webkit-scrollbar-track { background: #F3F4F6; }
   .scrollbar-thin::-webkit-scrollbar-thumb {
     background: linear-gradient(180deg, #9fd44f, #7eb842);
-    border: 1px solid rgba(255,255,255,0.50);
+    border: 1px solid #fff;
     border-radius: 10px;
   }
-  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(180deg, #b5e060, #8ec940);
-  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #b5e060, #8ec940); }
 
-  /* ── Page heading gradient — green-to-blue PowerApps palette ─── */
+  /* ── Page heading ────────────────────────────────────────────── */
   .page-heading-gradient {
     background: linear-gradient(135deg, #3d7a10 0%, #5f9a28 30%, #7eb842 60%, #3B8AF5 100%) !important;
     -webkit-background-clip: text;
@@ -1973,29 +1920,23 @@
     -webkit-text-fill-color: transparent;
   }
 
-  /* ── Breadcrumb — very light tint strip ─────────────────────── */
+  /* ── Breadcrumb ──────────────────────────────────────────────── */
   .yc-breadcrumb {
-    background: linear-gradient(90deg,
-      rgba(59,138,245,0.06) 0%,
-      rgba(126,184,66,0.06) 60%,
-      rgba(59,138,245,0.04) 100%) !important;
-    border-bottom: 1px solid rgba(226,232,240,0.80) !important;
-    box-shadow: 0 1px 0 rgba(255,255,255,0.90) !important;
+    background: #FFFFFF !important;
+    border-bottom: 1px solid #E5E7EB !important;
+    box-shadow: none !important;
   }
 
-  /* ── Recharts tooltip — clean white glass ───────────────────── */
+  /* ── Recharts tooltip ────────────────────────────────────────── */
   .recharts-default-tooltip {
-    background: rgba(255,255,255,0.98) !important;
-    border: 1px solid rgba(226,232,240,0.90) !important;
-    box-shadow:
-      0 8px 24px rgba(59,138,245,0.12),
-      0 2px 6px rgba(0,0,0,0.06),
-      inset 0 1px 0 rgba(255,255,255,1.0) !important;
+    background: #FFFFFF !important;
+    border: 1px solid #E5E7EB !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.10) !important;
   }
 
-  /* Loader — light mode clean white */
+  /* ── Loader ──────────────────────────────────────────────────── */
   html:not(.dark) #yc-loader {
-    background: linear-gradient(135deg, #F3F6FB 0%, #F8FAFE 50%, #FFFFFF 100%) !important;
+    background: #F0F4FA !important;
   }
 
   @keyframes waterShine {
