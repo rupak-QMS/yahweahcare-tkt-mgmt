@@ -246,6 +246,8 @@
   /* Tables always scroll horizontally on small screens */
   .responsive-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .responsive-table-wrap table { min-width: 720px; }
+  /* Allow action dropdowns inside table cards to overflow without clipping */
+  .card.overflow-visible { overflow: visible !important; }
 
   /* ============================================================
      Recharts — remove ugly focus outlines, add pleasant selection
@@ -583,6 +585,8 @@
 
   /* TopBar — frosted glass per spec */
   header.yc-topbar, div.yc-topbar {
+    position: relative;
+    z-index: 40;
     background: linear-gradient(90deg, rgba(255,255,255,0.96), rgba(241,245,249,0.94)) !important;
     backdrop-filter: blur(20px) saturate(200%);
     -webkit-backdrop-filter: blur(20px) saturate(200%);
@@ -2533,6 +2537,8 @@
 
   /* ── Top navigation bar ────────────────────────────────── */
   header.yc-topbar {
+    position: relative !important;
+    z-index: 40 !important;
     height: 72px !important;
     min-height: 72px !important;
     background: #FFFFFF !important;
@@ -8003,7 +8009,7 @@ const StaffManagement = ({ users, tickets, currentUser, onAddStaff, onUpdateStaf
                       </button>
                     )}
                     {menuOpen === u.id && (
-                      <div onClick={e => e.stopPropagation()} className="absolute right-4 top-12 w-44 bg-white border border-slate-200 rounded-lg shadow-xl z-30 fade-in py-1">
+                      <div onClick={e => e.stopPropagation()} className="absolute right-0 top-8 w-44 bg-white border border-slate-200 rounded-lg shadow-xl z-[200] fade-in py-1">
                         <button onClick={() => { openEdit(u); setMenuOpen(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left">
                           <Icon name="edit" className="w-4 h-4" /> Edit
                         </button>
