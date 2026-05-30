@@ -3420,6 +3420,60 @@ const apiClient = {
     });
     return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
   },
+  // ── Tickets ────────────────────────────────────────────────
+  async getTickets() {
+    const res = await fetch(`${API_BASE}/tickets?limit=500`, { credentials: 'include' });
+    if (!res.ok) return null;
+    return res.json();
+  },
+  async createTicket(data) {
+    const res = await fetch(`${API_BASE}/tickets`, {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
+  },
+  async updateTicket(id, data) {
+    const res = await fetch(`${API_BASE}/tickets/${id}`, {
+      method: 'PATCH', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
+  },
+  async deleteTicket(id) {
+    const res = await fetch(`${API_BASE}/tickets/${id}`, {
+      method: 'DELETE', credentials: 'include',
+    });
+    return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
+  },
+  async addComment(ticketId, data) {
+    const res = await fetch(`${API_BASE}/tickets/${ticketId}/comments`, {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
+  },
+  // ── Lookup (categories, priorities, statuses) ──────────────
+  async getLookup() {
+    const [cats, pris, stats] = await Promise.all([
+      fetch(`${API_BASE}/lookup/categories`, { credentials: 'include' }).then(r => r.ok ? r.json() : null),
+      fetch(`${API_BASE}/lookup/priorities`, { credentials: 'include' }).then(r => r.ok ? r.json() : null),
+      fetch(`${API_BASE}/lookup/statuses`,   { credentials: 'include' }).then(r => r.ok ? r.json() : null),
+    ]);
+    return { categories: cats?.categories, priorities: pris?.priorities, statuses: stats?.statuses };
+  },
+  // ── Notifications ──────────────────────────────────────────
+  async getNotifications() {
+    const res = await fetch(`${API_BASE}/notifications`, { credentials: 'include' });
+    if (!res.ok) return null;
+    return res.json();
+  },
+  async markAllNotifsRead() {
+    await fetch(`${API_BASE}/notifications/read-all`, { method: 'POST', credentials: 'include' });
+  },
 };
 
 // Map a backend user row → frontend user shape
@@ -9659,12 +9713,24 @@ const App = () => {
           permissions: data.permissions || [],
         });
         setAuthMode('microsoft');
-        // Load real users, roles and schedules from backend
-        Promise.all([apiClient.getUsers(), apiClient.getRoles(), apiClient.getSchedules()]).then(([usersData, rolesData, schedulesData]) => {
+        // Load real users, roles, schedules, tickets, lookup and notifications from backend
+        Promise.all([
+          apiClient.getUsers(),
+          apiClient.getRoles(),
+          apiClient.getSchedules(),
+          apiClient.getTickets(),
+          apiClient.getLookup(),
+          apiClient.getNotifications(),
+        ]).then(([usersData, rolesData, schedulesData, ticketsData, lookupData, notifData]) => {
           const updates = {};
-          if (usersData && usersData.users)         updates.users     = usersData.users.map(backendUserToFrontend);
-          if (rolesData && rolesData.roles)          updates.roles     = rolesData.roles;
-          if (schedulesData && schedulesData.schedules) updates.schedules = schedulesData.schedules;
+          if (usersData?.users)           updates.users         = usersData.users.map(backendUserToFrontend);
+          if (rolesData?.roles)           updates.roles         = rolesData.roles;
+          if (schedulesData?.schedules)   updates.schedules     = schedulesData.schedules;
+          if (ticketsData?.tickets)       updates.tickets       = ticketsData.tickets;
+          if (lookupData?.categories)     updates.categories    = lookupData.categories;
+          if (lookupData?.priorities)     updates.priorities    = lookupData.priorities;
+          if (lookupData?.statuses)       updates.statuses      = lookupData.statuses;
+          if (notifData?.notifications)   updates.notifications = notifData.notifications;
           if (Object.keys(updates).length) setState(s => ({ ...s, ...updates }));
         }).catch(() => {});
       } else if (data && data.unauthorized_user) {
@@ -9749,7 +9815,31 @@ const App = () => {
     addNotification({ recipientId: userId, ticketId: ticket.id, channel: 'push', subject: `${eventLabel} — ${ticket.title}`, body });
   };
 
-  const createTicket = (data) => {
+  const createTicket = async (data) => {
+    if (authMode === 'microsoft') {
+      try {
+        const res = await apiClient.createTicket({
+          title: data.title,
+          description: data.description || '',
+          category: data.category,
+          priority: data.priority,
+          site: data.site || null,
+          assigneeId: data.assigneeId ? (state.users.find(u => u.id === data.assigneeId)?.backendId || null) : null,
+        });
+        if (res?.ticket) {
+          const t = res.ticket;
+          setState(s => ({ ...s, tickets: [t, ...s.tickets] }));
+          if (t.assigneeId) notifyUser(String(t.assigneeId), t, 'Ticket assigned to you', `${currentUser.name} assigned a new ticket to you.`);
+          showToast('success', 'Ticket created', `${t.ticketNumber} created`);
+          setCurrentTicketId(t.id);
+          setView('detail');
+        }
+      } catch (e) {
+        showToast('error', 'Failed to create ticket', e.message || 'Server error');
+      }
+      return;
+    }
+    // Demo / offline mode
     const createdAt = now();
     const dueAt = data.expectedCompletion ? new Date(data.expectedCompletion).toISOString() : new Date(new Date(createdAt).getTime() + getPriority(data.priority).slaHours * 3600000).toISOString();
     const year = new Date(createdAt).getFullYear();
@@ -9780,8 +9870,35 @@ const App = () => {
     setView('detail');
   };
 
-  const updateTicket = (id, updates, activityText) => {
+  const updateTicket = async (id, updates, activityText) => {
     const before = state.tickets.find(t => t.id === id);
+    if (authMode === 'microsoft') {
+      try {
+        const backendId = typeof id === 'string' && !isNaN(Number(id)) ? Number(id) : id;
+        const payload = {};
+        if ('status' in updates)     payload.status     = updates.status;
+        if ('priority' in updates)   payload.priority   = updates.priority;
+        if ('category' in updates)   payload.category   = updates.category;
+        if ('title' in updates)      payload.title      = updates.title;
+        if ('description' in updates) payload.description = updates.description;
+        if ('assigneeId' in updates) payload.assigneeId = updates.assigneeId ? (state.users.find(u => u.id === updates.assigneeId)?.backendId || updates.assigneeId) : null;
+        if ('resolvedAt' in updates) payload.resolvedAt = updates.resolvedAt;
+        if ('closedAt' in updates)   payload.closedAt   = updates.closedAt;
+        const res = await apiClient.updateTicket(backendId, payload);
+        if (res?.ticket) {
+          setState(s => ({ ...s, tickets: s.tickets.map(t => t.id !== id ? t : { ...res.ticket, activity: [...(res.ticket.activity || []), ...(t.activity || [])], comments: res.ticket.comments?.length ? res.ticket.comments : (t.comments || []) }) }));
+          if (before) {
+            [before.requesterId, before.assigneeId].filter(u => u && String(u) !== String(currentUser.id) && String(u) !== String(currentUser.backendId)).forEach(u => {
+              notifyUser(String(u), before, 'Ticket updated', `${currentUser.name}: ${activityText || 'Ticket updated'}`);
+            });
+          }
+          return;
+        }
+      } catch (e) {
+        showToast('error', 'Update failed', e.message || 'Server error');
+        return;
+      }
+    }
     setState(s => ({ ...s, tickets: s.tickets.map(t => t.id !== id ? t : { ...t, ...updates, activity: [...(t.activity || []), { id: uid(), at: now(), userId: currentUser.id, text: activityText }] }) }));
     // Notify both assigner and assignee on changes
     if (before) {
@@ -9791,28 +9908,53 @@ const App = () => {
     }
   };
 
-  const addComment = (ticketId, body) => {
+  const addComment = async (ticketId, body) => {
     const t = state.tickets.find(x => x.id === ticketId);
+    if (authMode === 'microsoft') {
+      try {
+        const backendId = typeof ticketId === 'string' && !isNaN(Number(ticketId)) ? Number(ticketId) : ticketId;
+        const res = await apiClient.addComment(backendId, { body, isInternal: false });
+        if (res?.comment) {
+          const c = res.comment;
+          setState(s => ({ ...s, tickets: s.tickets.map(x => x.id !== ticketId ? x : { ...x, updatedAt: now(), comments: [...(x.comments || []), { id: c.id, userId: c.userId, body: c.text || body, text: c.text || body, createdAt: c.at || now() }], activity: [...(x.activity || []), { id: uid(), at: now(), userId: appEffectiveUserId, text: 'Comment added' }] }) }));
+          if (t) [t.requesterId, t.assigneeId].filter(u => u && String(u) !== String(appEffectiveUserId)).forEach(u => {
+            notifyUser(String(u), t, 'New comment on ticket', `${currentUser.name} commented: "${body.slice(0, 120)}${body.length > 120 ? '...' : ''}"`);
+          });
+          return;
+        }
+      } catch (e) {
+        showToast('error', 'Failed to add comment', e.message || 'Server error');
+        return;
+      }
+    }
     setState(s => ({ ...s, tickets: s.tickets.map(x => x.id !== ticketId ? x : { ...x, updatedAt: now(), comments: [...(x.comments || []), { id: uid(), userId: appEffectiveUserId, body, createdAt: now() }], activity: [...(x.activity || []), { id: uid(), at: now(), userId: appEffectiveUserId, text: 'Comment added' }] }) }));
     if (t) [t.requesterId, t.assigneeId].filter(uid => uid && uid !== appEffectiveUserId).forEach(uid => {
       notifyUser(uid, t, 'New comment on ticket', `${currentUser.name} commented: "${body.slice(0, 120)}${body.length > 120 ? '...' : ''}"`);
     });
   };
 
-  const assignTicket = (ticket, assigneeId) => {
+  const assignTicket = async (ticket, assigneeId) => {
     if (assigneeId === appEffectiveUserId || assigneeId === currentUser.id || assigneeId === currentUser.backendId) {
       showToast('error', 'Cannot self-assign', 'You cannot assign tickets to yourself.');
       return;
     }
-    const before = ticket;
-    setState(s => ({ ...s, tickets: s.tickets.map(t => t.id !== ticket.id ? t : { ...t, assigneeId, updatedAt: now(), activity: [...(t.activity || []), { id: uid(), at: now(), userId: currentUser.id, text: `Assigned to ${getUser(state.users, assigneeId)?.name}` }] }) }));
+    await updateTicket(ticket.id, { assigneeId }, `Assigned to ${getUser(state.users, assigneeId)?.name}`);
     notifyUser(assigneeId, ticket, 'Ticket assigned to you', `${currentUser.name} assigned this ticket to you.`);
-    if (before.requesterId !== currentUser.id) notifyUser(before.requesterId, ticket, 'Ticket assigned', `${currentUser.name} assigned this ticket to ${getUser(state.users, assigneeId)?.name}.`);
+    if (ticket.requesterId !== currentUser.id) notifyUser(ticket.requesterId, ticket, 'Ticket assigned', `${currentUser.name} assigned this ticket to ${getUser(state.users, assigneeId)?.name}.`);
     showToast('success', 'Ticket assigned', `Assigned to ${getUser(state.users, assigneeId)?.name}`);
   };
 
-  const deleteTicket = (ticket) => {
+  const deleteTicket = async (ticket) => {
     if (!isAdmin(currentUser)) { showToast('error', 'Permission denied', 'Only admins can delete tickets.'); return; }
+    if (authMode === 'microsoft') {
+      try {
+        const backendId = typeof ticket.id === 'string' && !isNaN(Number(ticket.id)) ? Number(ticket.id) : ticket.id;
+        await apiClient.deleteTicket(backendId);
+      } catch (e) {
+        showToast('error', 'Delete failed', e.message || 'Server error');
+        return;
+      }
+    }
     setState(s => ({ ...s, tickets: s.tickets.filter(t => t.id !== ticket.id) }));
     showToast('success', 'Ticket deleted', `${ticket.ticketNumber} has been removed`);
     if (view === 'detail' && currentTicketId === ticket.id) setView('tickets');
