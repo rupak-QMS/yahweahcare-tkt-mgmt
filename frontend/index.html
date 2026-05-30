@@ -3354,7 +3354,57 @@ const apiClient = {
   loginUrl(rememberMe) {
     return `${API_BASE}/auth/microsoft${rememberMe ? '?remember=1' : ''}`;
   },
+  async getUsers(limit = 200) {
+    const res = await fetch(`${API_BASE}/users?limit=${limit}`, { credentials: 'include' });
+    if (!res.ok) return null;
+    return res.json();
+  },
+  async getRoles() {
+    const res = await fetch(`${API_BASE}/roles`, { credentials: 'include' });
+    if (!res.ok) return null;
+    return res.json();
+  },
+  async createUser(data) {
+    const res = await fetch(`${API_BASE}/users`, {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
+  },
+  async updateUser(id, data) {
+    const res = await fetch(`${API_BASE}/users/${id}`, {
+      method: 'PATCH', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
+  },
+  async deleteUser(id) {
+    const res = await fetch(`${API_BASE}/users/${id}`, {
+      method: 'DELETE', credentials: 'include',
+    });
+    return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
+  },
 };
+
+// Map a backend user row → frontend user shape
+const backendUserToFrontend = (u) => ({
+  id: 'ms_' + u.id,
+  backendId: u.id,
+  name: u.name,
+  email: u.email,
+  role: u.role,
+  department: u.department || 'Unknown',
+  designation: u.designation || '',
+  avatar: (u.name || '?').split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase(),
+  isAdmin: u.role === 'super_admin',
+  bootstrapAdmin: !!u.bootstrap_admin,
+  systemCreated: !!u.bootstrap_admin,
+  active: u.active !== false,
+  assignable: u.assignable !== false,
+  permissions: [],
+});
 
 const CATEGORIES = [
   { id: 'client',    label: 'Client Issue',     color: '#3b82f6' },
@@ -3656,7 +3706,7 @@ const loadState = () => {
     }
   } catch (e) {}
   const userIds = DEMO_USERS.map(u => u.id);
-  return { users: DEMO_USERS, tickets: buildSeed(), schedules: buildSeedSchedules(userIds), currentUserId: null, notifications: [] };
+  return { users: DEMO_USERS, tickets: buildSeed(), schedules: buildSeedSchedules(userIds), currentUserId: null, notifications: [], roles: [] };
 };
 const saveState = (s) => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch (e) {} };
 
@@ -9569,6 +9619,13 @@ const App = () => {
           permissions: data.permissions || [],
         });
         setAuthMode('microsoft');
+        // Load real users + roles from backend
+        Promise.all([apiClient.getUsers(), apiClient.getRoles()]).then(([usersData, rolesData]) => {
+          const updates = {};
+          if (usersData && usersData.users) updates.users = usersData.users.map(backendUserToFrontend);
+          if (rolesData && rolesData.roles)  updates.roles = rolesData.roles;
+          if (Object.keys(updates).length) setState(s => ({ ...s, ...updates }));
+        }).catch(() => {});
       } else if (data && data.unauthorized_user) {
         setAuthMode('unauthorized_entra');
       } else {
@@ -9797,7 +9854,7 @@ const App = () => {
   // ---- Staff Management ----
   const MIN_ADMINS = 2;
 
-  const addStaff = (data) => {
+  const addStaff = async (data) => {
     if (!isAdmin(currentUser)) { showToast('error', 'Admin only', 'Only Super Admins can add new staff. Managers can edit existing team members.'); return; }
     // Email domain check — match HRMS backend
     const emailCheck = validateOrgEmail(data.email);
@@ -9811,9 +9868,35 @@ const App = () => {
     const safe = { ...data };
     if (!isAdmin(currentUser)) {
       safe.role = 'user';
-      // Managers can only add to their own department
       safe.department = currentUser.department;
     }
+    const roleName = safe.role || 'user';
+    // ── Microsoft mode: persist to backend ──────────────────────
+    if (authMode === 'microsoft') {
+      const roleObj = (state.roles || []).find(r => r.name === roleName);
+      if (!roleObj) { showToast('error', 'Role not found', 'Could not resolve role. Please refresh and try again.'); return; }
+      try {
+        const result = await apiClient.createUser({
+          email: safe.email.toLowerCase().trim(),
+          name: safe.name.trim(),
+          roleId: roleObj.id,
+          department: safe.department,
+          designation: safe.designation || '',
+        });
+        if (!result.ok) {
+          const msg = result.data?.message || result.data?.error || 'Failed to create user';
+          showToast('error', 'Create failed', msg); return;
+        }
+        // Reload the full user list from backend so table reflects DB state
+        const usersData = await apiClient.getUsers();
+        if (usersData && usersData.users) setState(s => ({ ...s, users: usersData.users.map(backendUserToFrontend) }));
+        showToast('success', 'Staff added', `${safe.name.trim()} added as ${ROLE_LABELS[roleName]?.label || roleName}`);
+      } catch (e) {
+        showToast('error', 'Network error', 'Could not reach the server. Please try again.');
+      }
+      return;
+    }
+    // ── Demo mode: in-memory only ────────────────────────────────
     const initials = (safe.name || '').split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase() || '?';
     const newUser = {
       id: uid(),
@@ -9821,14 +9904,14 @@ const App = () => {
       email: safe.email.toLowerCase().trim(),
       department: safe.department,
       avatar: initials,
-      role: safe.role || 'user',
+      role: roleName,
       active: safe.active !== false,
-      isAdmin: safe.role === 'super_admin',
+      isAdmin: roleName === 'super_admin',
     };
     setState(s => ({ ...s, users: [...s.users, newUser] }));
-    showToast('success', 'Staff added', `${newUser.name} added as ${ROLE_LABELS[newUser.role].label} in ${newUser.department}`);
+    showToast('success', 'Staff added', `${newUser.name} added as ${ROLE_LABELS[newUser.role]?.label || newUser.role} in ${newUser.department}`);
   };
-  const updateStaff = (id, data) => {
+  const updateStaff = async (id, data) => {
     if (!canManageStaff(currentUser)) { showToast('error', 'Permission denied', 'You don\'t have permission to edit staff.'); return; }
     const target = state.users.find(u => u.id === id);
     if (!target) return;
@@ -9882,6 +9965,32 @@ const App = () => {
       }
     }
 
+    // ── Microsoft mode: persist to backend ──────────────────────
+    if (authMode === 'microsoft' && target.backendId) {
+      const payload = {};
+      if ('name' in safe)        payload.name        = safe.name;
+      if ('department' in safe)  payload.department  = safe.department;
+      if ('designation' in safe) payload.designation = safe.designation;
+      if ('active' in safe)      payload.active      = safe.active;
+      if ('role' in safe) {
+        const roleObj = (state.roles || []).find(r => r.name === safe.role);
+        if (roleObj) payload.role_id = roleObj.id;
+      }
+      // assignable is frontend-only — exclude from backend payload
+      const backendKeys = Object.keys(payload).filter(k => k !== 'assignable');
+      if (backendKeys.length > 0) {
+        try {
+          const result = await apiClient.updateUser(target.backendId, payload);
+          if (!result.ok) {
+            const msg = result.data?.message || result.data?.error || 'Failed to update user';
+            showToast('error', 'Update failed', msg); return;
+          }
+        } catch (e) {
+          showToast('error', 'Network error', 'Could not reach the server. Please try again.'); return;
+        }
+      }
+    }
+    // Update local state (covers both MS and demo, and assignable-only changes)
     setState(s => ({
       ...s,
       users: s.users.map(u => {
@@ -9893,7 +10002,7 @@ const App = () => {
     }));
     showToast('success', 'Staff updated', `${target.name} has been updated`);
   };
-  const deleteStaff = (id) => {
+  const deleteStaff = async (id) => {
     if (!isAdmin(currentUser)) { showToast('error', 'Permission denied', 'Only Super Admin can delete staff.'); return; }
     const target = state.users.find(u => u.id === id);
     if (!target) return;
@@ -9904,6 +10013,18 @@ const App = () => {
       if (remainingAdmins < MIN_ADMINS) {
         showToast('error', 'At least 2 admins required', `Cannot delete ${target.name} — at least ${MIN_ADMINS} active Super Admins must remain. Promote another user to admin first.`);
         return;
+      }
+    }
+    // ── Microsoft mode: persist to backend ──────────────────────
+    if (authMode === 'microsoft' && target.backendId) {
+      try {
+        const result = await apiClient.deleteUser(target.backendId);
+        if (!result.ok) {
+          const msg = result.data?.message || result.data?.error || 'Failed to delete user';
+          showToast('error', 'Delete failed', msg); return;
+        }
+      } catch (e) {
+        showToast('error', 'Network error', 'Could not reach the server. Please try again.'); return;
       }
     }
     setState(s => ({
