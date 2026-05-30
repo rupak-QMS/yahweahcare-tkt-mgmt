@@ -112,7 +112,13 @@ router.get('/microsoft/callback', async (req, res, next) => {
 
     res.redirect(`${env.FRONTEND_URL}/dashboard`);
   } catch (err) {
-    await logAudit({ action: 'login.failed', module: 'auth', metadata: { reason: 'callback_error', error: String(err) }, success: false, req });
+    const e = err as { statusCode?: number; code?: string; message?: string };
+    await logAudit({ action: 'login.failed', module: 'auth', metadata: { reason: e.code || 'callback_error', error: String(err) }, success: false, req });
+    // Domain / authorization failures → redirect to frontend with a readable error code
+    // so the "Unauthorized Entra User" page is shown instead of raw JSON.
+    if (e.code === 'disallowed_domain' || e.code === 'not_authorized' || e.code === 'account_inactive') {
+      return res.redirect(`${env.FRONTEND_URL}?error=${encodeURIComponent(e.code)}`);
+    }
     next(err);
   }
 });

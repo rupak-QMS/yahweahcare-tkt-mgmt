@@ -9598,7 +9598,13 @@ const App = () => {
     const params = new URLSearchParams(window.location.search);
     const err = params.get('error');
     if (err) {
-      setLoginError(decodeURIComponent(err));
+      const code = decodeURIComponent(err);
+      // Domain/auth errors from the SSO callback → show Unauthorized page
+      if (code === 'disallowed_domain' || code === 'not_authorized' || code === 'account_inactive') {
+        setAuthMode('unauthorized_entra');
+      } else {
+        setLoginError(code);
+      }
       window.history.replaceState({}, '', window.location.pathname);
     }
     apiClient.me().then(data => {
