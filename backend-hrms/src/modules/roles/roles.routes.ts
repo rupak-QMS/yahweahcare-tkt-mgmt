@@ -5,14 +5,14 @@
 import { Router } from 'express';
 import { pool } from '../../db/pool';
 import { requireAuth } from '../../middleware/auth.middleware';
-import { requirePermission, requireSuperAdmin } from '../../middleware/rbac.middleware';
+import { requireSuperAdmin } from '../../middleware/rbac.middleware';
 import { logAudit } from '../audit/audit.service';
 
 const router = Router();
 router.use(requireAuth);
 
-// GET /roles — list all roles (with permission counts)
-router.get('/', requirePermission('role.read'), async (_req, res) => {
+// GET /roles — list all roles (any authenticated user can read roles for UI)
+router.get('/', async (_req, res) => {
   const { rows } = await pool.query(
     `SELECT r.id, r.name, r.display_name, r.description, r.rank, r.is_system,
             COUNT(rp.permission_id)::int AS permission_count,
@@ -27,7 +27,7 @@ router.get('/', requirePermission('role.read'), async (_req, res) => {
 });
 
 // GET /roles/:id — single role with its permissions
-router.get('/:id', requirePermission('role.read'), async (req, res) => {
+router.get('/:id', async (req, res) => {
   const id = Number(req.params.id);
   const [{ rows: [role] }, { rows: perms }] = await Promise.all([
     pool.query(`SELECT * FROM yc_tkt_mgmt.roles WHERE id = $1`, [id]),
@@ -104,7 +104,7 @@ router.patch('/:id', requireSuperAdmin, async (req, res) => {
 });
 
 // GET /permissions — list available permissions (for picker UIs)
-router.get('/permissions/all', requirePermission('role.read'), async (_req, res) => {
+router.get('/permissions/all', async (_req, res) => {
   const { rows } = await pool.query(
     `SELECT id, name, module, description FROM yc_tkt_mgmt.permissions ORDER BY module, name`
   );
