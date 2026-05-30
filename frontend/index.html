@@ -8683,27 +8683,42 @@ const StaffModal = ({ open, initial, currentUser, onClose, onSave }) => {
           {/* Role tier selector — only Super Admin can change, locked for bootstrap admins */}
           {adminGrantor ? (
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Role <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-medium mb-2" style={{color:'var(--e-text2,#4a5568)'}}>Role <span className="text-red-500">*</span></label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {[
-                  { id: 'super_admin', label: 'Super Admin', desc: 'Full system access', icon: 'cog',   color: 'red' },
-                  { id: 'manager',     label: 'Manager',     desc: 'Department head',    icon: 'users', color: 'amber' },
-                  { id: 'user',        label: 'Dept. User',  desc: 'Regular staff',      icon: 'user',  color: 'slate' },
+                  { id: 'super_admin', label: 'Super Admin', desc: 'Full system access', icon: 'cog',
+                    selBg: 'rgba(139,92,246,0.12)', selBorder: '#8b5cf6', selText: '#7c3aed', selGlow: 'rgba(139,92,246,0.25)',
+                    darkSelBg: 'rgba(139,92,246,0.18)', darkSelBorder: '#a78bfa', darkSelText: '#c4b5fd' },
+                  { id: 'manager', label: 'Manager', desc: 'Department head', icon: 'users',
+                    selBg: 'rgba(59,130,246,0.10)', selBorder: '#3b82f6', selText: '#1d4ed8', selGlow: 'rgba(59,130,246,0.22)',
+                    darkSelBg: 'rgba(59,130,246,0.18)', darkSelBorder: '#60a5fa', darkSelText: '#93c5fd' },
+                  { id: 'user', label: 'Dept. User', desc: 'Regular staff', icon: 'user',
+                    selBg: 'rgba(16,185,129,0.10)', selBorder: '#10b981', selText: '#047857', selGlow: 'rgba(16,185,129,0.22)',
+                    darkSelBg: 'rgba(16,185,129,0.15)', darkSelBorder: '#34d399', darkSelText: '#6ee7b7' },
                 ].map(opt => {
                   const sel = form.role === opt.id;
                   const locked = isBootstrap && opt.id !== 'super_admin';
-                  const colorMap = {
-                    red:   sel ? 'border-red-500 bg-red-50 text-red-700' : 'border-slate-200 hover:bg-slate-50',
-                    amber: sel ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-slate-200 hover:bg-slate-50',
-                    slate: sel ? 'border-slate-500 bg-slate-50 text-slate-700' : 'border-slate-200 hover:bg-slate-50',
+                  const isDark = document.documentElement.classList.contains('dark');
+                  const cardStyle = sel ? {
+                    background:  isDark ? opt.darkSelBg   : opt.selBg,
+                    borderColor: isDark ? opt.darkSelBorder : opt.selBorder,
+                    boxShadow:   `0 0 0 3px ${opt.selGlow}, 0 2px 8px ${opt.selGlow}`,
+                    color:       isDark ? opt.darkSelText  : opt.selText,
+                  } : {
+                    background:  isDark ? 'rgba(255,255,255,0.04)' : '#ffffff',
+                    borderColor: isDark ? 'rgba(255,255,255,0.08)' : '#e2e8f0',
+                    color:       isDark ? '#94a3b8' : '#475569',
                   };
                   return (
-                    <button key={opt.id} type="button" disabled={locked} onClick={() => !locked && setForm({...form, role: opt.id})} className={`flex flex-col items-start gap-1 text-left p-3 rounded-lg border-2 transition ${colorMap[opt.color]} disabled:opacity-40 disabled:cursor-not-allowed`} title={locked ? 'Bootstrap admin — role locked' : undefined}>
-                      <div className="flex items-center gap-1.5">
+                    <button key={opt.id} type="button" disabled={locked}
+                      onClick={() => !locked && setForm({...form, role: opt.id})}
+                      style={{...cardStyle, borderWidth:'2px', borderStyle:'solid', borderRadius:'10px', padding:'12px', textAlign:'left', transition:'all 0.2s', opacity: locked ? 0.4 : 1, cursor: locked ? 'not-allowed' : 'pointer'}}
+                      title={locked ? 'Bootstrap admin — role locked' : undefined}>
+                      <div className="flex items-center gap-1.5 mb-1">
                         <Icon name={opt.icon} className="w-4 h-4" />
-                        <span className="text-sm font-semibold">{opt.label}</span>
+                        <span style={{fontSize:'13px', fontWeight:700, letterSpacing:'0.01em'}}>{opt.label}</span>
                       </div>
-                      <span className="text-xs text-slate-500">{opt.desc}</span>
+                      <span style={{fontSize:'11px', opacity:0.7}}>{opt.desc}</span>
                     </button>
                   );
                 })}
