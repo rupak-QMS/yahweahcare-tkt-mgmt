@@ -14,10 +14,11 @@ import { pool } from './db/pool';
 import { apiLimiter } from './middleware/rateLimit.middleware';
 import { errorHandler, notFound } from './middleware/error.middleware';
 
-import authRoutes  from './modules/auth/auth.routes';
-import userRoutes  from './modules/users/users.routes';
-import roleRoutes  from './modules/roles/roles.routes';
-import auditRoutes from './modules/audit/audit.routes';
+import authRoutes      from './modules/auth/auth.routes';
+import userRoutes      from './modules/users/users.routes';
+import roleRoutes      from './modules/roles/roles.routes';
+import auditRoutes     from './modules/audit/audit.routes';
+import scheduleRoutes  from './modules/schedules/schedules.routes';
 
 const app = express();
 
@@ -60,12 +61,14 @@ app.use('/auth',        apiLimiter);
 app.use('/users',       apiLimiter);
 app.use('/roles',       apiLimiter);
 app.use('/audit-logs',  apiLimiter);
+app.use('/schedules',   apiLimiter);
 
 // ─── Routes ────────────────────────────────────────────────
 app.use('/auth',        authRoutes);
 app.use('/users',       userRoutes);
 app.use('/roles',       roleRoutes);
 app.use('/audit-logs',  auditRoutes);
+app.use('/schedules',   scheduleRoutes);
 
 // ─── 404 + error handler ───────────────────────────────────
 app.use(notFound);
