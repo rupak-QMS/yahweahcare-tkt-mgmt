@@ -38,6 +38,8 @@ export function requireRole(...allowed: RoleName[]) {
 export function requirePermission(...required: string[]) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.auth) return res.status(401).json({ error: 'unauthenticated' });
+    // Super admins have all permissions implicitly — never block them
+    if (req.auth.role === 'super_admin') return next();
     const missing = required.filter(p => !req.auth!.permissions.includes(p));
     if (missing.length > 0) {
       return deny(req, res, `Missing permission(s): ${missing.join(', ')}.`);
@@ -49,6 +51,8 @@ export function requirePermission(...required: string[]) {
 export function requireAnyPermission(...options: string[]) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.auth) return res.status(401).json({ error: 'unauthenticated' });
+    // Super admins have all permissions implicitly — never block them
+    if (req.auth.role === 'super_admin') return next();
     const has = options.some(p => req.auth!.permissions.includes(p));
     if (!has) {
       return deny(req, res, `Requires one of: ${options.join(', ')}.`);
