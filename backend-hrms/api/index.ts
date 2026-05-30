@@ -19,10 +19,14 @@ import { env } from '../src/config/env';
 import { apiLimiter } from '../src/middleware/rateLimit.middleware';
 import { errorHandler, notFound } from '../src/middleware/error.middleware';
 
-import authRoutes  from '../src/modules/auth/auth.routes';
-import userRoutes  from '../src/modules/users/users.routes';
-import roleRoutes  from '../src/modules/roles/roles.routes';
-import auditRoutes from '../src/modules/audit/audit.routes';
+import authRoutes          from '../src/modules/auth/auth.routes';
+import userRoutes          from '../src/modules/users/users.routes';
+import roleRoutes          from '../src/modules/roles/roles.routes';
+import auditRoutes         from '../src/modules/audit/audit.routes';
+import scheduleRoutes      from '../src/modules/schedules/schedules.routes';
+import ticketRoutes        from '../src/modules/tickets/tickets.routes';
+import notificationRoutes  from '../src/modules/notifications/notifications.routes';
+import lookupRoutes        from '../src/modules/lookup/lookup.routes';
 
 // Build the Express app ONCE per cold start
 const app = express();
@@ -54,15 +58,23 @@ app.get('/health', async (_req, res) => {
   }
 });
 
-app.use('/auth',       apiLimiter);
-app.use('/users',      apiLimiter);
-app.use('/roles',      apiLimiter);
-app.use('/audit-logs', apiLimiter);
+app.use('/auth',          apiLimiter);
+app.use('/users',         apiLimiter);
+app.use('/roles',         apiLimiter);
+app.use('/audit-logs',    apiLimiter);
+app.use('/tickets',       apiLimiter);
+app.use('/schedules',     apiLimiter);
+app.use('/notifications', apiLimiter);
+app.use('/lookup',        apiLimiter);
 
-app.use('/auth',       authRoutes);
-app.use('/users',      userRoutes);
-app.use('/roles',      roleRoutes);
-app.use('/audit-logs', auditRoutes);
+app.use('/auth',          authRoutes);
+app.use('/users',         userRoutes);
+app.use('/roles',         roleRoutes);
+app.use('/audit-logs',    auditRoutes);
+app.use('/tickets',       ticketRoutes);
+app.use('/schedules',     scheduleRoutes);
+app.use('/notifications', notificationRoutes);
+app.use('/lookup',        lookupRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
