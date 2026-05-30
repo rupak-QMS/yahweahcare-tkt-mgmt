@@ -8122,6 +8122,13 @@ const StaffManagement = ({ users, tickets, currentUser, onAddStaff, onUpdateStaf
     onUpdateStaff(u.id, { department: dept });
   };
 
+  const [activeTab, setActiveTab] = useState('staff');
+  const tabs = [
+    { id: 'staff', label: 'Staff Management' },
+    { id: 'notifications', label: 'Notifications' },
+    { id: 'email', label: 'Email' },
+  ];
+
   return (
     <>
       <Breadcrumb items={breadcrumbs} onNavigate={onNavigate} />
@@ -8135,21 +8142,15 @@ const StaffManagement = ({ users, tickets, currentUser, onAddStaff, onUpdateStaf
               <Icon name="users" className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">Staff Management</h1>
-              <p className="text-sm text-slate-500 mt-0.5">Manage staff members who can be assigned tickets</p>
+              <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
+              <p className="text-sm text-slate-500 mt-0.5">Manage staff, notifications and email preferences</p>
               <p className="text-xs mt-1" style={{color:'#2563eb'}}>
                 Logged in as: <span className="font-semibold">{currentUser.email}</span>
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            {admin && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border"
-                style={{background:'rgba(239,68,68,0.08)',color:'#dc2626',borderColor:'rgba(239,68,68,0.2)'}}>
-                <Icon name="cog" className="w-3.5 h-3.5" /> Admin
-              </span>
-            )}
-            {admin && (
+            {admin && activeTab === 'staff' && (
               <Button variant="primary" onClick={openCreate}>
                 <Icon name="userPlus" className="w-4 h-4" /> Add Staff
               </Button>
@@ -8157,173 +8158,210 @@ const StaffManagement = ({ users, tickets, currentUser, onAddStaff, onUpdateStaf
           </div>
         </div>
 
-        {/* Admin-count guard */}
-        {admin && activeAdminCount <= MIN_ADMINS && (
-          <div className="mb-4 flex items-start gap-3 rounded-lg px-4 py-3"
-            style={{background:'rgba(245,158,11,0.06)',border:'1px solid rgba(245,158,11,0.25)',borderLeft:'4px solid #d97706'}}>
-            <Icon name="alert" className="w-4 h-4 flex-shrink-0 mt-0.5 text-amber-600" />
-            <p className="text-sm text-slate-600">
-              <strong className="text-slate-700">Minimum admin policy:</strong> Only {activeAdminCount} active Super Admin{activeAdminCount === 1 ? '' : 's'}. System requires at least {MIN_ADMINS}.
-            </p>
+        {/* ── Tabs ───────────────────────────────────────────── */}
+        <div className="flex items-center gap-1 mb-5 border-b border-slate-200">
+          {tabs.map(tab => (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+              className={`px-5 py-2.5 text-sm font-semibold rounded-t-lg border-b-2 transition-colors -mb-px ${
+                activeTab === tab.id
+                  ? 'border-emerald-500 text-emerald-600 bg-emerald-50'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+              }`}>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* ── Staff tab ──────────────────────────────────────── */}
+        {activeTab === 'staff' && (
+          <>
+            {/* Admin-count guard */}
+            {admin && activeAdminCount <= MIN_ADMINS && (
+              <div className="mb-4 flex items-start gap-3 rounded-lg px-4 py-3"
+                style={{background:'rgba(245,158,11,0.06)',border:'1px solid rgba(245,158,11,0.25)',borderLeft:'4px solid #d97706'}}>
+                <Icon name="alert" className="w-4 h-4 flex-shrink-0 mt-0.5 text-amber-600" />
+                <p className="text-sm text-slate-600">
+                  <strong className="text-slate-700">Minimum admin policy:</strong> Only {activeAdminCount} active Super Admin{activeAdminCount === 1 ? '' : 's'}. System requires at least {MIN_ADMINS}.
+                </p>
+              </div>
+            )}
+
+            {/* ── KPI stat cards — inside a single container card */}
+            <div className="card p-5 mb-5">
+              <div className="grid grid-cols-3 gap-4">
+                {/* Total Staff */}
+                <div className="rounded-xl p-4 flex items-center justify-between"
+                  style={{background:'#f8fafc',border:'1px solid rgba(15,23,42,0.07)'}}>
+                  <div>
+                    <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Total Staff</div>
+                    <div className="text-4xl font-black text-slate-800">{total}</div>
+                  </div>
+                  <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-slate-200 text-slate-500">
+                    <Icon name="users" className="w-5 h-5" />
+                  </div>
+                </div>
+                {/* Active — highlighted green */}
+                <div className="rounded-xl p-4 flex items-center justify-between"
+                  style={{background:'linear-gradient(135deg,#065f46,#047857)'}}>
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-wide mb-1" style={{color:'rgba(167,243,208,0.8)'}}>Active</div>
+                    <div className="text-4xl font-black text-white">{active}</div>
+                  </div>
+                  <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{background:'rgba(255,255,255,0.15)'}}>
+                    <Icon name="userPlus" className="w-5 h-5 text-white" />
+                  </div>
+                </div>
+                {/* Inactive */}
+                <div className="rounded-xl p-4 flex items-center justify-between"
+                  style={{background:'#fff7ed',border:'1px solid rgba(249,115,22,0.15)'}}>
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-wide mb-1 text-orange-600">Inactive</div>
+                    <div className="text-4xl font-black text-slate-800">{inactive}</div>
+                  </div>
+                  <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-orange-100 text-orange-500">
+                    <Icon name="alert" className="w-5 h-5" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Search + filter ────────────────────────────────── */}
+            <div className="flex items-center gap-3 mb-4">
+              <div className="relative flex-1">
+                <Icon name="search" className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+                <input value={search} onChange={e => setSearch(e.target.value)}
+                  placeholder="Search by name or email..."
+                  className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30" />
+              </div>
+              <div className="relative">
+                <select value={staffFilter} onChange={e => setStaffFilter(e.target.value)}
+                  className="appearance-none pl-4 pr-10 py-2.5 border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 font-medium text-slate-700 cursor-pointer">
+                  <option value="all">All Staff</option>
+                  <option value="active">Active Only</option>
+                  <option value="inactive">Inactive Only</option>
+                  <option value="assignable">Assignable Only</option>
+                </select>
+                <Icon name="chevronDown" className="w-4 h-4 absolute right-3 top-3 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* ── Staff list ─────────────────────────────────────── */}
+            <div className="card overflow-visible">
+              {filtered.length === 0 ? (
+                <div className="py-16 text-center text-slate-400">
+                  <Icon name="users" className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                  <p className="text-sm">No staff match your search</p>
+                </div>
+              ) : filtered.map((u, idx) => {
+                const isMe = u.id === currentUser.id;
+                const canDelete = admin && !isMe && !u.bootstrapAdmin && activeAdminCount > MIN_ADMINS;
+                return (
+                  <div key={u.id}
+                    className={`flex items-center gap-4 px-5 py-4 transition-colors ${idx < filtered.length - 1 ? 'border-b border-slate-100' : ''} hover:bg-slate-50/60`}>
+
+                    {/* Avatar */}
+                    <Avatar user={u} size="md" />
+
+                    {/* Name + badges + email */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-slate-800 text-sm">{u.name}</span>
+                        {isMe && <span className="text-[10px] text-blue-600 font-medium">(you)</span>}
+                        {u.active !== false
+                          ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
+                              style={{background:'rgba(16,185,129,0.1)',color:'#059669',border:'1px solid rgba(16,185,129,0.25)'}}>
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span> Active
+                            </span>
+                          : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
+                              style={{background:'rgba(100,116,139,0.1)',color:'#64748b',border:'1px solid rgba(100,116,139,0.2)'}}>
+                              Inactive
+                            </span>}
+                        {(u.isAdmin || u.role === 'super_admin') && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
+                            style={{background:'rgba(124,58,237,0.1)',color:'#7c3aed',border:'1px solid rgba(124,58,237,0.2)'}}>
+                            <Icon name="cog" className="w-2.5 h-2.5" /> Super Admin
+                            {u.bootstrapAdmin && <span className="ml-1 opacity-60">· System</span>}
+                          </span>
+                        )}
+                        {!u.isAdmin && u.role === 'manager' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
+                            style={{background:'rgba(245,158,11,0.1)',color:'#d97706',border:'1px solid rgba(245,158,11,0.2)'}}>
+                            Manager
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <Icon name="mail" className="w-3 h-3 text-slate-400" />
+                        <span className="text-xs text-slate-500">{u.email}</span>
+                      </div>
+                    </div>
+
+                    {/* Department dropdown */}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-slate-100 text-slate-500">
+                        <Icon name="branch" className="w-3.5 h-3.5" />
+                      </div>
+                      {admin ? (
+                        <select value={u.department || ''} onChange={e => changeDept(u, e.target.value)}
+                          className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 text-slate-700 cursor-pointer min-w-[130px]">
+                          {allDepts.map(d => <option key={d} value={d}>{d}</option>)}
+                        </select>
+                      ) : (
+                        <span className="text-sm text-slate-600 font-medium">{u.department}</span>
+                      )}
+                    </div>
+
+                    {/* Assignable toggle */}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className="text-xs text-slate-500 font-medium">Assignable</span>
+                      <button onClick={() => toggleAssignable(u)}
+                        className={`relative w-10 h-5 rounded-full transition-colors duration-200 focus:outline-none ${u.assignable ? 'bg-emerald-500' : 'bg-slate-200'}`}
+                        title={u.assignable ? 'Click to make non-assignable' : 'Click to make assignable'}>
+                        <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${u.assignable ? 'translate-x-5' : 'translate-x-0.5'}`}></span>
+                      </button>
+                    </div>
+
+                    {/* Delete button */}
+                    {canDelete ? (
+                      <button onClick={() => setConfirm({ kind: 'delete', user: u })}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors flex-shrink-0"
+                        title="Delete staff member">
+                        <Icon name="trash" className="w-4 h-4" />
+                      </button>
+                    ) : (
+                      <div className="w-7 flex-shrink-0" />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {/* ── Notifications tab ──────────────────────────────── */}
+        {activeTab === 'notifications' && (
+          <div className="card p-8 text-center">
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
+              style={{background:'linear-gradient(135deg,#6366f1,#8b5cf6)'}}>
+              <Icon name="bell" className="w-7 h-7 text-white" />
+            </div>
+            <h2 className="text-lg font-bold text-slate-800 mb-2">Notification Preferences</h2>
+            <p className="text-sm text-slate-500 max-w-sm mx-auto">Configure which events trigger notifications for your team. Coming soon.</p>
           </div>
         )}
 
-        {/* ── KPI stat cards ─────────────────────────────────── */}
-        <div className="grid grid-cols-3 gap-4 mb-5">
-          {/* Total Staff */}
-          <div className="card p-5 flex items-center justify-between">
-            <div>
-              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Total Staff</div>
-              <div className="text-4xl font-black text-slate-800">{total}</div>
+        {/* ── Email tab ──────────────────────────────────────── */}
+        {activeTab === 'email' && (
+          <div className="card p-8 text-center">
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
+              style={{background:'linear-gradient(135deg,#0ea5e9,#06b6d4)'}}>
+              <Icon name="mail" className="w-7 h-7 text-white" />
             </div>
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-slate-100 text-slate-500">
-              <Icon name="users" className="w-6 h-6" />
-            </div>
+            <h2 className="text-lg font-bold text-slate-800 mb-2">Email Settings</h2>
+            <p className="text-sm text-slate-500 max-w-sm mx-auto">Set up email templates and delivery preferences for ticket notifications. Coming soon.</p>
           </div>
-          {/* Active — highlighted green like PowerApps */}
-          <div className="card p-5 flex items-center justify-between"
-            style={{background:'linear-gradient(135deg,#065f46,#047857)',border:'none'}}>
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-wide mb-1" style={{color:'rgba(167,243,208,0.8)'}}>Active</div>
-              <div className="text-4xl font-black text-white">{active}</div>
-            </div>
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{background:'rgba(255,255,255,0.15)'}}>
-              <Icon name="userPlus" className="w-6 h-6 text-white" />
-            </div>
-          </div>
-          {/* Inactive */}
-          <div className="card p-5 flex items-center justify-between">
-            <div>
-              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Inactive</div>
-              <div className="text-4xl font-black text-slate-800">{inactive}</div>
-            </div>
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-orange-50 text-orange-500">
-              <Icon name="alert" className="w-6 h-6" />
-            </div>
-          </div>
-        </div>
+        )}
 
-        {/* ── Search + filter ────────────────────────────────── */}
-        <div className="flex items-center gap-3 mb-4">
-          <div className="relative flex-1">
-            <Icon name="search" className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-            <input value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Search by name or email..."
-              className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30" />
-          </div>
-          <div className="relative">
-            <select value={staffFilter} onChange={e => setStaffFilter(e.target.value)}
-              className="appearance-none pl-4 pr-10 py-2.5 border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 font-medium text-slate-700 cursor-pointer">
-              <option value="all">All Staff</option>
-              <option value="active">Active Only</option>
-              <option value="inactive">Inactive Only</option>
-              <option value="assignable">Assignable Only</option>
-            </select>
-            <Icon name="chevronDown" className="w-4 h-4 absolute right-3 top-3 text-slate-400 pointer-events-none" />
-          </div>
-        </div>
-
-        {/* ── Staff list ─────────────────────────────────────── */}
-        <div className="card overflow-visible">
-          {filtered.length === 0 ? (
-            <div className="py-16 text-center text-slate-400">
-              <Icon name="users" className="w-10 h-10 mx-auto mb-3 opacity-30" />
-              <p className="text-sm">No staff match your search</p>
-            </div>
-          ) : filtered.map((u, idx) => {
-            const isMe = u.id === currentUser.id;
-            const canDelete = admin && !isMe && !u.bootstrapAdmin && activeAdminCount > MIN_ADMINS;
-            return (
-              <div key={u.id}
-                className={`flex items-center gap-4 px-5 py-4 transition-colors ${idx < filtered.length - 1 ? 'border-b border-slate-100' : ''} hover:bg-slate-50/60`}>
-
-                {/* Avatar */}
-                <Avatar user={u} size="md" />
-
-                {/* Name + badges + email */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-slate-800 text-sm">{u.name}</span>
-                    {isMe && <span className="text-[10px] text-blue-600 font-medium">(you)</span>}
-                    {/* Status badge */}
-                    {u.active !== false
-                      ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
-                          style={{background:'rgba(16,185,129,0.1)',color:'#059669',border:'1px solid rgba(16,185,129,0.25)'}}>
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span> Active
-                        </span>
-                      : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
-                          style={{background:'rgba(100,116,139,0.1)',color:'#64748b',border:'1px solid rgba(100,116,139,0.2)'}}>
-                          Inactive
-                        </span>}
-                    {/* Role badge */}
-                    {(u.isAdmin || u.role === 'super_admin') && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
-                        style={{background:'rgba(124,58,237,0.1)',color:'#7c3aed',border:'1px solid rgba(124,58,237,0.2)'}}>
-                        <Icon name="cog" className="w-2.5 h-2.5" /> Super Admin
-                        {u.bootstrapAdmin && <span className="ml-1 opacity-60">· System</span>}
-                      </span>
-                    )}
-                    {!u.isAdmin && u.role === 'manager' && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
-                        style={{background:'rgba(245,158,11,0.1)',color:'#d97706',border:'1px solid rgba(245,158,11,0.2)'}}>
-                        Manager
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <Icon name="mail" className="w-3 h-3 text-slate-400" />
-                    <span className="text-xs text-slate-500">{u.email}</span>
-                  </div>
-                </div>
-
-                {/* Department dropdown */}
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-slate-100 text-slate-500">
-                    <Icon name="branch" className="w-3.5 h-3.5" />
-                  </div>
-                  {admin ? (
-                    <select value={u.department || ''} onChange={e => changeDept(u, e.target.value)}
-                      className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 text-slate-700 cursor-pointer min-w-[130px]">
-                      {allDepts.map(d => <option key={d} value={d}>{d}</option>)}
-                    </select>
-                  ) : (
-                    <span className="text-sm text-slate-600 font-medium">{u.department}</span>
-                  )}
-                </div>
-
-                {/* Assignable toggle */}
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="text-xs text-slate-500 font-medium">Assignable</span>
-                  <button onClick={() => toggleAssignable(u)}
-                    className={`relative w-10 h-5 rounded-full transition-colors duration-200 focus:outline-none ${u.assignable ? 'bg-emerald-500' : 'bg-slate-200'}`}
-                    title={u.assignable ? 'Click to make non-assignable' : 'Click to make assignable'}>
-                    <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${u.assignable ? 'translate-x-5' : 'translate-x-0.5'}`}></span>
-                  </button>
-                </div>
-
-                {/* Edit button */}
-                {canManage && (
-                  <button onClick={() => openEdit(u)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors flex-shrink-0"
-                    title="Edit staff member">
-                    <Icon name="edit" className="w-4 h-4" />
-                  </button>
-                )}
-
-                {/* Delete button */}
-                {canDelete ? (
-                  <button onClick={() => setConfirm({ kind: 'delete', user: u })}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors flex-shrink-0"
-                    title="Delete staff member">
-                    <Icon name="trash" className="w-4 h-4" />
-                  </button>
-                ) : (
-                  <div className="w-7 flex-shrink-0" /> /* spacer */
-                )}
-              </div>
-            );
-          })}
-        </div>
 
         <StaffModal open={modalOpen} initial={editing} currentUser={currentUser} onClose={() => setModalOpen(false)} onSave={save} />
 
