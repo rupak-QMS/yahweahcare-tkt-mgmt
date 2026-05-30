@@ -7844,7 +7844,16 @@ const StaffManagement = ({ users, tickets, currentUser, onAddStaff, onUpdateStaf
   const [editing, setEditing] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(null);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
   const [confirm, setConfirm] = useState(null);
+
+  // Close portal menu on any outside click
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = () => setMenuOpen(null);
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [menuOpen]);
 
   const admin = isAdmin(currentUser);
   // Row-level security: managers only see and manage their own department's staff
@@ -8002,34 +8011,17 @@ const StaffManagement = ({ users, tickets, currentUser, onAddStaff, onUpdateStaf
                       ? <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200">Active</Badge>
                       : <Badge className="bg-slate-100 text-slate-600 border border-slate-200">Inactive</Badge>}
                   </td>
-                  <td className="px-2 py-3 relative">
+                  <td className="px-2 py-3 text-right">
                     {canManage && (
-                      <button onClick={e => { e.stopPropagation(); setMenuOpen(menuOpen === u.id ? null : u.id); }} className="row-hover-actions p-1.5 rounded bg-emerald-500 hover:bg-emerald-600 text-white" title="Actions">
+                      <button onClick={e => {
+                        e.stopPropagation();
+                        if (menuOpen === u.id) { setMenuOpen(null); return; }
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setMenuPos({ top: rect.bottom + 4, left: rect.right - 176 });
+                        setMenuOpen(u.id);
+                      }} className="row-hover-actions p-1.5 rounded bg-emerald-500 hover:bg-emerald-600 text-white" title="Actions">
                         <Icon name="moreV" className="w-4 h-4" />
                       </button>
-                    )}
-                    {menuOpen === u.id && (
-                      <div onClick={e => e.stopPropagation()} className="absolute right-0 top-8 w-44 bg-white border border-slate-200 rounded-lg shadow-xl z-[200] fade-in py-1">
-                        <button onClick={() => { openEdit(u); setMenuOpen(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left">
-                          <Icon name="edit" className="w-4 h-4" /> Edit
-                        </button>
-                        {admin && !isMe && !u.bootstrapAdmin && (
-                          <button onClick={() => { setConfirm({ kind: u.active === false ? 'activate' : 'deactivate', user: u }); setMenuOpen(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left">
-                            <Icon name="userPlus" className="w-4 h-4" /> {u.active === false ? 'Reactivate' : 'Deactivate'}
-                          </button>
-                        )}
-                        {admin && !isMe && !u.bootstrapAdmin && (
-                          <button onClick={() => { setConfirm({ kind: 'delete', user: u }); setMenuOpen(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 text-left">
-                            <Icon name="trash" className="w-4 h-4" /> Delete
-                          </button>
-                        )}
-                        {u.bootstrapAdmin && admin && !isMe && (
-                          <div className="px-3 py-2 text-xs text-slate-400 flex items-center gap-1.5 border-t border-slate-100">
-                            <Icon name="cog" className="w-3.5 h-3.5" />
-                            Bootstrap admin — cannot be deleted or deactivated
-                          </div>
-                        )}
-                      </div>
                     )}
                   </td>
                 </tr>
@@ -8064,6 +8056,41 @@ const StaffManagement = ({ users, tickets, currentUser, onAddStaff, onUpdateStaf
         </Modal>
       )}
     </div>
+
+    {/* Fixed-position action menu — escapes all overflow containers */}
+    {menuOpen && (() => {
+      const u = filtered.find(x => x.id === menuOpen);
+      if (!u) return null;
+      const isMe = u.id === currentUser.id;
+      return ReactDOM.createPortal(
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{ position: 'fixed', top: menuPos.top, left: menuPos.left, width: 176, zIndex: 9999 }}
+          className="bg-white border border-slate-200 rounded-lg shadow-xl fade-in py-1"
+        >
+          <button onClick={() => { openEdit(u); setMenuOpen(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left">
+            <Icon name="edit" className="w-4 h-4" /> Edit
+          </button>
+          {admin && !isMe && !u.bootstrapAdmin && (
+            <button onClick={() => { setConfirm({ kind: u.active === false ? 'activate' : 'deactivate', user: u }); setMenuOpen(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left">
+              <Icon name="userPlus" className="w-4 h-4" /> {u.active === false ? 'Reactivate' : 'Deactivate'}
+            </button>
+          )}
+          {admin && !isMe && !u.bootstrapAdmin && (
+            <button onClick={() => { setConfirm({ kind: 'delete', user: u }); setMenuOpen(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 text-left">
+              <Icon name="trash" className="w-4 h-4" /> Delete
+            </button>
+          )}
+          {u.bootstrapAdmin && admin && !isMe && (
+            <div className="px-3 py-2 text-xs text-slate-400 flex items-center gap-1.5 border-t border-slate-100">
+              <Icon name="cog" className="w-3.5 h-3.5" />
+              Bootstrap admin — cannot be deleted or deactivated
+            </div>
+          )}
+        </div>,
+        document.body
+      );
+    })()}
   </>
   );
 };
