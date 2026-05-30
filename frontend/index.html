@@ -3421,8 +3421,9 @@ const apiClient = {
     return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
   },
   // ── Tickets ────────────────────────────────────────────────
-  async getTickets() {
-    const res = await fetch(`${API_BASE}/tickets?limit=500`, { credentials: 'include' });
+  async getTickets(includeAll = true) {
+    const qs = includeAll ? '?limit=500&all=1' : '?limit=500';
+    const res = await fetch(`${API_BASE}/tickets${qs}`, { credentials: 'include' });
     if (!res.ok) return null;
     return res.json();
   },
@@ -3485,12 +3486,16 @@ const backendUserToFrontend = (u) => ({
   role: u.role,
   department: u.department || 'Unknown',
   designation: u.designation || '',
-  avatar: (u.name || '?').split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase(),
+  site: u.site || '',
+  employeeId: u.employee_id || '',
+  avatar: u.avatar_initials || (u.name || '?').split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase(),
+  profilePhotoUrl: u.profile_photo_url || null,
   isAdmin: u.role === 'super_admin',
   bootstrapAdmin: !!u.bootstrap_admin,
-  systemCreated: !!u.bootstrap_admin,
+  systemCreated: !!(u.system_created || u.bootstrap_admin),
   active: u.active !== false,
-  assignable: u.assignable !== false,
+  // assignable: stored in DB; managers/admins default true, staff false
+  assignable: u.assignable != null ? !!u.assignable : (u.role === 'super_admin' || u.role === 'manager'),
   permissions: [],
 });
 
@@ -10155,12 +10160,12 @@ const App = () => {
       if ('department' in safe)  payload.department  = safe.department;
       if ('designation' in safe) payload.designation = safe.designation;
       if ('active' in safe)      payload.active      = safe.active;
+      if ('assignable' in safe)  payload.assignable  = safe.assignable;
       if ('role' in safe) {
         const roleObj = (state.roles || []).find(r => r.name === safe.role);
         if (roleObj) payload.role_id = roleObj.id;
       }
-      // assignable is frontend-only — exclude from backend payload
-      const backendKeys = Object.keys(payload).filter(k => k !== 'assignable');
+      const backendKeys = Object.keys(payload);
       if (backendKeys.length > 0) {
         try {
           const result = await apiClient.updateUser(target.backendId, payload);
