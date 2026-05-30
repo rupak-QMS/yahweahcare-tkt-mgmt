@@ -32,8 +32,10 @@ router.get('/', requirePermission('user.read'), async (req, res) => {
 
   const { rows } = await pool.query(
     `SELECT u.id, u.email, u.name, r.name AS role, r.display_name AS role_label,
-            u.department, u.designation, u.profile_photo_url, u.bootstrap_admin, u.bootstrap_admin,
-            u.active, u.last_login_at, u.created_at, COUNT(*) OVER() AS total
+            u.department, u.designation, u.site, u.employee_id,
+            u.profile_photo_url, u.bootstrap_admin, u.system_created,
+            u.assignable, u.active, u.last_login_at, u.created_at,
+            COUNT(*) OVER() AS total
      FROM yc_tkt_mgmt.users u
      LEFT JOIN yc_tkt_mgmt.roles r ON r.id = u.role_id
      WHERE ${where.join(' AND ')}
@@ -91,7 +93,7 @@ router.patch('/:id', requirePermission('user.update'), async (req, res) => {
     return res.status(403).json({ error: 'super_admin_modify_blocked' });
   }
 
-  const allowed = ['name', 'department', 'designation', 'role_id', 'active'];
+  const allowed = ['name', 'department', 'designation', 'role_id', 'active', 'assignable', 'site', 'employee_id'];
   const updates: string[] = []; const values: unknown[] = []; let i = 1;
   for (const k of allowed) {
     if (k in req.body) { updates.push(`${k} = $${i++}`); values.push(req.body[k]); }
