@@ -516,9 +516,8 @@
     transform: translateY(-2px) scale(1.01);
   }
   .brand-gradient:active {
-    transform: scale(0.974);
-    box-shadow: 0 4px 14px rgba(99,102,241,0.35);
-    transition-duration: 0.08s;
+    opacity: 0.88;
+    transition-duration: 0.06s;
   }
 
   /* Cards — hover glow (light mode) */
@@ -1288,10 +1287,10 @@
     transform: translateY(-4px) scale(1.016);
   }
 
-  /* ── Premium button ripple — via :active scale ────────────────── */
+  /* ── Button active — no scale flash ───────────────────────────── */
   button:active:not(:disabled) {
-    transform: scale(0.978);
-    transition: transform 0.07s ease !important;
+    opacity: 0.88;
+    transition: opacity 0.06s ease !important;
   }
 
   /* ── Staggered card reveal ────────────────────────────────────── */
@@ -1737,12 +1736,8 @@
     filter: brightness(1.08) saturate(1.05) !important;
   }
   .brand-gradient:active {
-    transform: scale(0.968) !important;
-    box-shadow:
-      0 2px 12px rgba(126,184,66,0.55),
-      0 0 0 1px rgba(126,184,66,0.40) !important;
-    filter: brightness(0.96) !important;
-    transition-duration: 0.07s !important;
+    opacity: 0.88 !important;
+    transition-duration: 0.06s !important;
   }
 
   /* Sidebar active item — green frosted pill, not the full button style */
@@ -2091,19 +2086,7 @@
   .yc-stagger > *:nth-child(5) { transition-delay: 0.28s; }
   .yc-stagger > *:nth-child(6) { transition-delay: 0.34s; }
 
-  /* ── 5. RIPPLE EFFECT (CSS layer) ──────────────────────────── */
-  .yc-ripple-container { position: relative; overflow: hidden; }
-  .yc-ripple {
-    position: absolute;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.45);
-    transform: scale(0);
-    animation: rippleExpand 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-    pointer-events: none;
-  }
-  @keyframes rippleExpand {
-    to { transform: scale(4); opacity: 0; }
-  }
+  /* ── 5. RIPPLE EFFECT removed ───────────────────────────────── */
 
   /* ── 6. CURSOR GLOW ────────────────────────────────────────── */
   #yc-cursor-glow {
@@ -2283,10 +2266,7 @@
   }
 
   /* ── 19. INTERACTIVE TABLE ROW — press state ────────────────── */
-  tbody tr:active {
-    transform: scale(0.999);
-    transition: transform 0.1s ease;
-  }
+  tbody tr:active { /* flash removed */ }
 
   /* ── 20. GLASS MODAL BACKDROP BLUR upgrade ──────────────────── */
   .fixed.inset-0.z-50 {
@@ -2475,9 +2455,9 @@
     --e-border:       #E5EEF7;
     --e-card:         #FFFFFF;
     --e-card-border:  #DCE8F3;
-    --e-text1:        #101828;
-    --e-text2:        #667085;
-    --e-text3:        #98A2B3;
+    --e-text1:        #1a2332;
+    --e-text2:        #4a5568;
+    --e-text3:        #718096;
     --e-blue:         #0086FF;
     --e-cyan:         #00C2FF;
     --e-r-sm:         10px;
@@ -2500,6 +2480,16 @@
     --e-blue:         #00A6FF;
     --e-cyan:         #00D4FF;
   }
+
+  /* ── Light mode global text colours ────────────────────── */
+  /* Replaces the too-dark slate defaults with warmer, easier-to-read tones */
+  :root:not(.dark) .text-slate-900,
+  html:not(.dark) .text-slate-900 { color: #1a2332 !important; }
+  html:not(.dark) .text-slate-800 { color: #2d3748 !important; }
+  html:not(.dark) .text-slate-700 { color: #374151 !important; }
+  html:not(.dark) .text-slate-600 { color: #4a5568 !important; }
+  html:not(.dark) .text-slate-500 { color: #64748b !important; }
+  html:not(.dark) .text-slate-400 { color: #94a3b8 !important; }
 
   /* ── Global background ─────────────────────────────────── */
   body {
@@ -9410,22 +9400,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
     }
   });
 
-  /* ── 3. RIPPLE on brand-gradient buttons ────────────────────── */
-  document.addEventListener('click', function(e) {
-    var btn = e.target.closest('[class*="brand-gradient"]');
-    if (!btn || btn.closest('aside')) return; // skip sidebar items
-    var rect = btn.getBoundingClientRect();
-    var size = Math.max(rect.width, rect.height) * 1.8;
-    var x = e.clientX - rect.left - size / 2;
-    var y = e.clientY - rect.top  - size / 2;
-    var rip = document.createElement('span');
-    rip.className = 'yc-ripple';
-    rip.style.cssText = 'width:' + size + 'px;height:' + size + 'px;left:' + x + 'px;top:' + y + 'px;';
-    btn.style.position = 'relative';
-    btn.style.overflow = 'hidden';
-    btn.appendChild(rip);
-    setTimeout(function() { rip.remove(); }, 700);
-  });
+  /* ── 3. RIPPLE removed ──────────────────────────────────────── */
 
   /* ── 4. MAGNETIC BUTTON — removed (caused alignment/selection issues) */
   /* Pure CSS hover lift in brand-gradient:hover handles the effect safely */
