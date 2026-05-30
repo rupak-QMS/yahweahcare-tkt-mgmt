@@ -5043,8 +5043,7 @@ const NewTicket = ({ currentUser, users, onCreate, onCancel }) => {
 // ============================================================
 const TicketsList = ({ tickets, users, currentUser, onOpen, onAssign, onDelete, onNew, teamFilterIds, onClearTeamFilter, onNavigate }) => {
   const admin = isAdmin(currentUser);
-  // Non-admins default to their own tickets; admins see all
-  const [tab, setTab] = useState(admin ? 'all' : 'mine');
+  const [tab, setTab] = useState('all');
   const [filters, setFilters] = useState({ status: 'all', category: 'all', priority: 'all' });
   const [search, setSearch] = useState('');
   const [menuOpen, setMenuOpen] = useState(null);
@@ -5158,8 +5157,7 @@ const TicketsList = ({ tickets, users, currentUser, onOpen, onAssign, onDelete, 
       {/* Tabs */}
       <div className="flex gap-2 mb-5 p-1 bg-slate-100 rounded-2xl w-fit">
         {[
-          ...(admin ? [{ id: 'all', label: 'All Tickets', icon: 'dashboard' }] : []),
-          { id: 'mine',     label: 'My Tickets',     icon: 'user' },
+          { id: admin ? 'all' : 'mine', label: admin ? 'All Tickets' : 'All My Tickets', icon: 'dashboard' },
           { id: 'issued',   label: 'Issued by Me',   icon: 'send' },
           { id: 'assigned', label: 'Assigned to Me', icon: 'userPlus' },
         ].map(tb => (
@@ -9307,7 +9305,24 @@ const App = () => {
   switch (view) {
     case 'dashboard':  content = <Dashboard tickets={state.tickets} users={state.users} currentUser={currentUser} filter={filter} setFilter={setFilter} onOpenTicket={(id) => { setCurrentTicketId(id); setView('detail'); }} onMergeTickets={mergeTicketsHandler} onApprove={approveTicket} onReopen={reopenTicket} />; break;
     case 'new':        content = <NewTicket currentUser={currentUser} users={state.users} onCreate={createTicket} onCancel={() => setView('dashboard')} />; break;
-    case 'tickets':    content = <TicketsList tickets={state.tickets} users={state.users} currentUser={currentUser} onOpen={(id) => { setCurrentTicketId(id); setView('detail'); }} onAssign={(t) => setAssignModal({ open: true, ticket: t })} onDelete={(t) => setDeleteModal({ open: true, ticket: t })} onNew={() => setView('new')} teamFilterIds={teamFilterIds} onClearTeamFilter={() => setTeamFilterIds(null)} onNavigate={navigateTo} />; break;
+    case 'tickets': {
+      // Non-admins only see tickets they raised or are assigned to
+      const _isAdmin = isAdmin(currentUser);
+      const _matchU = state.users.find(u =>
+        (u.email && currentUser.email && u.email.toLowerCase() === currentUser.email.toLowerCase()) ||
+        (u.name && currentUser.name && u.name === currentUser.name) ||
+        u.id === currentUser.id || u.id === currentUser.backendId
+      );
+      const _uid = _matchU?.id || currentUser.backendId || currentUser.id;
+      const _visibleTickets = _isAdmin
+        ? state.tickets
+        : state.tickets.filter(t =>
+            t.requesterId === _uid || t.assigneeId === _uid ||
+            (currentUser.backendId && (t.requesterId === currentUser.backendId || t.assigneeId === currentUser.backendId))
+          );
+      content = <TicketsList tickets={_visibleTickets} users={state.users} currentUser={currentUser} onOpen={(id) => { setCurrentTicketId(id); setView('detail'); }} onAssign={(t) => setAssignModal({ open: true, ticket: t })} onDelete={(t) => setDeleteModal({ open: true, ticket: t })} onNew={() => setView('new')} teamFilterIds={teamFilterIds} onClearTeamFilter={() => setTeamFilterIds(null)} onNavigate={navigateTo} />;
+      break;
+    }
     case 'detail':     content = <TicketDetail ticketId={currentTicketId} tickets={state.tickets} users={state.users} currentUser={currentUser} onUpdate={updateTicket} onAddComment={addComment} onAssign={(t) => setAssignModal({ open: true, ticket: t })} onDelete={(t) => setDeleteModal({ open: true, ticket: t })} onMarkComplete={markComplete} onApprove={approveTicket} onReopen={reopenTicket} onBack={() => setView('tickets')} />; break;
     case 'calendar':   content = <CalendarView tickets={state.tickets} onOpen={(id) => { setCurrentTicketId(id); setView('detail'); }} onNavigate={navigateTo} />; break;
     case 'analytics':  content = isAdmin(currentUser) ? <AnalyticsDashboard tickets={state.tickets} users={state.users} currentUser={currentUser} onOpenTicket={(id) => { setCurrentTicketId(id); setView('detail'); }} onNavigate={navigateTo} /> : <AccessDenied />; break;
