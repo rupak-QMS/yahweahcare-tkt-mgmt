@@ -8843,6 +8843,15 @@ const StaffManagement = ({ users, tickets, currentUser, onAddStaff, onUpdateStaf
                       </button>
                     </div>
 
+                    {/* Edit button */}
+                    {canManage && (
+                      <button onClick={() => openEdit(u)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors flex-shrink-0"
+                        title="Edit staff member">
+                        <Icon name="edit" className="w-4 h-4" />
+                      </button>
+                    )}
+
                     {/* Delete button */}
                     {canDelete ? (
                       <button onClick={() => setConfirm({ kind: 'delete', user: u })}
