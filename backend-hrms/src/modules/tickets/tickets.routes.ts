@@ -147,7 +147,7 @@ router.get('/:id', async (req, res, next) => {
 // ── POST /tickets — create ──────────────────────────────────
 router.post('/', async (req, res, next) => {
   try {
-    const { title, description, category, priority, site, assigneeId } = req.body || {};
+    const { title, description, category, priority, status, site, assigneeId } = req.body || {};
     if (!title || !category || !priority) {
       return res.status(400).json({ error: 'missing_fields', message: 'title, category and priority are required' });
     }
@@ -158,17 +158,24 @@ router.post('/', async (req, res, next) => {
     );
     const ticketNumber = `YAH-${String(seqRow[0].next).padStart(6, '0')}`;
 
-    // Calculate due date from priority SLA
+    // Calculate due date from priority SLA — fallback to 24h if priority not in DB
     const { rows: priRows } = await pool.query(`SELECT sla_hours FROM yc_tkt_mgmt.priorities WHERE id = $1`, [priority]);
     const slaHours = priRows[0]?.sla_hours || 24;
     const dueAt = new Date(Date.now() + slaHours * 3600000);
 
+    // Resolve status: use passed value if it exists in DB, otherwise use first available status
+    const passedStatus = (status || 'open').toLowerCase();
+    const { rows: statRows } = await pool.query(
+      `SELECT id FROM yc_tkt_mgmt.statuses WHERE id = $1`, [passedStatus]
+    );
+    const resolvedStatus = statRows[0]?.id || 'open';
+
     const { rows } = await pool.query(
       `INSERT INTO yc_tkt_mgmt.tickets
          (ticket_number, title, description, category_id, priority_id, status_id, requester_id, assignee_id, site, source, due_at)
-       VALUES ($1,$2,$3,$4,$5,'new',$6,$7,$8,'web',$9)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'web',$10)
        RETURNING *`,
-      [ticketNumber, title, description || '', category, priority, req.auth!.userId, assigneeId || null, site || null, dueAt]
+      [ticketNumber, title, description || '', category, priority, resolvedStatus, req.auth!.userId, assigneeId || null, site || null, dueAt]
     );
 
     // Log creation activity

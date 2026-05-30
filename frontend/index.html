@@ -9863,15 +9863,21 @@ const App = () => {
     if (authMode === 'microsoft') {
       try {
         const res = await apiClient.createTicket({
-          title: data.title,
+          title: data.titleType ? `${data.titleType}${data.subtitle ? ': ' + data.subtitle : ''}` : data.title,
           description: data.description || '',
           category: data.category,
           priority: data.priority,
+          status: data.status || 'open',
           site: data.site || null,
           assigneeId: data.assigneeId ? (state.users.find(u => u.id === data.assigneeId)?.backendId || null) : null,
         });
-        if (res?.ticket) {
-          const t = res.ticket;
+        if (!res.ok) {
+          const msg = res.data?.message || res.data?.error || 'Failed to create ticket';
+          showToast('error', 'Ticket creation failed', msg);
+          return;
+        }
+        const t = res.data?.ticket;
+        if (t) {
           setState(s => ({ ...s, tickets: [t, ...s.tickets] }));
           if (t.assigneeId) notifyUser(String(t.assigneeId), t, 'Ticket assigned to you', `${currentUser.name} assigned a new ticket to you.`);
           showToast('success', 'Ticket created', `${t.ticketNumber} created`);
