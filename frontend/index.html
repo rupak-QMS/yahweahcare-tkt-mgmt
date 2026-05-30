@@ -2985,6 +2985,64 @@
   html.dark .login-card, html.dark [class*="login"] {
     background: #041122 !important;
   }
+
+  /* ══════════════════════════════════════════════════════════
+     PRINT / PDF EXPORT STYLES
+     ══════════════════════════════════════════════════════════ */
+  @media print {
+    /* Reset page */
+    *, *::before, *::after { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    @page { size: A4 portrait; margin: 18mm 15mm 18mm 15mm; }
+
+    /* Hide everything by default */
+    body > * { display: none !important; }
+
+    /* Show only the print target */
+    #yc-print-root { display: block !important; }
+
+    /* Remove interactive chrome */
+    .no-print, aside, header, .yc-topbar, nav, button, input, select,
+    .yc-sidebar-enterprise, .fade-in, [class*="hover:"], .live-dot { display: none !important; }
+
+    /* Page breaks */
+    .print-page-break { page-break-before: always; }
+    .print-avoid-break { page-break-inside: avoid; }
+
+    /* Typography */
+    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11pt; color: #0f172a; background: #fff; }
+    h1 { font-size: 20pt; font-weight: 800; color: #1e3a5f; margin-bottom: 4pt; }
+    h2 { font-size: 14pt; font-weight: 700; color: #1e3a5f; margin: 14pt 0 6pt; }
+    h3 { font-size: 11pt; font-weight: 600; color: #374151; margin: 10pt 0 4pt; }
+
+    /* Tables */
+    table { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
+    th { background: #1e3a5f !important; color: #fff !important; padding: 6pt 8pt; text-align: left; font-weight: 600; }
+    td { padding: 5pt 8pt; border-bottom: 1pt solid #e2e8f0; vertical-align: top; }
+    tr:nth-child(even) td { background: #f8fafc !important; }
+
+    /* Cards → plain boxes */
+    .card { box-shadow: none !important; border: 1pt solid #cbd5e1 !important; border-radius: 6pt !important;
+            background: #fff !important; backdrop-filter: none !important; }
+
+    /* Stat pills */
+    .print-stat { display: inline-block; padding: 3pt 8pt; border-radius: 4pt;
+                  border: 1pt solid #cbd5e1; font-size: 9pt; font-weight: 600; }
+
+    /* Badges — keep colours */
+    [class*="bg-emerald"] { background: #d1fae5 !important; color: #065f46 !important; }
+    [class*="bg-red"],
+    [class*="bg-rose"]    { background: #fee2e2 !important; color: #991b1b !important; }
+    [class*="bg-amber"],
+    [class*="bg-yellow"]  { background: #fef3c7 !important; color: #92400e !important; }
+    [class*="bg-blue"],
+    [class*="bg-sky"]     { background: #dbeafe !important; color: #1e40af !important; }
+    [class*="bg-violet"],
+    [class*="bg-purple"]  { background: #ede9fe !important; color: #5b21b6 !important; }
+
+    /* Footer */
+    .print-footer { margin-top: 16pt; padding-top: 8pt; border-top: 1pt solid #e2e8f0;
+                    font-size: 8pt; color: #94a3b8; display: flex; justify-content: space-between; }
+  }
 </style>
 </head>
 <body>
@@ -2996,9 +3054,59 @@
 </div>
 
 <div id="root"></div>
+<div id="yc-print-root" style="display:none;"></div>
 
 <script type="text/babel" data-presets="react">
 const { useState, useEffect, useMemo, useRef, useCallback, Fragment } = React;
+
+// ── PDF / Print export helper ────────────────────────────────────────────────
+// Renders an HTML string into the hidden #yc-print-root div then calls
+// window.print(). The @media print CSS hides everything except that div.
+const exportToPDF = ({ title, subtitle, columns, rows, stats = [], generatedBy = '' }) => {
+  const now = new Date().toLocaleString('en-AU', { dateStyle: 'long', timeStyle: 'short' });
+  const statsHtml = stats.length ? `
+    <div style="display:flex;gap:12pt;flex-wrap:wrap;margin-bottom:16pt;">
+      ${stats.map(s => `
+        <div style="border:1pt solid #cbd5e1;border-radius:6pt;padding:8pt 14pt;min-width:100pt;">
+          <div style="font-size:8pt;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">${s.label}</div>
+          <div style="font-size:18pt;font-weight:800;color:#1e3a5f;margin-top:2pt;">${s.value}</div>
+        </div>`).join('')}
+    </div>` : '';
+  const thead = `<thead><tr>${columns.map(c => `<th>${c}</th>`).join('')}</tr></thead>`;
+  const tbody = `<tbody>${rows.map((r, i) =>
+    `<tr>${r.map(cell => `<td>${cell ?? '—'}</td>`).join('')}</tr>`
+  ).join('')}</tbody>`;
+  const html = `
+    <div style="font-family:'Segoe UI',Arial,sans-serif;color:#0f172a;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4pt;">
+        <div>
+          <div style="font-size:8pt;font-weight:700;color:#2563eb;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:3pt;">YAHWEH CARE · TICKET MANAGEMENT</div>
+          <h1 style="font-size:20pt;font-weight:800;color:#1e3a5f;margin:0 0 3pt;">${title}</h1>
+          ${subtitle ? `<p style="font-size:9.5pt;color:#64748b;margin:0;">${subtitle}</p>` : ''}
+        </div>
+        <div style="text-align:right;font-size:8pt;color:#94a3b8;line-height:1.6;">
+          <div>${now}</div>
+          ${generatedBy ? `<div>Generated by ${generatedBy}</div>` : ''}
+        </div>
+      </div>
+      <div style="height:3pt;background:linear-gradient(90deg,#2563eb,#7c3aed,#06b6d4);border-radius:2pt;margin-bottom:16pt;"></div>
+      ${statsHtml}
+      <table style="width:100%;border-collapse:collapse;font-size:9.5pt;">
+        ${thead}${tbody}
+      </table>
+      <div style="margin-top:16pt;padding-top:8pt;border-top:1pt solid #e2e8f0;display:flex;justify-content:space-between;font-size:8pt;color:#94a3b8;">
+        <span>Yahweh Care — Confidential</span>
+        <span>Generated ${now}</span>
+      </div>
+    </div>`;
+  const el = document.getElementById('yc-print-root');
+  el.innerHTML = html;
+  el.style.display = 'block';
+  setTimeout(() => {
+    window.print();
+    setTimeout(() => { el.style.display = 'none'; el.innerHTML = ''; }, 1000);
+  }, 120);
+};
 
 // ── Debounce hook: delays a value by `delay` ms after the last change ──
 const useDebounce = (value, delay = 250) => {
@@ -3700,6 +3808,13 @@ const TopBar = ({ currentUser, onClose, onOpenMobileMenu, notifications, onMarkA
       {/* Right-side controls — all panels anchored here */}
       <div className="flex items-center gap-1 relative" ref={topbarRef}>
 
+        {/* Dark / Light mode toggle — beside notification bell */}
+        <button onClick={onToggleTheme}
+          className="p-2 rounded-lg transition text-slate-500 hover:bg-slate-100"
+          title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}>
+          <Icon name={theme === 'dark' ? 'sun' : 'moon'} className="w-5 h-5" />
+        </button>
+
         {/* Bell — notifications */}
         <div className="relative">
           <button onClick={() => togglePanel('notif')}
@@ -3813,14 +3928,6 @@ const UserProfileDropdown = ({ currentUser, onClose, theme, onToggleTheme, isOpe
                   <Icon name="cog" className="w-4 h-4" />
                 </span>
                 <span className="font-medium">Settings</span>
-              </button>
-
-              <button onClick={() => { onToggleTheme(); onToggle(); }}
-                className="yc-pd-item w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-all duration-150">
-                <span className="yc-pd-item-icon w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Icon name={theme === 'dark' ? 'sun' : 'moon'} className="w-4 h-4" />
-                </span>
-                <span className="font-medium">{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
               </button>
 
               <button onClick={() => { setProfileOpen(true); onToggle(); }}
@@ -4935,7 +5042,9 @@ const NewTicket = ({ currentUser, users, onCreate, onCancel }) => {
 // TICKETS LIST (table view with tabs, search, hover menu)
 // ============================================================
 const TicketsList = ({ tickets, users, currentUser, onOpen, onAssign, onDelete, onNew, teamFilterIds, onClearTeamFilter, onNavigate }) => {
-  const [tab, setTab] = useState('all');
+  const admin = isAdmin(currentUser);
+  // Non-admins default to their own tickets; admins see all
+  const [tab, setTab] = useState(admin ? 'all' : 'mine');
   const [filters, setFilters] = useState({ status: 'all', category: 'all', priority: 'all' });
   const [search, setSearch] = useState('');
   const [menuOpen, setMenuOpen] = useState(null);
@@ -4956,7 +5065,6 @@ const TicketsList = ({ tickets, users, currentUser, onOpen, onAssign, onDelete, 
       {sortBy === col ? (sortDir === 'asc' ? '↑' : '↓') : '↕'}
     </span>
   );
-  const admin = isAdmin(currentUser);
   const breadcrumbs = [
     { label: 'Dashboard', clickable: true, action: 'dashboard', icon: 'dashboard' },
     { label: 'Tickets', clickable: false },
@@ -4980,7 +5088,8 @@ const TicketsList = ({ tickets, users, currentUser, onOpen, onAssign, onDelete, 
   const tabbed = useMemo(() => {
     let list = tickets;
     if (teamFilterIds && teamFilterIds.length > 0) list = list.filter(t => teamFilterIds.includes(t.assigneeId));
-    if (tab === 'issued')   list = list.filter(t => t.requesterId === effectiveUserId || (currentUser.backendId && t.requesterId === currentUser.backendId));
+    if (tab === 'mine')     list = list.filter(t => isMyTicket(t));
+    else if (tab === 'issued')   list = list.filter(t => t.requesterId === effectiveUserId || (currentUser.backendId && t.requesterId === currentUser.backendId));
     else if (tab === 'assigned') list = list.filter(t => t.assigneeId === effectiveUserId || (currentUser.backendId && t.assigneeId === currentUser.backendId));
     return list;
   }, [tickets, tab, effectiveUserId, teamFilterIds]);
@@ -5009,6 +5118,7 @@ const TicketsList = ({ tickets, users, currentUser, onOpen, onAssign, onDelete, 
 
   const tabCount = (t) => {
     if (t === 'all')      return tickets.length;
+    if (t === 'mine')     return tickets.filter(x => isMyTicket(x)).length;
     if (t === 'issued')   return tickets.filter(x => x.requesterId === effectiveUserId || (currentUser.backendId && x.requesterId === currentUser.backendId)).length;
     if (t === 'assigned') return tickets.filter(x => x.assigneeId === effectiveUserId  || (currentUser.backendId && x.assigneeId === currentUser.backendId)).length;
     return 0;
@@ -5048,8 +5158,9 @@ const TicketsList = ({ tickets, users, currentUser, onOpen, onAssign, onDelete, 
       {/* Tabs */}
       <div className="flex gap-2 mb-5 p-1 bg-slate-100 rounded-2xl w-fit">
         {[
-          { id: 'all',      label: 'All Tickets', icon: 'dashboard' },
-          { id: 'issued',   label: 'Issued by Me', icon: 'send' },
+          ...(admin ? [{ id: 'all', label: 'All Tickets', icon: 'dashboard' }] : []),
+          { id: 'mine',     label: 'My Tickets',     icon: 'user' },
+          { id: 'issued',   label: 'Issued by Me',   icon: 'send' },
           { id: 'assigned', label: 'Assigned to Me', icon: 'userPlus' },
         ].map(tb => (
           <button key={tb.id} onClick={() => setTab(tb.id)}
@@ -6156,7 +6267,28 @@ const StaffPerformance = ({ tickets, users, currentUser, onOpen, onOpenStaff, on
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="secondary" size="md">
+          <Button variant="secondary" size="md" onClick={() => exportToPDF({
+            title: 'Staff Performance Report',
+            subtitle: isAdminUser ? 'All departments' : `Department: ${currentUser.department}`,
+            generatedBy: currentUser.name,
+            stats: [
+              { label: 'Total Staff', value: filteredStaff.length },
+              { label: 'Avg SLA', value: filteredStaff.length ? Math.round(filteredStaff.reduce((s,m)=>s+m.slaPct,0)/filteredStaff.length)+'%' : '—' },
+              { label: 'Total Resolved', value: filteredStaff.reduce((s,m)=>s+m.resolved,0) },
+            ],
+            columns: ['Name', 'Department', 'Assigned', 'Resolved', 'Open', 'Urgent', 'SLA %', 'Avg Hrs', 'Rating'],
+            rows: filteredStaff.map(m => [
+              m.user.name,
+              m.user.department,
+              m.assigned,
+              m.resolved,
+              m.open,
+              m.urgentOpen,
+              m.slaPct + '%',
+              m.avgHours + 'h',
+              m.rating.toFixed(1) + ' / 5',
+            ]),
+          })}>
             <Icon name="document" className="w-4 h-4" /> Export PDF
           </Button>
           <div className="flex bg-white border border-slate-200 rounded-xl overflow-hidden">
@@ -6997,7 +7129,27 @@ const TeamComparison = ({ tickets, users, currentUser, onOpenStaff, onViewTeamTi
             <p className="text-sm text-slate-500 mt-1">Compare departments side-by-side — performance, SLA, and workload</p>
           </div>
         </div>
-        <Button variant="secondary" size="md"><Icon name="document" className="w-4 h-4" /> Export PDF</Button>
+        <Button variant="secondary" size="md" onClick={() => exportToPDF({
+            title: 'Team Comparison Report',
+            subtitle: 'Department performance side-by-side',
+            generatedBy: currentUser.name,
+            stats: [
+              { label: 'Total Teams', value: totalTeams },
+              { label: 'Best SLA', value: bestTeam ? bestTeam.department + ' ' + bestTeam.slaPct + '%' : '—' },
+              { label: 'Fastest Team', value: fastestTeam ? fastestTeam.department + ' ' + fastestTeam.avgHours + 'h' : '—' },
+            ],
+            columns: ['Department', 'Members', 'Assigned', 'Resolved', 'Open', 'SLA %', 'Avg Hrs', 'Resolution Rate'],
+            rows: teams.map(t => [
+              t.department,
+              t.memberCount,
+              t.assigned,
+              t.resolved,
+              t.open,
+              t.slaPct + '%',
+              t.avgHours + 'h',
+              t.resolutionRate + '%',
+            ]),
+          })}><Icon name="document" className="w-4 h-4" /> Export PDF</Button>
       </div>
 
       {!isAdminUser && (
