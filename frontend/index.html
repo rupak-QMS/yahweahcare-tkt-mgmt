@@ -5939,15 +5939,69 @@ const CalendarView = ({ tickets, onOpen, onNavigate }) => {
 // TICKET LOGS — audit trail across all tickets
 // ============================================================
 const ACTION_TYPES = [
-  { id: 'created',         label: 'Created',          chip: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  { id: 'status_change',   label: 'Status Changed',   chip: 'bg-blue-50 text-blue-700 border-blue-200' },
-  { id: 'priority_change', label: 'Priority Changed', chip: 'bg-purple-50 text-purple-700 border-purple-200' },
-  { id: 'assigned',        label: 'Assigned',         chip: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
-  { id: 'comment',         label: 'Comment',          chip: 'bg-slate-50 text-slate-700 border-slate-200' },
-  { id: 'completed',       label: 'Marked Complete',  chip: 'bg-amber-50 text-amber-700 border-amber-200' },
-  { id: 'approved',        label: 'Approved',         chip: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  { id: 'reopened',        label: 'Reopened',         chip: 'bg-red-50 text-red-700 border-red-200' },
-  { id: 'escalated',       label: 'Escalated',        chip: 'bg-orange-50 text-orange-700 border-orange-200' },
+  {
+    id: 'created',         label: 'Created',
+    dot: '#10b981',
+    light: { bg: '#f0fdf4', text: '#065f46', border: '#86efac', activeBg: '#dcfce7', activeText: '#14532d' },
+    dark:  { bg: 'rgba(16,185,129,0.12)', text: '#34d399', border: 'rgba(16,185,129,0.35)', activeBg: 'rgba(16,185,129,0.20)', activeText: '#6ee7b7' },
+    chip: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  },
+  {
+    id: 'status_change',   label: 'Status Changed',
+    dot: '#3b82f6',
+    light: { bg: '#eff6ff', text: '#1d4ed8', border: '#93c5fd', activeBg: '#dbeafe', activeText: '#1e3a8a' },
+    dark:  { bg: 'rgba(59,130,246,0.12)', text: '#60a5fa', border: 'rgba(59,130,246,0.35)', activeBg: 'rgba(59,130,246,0.20)', activeText: '#93c5fd' },
+    chip: 'bg-blue-50 text-blue-700 border-blue-200',
+  },
+  {
+    id: 'priority_change', label: 'Priority Changed',
+    dot: '#a855f7',
+    light: { bg: '#faf5ff', text: '#7e22ce', border: '#d8b4fe', activeBg: '#ede9fe', activeText: '#581c87' },
+    dark:  { bg: 'rgba(168,85,247,0.12)', text: '#c084fc', border: 'rgba(168,85,247,0.35)', activeBg: 'rgba(168,85,247,0.20)', activeText: '#d8b4fe' },
+    chip: 'bg-purple-50 text-purple-700 border-purple-200',
+  },
+  {
+    id: 'assigned',        label: 'Assigned',
+    dot: '#6366f1',
+    light: { bg: '#eef2ff', text: '#4338ca', border: '#a5b4fc', activeBg: '#e0e7ff', activeText: '#312e81' },
+    dark:  { bg: 'rgba(99,102,241,0.12)', text: '#818cf8', border: 'rgba(99,102,241,0.35)', activeBg: 'rgba(99,102,241,0.20)', activeText: '#a5b4fc' },
+    chip: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  },
+  {
+    id: 'comment',         label: 'Comment',
+    dot: '#64748b',
+    light: { bg: '#f8fafc', text: '#475569', border: '#cbd5e1', activeBg: '#f1f5f9', activeText: '#1e293b' },
+    dark:  { bg: 'rgba(100,116,139,0.12)', text: '#94a3b8', border: 'rgba(100,116,139,0.35)', activeBg: 'rgba(100,116,139,0.20)', activeText: '#cbd5e1' },
+    chip: 'bg-slate-50 text-slate-700 border-slate-200',
+  },
+  {
+    id: 'completed',       label: 'Marked Complete',
+    dot: '#f59e0b',
+    light: { bg: '#fffbeb', text: '#b45309', border: '#fcd34d', activeBg: '#fef3c7', activeText: '#78350f' },
+    dark:  { bg: 'rgba(245,158,11,0.12)', text: '#fbbf24', border: 'rgba(245,158,11,0.35)', activeBg: 'rgba(245,158,11,0.20)', activeText: '#fde68a' },
+    chip: 'bg-amber-50 text-amber-700 border-amber-200',
+  },
+  {
+    id: 'approved',        label: 'Approved',
+    dot: '#059669',
+    light: { bg: '#ecfdf5', text: '#065f46', border: '#6ee7b7', activeBg: '#d1fae5', activeText: '#064e3b' },
+    dark:  { bg: 'rgba(5,150,105,0.12)', text: '#34d399', border: 'rgba(5,150,105,0.35)', activeBg: 'rgba(5,150,105,0.20)', activeText: '#6ee7b7' },
+    chip: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  },
+  {
+    id: 'reopened',        label: 'Reopened',
+    dot: '#ef4444',
+    light: { bg: '#fef2f2', text: '#b91c1c', border: '#fca5a5', activeBg: '#fee2e2', activeText: '#7f1d1d' },
+    dark:  { bg: 'rgba(239,68,68,0.12)', text: '#f87171', border: 'rgba(239,68,68,0.35)', activeBg: 'rgba(239,68,68,0.20)', activeText: '#fca5a5' },
+    chip: 'bg-red-50 text-red-700 border-red-200',
+  },
+  {
+    id: 'escalated',       label: 'Escalated',
+    dot: '#f97316',
+    light: { bg: '#fff7ed', text: '#c2410c', border: '#fdba74', activeBg: '#ffedd5', activeText: '#7c2d12' },
+    dark:  { bg: 'rgba(249,115,22,0.12)', text: '#fb923c', border: 'rgba(249,115,22,0.35)', activeBg: 'rgba(249,115,22,0.20)', activeText: '#fdba74' },
+    chip: 'bg-orange-50 text-orange-700 border-orange-200',
+  },
 ];
 
 const inferActionType = (text = '') => {
@@ -5984,6 +6038,102 @@ const buildLogEntries = (tickets) => {
     });
   });
   return entries.sort((a, b) => new Date(b.at) - new Date(a.at));
+};
+
+// Color-coded action filter dropdown (light + dark aware)
+const ActionFilterDropdown = ({ value, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const [dark, setDark] = useState(document.documentElement.classList.contains('dark'));
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const obs = new MutationObserver(() => setDark(document.documentElement.classList.contains('dark')));
+    obs.observe(document.documentElement, { attributeFilter: ['class'] });
+    return () => obs.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const selected = value === 'all' ? null : ACTION_TYPES.find(a => a.id === value);
+  const palette = selected ? (dark ? selected.dark : selected.light) : null;
+
+  const triggerStyle = palette
+    ? { background: palette.activeBg, color: palette.activeText, borderColor: palette.border }
+    : dark
+      ? { background: 'rgba(18,26,43,0.85)', color: '#94a3b8', borderColor: 'rgba(99,102,241,0.25)' }
+      : { background: '#fff', color: '#475569', borderColor: '#e2e8f0' };
+
+  return (
+    <div ref={ref} className="relative" style={{minWidth: 172}}>
+      <button type="button" onClick={() => setOpen(o => !o)}
+        className="flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-sm font-medium border transition-all"
+        style={triggerStyle}>
+        {selected && (
+          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{background: selected.dot}}></span>
+        )}
+        <span className="flex-1 text-left truncate">{selected ? selected.label : 'All Actions'}</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 flex-shrink-0 opacity-60"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+
+      {open && ReactDOM.createPortal(
+        (() => {
+          const rect = ref.current?.getBoundingClientRect();
+          if (!rect) return null;
+          const menuStyle = {
+            position: 'fixed',
+            top: rect.bottom + 4,
+            left: rect.left,
+            width: Math.max(rect.width, 200),
+            zIndex: 9999,
+            borderRadius: 12,
+            overflow: 'hidden',
+            boxShadow: dark ? '0 8px 32px rgba(0,0,0,0.5)' : '0 8px 32px rgba(99,102,241,0.15)',
+            border: dark ? '1px solid rgba(99,102,241,0.25)' : '1px solid rgba(15,23,42,0.10)',
+            background: dark ? '#121A2B' : '#fff',
+          };
+          return (
+            <div style={menuStyle} className="fade-in py-1">
+              {/* All Actions */}
+              <button type="button" onClick={() => { onChange('all'); setOpen(false); }}
+                className="flex items-center gap-3 w-full px-3 py-2.5 text-sm transition-colors text-left"
+                style={{
+                  background: value === 'all' ? (dark ? 'rgba(99,102,241,0.15)' : '#f1f5f9') : 'transparent',
+                  color: dark ? '#f1f5f9' : '#0f172a',
+                }}>
+                <span className="w-2.5 h-2.5 rounded-full bg-slate-400 flex-shrink-0"></span>
+                <span className="font-medium">All Actions</span>
+                {value === 'all' && <span className="ml-auto text-indigo-500">✓</span>}
+              </button>
+              <div style={{height:1, background: dark ? 'rgba(255,255,255,0.06)' : '#f1f5f9', margin:'2px 0'}}></div>
+              {ACTION_TYPES.map(a => {
+                const p = dark ? a.dark : a.light;
+                const isSelected = value === a.id;
+                return (
+                  <button type="button" key={a.id} onClick={() => { onChange(a.id); setOpen(false); }}
+                    className="flex items-center gap-3 w-full px-3 py-2.5 text-sm transition-colors text-left"
+                    style={{
+                      background: isSelected ? p.activeBg : 'transparent',
+                      color: isSelected ? p.activeText : (dark ? '#cbd5e1' : '#374151'),
+                    }}
+                    onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = p.bg; }}
+                    onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}>
+                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{background: a.dot}}></span>
+                    <span className="font-medium">{a.label}</span>
+                    {isSelected && <span className="ml-auto" style={{color: a.dot}}>✓</span>}
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })(),
+        document.body
+      )}
+    </div>
+  );
 };
 
 const TicketLogs = ({ tickets, users, onOpen, onNavigate }) => {
@@ -6039,10 +6189,7 @@ const TicketLogs = ({ tickets, users, onOpen, onNavigate }) => {
               className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/30 text-sm"
             />
           </div>
-          <select value={actionFilter} onChange={e => setActionFilter(e.target.value)} className="px-3 py-2.5 border border-slate-200 rounded-lg text-sm bg-white min-w-[160px]">
-            <option value="all">All Actions</option>
-            {ACTION_TYPES.map(a => <option key={a.id} value={a.id}>{a.label}</option>)}
-          </select>
+          <ActionFilterDropdown value={actionFilter} onChange={setActionFilter} />
           <select value={ticketFilter} onChange={e => setTicketFilter(e.target.value)} className="px-3 py-2.5 border border-slate-200 rounded-lg text-sm bg-white min-w-[160px] max-w-[200px]">
             <option value="all">All Tickets</option>
             {tickets.slice(0, 50).map(t => <option key={t.id} value={t.id}>{t.ticketNumber}</option>)}
