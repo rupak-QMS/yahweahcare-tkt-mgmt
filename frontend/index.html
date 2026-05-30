@@ -8487,28 +8487,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
     setTimeout(function() { rip.remove(); }, 700);
   });
 
-  /* ── 4. MAGNETIC BUTTON — subtle field effect ───────────────── */
-  function attachMagnetic(el) {
-    el.addEventListener('mousemove', function(e) {
-      var rect = el.getBoundingClientRect();
-      var cx = rect.left + rect.width  / 2;
-      var cy = rect.top  + rect.height / 2;
-      var dx = (e.clientX - cx) * 0.22;
-      var dy = (e.clientY - cy) * 0.22;
-      el.style.transform = 'translate(' + dx + 'px,' + dy + 'px) translateY(-3px) scale(1.018)';
-    });
-    el.addEventListener('mouseleave', function() {
-      el.style.transform = '';
-    });
-  }
-  function initMagnetic() {
-    document.querySelectorAll('[class*="brand-gradient"]:not(aside *)').forEach(function(el) {
-      if (!el.dataset.mag) { el.dataset.mag = '1'; attachMagnetic(el); }
-    });
-  }
-  // Re-run periodically to catch React-rendered buttons
-  setInterval(initMagnetic, 1800);
-  document.addEventListener('DOMContentLoaded', initMagnetic);
+  /* ── 4. MAGNETIC BUTTON — removed (caused alignment/selection issues) */
+  /* Pure CSS hover lift in brand-gradient:hover handles the effect safely */
 
   /* ── 5. ANIMATED BACKGROUND ORBS ───────────────────────────── */
   var ORB_CFG = [
