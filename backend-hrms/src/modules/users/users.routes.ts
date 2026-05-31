@@ -42,6 +42,8 @@ router.get('/', async (req, res, next) => {
               u.department, u.designation, u.site, u.employee_id,
               u.profile_photo_url, u.bootstrap_admin, u.system_created,
               u.assignable, u.active, u.last_login_at, u.created_at,
+              u.position_id, u.manager_id,
+              COALESCE(u.is_bootstrap_admin, u.bootstrap_admin, FALSE) AS is_bootstrap_admin,
               COUNT(*) OVER() AS total
        FROM yc_tkt_mgmt.users u
        LEFT JOIN yc_tkt_mgmt.roles r ON r.id = u.role_id

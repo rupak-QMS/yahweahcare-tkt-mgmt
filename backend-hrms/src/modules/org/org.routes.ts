@@ -36,7 +36,7 @@ router.get('/chart', async (req, res, next) => {
         u.profile_photo_url,
         u.avatar_initials,
         u.role,
-        u.is_bootstrap_admin,
+        COALESCE(u.is_bootstrap_admin, u.bootstrap_admin, FALSE) AS is_bootstrap_admin,
         u.designation
       FROM yc_tkt_mgmt.positions p
       LEFT JOIN yc_tkt_mgmt.departments d ON d.id = p.department_id
@@ -69,9 +69,11 @@ router.get('/chart', async (req, res, next) => {
 
     // Bootstrap admins (system roles — not part of hierarchy)
     const { rows: bootstrapAdmins } = await pool.query(`
-      SELECT id, name, email, role, is_bootstrap_admin, profile_photo_url, avatar_initials, active
+      SELECT id, name, email, role,
+             COALESCE(is_bootstrap_admin, bootstrap_admin, FALSE) AS is_bootstrap_admin,
+             profile_photo_url, avatar_initials, active
       FROM yc_tkt_mgmt.users
-      WHERE is_bootstrap_admin = TRUE
+      WHERE COALESCE(is_bootstrap_admin, bootstrap_admin, FALSE) = TRUE
       ORDER BY id
     `);
 
