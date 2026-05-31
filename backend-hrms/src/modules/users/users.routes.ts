@@ -113,15 +113,14 @@ router.patch('/:id', async (req, res, next) => {
     }
     if (!updates.length) return res.json({ user: target });
 
-    // Prevent demoting the last super admin
-    if ('role_id' in req.body && target.bootstrap_admin) {
-      return res.status(403).json({ error: 'bootstrap_admin_demote_blocked', message: 'Bootstrap super admins cannot be demoted' });
-    }
-    if ('role_id' in req.body && target.role_name === 'super_admin') {
-      const { rows: cnt } = await pool.query(
-        `SELECT COUNT(*)::int AS n FROM yc_tkt_mgmt.users WHERE role_id IN (SELECT id FROM yc_tkt_mgmt.roles WHERE name='super_admin') AND active = TRUE`
-      );
-      if (cnt[0].n <= 1) return res.status(403).json({ error: 'last_super_admin', message: 'Cannot demote the last active Super Admin' });
+    // Bootstrap admins (Alex & Ron) cannot be demoted or deactivated — ever
+    if (target.bootstrap_admin || target.is_bootstrap_admin) {
+      if ('role_id' in req.body) {
+        return res.status(403).json({ error: 'bootstrap_admin_demote_blocked', message: 'Bootstrap Super Admins cannot be demoted' });
+      }
+      if ('active' in req.body && req.body.active === false) {
+        return res.status(403).json({ error: 'bootstrap_admin_deactivate_blocked', message: 'Bootstrap Super Admins cannot be deactivated' });
+      }
     }
 
     values.push(id);
