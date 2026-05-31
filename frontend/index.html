@@ -8595,133 +8595,174 @@ const StaffSaveButton = ({ canSave, isEdit, onSave }) => {
     </button>
   );
 };
-const StaffModal = ({ open, initial, currentUser, onClose, onSave }) => {
+const StaffModal = ({ open, initial, currentUser, onClose, onSave, orgDepts = [], orgPositions = [], allUsers = [] }) => {
   const isEdit = !!initial?.id;
   const isBootstrap = !!initial?.bootstrapAdmin;
   const initialRole = (u) => u?.isAdmin || u?.role === 'super_admin' ? 'super_admin' : (u?.role === 'manager' ? 'manager' : 'user');
-  const [form, setForm] = useState({ name: '', email: '', department: 'Operations', active: true, role: 'user' });
+
+  const blankForm = { name:'', email:'', department:'', designation:'', active:true, role:'user', positionId:'', managerId:'' };
+  const [form, setForm] = useState(blankForm);
 
   useEffect(() => {
     if (open) {
       setForm(initial ? {
-        name: initial.name || '',
-        email: initial.email || '',
-        department: initial.department || 'Operations',
-        active: initial.active !== false,
-        role: initialRole(initial),
-      } : { name: '', email: '', department: 'Operations', active: true, role: 'user' });
+        name:        initial.name || '',
+        email:       initial.email || '',
+        department:  initial.department || '',
+        designation: initial.designation || '',
+        active:      initial.active !== false,
+        role:        initialRole(initial),
+        positionId:  initial.positionId ? String(initial.positionId) : '',
+        managerId:   initial.managerId  ? String(initial.managerId)  : '',
+      } : blankForm);
     }
   }, [open, initial]);
 
   if (!open) return null;
-  const inputCls = "w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 text-sm bg-white";
-  const adminGrantor = isAdmin(currentUser); // only Super Admin can promote others
+  const inputCls = "w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 text-sm bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100";
+  const adminGrantor = isAdmin(currentUser);
   const emailCheck = form.email ? validateOrgEmail(form.email) : { valid: true };
   const canSave = form.name.trim() && form.email.trim() && emailCheck.valid;
 
+  // Positions filtered by selected dept name
+  const deptObj = orgDepts.find(d => d.name === form.department);
+  const deptPositions = deptObj ? orgPositions.filter(p => p.department_id === deptObj.id) : orgPositions;
+
+  // Potential managers — anyone manager or above (or super_admin)
+  const managerCandidates = allUsers.filter(u => ['super_admin','manager','admin'].includes(u.role) && u.id !== initial?.id);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 fade-in" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-xl overflow-y-auto max-h-[90vh]" onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-700">
           <div>
-            <h2 className="text-lg font-bold text-slate-800">{isEdit ? 'Edit Staff Member' : 'Add Staff Member'}</h2>
+            <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">{isEdit ? 'Edit Staff Member' : 'Add Staff Member'}</h2>
             <p className="text-xs text-slate-500 mt-0.5">{isEdit ? 'Update this staff member\'s details' : 'Add a new staff member to the system'}</p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-700"><Icon name="x" /></button>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"><Icon name="x" /></button>
         </div>
+
+        {/* Bootstrap warning */}
         {isBootstrap && (
-          <div className="mx-6 mt-4 p-3 rounded-lg bg-red-50 border border-red-200 flex items-start gap-2">
-            <Icon name="cog" className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
-            <div className="text-xs text-red-800">
-              <strong>Bootstrap Super Admin — protected.</strong> Role and active status are locked. Only contact details can be edited.
+          <div className="mx-6 mt-4 p-3 rounded-lg bg-violet-50 border border-violet-200 flex items-start gap-2">
+            <Icon name="cog" className="w-4 h-4 text-violet-600 flex-shrink-0 mt-0.5" />
+            <div className="text-xs text-violet-800">
+              <strong>Bootstrap Super Admin — protected.</strong> Role and active status are locked. Only contact details can be edited. Bootstrap admins cannot be deleted.
             </div>
           </div>
         )}
+
         <div className="p-6 space-y-4">
+          {/* Name */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Full Name <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Full Name <span className="text-red-500">*</span></label>
             <input value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="Enter full name" className={inputCls} autoFocus />
           </div>
+
+          {/* Email */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Email Address <span className="text-red-500">*</span></label>
-            <input
-              type="email"
-              value={form.email}
-              onChange={e => setForm({...form, email: e.target.value})}
+            <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Work Email <span className="text-red-500">*</span></label>
+            <input type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})}
               placeholder="name@yahwehcare.com.au"
-              className={`${inputCls} ${form.email && !emailCheck.valid ? 'border-red-300 focus:ring-red-500/30 focus:border-red-500' : ''}`}
-            />
+              className={`${inputCls} ${form.email && !emailCheck.valid ? 'border-red-300 focus:ring-red-500/30 focus:border-red-500' : ''}`} />
             {form.email && !emailCheck.valid && (
               <div className="mt-1.5 flex items-start gap-1.5 text-xs text-red-600">
-                <Icon name="alert" className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-                <span>{emailCheck.reason}</span>
-              </div>
-            )}
-            {!form.email && (
-              <div className="mt-1.5 text-xs text-slate-500">
-                Allowed: {ALLOWED_EMAIL_DOMAINS.map(d => <span key={d} className="font-mono text-slate-600">@{d}</span>).reduce((a, b) => [a, ' or ', b])}
+                <Icon name="alert" className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" /><span>{emailCheck.reason}</span>
               </div>
             )}
           </div>
+
+          {/* Two-column: Department + Position */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Department</label>
+              <select value={form.department} onChange={e => setForm({...form, department: e.target.value, positionId: ''})} className={inputCls}>
+                <option value="">— Select dept —</option>
+                {orgDepts.length
+                  ? orgDepts.map(d => <option key={d.id} value={d.name}>{d.name}</option>)
+                  : DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)
+                }
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Position</label>
+              <select value={form.positionId} onChange={e => {
+                const pos = orgPositions.find(p => String(p.id) === e.target.value);
+                setForm({...form, positionId: e.target.value, designation: pos?.title || form.designation});
+              }} className={inputCls}>
+                <option value="">— Select position —</option>
+                {deptPositions.map(p => (
+                  <option key={p.id} value={String(p.id)}>
+                    {p.title}{p.is_vacant ? ' (Vacant)' : p.is_active ? ' (Filled)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Designation */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Department</label>
-            <select value={form.department} onChange={e => setForm({...form, department: e.target.value})} className={inputCls}>
-              {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+            <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Designation / Job Title</label>
+            <input value={form.designation} onChange={e => setForm({...form, designation: e.target.value})}
+              placeholder="e.g. Service Delivery Manager" className={inputCls} />
+          </div>
+
+          {/* Reports To */}
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Reports To (Manager)</label>
+            <select value={form.managerId} onChange={e => setForm({...form, managerId: e.target.value})} className={inputCls}>
+              <option value="">— No manager / Director level —</option>
+              {managerCandidates.map(u => (
+                <option key={u.id} value={String(u.backendId || u.id)}>
+                  {u.name} ({u.designation || u.role})
+                </option>
+              ))}
             </select>
           </div>
 
           {/* Active toggle */}
-          <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+          <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700">
             <div>
-              <div className="text-sm font-medium text-slate-800">Active Status</div>
-              <div className="text-xs text-slate-500">{isBootstrap ? 'Bootstrap admins cannot be deactivated' : 'Allow this staff member to use the system'}</div>
+              <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">Active Status</div>
+              <div className="text-xs text-slate-500">{isBootstrap ? 'Bootstrap admins cannot be deactivated' : 'Active staff can log in and use the system'}</div>
             </div>
-            <button type="button" disabled={isBootstrap} onClick={() => !isBootstrap && setForm({...form, active: !form.active})} className="relative disabled:opacity-40 disabled:cursor-not-allowed" title={isBootstrap ? 'Locked — bootstrap admin' : (form.active ? 'Active' : 'Inactive')}>
-              <div className={`w-11 h-6 rounded-full transition-all duration-300 ${form.active ? 'bg-emerald-500 shadow-[0_0_12px_3px_rgba(16,185,129,0.55)]' : 'bg-slate-600 opacity-50'}`}>
-                <div className={`absolute top-0.5 w-5 h-5 rounded-full shadow transition-all duration-300 ${form.active ? 'left-[22px] bg-white' : 'left-0.5 bg-slate-300'}`}></div>
-              </div>
+            <button type="button" disabled={isBootstrap} onClick={() => !isBootstrap && setForm({...form, active: !form.active})}
+              className="relative disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0" style={{width:44,height:24}}>
+              <span style={{display:'block',width:'100%',height:'100%',borderRadius:999,background:form.active?'linear-gradient(135deg,#10b981,#059669)':'var(--toggle-off,#cbd5e1)',boxShadow:form.active?'0 0 0 3px rgba(16,185,129,0.18)':'inset 0 1px 3px rgba(0,0,0,0.12)',transition:'all 0.25s'}}></span>
+              <span style={{position:'absolute',top:4,left:form.active?25:4,width:16,height:16,borderRadius:'50%',background:'#fff',boxShadow:'0 1px 4px rgba(0,0,0,0.25)',transition:'left 0.25s'}}></span>
             </button>
           </div>
 
-          {/* Role tier selector — only Super Admin can change, locked for bootstrap admins */}
+          {/* Role selector */}
           {adminGrantor ? (
             <div>
-              <label className="block text-sm font-medium mb-2" style={{color:'var(--e-text2,#4a5568)'}}>Role <span className="text-red-500">*</span></label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">System Role <span className="text-red-500">*</span></label>
+              <div className="grid grid-cols-3 gap-2">
                 {[
-                  { id: 'super_admin', label: 'Super Admin', desc: 'Full system access', icon: 'cog',
-                    selBg: 'rgba(139,92,246,0.12)', selBorder: '#8b5cf6', selText: '#7c3aed', selGlow: 'rgba(139,92,246,0.25)',
-                    darkSelBg: 'rgba(139,92,246,0.18)', darkSelBorder: '#a78bfa', darkSelText: '#c4b5fd' },
-                  { id: 'manager', label: 'Manager', desc: 'Department head', icon: 'users',
-                    selBg: 'rgba(59,130,246,0.10)', selBorder: '#3b82f6', selText: '#1d4ed8', selGlow: 'rgba(59,130,246,0.22)',
-                    darkSelBg: 'rgba(59,130,246,0.18)', darkSelBorder: '#60a5fa', darkSelText: '#93c5fd' },
-                  { id: 'user', label: 'Dept. User', desc: 'Regular staff', icon: 'user',
-                    selBg: 'rgba(16,185,129,0.10)', selBorder: '#10b981', selText: '#047857', selGlow: 'rgba(16,185,129,0.22)',
-                    darkSelBg: 'rgba(16,185,129,0.15)', darkSelBorder: '#34d399', darkSelText: '#6ee7b7' },
+                  { id:'super_admin', label:'Super Admin',  desc:'Full access',      icon:'cog',
+                    selBg:'rgba(139,92,246,0.12)', selBorder:'#8b5cf6', selText:'#7c3aed', selGlow:'rgba(139,92,246,0.25)' },
+                  { id:'manager',     label:'Manager',      desc:'Department head',  icon:'users',
+                    selBg:'rgba(59,130,246,0.10)', selBorder:'#3b82f6', selText:'#1d4ed8', selGlow:'rgba(59,130,246,0.22)' },
+                  { id:'user',        label:'Staff',        desc:'Regular user',     icon:'user',
+                    selBg:'rgba(16,185,129,0.10)', selBorder:'#10b981', selText:'#047857', selGlow:'rgba(16,185,129,0.22)' },
                 ].map(opt => {
                   const sel = form.role === opt.id;
                   const locked = isBootstrap && opt.id !== 'super_admin';
-                  const isDark = document.documentElement.classList.contains('dark');
-                  const cardStyle = sel ? {
-                    background:  isDark ? opt.darkSelBg   : opt.selBg,
-                    borderColor: isDark ? opt.darkSelBorder : opt.selBorder,
-                    boxShadow:   `0 0 0 3px ${opt.selGlow}, 0 2px 8px ${opt.selGlow}`,
-                    color:       isDark ? opt.darkSelText  : opt.selText,
-                  } : {
-                    background:  isDark ? 'rgba(255,255,255,0.04)' : '#ffffff',
-                    borderColor: isDark ? 'rgba(255,255,255,0.08)' : '#e2e8f0',
-                    color:       isDark ? '#94a3b8' : '#475569',
-                  };
                   return (
                     <button key={opt.id} type="button" disabled={locked}
                       onClick={() => !locked && setForm({...form, role: opt.id})}
-                      style={{...cardStyle, borderWidth:'2px', borderStyle:'solid', borderRadius:'10px', padding:'12px', textAlign:'left', transition:'all 0.2s', opacity: locked ? 0.4 : 1, cursor: locked ? 'not-allowed' : 'pointer'}}
-                      title={locked ? 'Bootstrap admin — role locked' : undefined}>
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <Icon name={opt.icon} className="w-4 h-4" />
-                        <span style={{fontSize:'13px', fontWeight:700, letterSpacing:'0.01em'}}>{opt.label}</span>
+                      style={{borderWidth:'2px',borderStyle:'solid',borderRadius:10,padding:'10px 12px',textAlign:'left',transition:'all 0.2s',
+                        background: sel ? opt.selBg : '#fff',
+                        borderColor: sel ? opt.selBorder : '#e2e8f0',
+                        boxShadow: sel ? `0 0 0 3px ${opt.selGlow}` : 'none',
+                        color: sel ? opt.selText : '#475569',
+                        opacity: locked ? 0.4 : 1, cursor: locked ? 'not-allowed' : 'pointer' }}>
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <Icon name={opt.icon} className="w-3.5 h-3.5" />
+                        <span style={{fontSize:12,fontWeight:700}}>{opt.label}</span>
                       </div>
-                      <span style={{fontSize:'11px', opacity:0.7}}>{opt.desc}</span>
+                      <span style={{fontSize:10,opacity:0.7}}>{opt.desc}</span>
                     </button>
                   );
                 })}
@@ -8730,11 +8771,12 @@ const StaffModal = ({ open, initial, currentUser, onClose, onSave }) => {
           ) : (
             <div className="flex items-start gap-2 p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-600">
               <Icon name="alert" className="w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5" />
-              <div><strong className="text-slate-700">Role changes are restricted.</strong> Only a Super Admin can promote users to Manager or Super Admin. This user will be created as a Department User.</div>
+              <div><strong className="text-slate-700">Role changes are restricted.</strong> Only a Super Admin can promote users. This person will be created as a Staff user.</div>
             </div>
           )}
         </div>
-        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-2">
+
+        <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-700 flex items-center justify-end gap-2">
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
           <StaffSaveButton canSave={canSave} isEdit={isEdit} onSave={() => onSave(form)} />
         </div>
@@ -8747,40 +8789,74 @@ const StaffModal = ({ open, initial, currentUser, onClose, onSave }) => {
 // STAFF MANAGEMENT PAGE
 // ============================================================
 const StaffManagement = ({ users, tickets, currentUser, onAddStaff, onUpdateStaff, onDeleteStaff, onNavigate }) => {
-  const admin = isAdmin(currentUser);
-  const canManage = admin || (currentUser.role === 'manager');
+  const admin    = isAdmin(currentUser);
+  const canManage = admin || currentUser.role === 'manager';
   const MIN_ADMINS = 2;
 
   const [search, setSearch]       = useState('');
-  const [staffFilter, setStaffFilter] = useState('all'); // 'all' | 'active' | 'inactive' | 'assignable'
+  const [deptFilter, setDeptFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [viewMode, setViewMode]   = useState('list'); // 'list' | 'grouped'
   const [editing, setEditing]     = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [confirm, setConfirm]     = useState(null);
+  const [activeTab, setActiveTab] = useState('staff');
+
+  // Org hierarchy data (loaded from /org endpoint)
+  const [orgDepts, setOrgDepts]         = useState([]);
+  const [orgPositions, setOrgPositions] = useState([]);
+
+  useEffect(() => {
+    // Load departments and positions for the modal dropdowns
+    Promise.all([
+      fetch(`${API_BASE}/org/departments`, { credentials: 'include' }).then(r => r.ok ? r.json() : {}),
+      fetch(`${API_BASE}/org/positions`,   { credentials: 'include' }).then(r => r.ok ? r.json() : {}),
+    ]).then(([deptData, posData]) => {
+      if (deptData.departments) setOrgDepts(deptData.departments);
+      if (posData.positions)    setOrgPositions(posData.positions);
+    }).catch(() => {});
+  }, []);
 
   const breadcrumbs = [
     { label: 'Dashboard', clickable: true, action: 'dashboard', icon: 'dashboard' },
     { label: 'Staff Management', clickable: false },
   ];
 
-  // Row-level security
+  // Scoped by role — managers see their dept only
   const scopedUsers = admin ? users : users.filter(u => u.department === currentUser.department);
   const activeAdminCount = scopedUsers.filter(u => u.isAdmin && u.active !== false).length;
   const allDepts = Array.from(new Set(scopedUsers.map(u => u.department).filter(Boolean))).sort();
 
   const filtered = useMemo(() => scopedUsers.filter(u => {
-    if (staffFilter === 'active'     && u.active === false)  return false;
-    if (staffFilter === 'inactive'   && u.active !== false)  return false;
-    if (staffFilter === 'assignable' && !u.assignable)       return false;
+    if (deptFilter !== 'all' && u.department !== deptFilter) return false;
+    if (statusFilter === 'active'     && u.active === false)  return false;
+    if (statusFilter === 'inactive'   && u.active !== false)  return false;
+    if (statusFilter === 'assignable' && !u.assignable)       return false;
     if (search.trim()) {
       const q = search.toLowerCase();
-      if (!u.name.toLowerCase().includes(q) && !(u.email||'').toLowerCase().includes(q)) return false;
+      if (!u.name.toLowerCase().includes(q)
+        && !(u.email||'').toLowerCase().includes(q)
+        && !(u.designation||'').toLowerCase().includes(q)
+        && !(u.department||'').toLowerCase().includes(q)) return false;
     }
     return true;
-  }), [scopedUsers, staffFilter, search]);
+  }), [scopedUsers, deptFilter, statusFilter, search]);
 
   const total    = scopedUsers.length;
   const active   = scopedUsers.filter(u => u.active !== false).length;
   const inactive = total - active;
+  const assignable = scopedUsers.filter(u => u.assignable).length;
+
+  // Grouped by department for 'grouped' view
+  const grouped = useMemo(() => {
+    const map = {};
+    for (const u of filtered) {
+      const d = u.department || 'Unassigned';
+      if (!map[d]) map[d] = [];
+      map[d].push(u);
+    }
+    return map;
+  }, [filtered]);
 
   const openCreate = () => { setEditing(null); setModalOpen(true); };
   const openEdit   = (u) => { setEditing(u); setModalOpen(true); };
@@ -8790,30 +8866,133 @@ const StaffManagement = ({ users, tickets, currentUser, onAddStaff, onUpdateStaf
     setModalOpen(false);
   };
 
-  // Toggle assignable inline
-  const toggleAssignable = (u) => {
-    if (!canManage) return;
-    onUpdateStaff(u.id, { assignable: !u.assignable });
-  };
-
-  // Toggle active inline
+  const toggleAssignable = (u) => { if (canManage) onUpdateStaff(u.id, { assignable: !u.assignable }); };
   const toggleActive = (u) => {
     if (!admin || u.bootstrapAdmin) return;
-    if (u.active !== false && activeAdminCount <= MIN_ADMINS && u.isAdmin) return; // guard
+    if (u.active !== false && activeAdminCount <= MIN_ADMINS && u.isAdmin) return;
     onUpdateStaff(u.id, { active: u.active === false ? true : false });
   };
 
-  // Inline dept change
-  const changeDept = (u, dept) => {
-    if (!admin) return;
-    onUpdateStaff(u.id, { department: dept });
+  // ── Dept color palette ──────────────────────────────────────
+  const deptColor = (dept) => {
+    const map = {
+      'Operations':   { bg:'#EFF6FF', text:'#1D4ED8', border:'#BFDBFE' },
+      'Finance':      { bg:'#F0FDF4', text:'#166534', border:'#BBF7D0' },
+      'Strategic Development & Client Relations': { bg:'#FDF4FF', text:'#7E22CE', border:'#E9D5FF' },
+      'Director Level': { bg:'#FFFBEB', text:'#92400E', border:'#FDE68A' },
+    };
+    return map[dept] || { bg:'#F8FAFC', text:'#475569', border:'#E2E8F0' };
   };
 
-  const [activeTab, setActiveTab] = useState('staff');
+  // ── Role badge ──────────────────────────────────────────────
+  const RoleBadge = ({ u }) => {
+    if (u.isAdmin || u.role === 'super_admin') {
+      return (
+        <span style={{display:'inline-flex',alignItems:'center',gap:3,padding:'2px 7px',borderRadius:999,fontSize:10,fontWeight:700,background:'rgba(124,58,237,0.1)',color:'#7c3aed',border:'1px solid rgba(124,58,237,0.2)'}}>
+          <Icon name="cog" className="w-2.5 h-2.5" /> Super Admin
+          {u.bootstrapAdmin && <span style={{opacity:0.6}}>· System</span>}
+        </span>
+      );
+    }
+    if (u.role === 'manager') {
+      return <span style={{display:'inline-flex',alignItems:'center',gap:3,padding:'2px 7px',borderRadius:999,fontSize:10,fontWeight:700,background:'rgba(245,158,11,0.1)',color:'#d97706',border:'1px solid rgba(245,158,11,0.2)'}}>Manager</span>;
+    }
+    return <span style={{display:'inline-flex',alignItems:'center',gap:3,padding:'2px 7px',borderRadius:999,fontSize:10,fontWeight:700,background:'rgba(100,116,139,0.08)',color:'#64748b',border:'1px solid rgba(100,116,139,0.15)'}}>Staff</span>;
+  };
+
+  const StatusBadge = ({ u }) => u.active !== false
+    ? <span style={{display:'inline-flex',alignItems:'center',gap:3,padding:'2px 7px',borderRadius:999,fontSize:10,fontWeight:700,background:'rgba(16,185,129,0.1)',color:'#059669',border:'1px solid rgba(16,185,129,0.25)'}}><span style={{width:6,height:6,borderRadius:'50%',background:'#10b981',display:'inline-block'}}></span> Active</span>
+    : <span style={{display:'inline-flex',alignItems:'center',gap:3,padding:'2px 7px',borderRadius:999,fontSize:10,fontWeight:700,background:'rgba(100,116,139,0.08)',color:'#64748b',border:'1px solid rgba(100,116,139,0.15)'}}>Inactive</span>;
+
+  // ── Single staff row ────────────────────────────────────────
+  const StaffRow = ({ u, idx, listLength }) => {
+    const isMe = u.id === currentUser.id;
+    const canDelete = admin && !isMe && !u.bootstrapAdmin && activeAdminCount > MIN_ADMINS;
+    const dc = deptColor(u.department);
+    // Find manager name
+    const mgr = users.find(m => m.backendId === u.managerId || String(m.backendId) === String(u.managerId));
+
+    return (
+      <div className={`flex items-center gap-3 px-5 py-4 transition-colors hover:bg-slate-50/60 ${idx < listLength - 1 ? 'border-b border-slate-100' : ''}`}>
+        {/* Avatar */}
+        <Avatar user={u} size="md" />
+
+        {/* Primary info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-semibold text-slate-800 text-sm">{u.name}</span>
+            {isMe && <span className="text-[10px] text-blue-500 font-medium">(you)</span>}
+            <StatusBadge u={u} />
+            <RoleBadge u={u} />
+          </div>
+          {/* Designation / position */}
+          {(u.designation || u.department) && (
+            <div className="flex items-center gap-3 mt-1 flex-wrap">
+              {u.designation && (
+                <span className="text-xs text-slate-600 font-medium">{u.designation}</span>
+              )}
+              {u.department && (
+                <span style={{fontSize:10,fontWeight:600,padding:'1px 7px',borderRadius:999,background:dc.bg,color:dc.text,border:`1px solid ${dc.border}`}}>
+                  {u.department}
+                </span>
+              )}
+            </div>
+          )}
+          {/* Email + manager */}
+          <div className="flex items-center gap-3 mt-1 flex-wrap">
+            <div className="flex items-center gap-1">
+              <Icon name="mail" className="w-3 h-3 text-slate-400" />
+              <span className="text-xs text-slate-500">{u.email}</span>
+            </div>
+            {mgr && (
+              <div className="flex items-center gap-1">
+                <Icon name="user" className="w-3 h-3 text-slate-400" />
+                <span className="text-xs text-slate-500">Reports to: <strong className="text-slate-600">{mgr.name}</strong></span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Assignable toggle */}
+        <div className="flex flex-col items-center gap-1 flex-shrink-0">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Assignable</span>
+          <button onClick={() => toggleAssignable(u)} style={{width:38,height:20,position:'relative',flexShrink:0}} title={u.assignable ? 'Remove from ticket assignment pool' : 'Add to ticket assignment pool'}>
+            <span style={{display:'block',width:'100%',height:'100%',borderRadius:999,background:u.assignable?'linear-gradient(135deg,#10b981,#059669)':'var(--toggle-off,#cbd5e1)',boxShadow:u.assignable?'0 0 0 3px rgba(16,185,129,0.18)':'inset 0 1px 3px rgba(0,0,0,0.12)',transition:'all 0.25s'}}></span>
+            <span style={{position:'absolute',top:3,left:u.assignable?21:3,width:14,height:14,borderRadius:'50%',background:'#fff',boxShadow:'0 1px 4px rgba(0,0,0,0.25)',transition:'left 0.25s'}}></span>
+          </button>
+        </div>
+
+        {/* Active toggle (admin only) */}
+        {admin && !u.bootstrapAdmin && (
+          <div className="flex flex-col items-center gap-1 flex-shrink-0">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Active</span>
+            <button onClick={() => toggleActive(u)} style={{width:38,height:20,position:'relative',flexShrink:0}}>
+              <span style={{display:'block',width:'100%',height:'100%',borderRadius:999,background:u.active!==false?'linear-gradient(135deg,#3b82f6,#1d4ed8)':'var(--toggle-off,#cbd5e1)',boxShadow:u.active!==false?'0 0 0 3px rgba(59,130,246,0.18)':'inset 0 1px 3px rgba(0,0,0,0.12)',transition:'all 0.25s'}}></span>
+              <span style={{position:'absolute',top:3,left:u.active!==false?21:3,width:14,height:14,borderRadius:'50%',background:'#fff',boxShadow:'0 1px 4px rgba(0,0,0,0.25)',transition:'left 0.25s'}}></span>
+            </button>
+          </div>
+        )}
+
+        {/* Edit */}
+        {canManage && (
+          <button onClick={() => openEdit(u)} className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors flex-shrink-0" title="Edit">
+            <Icon name="edit" className="w-4 h-4" />
+          </button>
+        )}
+
+        {/* Delete */}
+        {canDelete
+          ? <button onClick={() => setConfirm({ kind:'delete', user:u })} className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors flex-shrink-0" title="Delete"><Icon name="trash" className="w-4 h-4" /></button>
+          : <div className="w-7 flex-shrink-0" />
+        }
+      </div>
+    );
+  };
+
   const tabs = [
-    { id: 'staff', label: 'Staff Management' },
-    { id: 'notifications', label: 'Notifications' },
-    { id: 'email', label: 'Email' },
+    { id:'staff',         label:'Staff Management' },
+    { id:'notifications', label:'Notifications' },
+    { id:'email',         label:'Email' },
   ];
 
   return (
@@ -8829,8 +9008,8 @@ const StaffManagement = ({ users, tickets, currentUser, onAddStaff, onUpdateStaf
               <Icon name="users" className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
-              <p className="text-sm text-slate-500 mt-0.5">Manage staff, notifications and email preferences</p>
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Staff Management</h1>
+              <p className="text-sm text-slate-500 mt-0.5">Manage staff, roles, departments and reporting hierarchy</p>
               <p className="text-xs mt-1" style={{color:'#2563eb'}}>
                 Logged in as: <span className="font-semibold">{currentUser.email}</span>
               </p>
@@ -8846,12 +9025,12 @@ const StaffManagement = ({ users, tickets, currentUser, onAddStaff, onUpdateStaf
         </div>
 
         {/* ── Tabs ───────────────────────────────────────────── */}
-        <div className="flex items-center gap-1 mb-5 border-b border-slate-200">
+        <div className="flex items-center gap-1 mb-5 border-b border-slate-200 dark:border-slate-700">
           {tabs.map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
               className={`px-5 py-2.5 text-sm font-semibold rounded-t-lg border-b-2 transition-colors -mb-px ${
                 activeTab === tab.id
-                  ? 'border-emerald-500 text-emerald-600 bg-emerald-50'
+                  ? 'border-emerald-500 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20'
                   : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
               }`}>
               {tab.label}
@@ -8862,203 +9041,124 @@ const StaffManagement = ({ users, tickets, currentUser, onAddStaff, onUpdateStaf
         {/* ── Staff tab ──────────────────────────────────────── */}
         {activeTab === 'staff' && (
           <>
-            {/* Admin-count guard */}
+            {/* Min admin guard */}
             {admin && activeAdminCount <= MIN_ADMINS && (
               <div className="mb-4 flex items-start gap-3 rounded-lg px-4 py-3"
                 style={{background:'rgba(245,158,11,0.06)',border:'1px solid rgba(245,158,11,0.25)',borderLeft:'4px solid #d97706'}}>
                 <Icon name="alert" className="w-4 h-4 flex-shrink-0 mt-0.5 text-amber-600" />
                 <p className="text-sm text-slate-600">
-                  <strong className="text-slate-700">Minimum admin policy:</strong> Only {activeAdminCount} active Super Admin{activeAdminCount === 1 ? '' : 's'}. System requires at least {MIN_ADMINS}.
+                  <strong className="text-slate-700">Minimum admin policy:</strong> Only {activeAdminCount} active Super Admin{activeAdminCount===1?'':'s'}. System requires at least {MIN_ADMINS}.
                 </p>
               </div>
             )}
 
-            {/* ── KPI stat cards — inside a single container card */}
+            {/* KPI cards */}
             <div className="card p-5 mb-5">
-              <div className="grid grid-cols-3 gap-4">
-                {/* Total Staff */}
-                <div className="rounded-xl p-4 flex items-center justify-between"
-                  style={{background:'#f8fafc',border:'1px solid rgba(15,23,42,0.07)'}}>
-                  <div>
-                    <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Total Staff</div>
-                    <div className="text-4xl font-black text-slate-800">{total}</div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {[
+                  { label:'Total Staff', value:total, bg:'#f8fafc', border:'rgba(15,23,42,0.07)', text:'#0f172a', icon:'users', iconBg:'#e2e8f0', iconCol:'#64748b' },
+                  { label:'Active',      value:active, bg:'linear-gradient(135deg,#065f46,#047857)', text:'#fff', icon:'userPlus', iconBg:'rgba(255,255,255,0.18)', iconCol:'#fff' },
+                  { label:'Inactive',    value:inactive, bg:'#fff7ed', border:'rgba(249,115,22,0.15)', text:'#92400e', icon:'alert', iconBg:'#fed7aa', iconCol:'#ea580c' },
+                  { label:'Assignable',  value:assignable, bg:'#eff6ff', border:'rgba(59,130,246,0.15)', text:'#1e40af', icon:'sent', iconBg:'#bfdbfe', iconCol:'#3b82f6' },
+                ].map(c => (
+                  <div key={c.label} className="rounded-xl p-4 flex items-center justify-between"
+                    style={{background:c.bg, border: c.border ? `1px solid ${c.border}` : 'none'}}>
+                    <div>
+                      <div className="text-[11px] font-bold uppercase tracking-wide mb-1" style={{color:c.text,opacity:c.bg.includes('gradient')?0.75:0.6}}>{c.label}</div>
+                      <div className="text-3xl font-black" style={{color:c.text}}>{c.value}</div>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{background:c.iconBg}}>
+                      <Icon name={c.icon} className="w-5 h-5" style={{color:c.iconCol}} />
+                    </div>
                   </div>
-                  <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-slate-200 text-slate-500">
-                    <Icon name="users" className="w-5 h-5" />
-                  </div>
-                </div>
-                {/* Active — highlighted green */}
-                <div className="rounded-xl p-4 flex items-center justify-between"
-                  style={{background:'linear-gradient(135deg,#065f46,#047857)'}}>
-                  <div>
-                    <div className="text-xs font-semibold uppercase tracking-wide mb-1" style={{color:'rgba(167,243,208,0.8)'}}>Active</div>
-                    <div className="text-4xl font-black text-white">{active}</div>
-                  </div>
-                  <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{background:'rgba(255,255,255,0.15)'}}>
-                    <Icon name="userPlus" className="w-5 h-5 text-white" />
-                  </div>
-                </div>
-                {/* Inactive */}
-                <div className="rounded-xl p-4 flex items-center justify-between"
-                  style={{background:'#fff7ed',border:'1px solid rgba(249,115,22,0.15)'}}>
-                  <div>
-                    <div className="text-xs font-semibold uppercase tracking-wide mb-1 text-orange-600">Inactive</div>
-                    <div className="text-4xl font-black text-slate-800">{inactive}</div>
-                  </div>
-                  <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-orange-100 text-orange-500">
-                    <Icon name="alert" className="w-5 h-5" />
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
 
-            {/* ── Search + filter ────────────────────────────────── */}
-            <div className="flex items-center gap-3 mb-4">
-              <div className="relative flex-1">
+            {/* Department breakdown */}
+            {admin && allDepts.length > 1 && (
+              <div className="card p-4 mb-5">
+                <div className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Department Breakdown</div>
+                <div className="flex flex-wrap gap-2">
+                  {allDepts.map(dept => {
+                    const count = scopedUsers.filter(u => u.department === dept).length;
+                    const dc = deptColor(dept);
+                    return (
+                      <button key={dept} onClick={() => setDeptFilter(deptFilter === dept ? 'all' : dept)}
+                        style={{padding:'6px 14px',borderRadius:999,fontSize:12,fontWeight:700,background:deptFilter===dept?dc.text:dc.bg,color:deptFilter===dept?'#fff':dc.text,border:`1.5px solid ${dc.border}`,cursor:'pointer',transition:'all 0.15s'}}>
+                        {dept} <span style={{opacity:0.75}}>({count})</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Search + filters + view toggle */}
+            <div className="flex items-center gap-3 mb-4 flex-wrap">
+              <div className="relative flex-1 min-w-[200px]">
                 <Icon name="search" className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
                 <input value={search} onChange={e => setSearch(e.target.value)}
-                  placeholder="Search by name or email..."
-                  className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30" />
+                  placeholder="Search name, email, position, department…"
+                  className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-white dark:bg-slate-800 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/30" />
               </div>
               <div className="relative">
-                <select value={staffFilter} onChange={e => setStaffFilter(e.target.value)}
-                  className="yc-staff-filter-select appearance-none pl-4 pr-10 py-2.5 border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 font-medium text-slate-700 cursor-pointer">
-                  <option value="all">All Staff</option>
+                <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+                  className="appearance-none pl-4 pr-10 py-2.5 border border-slate-200 rounded-xl text-sm bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 font-medium text-slate-700 cursor-pointer">
+                  <option value="all">All Status</option>
                   <option value="active">Active Only</option>
                   <option value="inactive">Inactive Only</option>
                   <option value="assignable">Assignable Only</option>
                 </select>
                 <Icon name="chevronDown" className="w-4 h-4 absolute right-3 top-3 text-slate-400 pointer-events-none" />
               </div>
+              {/* View toggle */}
+              <div className="flex rounded-xl border border-slate-200 overflow-hidden">
+                {[['list','list'],['grouped','branch']].map(([mode,icon]) => (
+                  <button key={mode} onClick={() => setViewMode(mode)}
+                    className={`px-3 py-2 text-xs font-semibold flex items-center gap-1.5 transition-colors ${viewMode===mode?'bg-emerald-500 text-white':'text-slate-500 hover:bg-slate-50'}`}>
+                    <Icon name={icon} className="w-3.5 h-3.5" /> {mode==='list'?'List':'By Dept'}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {/* ── Staff list ─────────────────────────────────────── */}
-            <div className="card overflow-visible">
-              {filtered.length === 0 ? (
-                <div className="py-16 text-center text-slate-400">
-                  <Icon name="users" className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                  <p className="text-sm">No staff match your search</p>
-                </div>
-              ) : filtered.map((u, idx) => {
-                const isMe = u.id === currentUser.id;
-                const canDelete = admin && !isMe && !u.bootstrapAdmin && activeAdminCount > MIN_ADMINS;
+            {/* Staff list */}
+            {filtered.length === 0 ? (
+              <div className="card py-16 text-center text-slate-400">
+                <Icon name="users" className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                <p className="text-sm">No staff match your search</p>
+              </div>
+            ) : viewMode === 'list' ? (
+              <div className="card overflow-visible">
+                {filtered.map((u, idx) => <StaffRow key={u.id} u={u} idx={idx} listLength={filtered.length} />)}
+              </div>
+            ) : (
+              /* Grouped by department */
+              Object.entries(grouped).map(([dept, members]) => {
+                const dc = deptColor(dept);
                 return (
-                  <div key={u.id}
-                    className={`flex items-center gap-4 px-5 py-4 transition-colors ${idx < filtered.length - 1 ? 'border-b border-slate-100' : ''} hover:bg-slate-50/60`}>
-
-                    {/* Avatar */}
-                    <Avatar user={u} size="md" />
-
-                    {/* Name + badges + email */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-slate-800 text-sm">{u.name}</span>
-                        {isMe && <span className="text-[10px] text-blue-600 font-medium">(you)</span>}
-                        {u.active !== false
-                          ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
-                              style={{background:'rgba(16,185,129,0.1)',color:'#059669',border:'1px solid rgba(16,185,129,0.25)'}}>
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span> Active
-                            </span>
-                          : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
-                              style={{background:'rgba(100,116,139,0.1)',color:'#64748b',border:'1px solid rgba(100,116,139,0.2)'}}>
-                              Inactive
-                            </span>}
-                        {(u.isAdmin || u.role === 'super_admin') && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
-                            style={{background:'rgba(124,58,237,0.1)',color:'#7c3aed',border:'1px solid rgba(124,58,237,0.2)'}}>
-                            <Icon name="cog" className="w-2.5 h-2.5" /> Super Admin
-                            {u.bootstrapAdmin && <span className="ml-1 opacity-60">· System</span>}
-                          </span>
-                        )}
-                        {!u.isAdmin && u.role === 'manager' && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
-                            style={{background:'rgba(245,158,11,0.1)',color:'#d97706',border:'1px solid rgba(245,158,11,0.2)'}}>
-                            Manager
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1.5 mt-1">
-                        <Icon name="mail" className="w-3 h-3 text-slate-400" />
-                        <span className="text-xs text-slate-500">{u.email}</span>
-                      </div>
+                  <div key={dept} className="mb-5">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span style={{fontSize:11,fontWeight:800,padding:'3px 12px',borderRadius:999,background:dc.bg,color:dc.text,border:`1.5px solid ${dc.border}`,letterSpacing:'0.06em',textTransform:'uppercase'}}>
+                        {dept}
+                      </span>
+                      <span className="text-xs text-slate-400 font-medium">{members.length} member{members.length!==1?'s':''}</span>
                     </div>
-
-                    {/* Department dropdown */}
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-slate-100 text-slate-500">
-                        <Icon name="branch" className="w-3.5 h-3.5" />
-                      </div>
-                      {admin ? (
-                        <select value={u.department || ''} onChange={e => changeDept(u, e.target.value)}
-                          className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 text-slate-700 cursor-pointer min-w-[130px]">
-                          {allDepts.map(d => <option key={d} value={d}>{d}</option>)}
-                        </select>
-                      ) : (
-                        <span className="text-sm text-slate-600 font-medium">{u.department}</span>
-                      )}
+                    <div className="card overflow-visible">
+                      {members.map((u, idx) => <StaffRow key={u.id} u={u} idx={idx} listLength={members.length} />)}
                     </div>
-
-                    {/* Assignable toggle */}
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <span className="text-xs font-semibold tracking-wide" style={{color: 'var(--text-muted, #6b7280)'}}>Assignable</span>
-                      <button onClick={() => toggleAssignable(u)}
-                        className="relative flex-shrink-0 focus:outline-none"
-                        style={{width:'42px', height:'22px'}}
-                        title={u.assignable ? 'Click to make non-assignable' : 'Click to make assignable'}>
-                        <span style={{
-                          display:'block', width:'100%', height:'100%',
-                          borderRadius:'999px',
-                          background: u.assignable
-                            ? 'linear-gradient(135deg,#10b981,#059669)'
-                            : 'var(--toggle-off, #cbd5e1)',
-                          boxShadow: u.assignable
-                            ? '0 0 0 3px rgba(16,185,129,0.18), 0 2px 8px rgba(16,185,129,0.35)'
-                            : 'inset 0 1px 3px rgba(0,0,0,0.12)',
-                          transition: 'all 0.25s cubic-bezier(.4,0,.2,1)',
-                        }}></span>
-                        <span style={{
-                          position:'absolute', top:'3px',
-                          left: u.assignable ? '23px' : '3px',
-                          width:'16px', height:'16px',
-                          borderRadius:'50%',
-                          background:'#fff',
-                          boxShadow:'0 1px 4px rgba(0,0,0,0.25)',
-                          transition: 'left 0.25s cubic-bezier(.4,0,.2,1)',
-                        }}></span>
-                      </button>
-                    </div>
-
-                    {/* Edit button */}
-                    {canManage && (
-                      <button onClick={() => openEdit(u)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors flex-shrink-0"
-                        title="Edit staff member">
-                        <Icon name="edit" className="w-4 h-4" />
-                      </button>
-                    )}
-
-                    {/* Delete button */}
-                    {canDelete ? (
-                      <button onClick={() => setConfirm({ kind: 'delete', user: u })}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors flex-shrink-0"
-                        title="Delete staff member">
-                        <Icon name="trash" className="w-4 h-4" />
-                      </button>
-                    ) : (
-                      <div className="w-7 flex-shrink-0" />
-                    )}
                   </div>
                 );
-              })}
-            </div>
+              })
+            )}
           </>
         )}
 
         {/* ── Notifications tab ──────────────────────────────── */}
         {activeTab === 'notifications' && (
           <div className="card p-8 text-center">
-            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
-              style={{background:'linear-gradient(135deg,#6366f1,#8b5cf6)'}}>
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{background:'linear-gradient(135deg,#6366f1,#8b5cf6)'}}>
               <Icon name="bell" className="w-7 h-7 text-white" />
             </div>
             <h2 className="text-lg font-bold text-slate-800 mb-2">Notification Preferences</h2>
@@ -9069,8 +9169,7 @@ const StaffManagement = ({ users, tickets, currentUser, onAddStaff, onUpdateStaf
         {/* ── Email tab ──────────────────────────────────────── */}
         {activeTab === 'email' && (
           <div className="card p-8 text-center">
-            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
-              style={{background:'linear-gradient(135deg,#0ea5e9,#06b6d4)'}}>
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{background:'linear-gradient(135deg,#0ea5e9,#06b6d4)'}}>
               <Icon name="mail" className="w-7 h-7 text-white" />
             </div>
             <h2 className="text-lg font-bold text-slate-800 mb-2">Email Settings</h2>
@@ -9078,15 +9177,23 @@ const StaffManagement = ({ users, tickets, currentUser, onAddStaff, onUpdateStaf
           </div>
         )}
 
-
-        <StaffModal open={modalOpen} initial={editing} currentUser={currentUser} onClose={() => setModalOpen(false)} onSave={save} />
+        <StaffModal
+          open={modalOpen}
+          initial={editing}
+          currentUser={currentUser}
+          onClose={() => setModalOpen(false)}
+          onSave={save}
+          orgDepts={orgDepts}
+          orgPositions={orgPositions}
+          allUsers={users}
+        />
 
         {/* Delete confirmation */}
-        {confirm && confirm.kind === 'delete' && (
+        {confirm?.kind === 'delete' && (
           <Modal open={true} onClose={() => setConfirm(null)} title="Delete staff member?">
             <div className="p-6">
               <p className="text-sm text-slate-600">
-                Permanently delete <strong className="text-slate-800">{confirm.user.name}</strong>? This cannot be undone. Their tickets will become unassigned.
+                Permanently delete <strong className="text-slate-800">{confirm.user.name}</strong>? This cannot be undone and their tickets will become unassigned.
               </p>
               <div className="flex justify-end gap-2 mt-5">
                 <Button variant="secondary" onClick={() => setConfirm(null)}>Cancel</Button>
