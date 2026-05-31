@@ -15,7 +15,12 @@ export type AuditAction =
   | 'permission.grant' | 'permission.revoke'
   | 'password.reset.request' | 'password.reset.success'
   | 'audit.export'
-  | 'system.seed';
+  | 'system.seed'
+  | 'dept.create' | 'dept.update' | 'dept.delete'
+  | 'position.create' | 'position.update' | 'position.delete'
+  | 'org.move'
+  | 'schedule.create' | 'schedule.update' | 'schedule.delete' | 'schedule.send_now'
+  | 'ticket.create' | 'ticket.update' | 'ticket.delete' | 'ticket.comment' | 'ticket.assign';
 
 export interface AuditEntry {
   userId?: number | null;
