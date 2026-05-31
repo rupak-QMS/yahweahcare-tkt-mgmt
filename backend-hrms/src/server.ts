@@ -22,6 +22,7 @@ import scheduleRoutes      from './modules/schedules/schedules.routes';
 import ticketRoutes        from './modules/tickets/tickets.routes';
 import notificationRoutes  from './modules/notifications/notifications.routes';
 import lookupRoutes        from './modules/lookup/lookup.routes';
+import orgRoutes           from './modules/org/org.routes';
 
 const app = express();
 
@@ -68,6 +69,7 @@ app.use('/schedules',      apiLimiter);
 app.use('/tickets',        apiLimiter);
 app.use('/notifications',  apiLimiter);
 app.use('/lookup',         apiLimiter);
+app.use('/org',            apiLimiter);
 
 // ─── Routes ────────────────────────────────────────────────
 app.use('/auth',           authRoutes);
@@ -78,6 +80,7 @@ app.use('/schedules',      scheduleRoutes);
 app.use('/tickets',        ticketRoutes);
 app.use('/notifications',  notificationRoutes);
 app.use('/lookup',         lookupRoutes);
+app.use('/org',            orgRoutes);
 
 // ─── 404 + error handler ───────────────────────────────────
 app.use(notFound);

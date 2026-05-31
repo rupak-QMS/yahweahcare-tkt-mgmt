@@ -27,6 +27,7 @@ import scheduleRoutes      from '../src/modules/schedules/schedules.routes';
 import ticketRoutes        from '../src/modules/tickets/tickets.routes';
 import notificationRoutes  from '../src/modules/notifications/notifications.routes';
 import lookupRoutes        from '../src/modules/lookup/lookup.routes';
+import orgRoutes           from '../src/modules/org/org.routes';
 
 // Build the Express app ONCE per cold start
 const app = express();
@@ -75,6 +76,7 @@ app.use('/tickets',       ticketRoutes);
 app.use('/schedules',     scheduleRoutes);
 app.use('/notifications', notificationRoutes);
 app.use('/lookup',        lookupRoutes);
+app.use('/org',           orgRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
