@@ -3488,18 +3488,19 @@ const backendUserToFrontend = (u) => ({
   name: u.name,
   email: u.email,
   role: u.role,
-  department: u.department || 'Unknown',
+  department: u.department || '',
   designation: u.designation || '',
   site: u.site || '',
   employeeId: u.employee_id || '',
   avatar: u.avatar_initials || (u.name || '?').split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase(),
   profilePhotoUrl: u.profile_photo_url || null,
   isAdmin: u.role === 'super_admin',
-  bootstrapAdmin: !!u.bootstrap_admin,
-  systemCreated: !!(u.system_created || u.bootstrap_admin),
+  bootstrapAdmin: !!(u.bootstrap_admin || u.is_bootstrap_admin),
+  systemCreated: !!(u.system_created || u.bootstrap_admin || u.is_bootstrap_admin),
   active: u.active !== false,
-  // assignable: stored in DB; managers/admins default true, staff false
   assignable: u.assignable != null ? !!u.assignable : (u.role === 'super_admin' || u.role === 'manager'),
+  positionId: u.position_id || null,
+  managerId:  u.manager_id  || null,
   permissions: [],
 });
 
