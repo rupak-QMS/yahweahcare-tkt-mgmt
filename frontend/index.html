@@ -9209,11 +9209,10 @@ const StaffManagement = ({ users, tickets, currentUser, onAddStaff, onUpdateStaf
 };
 
 // ============================================================
-// ORG CHART — visual department layout matching org chart image
+// ORG CHART — proper tree lines + dept boxes + live data
 // ============================================================
 const OrgChart = ({ currentUser, onNavigate }) => {
   const [tree, setTree]           = React.useState([]);
-  const [depts, setDepts]         = React.useState([]);
   const [bootstrap, setBootstrap] = React.useState([]);
   const [loading, setLoading]     = React.useState(true);
   const [error, setError]         = React.useState(null);
@@ -9223,90 +9222,97 @@ const OrgChart = ({ currentUser, onNavigate }) => {
     setLoading(true);
     fetch(`${API_BASE}/org/chart`, { credentials: 'include' })
       .then(r => r.json())
-      .then(d => { setTree(d.tree || []); setDepts(d.departments || []); setBootstrap(d.bootstrapAdmins || []); setLoading(false); })
+      .then(d => { setTree(d.tree || []); setBootstrap(d.bootstrapAdmins || []); setLoading(false); })
       .catch(() => { setError('Could not load org chart.'); setLoading(false); });
   }, []);
 
-  // Flatten tree into a map by title for easy lookup
-  const flattenTree = (nodes, map = {}) => {
-    for (const n of nodes) { map[n.title] = n; flattenTree(n.children || [], map); }
-    return map;
-  };
+  const q = search.toLowerCase();
+  const nodeMatches = (n) => !q || (n.title||'').toLowerCase().includes(q) || (n.user_name||'').toLowerCase().includes(q) || (n.user_email||'').toLowerCase().includes(q);
+  const treeHasMatch = (n) => nodeMatches(n) || (n.children||[]).some(c => treeHasMatch(c));
 
-  const Avatar = ({ name, photoUrl, size = 32 }) => {
+  const Avatar = ({ name, photoUrl, size = 28 }) => {
     const initials = (name || '?').split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase();
-    if (photoUrl) return <img src={photoUrl} alt={name} style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover' }} />;
-    const colors = ['#1565c0','#0891B2','#2e7d32','#D97706','#c62828','#7b1fa2'];
-    const bg = colors[(name || '?').charCodeAt(0) % colors.length];
-    return <div style={{ width: size, height: size, borderRadius: '50%', background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: size * 0.38, flexShrink: 0 }}>{initials}</div>;
+    if (photoUrl) return <img src={photoUrl} alt={name} style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', display: 'block', margin: '0 auto 3px' }} />;
+    const CLRS = ['#1565c0','#0891b2','#2e7d32','#d97706','#c62828','#7b1fa2','#00695c','#e65100'];
+    const bg = CLRS[(name||'?').charCodeAt(0) % CLRS.length];
+    return <div style={{ width: size, height: size, borderRadius: '50%', background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: Math.round(size * 0.38), margin: '0 auto 3px' }}>{initials}</div>;
   };
 
-  const matchesSearch = (node) => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (node.title||'').toLowerCase().includes(q) || (node.user_name||'').toLowerCase().includes(q) || (node.user_email||'').toLowerCase().includes(q);
+  const DCOLS = {
+    'Director Level':    { b: '#2e7d32', bg: '#e8f5e9', t: '#2e7d32' },
+    'Operations':        { b: '#c62828', bg: '#fff3f3', t: '#c62828' },
+    'Finance':           { b: '#f9a825', bg: '#fffde7', t: '#f57f17' },
+    'Strategic Development & Client Relations': { b: '#7b1fa2', bg: '#f3e5f5', t: '#7b1fa2' },
   };
+  const getC = (dept) => DCOLS[dept] || { b: '#90a4ae', bg: '#f5f5f5', t: '#546e7a' };
 
-  // Person card — coloured border style
-  const PersonCard = ({ node, borderColor, bgColor, width = 130 }) => {
+  // ── Position card — supports multiple staff per position ─────
+  const OrgCard = ({ node, c, width = 112 }) => {
     if (!node) return null;
-    if (!matchesSearch(node) && search) return null;
-    const isVacant = node.is_vacant;
-    const hasHolder = !!node.user_id;
+    const staffList = Array.isArray(node.staff) ? node.staff : (node.user_id ? [{ id: node.user_id, name: node.user_name, email: node.user_email, profile_photo_url: node.profile_photo_url }] : []);
+    const vacant = staffList.length === 0;
+    const col = c || getC(node.department_name || '');
     return (
-      <div style={{
-        border: `2px ${isVacant ? 'dashed' : 'solid'} ${isVacant ? '#bbb' : borderColor}`,
-        background: isVacant ? '#fafafa' : bgColor,
-        borderRadius: 10, padding: '8px 10px', textAlign: 'center',
-        width, boxSizing: 'border-box', fontSize: 10,
-      }}>
-        {hasHolder && <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}><Avatar name={node.user_name} photoUrl={node.profile_photo_url} size={28} /></div>}
-        <div style={{ fontWeight: 700, fontSize: 11, color: isVacant ? '#888' : '#111' }}>{hasHolder ? node.user_name : node.title}</div>
-        {hasHolder && <div style={{ fontSize: 10, color: '#555', margin: '2px 0' }}>{node.title}</div>}
-        {hasHolder && node.user_email && <div style={{ fontSize: 9, color: '#1565c0', margin: '2px 0', wordBreak: 'break-all' }}>{node.user_email}</div>}
-        <div style={{ fontWeight: 700, fontSize: 10, marginTop: 4, color: isVacant ? '#c62828' : '#2e7d32' }}>{isVacant ? '[VACANT]' : '[ACTIVE]'}</div>
+      <div style={{ border: `2px ${vacant ? 'dashed' : 'solid'} ${vacant ? '#bbb' : col.b}`, background: vacant ? '#fafafa' : col.bg, borderRadius: 10, padding: '7px 8px', textAlign: 'center', width, boxSizing: 'border-box', fontSize: 10 }}>
+        {/* Position title always shown at top */}
+        <div style={{ fontWeight: 700, fontSize: 11, color: vacant ? '#999' : col.t || '#111', lineHeight: 1.3, marginBottom: staffList.length ? 4 : 0 }}>{node.title}</div>
+        {/* Staff members */}
+        {staffList.map((s, idx) => (
+          <div key={s.id} style={{ borderTop: idx > 0 ? '1px solid #ddd' : 'none', paddingTop: idx > 0 ? 4 : 0, marginTop: idx > 0 ? 4 : 0 }}>
+            <Avatar name={s.name} photoUrl={s.profile_photo_url} size={22} />
+            <div style={{ fontWeight: 600, fontSize: 10, color: '#111', lineHeight: 1.2 }}>{s.name}</div>
+            {s.email && <div style={{ fontSize: 9, color: '#1565c0', wordBreak: 'break-all', lineHeight: 1.2 }}>{s.email}</div>}
+          </div>
+        ))}
+        <div style={{ fontWeight: 700, fontSize: 10, color: vacant ? '#c62828' : '#2e7d32', marginTop: 3 }}>
+          {vacant ? '[VACANT]' : staffList.length > 1 ? `[ACTIVE · ${staffList.length}]` : '[ACTIVE]'}
+        </div>
       </div>
     );
   };
 
-  const Connector = ({ height = 20 }) => <div style={{ width: 2, background: '#555', height, margin: '0 auto' }} />;
-
-  const posMap = flattenTree(tree);
-
-  const DeptSection = ({ title, icon, headerColor, borderColor, bgColor, managerTitle, children, width = 480 }) => {
-    const manager = posMap[managerTitle];
+  // Recursive li — uses CSS classes for tree connector lines
+  const OrgLi = ({ node, c, w = 112 }) => {
+    if (!treeHasMatch(node) && q) return null;
+    const kids = (node.children || []).filter(ch => !q || treeHasMatch(ch));
     return (
-      <div style={{ border: `2px solid ${borderColor}`, borderRadius: 12, padding: 12, background: bgColor + '55', width, boxSizing: 'border-box' }}>
-        <div style={{ fontWeight: 800, fontSize: 12, textTransform: 'uppercase', color: headerColor, textAlign: 'center', marginBottom: 8 }}>{icon} {title}</div>
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
-          <PersonCard node={manager} borderColor={borderColor} bgColor={bgColor} width={180} />
-        </div>
-        {children}
-      </div>
+      <li className="yc-li">
+        <OrgCard node={node} c={c} width={w} />
+        {kids.length > 0 && (
+          <>
+            <div style={{ width: 2, height: 16, background: '#666', margin: '0 auto' }} />
+            <ul className="yc-ul">
+              {kids.map(ch => <OrgLi key={ch.id} node={ch} c={c} w={w} />)}
+            </ul>
+          </>
+        )}
+      </li>
     );
   };
-
-  const SubCol = ({ nodes, borderColor, bgColor, width = 115 }) => (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      {nodes.map((n, i) => (
-        <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <Connector height={16} />
-          <PersonCard node={n} borderColor={borderColor} bgColor={bgColor} width={width} />
-        </div>
-      ))}
-    </div>
-  );
 
   if (loading) return <div style={{ textAlign: 'center', padding: 80, color: '#94A3B8', fontSize: 14 }}>Loading org chart…</div>;
-  if (error)   return <div style={{ textAlign: 'center', padding: 40, color: '#EF4444', fontSize: 14 }}>{error}</div>;
+  if (error)   return <div style={{ textAlign: 'center', padding: 40, color: '#EF4444' }}>{error}</div>;
 
-  const director = posMap['Director'];
+  const director = tree[0];
+  const deptHeads = director ? (director.children || []) : [];
+  const DEPT_ICONS = { 'Operations': '👥', 'Finance': '💰', 'Strategic Development & Client Relations': '🏢' };
+  const DEPT_LABELS = { 'Operations': 'Operations Department', 'Finance': 'Finance Department', 'Strategic Development & Client Relations': 'Strategic Development & Client Relations' };
 
   return (
-    <div style={{ padding: '20px 24px', overflowX: 'auto', minWidth: 900, fontFamily: 'Segoe UI, Arial, sans-serif' }}>
+    <div style={{ padding: '20px 24px', fontFamily: 'Segoe UI, Arial, sans-serif', overflowX: 'auto' }}>
+      <style>{`
+        .yc-ul { display: flex; justify-content: center; list-style: none; padding: 0; margin: 0; }
+        .yc-li { display: flex; flex-direction: column; align-items: center; padding: 18px 5px 0; position: relative; flex: 0 0 auto; }
+        .yc-li::before { content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 2px; height: 18px; background: #666; }
+        .yc-li:not(:only-child)::after { content: ''; position: absolute; top: 0; height: 2px; background: #666; }
+        .yc-li:first-child:not(:only-child)::after { left: 50%; right: -5px; }
+        .yc-li:last-child:not(:only-child)::after  { right: 50%; left: -5px; }
+        .yc-li:not(:first-child):not(:last-child)::after { left: -5px; right: -5px; }
+        .yc-li:only-child::after { display: none; }
+      `}</style>
 
-      {/* Title + Search */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
         <h1 style={{ fontWeight: 900, fontSize: 18, color: '#1a237e', textTransform: 'uppercase', letterSpacing: 1, margin: 0 }}>Organizational Chart — Yahweh Care</h1>
         <div style={{ position: 'relative' }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2" style={{ width: 14, height: 14, position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -9316,114 +9322,105 @@ const OrgChart = ({ currentUser, onNavigate }) => {
       </div>
 
       <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-
-        {/* Main chart */}
-        <div style={{ flex: 1 }}>
+        {/* Main chart area */}
+        <div style={{ flex: 1, minWidth: 0 }}>
 
           {/* Director */}
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 0 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div style={{ border: '2px solid #2e7d32', background: '#e8f5e9', borderRadius: 10, padding: '10px 16px', textAlign: 'center', minWidth: 200 }}>
-                {director && director.user_id && <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 6 }}><Avatar name={director.user_name} photoUrl={director.profile_photo_url} size={36} /></div>}
-                <div style={{ fontWeight: 700, fontSize: 14 }}>{director ? director.user_name : 'Director'}</div>
-                <div style={{ fontSize: 11, color: '#2e7d32', fontWeight: 700 }}>Director</div>
-                <div style={{ fontSize: 10, color: '#555' }}>Strategic Development / Client Relationship Manager</div>
-                {director && director.user_email && <div style={{ fontSize: 9, color: '#1565c0', margin: '2px 0' }}>{director.user_email}</div>}
-                <div style={{ fontWeight: 700, fontSize: 10, color: '#2e7d32', marginTop: 4 }}>[ACTIVE]</div>
-              </div>
-              <Connector height={24} />
-            </div>
-          </div>
-
-          {/* 3 Department columns */}
-          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', justifyContent: 'center' }}>
-
-            {/* OPERATIONS */}
-            <DeptSection title="Operations Department" icon="👥" headerColor="#c62828" borderColor="#c62828" bgColor="#fff3f3" managerTitle="Operations Manager" width={460}>
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
-                {/* Sunita sub-col */}
-                <SubCol borderColor="#c62828" bgColor="#fff3f3" width={108} nodes={[
-                  posMap['Service Delivery Manager'],
-                  posMap['Roster Coordinator'],
-                  posMap['Support Workers'],
-                ].filter(Boolean)} />
-                {/* Saloni sub-col */}
-                <SubCol borderColor="#c62828" bgColor="#fff3f3" width={108} nodes={[
-                  posMap['Support Coordination Lead'],
-                  posMap['Support Coordination Staff'],
-                ].filter(Boolean)} />
-                {/* Miejkyla sub-col */}
-                <SubCol borderColor="#c62828" bgColor="#fff3f3" width={108} nodes={[
-                  posMap['HR / Admin Officer'],
-                  posMap['External Consultant (HR)'],
-                ].filter(Boolean)} />
-                {/* Venujah sub-col */}
-                <SubCol borderColor="#c62828" bgColor="#fff3f3" width={108} nodes={[
-                  posMap['Day Centre Officer'],
-                  posMap['Staff (Day Centre)'],
-                ].filter(Boolean)} />
-              </div>
-            </DeptSection>
-
-            {/* FINANCE */}
-            <DeptSection title="Finance Department" icon="💰" headerColor="#f57f17" borderColor="#f9a825" bgColor="#fffde7" managerTitle="Finance Manager" width={200}>
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-                <SubCol borderColor="#f9a825" bgColor="#fffde7" width={85} nodes={[posMap['External Consultant (Finance)']].filter(Boolean)} />
-                <SubCol borderColor="#f9a825" bgColor="#fffde7" width={85} nodes={[posMap['Plan Manager']].filter(Boolean)} />
-              </div>
-            </DeptSection>
-
-            {/* STRATEGIC */}
-            <DeptSection title="Strategic Development & Client Relations" icon="🏢" headerColor="#7b1fa2" borderColor="#7b1fa2" bgColor="#f3e5f5" managerTitle="Strategic Development / Client Relationship Manager" width={240}>
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <Connector height={16} />
-                  <PersonCard node={posMap['Business Development Officer']} borderColor="#7b1fa2" bgColor="#f3e5f5" width={105} />
-                  <Connector height={16} />
-                  <PersonCard node={posMap['External Marketing Consultant']} borderColor="#7b1fa2" bgColor="#f3e5f5" width={105} />
+          {director && (() => {
+            const dirStaff = Array.isArray(director.staff) ? director.staff : (director.user_id ? [{ id: director.user_id, name: director.user_name, email: director.user_email, profile_photo_url: director.profile_photo_url }] : []);
+            const dirFirst = dirStaff[0];
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <div style={{ border: '2px solid #2e7d32', background: '#e8f5e9', borderRadius: 10, padding: '10px 16px', textAlign: 'center', minWidth: 210 }}>
+                  <div style={{ fontWeight: 700, fontSize: 12, color: '#2e7d32', marginBottom: 4 }}>{director.title || 'Director'}</div>
+                  {dirStaff.map((s, idx) => (
+                    <div key={s.id} style={{ borderTop: idx > 0 ? '1px solid #c8e6c9' : 'none', paddingTop: idx > 0 ? 4 : 0, marginTop: idx > 0 ? 4 : 0 }}>
+                      <Avatar name={s.name} photoUrl={s.profile_photo_url} size={34} />
+                      <div style={{ fontWeight: 700, fontSize: 13 }}>{s.name}</div>
+                      {s.email && <div style={{ fontSize: 9, color: '#1565c0', marginTop: 1 }}>{s.email}</div>}
+                    </div>
+                  ))}
+                  {dirStaff.length === 0 && <div style={{ color: '#999', fontSize: 11 }}>Vacant</div>}
+                  <div style={{ fontWeight: 700, fontSize: 10, color: dirStaff.length ? '#2e7d32' : '#c62828', marginTop: 4 }}>
+                    {dirStaff.length ? (dirStaff.length > 1 ? `[ACTIVE · ${dirStaff.length}]` : '[ACTIVE]') : '[VACANT]'}
+                  </div>
                 </div>
-                <SubCol borderColor="#7b1fa2" bgColor="#f3e5f5" width={105} nodes={[posMap['Client Relationship Officer']].filter(Boolean)} />
+                {deptHeads.length > 0 && <div style={{ width: 2, height: 22, background: '#555' }} />}
               </div>
-            </DeptSection>
+            );
+          })()}
 
-          </div>
+          {/* Dept boxes row — horizontal connector + vertical drop lines */}
+          {deptHeads.length > 0 && (
+            <div style={{ position: 'relative' }}>
+              {/* Horizontal bar connecting all dept columns */}
+              {deptHeads.length > 1 && (
+                <div style={{ position: 'absolute', top: 0, left: `${100 / (deptHeads.length * 2)}%`, right: `${100 / (deptHeads.length * 2)}%`, height: 2, background: '#555' }} />
+              )}
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', justifyContent: 'center' }}>
+                {deptHeads.map(dh => {
+                  if (q && !treeHasMatch(dh)) return null;
+                  const dept = dh.department_name || '';
+                  const c = getC(dept);
+                  const kids = (dh.children || []).filter(ch => !q || treeHasMatch(ch));
+                  return (
+                    <div key={dh.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: '1 1 0', minWidth: 0 }}>
+                      {/* Vertical drop from horizontal bar to dept box */}
+                      <div style={{ width: 2, height: 20, background: '#555' }} />
+                      <div style={{ border: `2px solid ${c.b}`, borderRadius: 12, padding: 10, background: c.bg + 'bb', width: '100%', boxSizing: 'border-box' }}>
+                        <div style={{ fontWeight: 800, fontSize: 11, textTransform: 'uppercase', color: c.t, textAlign: 'center', marginBottom: 8 }}>
+                          {DEPT_ICONS[dept] || '📋'} {DEPT_LABELS[dept] || dept}
+                        </div>
+                        {/* Dept head card centered */}
+                        <div style={{ display: 'flex', justifyContent: 'center' }}>
+                          <OrgCard node={dh} c={c} width={170} />
+                        </div>
+                        {/* Children tree with CSS connector lines */}
+                        {kids.length > 0 && (
+                          <>
+                            <div style={{ width: 2, height: 16, background: '#666', margin: '0 auto' }} />
+                            <ul className="yc-ul">
+                              {kids.map(ch => <OrgLi key={ch.id} node={ch} c={c} w={110} />)}
+                            </ul>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Legend + Notes */}
-          <div style={{ display: 'flex', gap: 16, marginTop: 20, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+          <div style={{ display: 'flex', gap: 16, marginTop: 24, flexWrap: 'wrap' }}>
             <div>
               <div style={{ fontWeight: 800, fontSize: 11, marginBottom: 6 }}>LEGEND</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, fontSize: 10 }}>
-                {[
-                  ['#e8f5e9','#2e7d32','Director Level'],
-                  ['#fff3f3','#c62828','Operations'],
-                  ['#fffde7','#f9a825','Finance'],
-                  ['#f3e5f5','#7b1fa2','Strategic Development'],
-                  ['#e3f2fd','#1565c0','Team / Staff'],
-                  ['#fafafa','#bbb','Consultant / External (dashed)'],
-                ].map(([bg,bdr,lbl]) => (
+                {[['#e8f5e9','#2e7d32','Director Level'],['#fff3f3','#c62828','Operations'],['#fffde7','#f9a825','Finance'],['#f3e5f5','#7b1fa2','Strategic Development']].map(([bg,bdr,lbl]) => (
                   <div key={lbl} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <div style={{ width: 16, height: 12, borderRadius: 2, background: bg, border: `2px solid ${bdr}` }} />
-                    <span>{lbl}</span>
+                    <div style={{ width: 16, height: 12, borderRadius: 2, background: bg, border: `2px solid ${bdr}` }} /><span>{lbl}</span>
                   </div>
                 ))}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ fontWeight: 700, color: '#2e7d32' }}>[ACTIVE]</span><span>Active Position</span></div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ fontWeight: 700, color: '#c62828' }}>[VACANT]</span><span>Inactive Position</span></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 16, height: 12, borderRadius: 2, background: '#fafafa', border: '2px dashed #bbb' }} /><span>Vacant</span></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ fontWeight: 700, color: '#2e7d32' }}>[ACTIVE]</span><span>Staff assigned</span></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ fontWeight: 700, color: '#c62828' }}>[VACANT]</span><span>No staff yet</span></div>
               </div>
             </div>
             <div style={{ flex: 1, minWidth: 260, border: '2px solid #1565c0', borderRadius: 10, background: '#e3f2fd', padding: '10px 14px' }}>
               <div style={{ fontWeight: 800, fontSize: 11, color: '#1565c0', marginBottom: 6 }}>NOTES</div>
               <ul style={{ paddingLeft: 14, fontSize: 10, color: '#333', margin: 0 }}>
-                <li style={{ marginBottom: 3 }}>Only active positions are assigned to current staff.</li>
-                <li style={{ marginBottom: 3 }}>All vacant positions are kept in the structure for future growth and scalability.</li>
-                <li>System roles (e.g., Bootstrap Admin, Bootstrap Super Admin) are separate from the organizational hierarchy.</li>
+                <li style={{ marginBottom: 3 }}>Positions automatically show ACTIVE when a staff member is assigned via Staff Management.</li>
+                <li style={{ marginBottom: 3 }}>Multiple staff can hold the same designation — assign them via Staff Management and they appear here.</li>
+                <li>Vacant positions are kept for future growth and scalability.</li>
               </ul>
             </div>
           </div>
         </div>
 
         {/* System Roles Panel */}
-        <div style={{ border: '2px solid #37474f', borderRadius: 10, background: '#eceff1', padding: 12, width: 220, flexShrink: 0 }}>
-          <div style={{ fontWeight: 800, fontSize: 10, textTransform: 'uppercase', color: '#37474f', marginBottom: 10 }}>⬛ System Roles (Not Part of Org Hierarchy)</div>
+        <div style={{ border: '2px solid #37474f', borderRadius: 10, background: '#eceff1', padding: 12, width: 210, flexShrink: 0 }}>
+          <div style={{ fontWeight: 800, fontSize: 10, textTransform: 'uppercase', color: '#37474f', marginBottom: 10 }}>⬛ System Roles<br/>(Not Part of Org Hierarchy)</div>
           {bootstrap.map(u => (
             <div key={u.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 10 }}>
               <div style={{ width: 32, height: 32, borderRadius: '50%', background: u.role === 'super_admin' ? '#4a148c' : '#1565c0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14, flexShrink: 0 }}>
@@ -9437,11 +9434,10 @@ const OrgChart = ({ currentUser, onNavigate }) => {
               </div>
             </div>
           ))}
-          <div style={{ fontSize: 9, color: '#555', borderTop: '1px solid #ccc', paddingTop: 8, marginTop: 4 }}>
-            Has full system access and control at the platform level. Not included in the organizational reporting structure.
+          <div style={{ fontSize: 9, color: '#555', borderTop: '1px solid #ccc', paddingTop: 8 }}>
+            Has full system access. Not included in the organizational reporting structure.
           </div>
         </div>
-
       </div>
     </div>
   );
@@ -10567,6 +10563,8 @@ const App = () => {
       if ('designation' in safe) payload.designation = safe.designation;
       if ('active' in safe)      payload.active      = safe.active;
       if ('assignable' in safe)  payload.assignable  = safe.assignable;
+      if ('positionId' in safe)  payload.position_id = safe.positionId ? Number(safe.positionId) : null;
+      if ('managerId' in safe)   payload.manager_id  = safe.managerId  ? Number(safe.managerId)  : null;
       if ('role' in safe) {
         const roleObj = (state.roles || []).find(r => r.name === safe.role);
         if (roleObj) payload.role_id = roleObj.id;
@@ -10591,6 +10589,8 @@ const App = () => {
         if (u.id !== id) return u;
         const next = { ...u, ...safe };
         if ('role' in safe) next.isAdmin = wantsAdmin;
+        if ('positionId' in safe) next.positionId = safe.positionId ? Number(safe.positionId) : null;
+        if ('managerId'  in safe) next.managerId  = safe.managerId  ? Number(safe.managerId)  : null;
         return next;
       }),
     }));

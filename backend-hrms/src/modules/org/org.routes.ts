@@ -23,24 +23,30 @@ const isManagerOrAbove = (role: string) => ['super_admin', 'admin', 'manager', '
 // ── GET /org/chart — recursive tree ─────────────────────────
 router.get('/chart', async (req, res, next) => {
   try {
-    // Fetch all positions with their holder (if any)
+    // Fetch all positions with their holder(s) — aggregated so multiple staff per position work
     const { rows: positions } = await pool.query(`
       SELECT
-        p.id, p.title, p.parent_position_id, p.is_active, p.is_vacant,
+        p.id, p.title, p.parent_position_id,
         p.sort_order, p.department_id,
         d.name AS department_name,
-        u.id   AS user_id,
-        u.name AS user_name,
-        u.email AS user_email,
-        u.active AS user_active,
-        u.profile_photo_url,
-        u.avatar_initials,
-        u.role,
-        COALESCE(u.is_bootstrap_admin, u.bootstrap_admin, FALSE) AS is_bootstrap_admin,
-        u.designation
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'id',               u.id,
+              'name',             u.name,
+              'email',            u.email,
+              'profile_photo_url',u.profile_photo_url,
+              'avatar_initials',  u.avatar_initials,
+              'role',             u.role,
+              'designation',      u.designation
+            ) ORDER BY u.name
+          ) FILTER (WHERE u.id IS NOT NULL),
+          '[]'::json
+        ) AS staff
       FROM yc_tkt_mgmt.positions p
       LEFT JOIN yc_tkt_mgmt.departments d ON d.id = p.department_id
       LEFT JOIN yc_tkt_mgmt.users u ON u.position_id = p.id AND u.active = TRUE
+      GROUP BY p.id, p.title, p.parent_position_id, p.sort_order, p.department_id, d.name
       ORDER BY p.department_id NULLS FIRST, p.sort_order, p.id
     `);
 
@@ -51,10 +57,27 @@ router.get('/chart', async (req, res, next) => {
       ORDER BY sort_order, id
     `);
 
-    // Build position map
+    // Build position map — staff is already an array from json_agg
+    // Derive is_active / is_vacant from whether any staff are assigned
     const posMap: Record<number, Record<string, unknown>> = {};
     for (const p of positions) {
-      posMap[p.id] = { ...p, children: [] };
+      const staffArr: unknown[] = Array.isArray(p.staff) ? p.staff : [];
+      const isActive = staffArr.length > 0;
+      // Expose first occupant fields at top-level for backward compat with OrgCard
+      const first = staffArr[0] as Record<string, unknown> | undefined;
+      posMap[p.id] = {
+        ...p,
+        staff: staffArr,
+        is_active: isActive,
+        is_vacant: !isActive,
+        // legacy single-user fields — first occupant (for director-level card)
+        user_id:          first?.id ?? null,
+        user_name:        first?.name ?? null,
+        user_email:       first?.email ?? null,
+        profile_photo_url:first?.profile_photo_url ?? null,
+        avatar_initials:  first?.avatar_initials ?? null,
+        children: [],
+      };
     }
 
     // Build tree
