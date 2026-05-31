@@ -106,7 +106,7 @@ router.patch('/:id', async (req, res, next) => {
       return res.status(403).json({ error: 'super_admin_modify_blocked', message: 'Only a Super Admin can modify another Super Admin' });
     }
 
-    const allowed = ['name', 'department', 'designation', 'role_id', 'active', 'assignable', 'site', 'employee_id'];
+    const allowed = ['name', 'department', 'designation', 'role_id', 'active', 'assignable', 'site', 'employee_id', 'position_id', 'manager_id'];
     const updates: string[] = []; const values: unknown[] = []; let i = 1;
     for (const k of allowed) {
       if (k in req.body) { updates.push(`${k} = $${i++}`); values.push(req.body[k]); }
@@ -125,9 +125,61 @@ router.patch('/:id', async (req, res, next) => {
 
     values.push(id);
     const { rows: updRows } = await pool.query(
-      `UPDATE yc_tkt_mgmt.users SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${i} RETURNING id, email, name, role, department, designation, active, role_id, assignable`,
+      `UPDATE yc_tkt_mgmt.users SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${i} RETURNING id, email, name, role, department, designation, active, role_id, assignable, position_id, manager_id`,
       values
     );
+
+    // ── Keep positions.is_active / is_vacant in sync ──────────────────────
+    // When position_id changes, vacate old position, activate new one
+    if ('position_id' in req.body) {
+      const oldPositionId = target.position_id;
+      const newPositionId = req.body.position_id ?? null;
+      // Vacate old position only if no other active user still holds it
+      if (oldPositionId && oldPositionId !== newPositionId) {
+        await pool.query(
+          `UPDATE yc_tkt_mgmt.positions
+           SET is_active = (EXISTS (
+                 SELECT 1 FROM yc_tkt_mgmt.users
+                 WHERE position_id = $1 AND active = TRUE AND id != $2
+               )),
+               is_vacant = NOT (EXISTS (
+                 SELECT 1 FROM yc_tkt_mgmt.users
+                 WHERE position_id = $1 AND active = TRUE AND id != $2
+               )),
+               updated_at = NOW()
+           WHERE id = $1`,
+          [oldPositionId, id]
+        );
+      }
+      // Activate new position
+      if (newPositionId) {
+        await pool.query(
+          `UPDATE yc_tkt_mgmt.positions
+           SET is_active = TRUE, is_vacant = FALSE, updated_at = NOW()
+           WHERE id = $1`,
+          [newPositionId]
+        );
+      }
+    }
+    // When user is deactivated, vacate their current position
+    if ('active' in req.body && req.body.active === false && target.position_id) {
+      await pool.query(
+        `UPDATE yc_tkt_mgmt.positions
+         SET is_active = (EXISTS (
+               SELECT 1 FROM yc_tkt_mgmt.users
+               WHERE position_id = $1 AND active = TRUE AND id != $2
+             )),
+             is_vacant = NOT (EXISTS (
+               SELECT 1 FROM yc_tkt_mgmt.users
+               WHERE position_id = $1 AND active = TRUE AND id != $2
+             )),
+             updated_at = NOW()
+         WHERE id = $1`,
+        [target.position_id, id]
+      );
+    }
+    // ─────────────────────────────────────────────────────────────────────
+
     await logAudit({ userId: req.auth!.userId, actorEmail: req.auth!.email, action: 'user.update', module: 'users', targetType: 'user', targetId: id, metadata: { changes: req.body }, req });
     res.json({ user: updRows[0] });
   } catch (err) { next(err); }
