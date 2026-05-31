@@ -14,10 +14,15 @@ import { pool } from './db/pool';
 import { apiLimiter } from './middleware/rateLimit.middleware';
 import { errorHandler, notFound } from './middleware/error.middleware';
 
-import authRoutes  from './modules/auth/auth.routes';
-import userRoutes  from './modules/users/users.routes';
-import roleRoutes  from './modules/roles/roles.routes';
-import auditRoutes from './modules/audit/audit.routes';
+import authRoutes          from './modules/auth/auth.routes';
+import userRoutes          from './modules/users/users.routes';
+import roleRoutes          from './modules/roles/roles.routes';
+import auditRoutes         from './modules/audit/audit.routes';
+import scheduleRoutes      from './modules/schedules/schedules.routes';
+import ticketRoutes        from './modules/tickets/tickets.routes';
+import notificationRoutes  from './modules/notifications/notifications.routes';
+import lookupRoutes        from './modules/lookup/lookup.routes';
+import orgRoutes           from './modules/org/org.routes';
 
 const app = express();
 
@@ -56,16 +61,26 @@ app.get('/health', async (_req, res) => {
 });
 
 // ─── Rate limiting on every API call ───────────────────────
-app.use('/auth',        apiLimiter);
-app.use('/users',       apiLimiter);
-app.use('/roles',       apiLimiter);
-app.use('/audit-logs',  apiLimiter);
+app.use('/auth',           apiLimiter);
+app.use('/users',          apiLimiter);
+app.use('/roles',          apiLimiter);
+app.use('/audit-logs',     apiLimiter);
+app.use('/schedules',      apiLimiter);
+app.use('/tickets',        apiLimiter);
+app.use('/notifications',  apiLimiter);
+app.use('/lookup',         apiLimiter);
+app.use('/org',            apiLimiter);
 
 // ─── Routes ────────────────────────────────────────────────
-app.use('/auth',        authRoutes);
-app.use('/users',       userRoutes);
-app.use('/roles',       roleRoutes);
-app.use('/audit-logs',  auditRoutes);
+app.use('/auth',           authRoutes);
+app.use('/users',          userRoutes);
+app.use('/roles',          roleRoutes);
+app.use('/audit-logs',     auditRoutes);
+app.use('/schedules',      scheduleRoutes);
+app.use('/tickets',        ticketRoutes);
+app.use('/notifications',  notificationRoutes);
+app.use('/lookup',         lookupRoutes);
+app.use('/org',            orgRoutes);
 
 // ─── 404 + error handler ───────────────────────────────────
 app.use(notFound);
