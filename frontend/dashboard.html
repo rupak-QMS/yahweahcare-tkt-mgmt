@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard - Yahweh Care</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.svg" />
+    <meta name="theme-color" content="#6366F1" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        :root {
+            --brand-from: #6366F1;
+            --brand-mid: #8B5CF6;
+            --brand-to: #06B6D4;
+            --brand-accent: #0EA5E9;
+            --brand-teal: #14B8A6;
+            --bg: #F4F7FB;
+            --bg-secondary: #FFFFFF;
+            --border: rgba(15,23,42,0.06);
+            --border-card: rgba(15,23,42,0.08);
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // Navigation Component
+        function Navigation({ currentPage, setCurrentPage }) {
+            const pages = [
+                { id: 'dashboard', label: 'Dashboard', icon: '📊' },
+                { id: 'create-ticket', label: 'Create Ticket', icon: '➕' },
+                { id: 'tickets', label: 'Tickets', icon: '📋' },
+                { id: 'calendar', label: 'Calendar', icon: '📅' },
+                { id: 'ticket-logs', label: 'Ticket Logs', icon: '📝' },
+                { id: 'analytics', label: 'Analytics', icon: '📈' },
+                { id: 'org-chart', label: 'Org Chart', icon: '🏢' },
+                { id: 'staff-performance', label: 'Staff Performance', icon: '⭐' },
+                { id: 'team-comparison', label: 'Team Comparison', icon: '🔄' },
+                { id: 'staff-management', label: 'Staff Management', icon: '👥' },
+                { id: 'scheduled-reports', label: 'Scheduled Reports', icon: '📧' },
+            ];
+
+            return (
+                <aside className="w-64 bg-white border-r border-gray-200 p-4 min-h-screen overflow-y-auto">
+                    <div className="mb-8">
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center font-bold text-indigo-600">
+                                Y
+                            </div>
+                            <div>
+                                <h1 className="font-bold text-gray-900">YAHWEH CARE</h1>
+                                <p className="text-xs text-gray-500">TICKET MANAGEMENT</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <nav className="space-y-1">
+                        {pages.map((page) => (
+                            <button
+                                key={page.id}
+                                onClick={() => setCurrentPage(page.id)}
+                                className={`w-full text-left px-4 py-3 rounded-lg transition flex items-center gap-3 ${
+                                    currentPage === page.id
+                                        ? 'bg-indigo-600 text-white'
+                                        : 'text-gray-700 hover:bg-gray-100'
+                                }`}
+                            >
+                                <span>{page.icon}</span>
+                                <span className="font-medium">{page.label}</span>
+                            </button>
+                        ))}
+                    </nav>
+
+                    <div className="mt-8 pt-8 border-t border-gray-200">
+                        <div className="flex items-center gap-3 p-4 rounded-lg bg-orange-50">
+                            <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center text-white font-bold">
+                                RC
+                            </div>
+                            <div className="text-sm">
+                                <p className="font-semibold text-gray-900">Ron COSTA</p>
+                                <p className="text-xs text-gray-600">IT</p>
+                            </div>
+                        </div>
+                    </div>
+                </aside>
+            );
+        }
+
+        // Dashboard Page
+        function DashboardPage() {
+            return (
+                <div className="p-8">
+                    <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+                    <p className="text-gray-600 mt-2">Welcome back! Here's an overview of your tickets.</p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8">
+                        <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                            <p className="text-gray-600 text-sm font-medium">Total Tickets</p>
+                            <p className="text-3xl font-bold text-gray-900 mt-2">245</p>
+                        </div>
+                        <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                            <p className="text-gray-600 text-sm font-medium">Open Tickets</p>
+                            <p className="text-3xl font-bold text-orange-600 mt-2">48</p>
+                        </div>
+                        <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                            <p className="text-gray-600 text-sm font-medium">Closed Tickets</p>
+                            <p className="text-3xl font-bold text-green-600 mt-2">156</p>
+                        </div>
+                        <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                            <p className="text-gray-600 text-sm font-medium">Pending Tickets</p>
+                            <p className="text-3xl font-bold text-yellow-600 mt-2">41</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Create Ticket Page
+        function CreateTicketPage() {
+            return (
+                <div className="p-8">
+                    <h1 className="text-3xl font-bold text-gray-900">Create New Ticket</h1>
+                    <p className="text-gray-600 mt-2">Submit a new support request</p>
+
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 mt-8 max-w-2xl">
+                        <form className="space-y-6">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-900 mb-2">Title Type *</label>
+                                    <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                        <option>Service Request</option>
+                                        <option>Bug Report</option>
+                                        <option>Feature Request</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-900 mb-2">Subtitle *</label>
+                                    <input type="text" placeholder="Brief description" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-900 mb-2">Category *</label>
+                                    <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                        <option>Client Issue</option>
+                                        <option>System Issue</option>
+                                        <option>Other</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-900 mb-2">Priority *</label>
+                                    <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                        <option>Low</option>
+                                        <option>Medium</option>
+                                        <option>High</option>
+                                        <option>Critical</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-900 mb-2">Issue Details *</label>
+                                <textarea placeholder="Describe the issue in detail..." rows="6" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-900 mb-2">Submitted By *</label>
+                                    <input type="text" value="Ron Costa" disabled className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-900 mb-2">Email *</label>
+                                    <input type="email" value="it@yahweahcare.com.au" disabled className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50" />
+                                </div>
+                            </div>
+
+                            <button type="submit" className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition font-medium">
+                                Submit Ticket
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            );
+        }
+
+        // Tickets List Page
+        function TicketsPage() {
+            return (
+                <div className="p-8">
+                    <h1 className="text-3xl font-bold text-gray-900">Tickets</h1>
+                    <p className="text-gray-600 mt-2">Manage and track all support tickets.</p>
+
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 mt-8 overflow-hidden">
+                        <table className="w-full">
+                            <thead className="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">ID</th>
+                                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Title</th>
+                                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Status</th>
+                                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Priority</th>
+                                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Assignee</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr className="border-b border-gray-100 hover:bg-gray-50">
+                                    <td className="px-6 py-4 text-sm font-mono text-gray-600">#001</td>
+                                    <td className="px-6 py-4 text-sm text-gray-900">Login Issue</td>
+                                    <td className="px-6 py-4 text-sm"><span className="bg-red-50 text-red-600 px-3 py-1 rounded-full text-xs font-semibold">Open</span></td>
+                                    <td className="px-6 py-4 text-sm"><span className="bg-red-50 text-red-600 px-3 py-1 rounded-full text-xs font-semibold">HIGH</span></td>
+                                    <td className="px-6 py-4 text-sm text-gray-600">John Doe</td>
+                                </tr>
+                                <tr className="border-b border-gray-100 hover:bg-gray-50">
+                                    <td className="px-6 py-4 text-sm font-mono text-gray-600">#002</td>
+                                    <td className="px-6 py-4 text-sm text-gray-900">Dashboard Bug</td>
+                                    <td className="px-6 py-4 text-sm"><span className="bg-yellow-50 text-yellow-600 px-3 py-1 rounded-full text-xs font-semibold">In Progress</span></td>
+                                    <td className="px-6 py-4 text-sm"><span className="bg-yellow-50 text-yellow-600 px-3 py-1 rounded-full text-xs font-semibold">MEDIUM</span></td>
+                                    <td className="px-6 py-4 text-sm text-gray-600">Jane Smith</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        }
+
+        // Placeholder Page Component
+        function PlaceholderPage({ title, description }) {
+            return (
+                <div className="p-8">
+                    <h1 className="text-3xl font-bold text-gray-900">{title}</h1>
+                    <p className="text-gray-600 mt-2">{description}</p>
+
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 mt-8 text-center">
+                        <p className="text-gray-500 text-lg">Content coming soon...</p>
+                    </div>
+                </div>
+            );
+        }
+
+        // Main App Component
+        function App() {
+            const [currentPage, setCurrentPage] = React.useState('dashboard');
+
+            const renderPage = () => {
+                switch(currentPage) {
+                    case 'dashboard':
+                        return <DashboardPage />;
+                    case 'create-ticket':
+                        return <CreateTicketPage />;
+                    case 'tickets':
+                        return <TicketsPage />;
+                    case 'calendar':
+                        return <PlaceholderPage title="Calendar" description="View and manage ticket schedules and deadlines." />;
+                    case 'ticket-logs':
+                        return <PlaceholderPage title="Ticket Logs" description="View audit trail and activity history for all tickets." />;
+                    case 'analytics':
+                        return <PlaceholderPage title="Analytics" description="Track ticket metrics and team performance." />;
+                    case 'org-chart':
+                        return <PlaceholderPage title="Organizational Chart" description="View company hierarchy and team structure." />;
+                    case 'staff-performance':
+                        return <PlaceholderPage title="Staff Performance" description="Monitor team member performance metrics and KPIs." />;
+                    case 'team-comparison':
+                        return <PlaceholderPage title="Team Comparison" description="Compare performance metrics across teams." />;
+                    case 'staff-management':
+                        return <PlaceholderPage title="Staff Management" description="Manage team members and staff information." />;
+                    case 'scheduled-reports':
+                        return <PlaceholderPage title="Scheduled Reports" description="Create and manage automated report schedules." />;
+                    default:
+                        return <DashboardPage />;
+                }
+            };
+
+            return (
+                <div className="flex h-screen bg-gray-50">
+                    <Navigation currentPage={currentPage} setCurrentPage={setCurrentPage} />
+                    <main className="flex-1 overflow-auto">
+                        {renderPage()}
+                    </main>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
