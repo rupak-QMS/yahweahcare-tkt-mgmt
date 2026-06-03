@@ -14,10 +14,19 @@
     "test": "jest"
   },
   "dependencies": {
-    "@azure/msal-node": "^2.13.1",
+    "@azure/msal-node": "^5.2.2",
     "@microsoft/microsoft-graph-client": "^3.0.7",
     "@neondatabase/serverless": "^0.10.4",
-    "@vercel/node": "^3.2.24",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cookie-parser": "^1.4.7",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/morgan": "^1.9.9",
+    "@types/node": "^22.7.4",
+    "@types/pg": "^8.11.10",
+    "@types/uuid": "^10.0.0",
+    "@vercel/node": "^4.0.0",
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -31,18 +40,9 @@
     "pg": "^8.13.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.6.2",
-    "uuid": "^10.0.0",
+    "uuid": "^14.0.0",
     "ws": "^8.18.0",
-    "zod": "^3.23.8",
-    "@types/bcryptjs": "^2.4.6",
-    "@types/cookie-parser": "^1.4.7",
-    "@types/cors": "^2.8.17",
-    "@types/express": "^4.17.21",
-    "@types/jsonwebtoken": "^9.0.6",
-    "@types/morgan": "^1.9.9",
-    "@types/node": "^22.7.4",
-    "@types/pg": "^8.11.10",
-    "@types/uuid": "^10.0.0"
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "ts-node-dev": "^2.0.0"
