@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard - Yahweh Care</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        :root {
+            --brand-from: #6366F1;
+            --brand-mid: #8B5CF6;
+            --brand-to: #06B6D4;
+            --brand-accent: #0EA5E9;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; }
+        .stat-card { transition: all 0.3s ease; }
+        .stat-card:hover { transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0,0,0,0.1); }
+        .chart-container { position: relative; height: 300px; margin-top: 20px; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // Navigation Component
+        function Navigation({ currentPage, setCurrentPage }) {
+            const pages = [
+                { id: 'dashboard', label: 'Dashboard', icon: '📊' },
+                { id: 'create-ticket', label: 'Create Ticket', icon: '➕' },
+                { id: 'tickets', label: 'Tickets', icon: '📋' },
+                { id: 'calendar', label: 'Calendar', icon: '📅' },
+                { id: 'ticket-logs', label: 'Ticket Logs', icon: '📝' },
+                { id: 'analytics', label: 'Analytics', icon: '📈' },
+                { id: 'org-chart', label: 'Org Chart', icon: '🏢' },
+                { id: 'staff-performance', label: 'Staff Performance', icon: '⭐' },
+                { id: 'team-comparison', label: 'Team Comparison', icon: '🔄' },
+                { id: 'staff-management', label: 'Staff Management', icon: '👥' },
+                { id: 'scheduled-reports', label: 'Scheduled Reports', icon: '📧' },
+            ];
+
+            return (
+                <aside className="w-64 bg-white border-r border-gray-200 p-4 min-h-screen overflow-y-auto">
+                    <div className="mb-8">
+                        <h1 className="font-bold text-gray-900 text-lg">YAHWEH<br/><span className="text-sm text-gray-500">CARE</span></h1>
+                    </div>
+
+                    <nav className="space-y-1">
+                        {pages.map((page) => (
+                            <button
+                                key={page.id}
+                                onClick={() => setCurrentPage(page.id)}
+                                className={`w-full text-left px-4 py-3 rounded-lg transition flex items-center gap-3 ${
+                                    currentPage === page.id
+                                        ? 'bg-indigo-600 text-white'
+                                        : 'text-gray-700 hover:bg-gray-100'
+                                }`}
+                            >
+                                <span>{page.icon}</span>
+                                <span className="font-medium text-sm">{page.label}</span>
+                            </button>
+                        ))}
+                    </nav>
+
+                    <div className="mt-8 pt-8 border-t border-gray-200">
+                        <div className="flex items-center gap-3 p-4 rounded-lg bg-orange-50">
+                            <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                                RC
+                            </div>
+                            <div className="text-sm">
+                                <p className="font-semibold text-gray-900">Ron Costa</p>
+                                <p className="text-xs text-gray-600">IT</p>
+                            </div>
+                        </div>
+                    </div>
+                </aside>
+            );
+        }
+
+        // Enhanced Dashboard
+        function EnhancedDashboard() {
+            const [statusChart, setStatusChart] = React.useState(null);
+            const [categoryChart, setCategoryChart] = React.useState(null);
+
+            React.useEffect(() => {
+                // Status Distribution Chart
+                const statusCtx = document.getElementById('statusChart');
+                if (statusCtx && !statusChart) {
+                    const chart = new Chart(statusCtx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Open', 'In Progress', 'Escalated', 'Resolved', 'Closed'],
+                            datasets: [{
+                                data: [13, 8, 3, 5, 1],
+                                backgroundColor: ['#0EA5E9', '#10B981', '#F59E0B', '#8B5CF6', '#EF4444'],
+                                borderColor: '#fff',
+                                borderWidth: 2
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            plugins: { legend: { position: 'bottom' } }
+                        }
+                    });
+                    setStatusChart(chart);
+                }
+
+                // Category Breakdown Chart
+                const categoryCtx = document.getElementById('categoryChart');
+                if (categoryCtx && !categoryChart) {
+                    const chart = new Chart(categoryCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: ['Client', 'Account', 'Service', 'System', 'Other', 'Support', 'Equipment', 'Compliance', 'Other'],
+                            datasets: [{
+                                label: 'Tickets',
+                                data: [12, 10, 9, 8, 7, 6, 5, 4, 3],
+                                backgroundColor: '#0EA5E9',
+                                borderRadius: 4
+                            }]
+                        },
+                        options: {
+                            indexAxis: 'y',
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            plugins: { legend: { display: false } }
+                        }
+                    });
+                    setCategoryChart(chart);
+                }
+            }, [statusChart, categoryChart]);
+
+            return (
+                <main className="flex-1 overflow-auto bg-gray-50">
+                    <div className="p-8">
+                        {/* Header */}
+                        <div className="mb-8">
+                            <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+                            <p className="text-gray-600 mt-2">Welcome to Yahweh Property Care Ticket Management</p>
+                        </div>
+
+                        {/* Stat Cards - 6 columns */}
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+                            <div className="stat-card bg-blue-50 rounded-lg p-6 border border-blue-200">
+                                <p className="text-gray-600 text-xs font-medium">Total Tickets</p>
+                                <p className="text-3xl font-bold text-gray-900 mt-2">30</p>
+                                <p className="text-blue-600 text-xs mt-2">📋</p>
+                            </div>
+                            <div className="stat-card bg-cyan-50 rounded-lg p-6 border border-cyan-200">
+                                <p className="text-gray-600 text-xs font-medium">Open Tickets</p>
+                                <p className="text-3xl font-bold text-cyan-600 mt-2">13</p>
+                                <p className="text-cyan-600 text-xs mt-2">⏱️</p>
+                            </div>
+                            <div className="stat-card bg-green-50 rounded-lg p-6 border border-green-200">
+                                <p className="text-gray-600 text-xs font-medium">In Progress</p>
+                                <p className="text-3xl font-bold text-green-600 mt-2">8</p>
+                                <p className="text-green-600 text-xs mt-2">⚙️</p>
+                            </div>
+                            <div className="stat-card bg-emerald-50 rounded-lg p-6 border border-emerald-200">
+                                <p className="text-gray-600 text-xs font-medium">Resolved</p>
+                                <p className="text-3xl font-bold text-emerald-600 mt-2">5</p>
+                                <p className="text-emerald-600 text-xs mt-2">✓</p>
+                            </div>
+                            <div className="stat-card bg-orange-50 rounded-lg p-6 border border-orange-200">
+                                <p className="text-gray-600 text-xs font-medium">Escalated</p>
+                                <p className="text-3xl font-bold text-orange-600 mt-2">3</p>
+                                <p className="text-orange-600 text-xs mt-2">⚠️</p>
+                            </div>
+                            <div className="stat-card bg-red-50 rounded-lg p-6 border border-red-200">
+                                <p className="text-gray-600 text-xs font-medium">Urgent</p>
+                                <p className="text-3xl font-bold text-red-600 mt-2">6</p>
+                                <p className="text-red-600 text-xs mt-2">🔴</p>
+                            </div>
+                        </div>
+
+                        {/* Charts Row 1 */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                            {/* Status Distribution */}
+                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className="text-lg font-bold text-gray-900">📊 Status Distribution</h2>
+                                    <p className="text-xs text-gray-500">Tickets by current status</p>
+                                </div>
+                                <div className="chart-container">
+                                    <canvas id="statusChart"></canvas>
+                                </div>
+                            </div>
+
+                            {/* Category Breakdown */}
+                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className="text-lg font-bold text-gray-900">📑 Category Breakdown</h2>
+                                    <p className="text-xs text-gray-500">Tickets by issue category</p>
+                                </div>
+                                <div className="chart-container">
+                                    <canvas id="categoryChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Charts Row 2 */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            {/* SLA Compliance */}
+                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className="text-lg font-bold text-gray-900">⏱️ SLA Compliance</h2>
+                                    <p className="text-xs text-gray-500">On-time resolution rate</p>
+                                </div>
+                                <div className="flex flex-col items-center justify-center py-8">
+                                    <div className="relative w-32 h-32">
+                                        <svg className="transform -rotate-90 w-32 h-32" viewBox="0 0 120 120">
+                                            <circle cx="60" cy="60" r="54" stroke="#e5e7eb" strokeWidth="8" fill="none"/>
+                                            <circle cx="60" cy="60" r="54" stroke="#10b981" strokeWidth="8" fill="none"
+                                                strokeDasharray={`${54 * 2 * 3.14159 * 0.23} ${54 * 2 * 3.14159}`}/>
+                                        </svg>
+                                        <div className="absolute inset-0 flex items-center justify-center">
+                                            <div className="text-center">
+                                                <p className="text-3xl font-bold text-gray-900">23%</p>
+                                                <p className="text-xs text-gray-600">Compliance</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <p className="text-center text-xs text-gray-500 mt-4">10 Active Staff Members</p>
+                            </div>
+
+                            {/* Recent Activity */}
+                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className="text-lg font-bold text-gray-900">📌 Recent Activity</h2>
+                                    <p className="text-xs text-gray-500">Latest ticket actions · Updates every 5s</p>
+                                </div>
+                                <div className="space-y-4">
+                                    <div className="flex items-start gap-3 pb-4 border-b border-gray-200">
+                                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-xs font-bold text-blue-600">AK</div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium text-gray-900">Created <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded">Waiting</span></p>
+                                            <p className="text-xs text-gray-500">SDP creation v2022 22 May 2026, 06:15 am</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-start gap-3 pb-4 border-b border-gray-200">
+                                        <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-xs font-bold text-green-600">YA</div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium text-gray-900">Created <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded">Waiting</span></p>
+                                            <p className="text-xs text-gray-500">test u2022 18 May 2026, 10:49 am</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-start gap-3">
+                                        <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-xs font-bold text-orange-600">BO</div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium text-gray-900">Created <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded">Waiting</span></p>
+                                            <p className="text-xs text-gray-500">fahrung u2022 14 May 2026, 10:47 am</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            );
+        }
+
+        // Main App
+        function App() {
+            const [currentPage, setCurrentPage] = React.useState('dashboard');
+
+            return (
+                <div className="flex h-screen bg-gray-50">
+                    <Navigation currentPage={currentPage} setCurrentPage={setCurrentPage} />
+                    {currentPage === 'dashboard' && <EnhancedDashboard />}
+                </div>
+            );
+        }
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>

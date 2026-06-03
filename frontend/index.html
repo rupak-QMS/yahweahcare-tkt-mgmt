@@ -3,11 +3,9 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Dashboard - Yahweh Care</title>
-    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-    <link rel="apple-touch-icon" href="apple-touch-icon.svg" />
-    <meta name="theme-color" content="#6366F1" />
+    <title>Yahweh Care - Ticket Management System</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -16,20 +14,77 @@
             --brand-from: #6366F1;
             --brand-mid: #8B5CF6;
             --brand-to: #06B6D4;
-            --brand-accent: #0EA5E9;
-            --brand-teal: #14B8A6;
-            --bg: #F4F7FB;
-            --bg-secondary: #FFFFFF;
-            --border: rgba(15,23,42,0.06);
-            --border-card: rgba(15,23,42,0.08);
         }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+        .stat-card { transition: all 0.3s ease; }
+        .stat-card:hover { transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0,0,0,0.1); }
+        .chart-container { position: relative; height: 300px; }
+        .badge { display: inline-block; padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; }
+        .badge-open { background-color: #DBEAFE; color: #0369A1; }
+        .badge-in-progress { background-color: #DCFCE7; color: #15803D; }
+        .badge-resolved { background-color: #D1FAE5; color: #065F46; }
+        .badge-closed { background-color: #F3E8FF; color: #6B21A8; }
+        .badge-urgent { background-color: #FEE2E2; color: #991B1B; }
+        .badge-high { background-color: #FECACA; color: #7C2D12; }
+        .badge-medium { background-color: #FCD34D; color: #78350F; }
+        .badge-low { background-color: #DBEAFE; color: #0C4A6E; }
+        .table-row:hover { background-color: #F9FAFB; }
+        input[type="text"], input[type="email"], input[type="date"], select, textarea {
+            padding: 10px 12px;
+            border: 1px solid #E5E7EB;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        input[type="text"]:focus, input[type="email"]:focus, input[type="date"]:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #6366F1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+        .calendar-day { padding: 8px; border: 1px solid #E5E7EB; text-align: center; cursor: pointer; }
+        .calendar-day:hover { background-color: #F9FAFB; }
+        .calendar-day.today { background-color: #DBEAFE; border-color: #0369A1; }
+        .calendar-day.event { background-color: #BFDBFE; }
     </style>
 </head>
 <body class="bg-gray-50">
     <div id="root"></div>
 
     <script type="text/babel">
+        // Sample Data
+        const TICKETS_DATA = [
+            { id: 'YPC-TKT-2026-6846', title: 'SOP creation', category: 'Other', priority: 'Medium', status: 'Open', assigned: 'Suganty P', date: '22 May 2026' },
+            { id: 'YPC-TKT-2024-813', title: 'Monthly quality audit preparation', category: 'Cleaning Quality', priority: 'Low', status: 'Resolved', assigned: 'Unassigned', date: '22 Apr 2024' },
+            { id: 'YPC-TKT-2024-888', title: 'Equipment Request - Vacuum cleaner malfunction at client site', category: 'Equipment Issue', priority: 'High', status: 'Resolved', assigned: 'Unassigned', date: '19 Apr 2024' },
+            { id: 'YPC-TKT-2024-893', title: 'Complaint - Request for additional deep cleaning service', category: 'Client Issue', priority: 'Low', status: 'Closed', assigned: 'Unassigned', date: '16 Apr 2024' },
+            { id: 'YPC-TKT-2024-889', title: 'Complaint - New NDIS participant onboarding request', category: 'NDIS Compliance', priority: 'Medium', status: 'Open', assigned: 'Unassigned', date: '19 Apr 2024' },
+            { id: 'YPC-TKT-2024-887', title: 'Safety Report - NDIS documentation not completed for participant home', category: 'NDIS Compliance', priority: 'Urgent', status: 'In Progress', assigned: 'Unassigned', date: '18 Apr 2024' },
+            { id: 'YPC-TKT-2024-822', title: 'Staff overtime request review', category: 'HR Issue', priority: 'Urgent', status: 'Open', assigned: 'Alex', date: '28 Apr 2024' },
+            { id: 'YPC-TKT-2026-6846', title: 'Budget approval for new equipment', category: 'Account Issue', priority: 'High', status: 'Open', assigned: 'Alex', date: '22 May 2026' },
+        ];
+
+        const STAFF_DATA = [
+            { name: 'Alex', role: 'Management', resolved: 1, assigned: 9, sla: 45, avatar: 'A' },
+            { name: 'Elenor Elia', role: 'Operations', resolved: 8, assigned: 7, sla: 92, avatar: 'E' },
+            { name: 'Oswald James Baskaran', role: 'Operations', resolved: 0, assigned: 0, sla: 100, avatar: 'O' },
+            { name: 'Suganty P', role: 'Support', resolved: 5, assigned: 4, sla: 88, avatar: 'S' },
+            { name: 'Venalah', role: 'Support', resolved: 3, assigned: 6, sla: 75, avatar: 'V' },
+            { name: 'Sofia', role: 'Management', resolved: 7, assigned: 10, sla: 85, avatar: 'S' },
+        ];
+
+        const TEAMS_DATA = [
+            { name: 'Management', staff: 2, resolved: 1, sla: 36 },
+            { name: 'Operations', staff: 4, resolved: 8, sla: 92 },
+            { name: 'Cleaning', staff: 2, resolved: 10, sla: 78 },
+        ];
+
+        const ACTIVITY_LOG = [
+            { timestamp: '22 May 2026, 06:15 am', ticket: 'YPC-TKT-2026-6846', action: 'Created', priority: 'Medium', description: 'SOP creation', user: 'Askia Narayakkara' },
+            { timestamp: '18 May 2026, 10:49 am', ticket: 'YPC-TKT-2026-4866', action: 'Created', priority: 'Medium', description: 'Test ticket', user: 'Yahweh gms' },
+            { timestamp: '14 May 2026, 10:47 am', ticket: 'YPC-TKT-2026-9881', action: 'Created', priority: 'Medium', description: 'Testing', user: 'Ron Costa' },
+            { timestamp: '14 May 2026, 10:46 am', ticket: 'YPC-TKT-2026-3385', action: 'Created', priority: 'Urgent', description: 'Test ticket', user: 'Yahweh gms' },
+            { timestamp: '13 May 2026, 06:41 pm', ticket: 'YPC-TKT-2026-3359', action: 'Created', priority: 'Urgent', description: 'Test ticket', user: 'Ron Costa' },
+        ];
+
         // Navigation Component
         function Navigation({ currentPage, setCurrentPage }) {
             const pages = [
@@ -49,17 +104,8 @@
             return (
                 <aside className="w-64 bg-white border-r border-gray-200 p-4 min-h-screen overflow-y-auto">
                     <div className="mb-8">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center font-bold text-indigo-600">
-                                Y
-                            </div>
-                            <div>
-                                <h1 className="font-bold text-gray-900">YAHWEH CARE</h1>
-                                <p className="text-xs text-gray-500">TICKET MANAGEMENT</p>
-                            </div>
-                        </div>
+                        <h1 className="font-bold text-gray-900 text-lg">YAHWEH<br/><span className="text-sm text-gray-500">CARE</span></h1>
                     </div>
-
                     <nav className="space-y-1">
                         {pages.map((page) => (
                             <button
@@ -72,18 +118,15 @@
                                 }`}
                             >
                                 <span>{page.icon}</span>
-                                <span className="font-medium">{page.label}</span>
+                                <span className="font-medium text-sm">{page.label}</span>
                             </button>
                         ))}
                     </nav>
-
                     <div className="mt-8 pt-8 border-t border-gray-200">
                         <div className="flex items-center gap-3 p-4 rounded-lg bg-orange-50">
-                            <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center text-white font-bold">
-                                RC
-                            </div>
+                            <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center text-white font-bold text-sm">RC</div>
                             <div className="text-sm">
-                                <p className="font-semibold text-gray-900">Ron COSTA</p>
+                                <p className="font-semibold text-gray-900">Ron Costa</p>
                                 <p className="text-xs text-gray-600">IT</p>
                             </div>
                         </div>
@@ -93,47 +136,138 @@
         }
 
         // Dashboard Page
-        function DashboardPage() {
-            return (
-                <div className="p-8">
-                    <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-                    <p className="text-gray-600 mt-2">Welcome back! Here's an overview of your tickets.</p>
+        function Dashboard() {
+            const [statusChart, setStatusChart] = React.useState(null);
+            const [categoryChart, setCategoryChart] = React.useState(null);
 
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8">
-                        <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-                            <p className="text-gray-600 text-sm font-medium">Total Tickets</p>
-                            <p className="text-3xl font-bold text-gray-900 mt-2">245</p>
+            React.useEffect(() => {
+                const statusCtx = document.getElementById('statusChart');
+                if (statusCtx && !statusChart) {
+                    const chart = new Chart(statusCtx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Open', 'In Progress', 'Escalated', 'Resolved', 'Closed'],
+                            datasets: [{
+                                data: [13, 8, 3, 5, 1],
+                                backgroundColor: ['#0EA5E9', '#10B981', '#F59E0B', '#8B5CF6', '#EF4444'],
+                                borderColor: '#fff',
+                                borderWidth: 2
+                            }]
+                        },
+                        options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom' } } }
+                    });
+                    setStatusChart(chart);
+                }
+
+                const categoryCtx = document.getElementById('categoryChart');
+                if (categoryCtx && !categoryChart) {
+                    const chart = new Chart(categoryCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: ['Client', 'Account', 'Service', 'System', 'Other', 'Support', 'Equipment', 'Compliance', 'Other'],
+                            datasets: [{
+                                label: 'Tickets',
+                                data: [12, 10, 9, 8, 7, 6, 5, 4, 3],
+                                backgroundColor: '#0EA5E9',
+                                borderRadius: 4
+                            }]
+                        },
+                        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } } }
+                    });
+                    setCategoryChart(chart);
+                }
+            }, [statusChart, categoryChart]);
+
+            return (
+                <main className="flex-1 overflow-auto bg-gray-50">
+                    <div className="p-8">
+                        <div className="mb-8">
+                            <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+                            <p className="text-gray-600 mt-2">Welcome to Yahweh Property Care Ticket Management</p>
                         </div>
-                        <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-                            <p className="text-gray-600 text-sm font-medium">Open Tickets</p>
-                            <p className="text-3xl font-bold text-orange-600 mt-2">48</p>
+
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+                            {[
+                                { label: 'Total Tickets', value: '30', bg: 'bg-blue-50', border: 'border-blue-200', color: 'text-gray-900', icon: '📋' },
+                                { label: 'Open Tickets', value: '13', bg: 'bg-cyan-50', border: 'border-cyan-200', color: 'text-cyan-600', icon: '⏱️' },
+                                { label: 'In Progress', value: '8', bg: 'bg-green-50', border: 'border-green-200', color: 'text-green-600', icon: '⚙️' },
+                                { label: 'Resolved', value: '5', bg: 'bg-emerald-50', border: 'border-emerald-200', color: 'text-emerald-600', icon: '✓' },
+                                { label: 'Escalated', value: '3', bg: 'bg-orange-50', border: 'border-orange-200', color: 'text-orange-600', icon: '⚠️' },
+                                { label: 'Urgent', value: '6', bg: 'bg-red-50', border: 'border-red-200', color: 'text-red-600', icon: '🔴' },
+                            ].map((card, i) => (
+                                <div key={i} className={`stat-card ${card.bg} rounded-lg p-6 border ${card.border}`}>
+                                    <p className="text-gray-600 text-xs font-medium">{card.label}</p>
+                                    <p className={`text-3xl font-bold mt-2 ${card.color}`}>{card.value}</p>
+                                    <p className="text-xs mt-2">{card.icon}</p>
+                                </div>
+                            ))}
                         </div>
-                        <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-                            <p className="text-gray-600 text-sm font-medium">Closed Tickets</p>
-                            <p className="text-3xl font-bold text-green-600 mt-2">156</p>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                                <h2 className="text-lg font-bold text-gray-900 mb-4">📊 Status Distribution</h2>
+                                <div className="chart-container"><canvas id="statusChart"></canvas></div>
+                            </div>
+                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                                <h2 className="text-lg font-bold text-gray-900 mb-4">📑 Category Breakdown</h2>
+                                <div className="chart-container"><canvas id="categoryChart"></canvas></div>
+                            </div>
                         </div>
-                        <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-                            <p className="text-gray-600 text-sm font-medium">Pending Tickets</p>
-                            <p className="text-3xl font-bold text-yellow-600 mt-2">41</p>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                                <h2 className="text-lg font-bold text-gray-900 mb-4">⏱️ SLA Compliance</h2>
+                                <div className="flex flex-col items-center justify-center py-8">
+                                    <svg className="transform -rotate-90 w-32 h-32" viewBox="0 0 120 120">
+                                        <circle cx="60" cy="60" r="54" stroke="#e5e7eb" strokeWidth="8" fill="none"/>
+                                        <circle cx="60" cy="60" r="54" stroke="#10b981" strokeWidth="8" fill="none"
+                                            strokeDasharray={`${54 * 2 * 3.14159 * 0.23} ${54 * 2 * 3.14159}`}/>
+                                    </svg>
+                                    <div className="absolute flex flex-col items-center">
+                                        <p className="text-3xl font-bold text-gray-900">23%</p>
+                                        <p className="text-xs text-gray-600">Compliance</p>
+                                    </div>
+                                </div>
+                                <p className="text-center text-xs text-gray-500 mt-4">10 Active Staff Members</p>
+                            </div>
+
+                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                                <h2 className="text-lg font-bold text-gray-900 mb-4">📌 Recent Activity</h2>
+                                <div className="space-y-4">
+                                    {ACTIVITY_LOG.slice(0, 3).map((log, i) => (
+                                        <div key={i} className="flex items-start gap-3 pb-4 border-b border-gray-200 last:border-0">
+                                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-xs font-bold text-blue-600">
+                                                {log.user.substring(0, 2).toUpperCase()}
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="text-sm font-medium text-gray-900">
+                                                    {log.action} <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded">Waiting</span>
+                                                </p>
+                                                <p className="text-xs text-gray-500">{log.description} • {log.timestamp}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
+                </main>
             );
         }
 
         // Create Ticket Page
-        function CreateTicketPage() {
+        function CreateTicket() {
             return (
-                <div className="p-8">
-                    <h1 className="text-3xl font-bold text-gray-900">Create New Ticket</h1>
-                    <p className="text-gray-600 mt-2">Submit a new support request</p>
+                <main className="flex-1 overflow-auto bg-gray-50">
+                    <div className="p-8">
+                        <h1 className="text-3xl font-bold text-gray-900 mb-2">Create New Ticket</h1>
+                        <p className="text-gray-600 mb-8">Submit a new support request</p>
 
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 mt-8 max-w-2xl">
-                        <form className="space-y-6">
-                            <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+                            <div className="grid grid-cols-2 gap-6 mb-6">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-900 mb-2">Title Type *</label>
-                                    <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                    <select className="w-full">
                                         <option>Service Request</option>
                                         <option>Bug Report</option>
                                         <option>Feature Request</option>
@@ -141,148 +275,564 @@
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-900 mb-2">Subtitle *</label>
-                                    <input type="text" placeholder="Brief description" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                                    <input type="text" placeholder="Brief description" className="w-full"/>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-2 gap-6 mb-6">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-900 mb-2">Category *</label>
-                                    <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                    <select className="w-full">
                                         <option>Client Issue</option>
-                                        <option>System Issue</option>
-                                        <option>Other</option>
+                                        <option>Equipment Issue</option>
+                                        <option>HR Issue</option>
+                                        <option>Account Issue</option>
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-900 mb-2">Priority *</label>
-                                    <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                                        <option>Low</option>
-                                        <option>Medium</option>
-                                        <option>High</option>
-                                        <option>Critical</option>
-                                    </select>
+                                    <label className="block text-sm font-medium text-gray-900 mb-2">Subcategory</label>
+                                    <input type="text" placeholder="Optional subcategory" className="w-full"/>
                                 </div>
                             </div>
 
-                            <div>
+                            <div className="mb-6">
                                 <label className="block text-sm font-medium text-gray-900 mb-2">Issue Details *</label>
-                                <textarea placeholder="Describe the issue in detail..." rows="6" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                                <textarea placeholder="Describe the issue in detail..." className="w-full h-32"></textarea>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-900 mb-2">Submitted By *</label>
-                                    <input type="text" value="Ron Costa" disabled className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50" />
+                            <div className="border-t border-gray-200 pt-6 mt-6">
+                                <h3 className="text-lg font-bold text-gray-900 mb-6">Reporter Information</h3>
+                                <div className="grid grid-cols-2 gap-6 mb-6">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-900 mb-2">Submitted By *</label>
+                                        <input type="text" value="Ron Costa" className="w-full bg-gray-100" disabled/>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-900 mb-2">Email *</label>
+                                        <input type="email" placeholder="IT@yahweahcare.com.au" className="w-full"/>
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-900 mb-2">Email *</label>
-                                    <input type="email" value="it@yahweahcare.com.au" disabled className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50" />
+                                <div className="mb-6">
+                                    <label className="flex items-center gap-2">
+                                        <input type="checkbox" />
+                                        <span className="text-sm text-gray-700">NDIS Related</span>
+                                    </label>
                                 </div>
                             </div>
 
-                            <button type="submit" className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition font-medium">
-                                Submit Ticket
-                            </button>
-                        </form>
+                            <div className="border-t border-gray-200 pt-6 mt-6">
+                                <h3 className="text-lg font-bold text-gray-900 mb-6">Classification</h3>
+                                <div className="grid grid-cols-2 gap-6 mb-6">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-900 mb-2">Priority *</label>
+                                        <select className="w-full">
+                                            <option>Medium</option>
+                                            <option>Low</option>
+                                            <option>High</option>
+                                            <option>Urgent</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-900 mb-2">Initial Status *</label>
+                                        <select className="w-full">
+                                            <option>Open</option>
+                                            <option>In Progress</option>
+                                            <option>On Hold</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-900 mb-2">Expected Completion</label>
+                                    <input type="date" className="w-full"/>
+                                </div>
+                            </div>
+
+                            <div className="border-t border-gray-200 pt-6 mt-6">
+                                <h3 className="text-lg font-bold text-gray-900 mb-6">Assignment</h3>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-900 mb-2">Assign To</label>
+                                    <select className="w-full">
+                                        <option>Unassigned</option>
+                                        {STAFF_DATA.map(s => <option key={s.name}>{s.name}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="mt-8">
+                                <button className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700">
+                                    ✈️ Create Ticket
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                </div>
+                </main>
             );
         }
 
-        // Tickets List Page
+        // Tickets Page
         function TicketsPage() {
-            return (
-                <div className="p-8">
-                    <h1 className="text-3xl font-bold text-gray-900">Tickets</h1>
-                    <p className="text-gray-600 mt-2">Manage and track all support tickets.</p>
+            const [filter, setFilter] = React.useState('all');
+            const [search, setSearch] = React.useState('');
 
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 mt-8 overflow-hidden">
-                        <table className="w-full">
-                            <thead className="bg-gray-50 border-b border-gray-200">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">ID</th>
-                                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Title</th>
-                                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Status</th>
-                                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Priority</th>
-                                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Assignee</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr className="border-b border-gray-100 hover:bg-gray-50">
-                                    <td className="px-6 py-4 text-sm font-mono text-gray-600">#001</td>
-                                    <td className="px-6 py-4 text-sm text-gray-900">Login Issue</td>
-                                    <td className="px-6 py-4 text-sm"><span className="bg-red-50 text-red-600 px-3 py-1 rounded-full text-xs font-semibold">Open</span></td>
-                                    <td className="px-6 py-4 text-sm"><span className="bg-red-50 text-red-600 px-3 py-1 rounded-full text-xs font-semibold">HIGH</span></td>
-                                    <td className="px-6 py-4 text-sm text-gray-600">John Doe</td>
-                                </tr>
-                                <tr className="border-b border-gray-100 hover:bg-gray-50">
-                                    <td className="px-6 py-4 text-sm font-mono text-gray-600">#002</td>
-                                    <td className="px-6 py-4 text-sm text-gray-900">Dashboard Bug</td>
-                                    <td className="px-6 py-4 text-sm"><span className="bg-yellow-50 text-yellow-600 px-3 py-1 rounded-full text-xs font-semibold">In Progress</span></td>
-                                    <td className="px-6 py-4 text-sm"><span className="bg-yellow-50 text-yellow-600 px-3 py-1 rounded-full text-xs font-semibold">MEDIUM</span></td>
-                                    <td className="px-6 py-4 text-sm text-gray-600">Jane Smith</td>
-                                </tr>
-                            </tbody>
-                        </table>
+            const filtered = TICKETS_DATA.filter(t => {
+                if (filter !== 'all' && t.status.toLowerCase() !== filter.toLowerCase()) return false;
+                if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
+                return true;
+            });
+
+            const getStatusBadge = (status) => {
+                const badges = {
+                    'Open': 'badge-open',
+                    'In Progress': 'badge-in-progress',
+                    'Resolved': 'badge-resolved',
+                    'Closed': 'badge-closed'
+                };
+                return badges[status] || 'badge-open';
+            };
+
+            const getPriorityBadge = (priority) => {
+                const badges = {
+                    'Urgent': 'badge-urgent',
+                    'High': 'badge-high',
+                    'Medium': 'badge-medium',
+                    'Low': 'badge-low'
+                };
+                return badges[priority] || 'badge-medium';
+            };
+
+            return (
+                <main className="flex-1 overflow-auto bg-gray-50">
+                    <div className="p-8">
+                        <div className="flex justify-between items-center mb-8">
+                            <div>
+                                <h1 className="text-3xl font-bold text-gray-900">Tickets</h1>
+                                <p className="text-gray-600">Manage and track all support tickets</p>
+                            </div>
+                            <button className="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-blue-700">
+                                ➕ Create Ticket
+                            </button>
+                        </div>
+
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+                            <div className="flex gap-4 mb-6">
+                                <input
+                                    type="text"
+                                    placeholder="Search tickets..."
+                                    className="flex-1"
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                />
+                            </div>
+
+                            <div className="flex gap-2 mb-6">
+                                {['all', 'Open', 'In Progress', 'Resolved', 'Closed'].map(s => (
+                                    <button
+                                        key={s}
+                                        onClick={() => setFilter(s)}
+                                        className={`px-4 py-2 rounded-lg font-medium ${
+                                            filter === s
+                                                ? 'bg-blue-600 text-white'
+                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                        }`}
+                                    >
+                                        {s === 'all' ? 'All Tickets' : s}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="border-b border-gray-200">
+                                            <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900">ID</th>
+                                            <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900">Title</th>
+                                            <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900">Category</th>
+                                            <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900">Priority</th>
+                                            <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900">Status</th>
+                                            <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900">Assigned To</th>
+                                            <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900">Date</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filtered.map(t => (
+                                            <tr key={t.id} className="table-row border-b border-gray-200">
+                                                <td className="py-3 px-4 text-sm text-blue-600 font-medium">{t.id}</td>
+                                                <td className="py-3 px-4 text-sm text-gray-900">{t.title}</td>
+                                                <td className="py-3 px-4 text-sm text-gray-600">{t.category}</td>
+                                                <td className="py-3 px-4"><span className={`badge ${getPriorityBadge(t.priority)}`}>{t.priority}</span></td>
+                                                <td className="py-3 px-4"><span className={`badge ${getStatusBadge(t.status)}`}>{t.status}</span></td>
+                                                <td className="py-3 px-4 text-sm text-gray-600">{t.assigned}</td>
+                                                <td className="py-3 px-4 text-sm text-gray-600">{t.date}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
-                </div>
+                </main>
             );
         }
 
-        // Placeholder Page Component
-        function PlaceholderPage({ title, description }) {
-            return (
-                <div className="p-8">
-                    <h1 className="text-3xl font-bold text-gray-900">{title}</h1>
-                    <p className="text-gray-600 mt-2">{description}</p>
+        // Calendar Page
+        function CalendarPage() {
+            const [currentDate] = React.useState(new Date(2026, 4)); // May 2026
 
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 mt-8 text-center">
-                        <p className="text-gray-500 text-lg">Content coming soon...</p>
+            const getDaysInMonth = (date) => new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+            const getFirstDay = (date) => new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+
+            const days = [];
+            for (let i = 0; i < getFirstDay(currentDate); i++) days.push(null);
+            for (let i = 1; i <= getDaysInMonth(currentDate); i++) days.push(i);
+
+            return (
+                <main className="flex-1 overflow-auto bg-gray-50">
+                    <div className="p-8">
+                        <h1 className="text-3xl font-bold text-gray-900 mb-2">Calendar View</h1>
+                        <p className="text-gray-600 mb-8">Track ticket timelines and deadlines</p>
+
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+                            <h2 className="text-2xl font-bold text-gray-900 mb-6">📅 June 2026</h2>
+
+                            <div className="grid grid-cols-7 gap-2 mb-4">
+                                {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(day => (
+                                    <div key={day} className="text-center font-semibold text-gray-700 py-2">{day}</div>
+                                ))}
+                            </div>
+
+                            <div className="grid grid-cols-7 gap-2">
+                                {days.map((day, i) => (
+                                    <div
+                                        key={i}
+                                        className={`calendar-day aspect-square flex items-center justify-center rounded ${
+                                            day === 3 ? 'today calendar-day' : ''
+                                        } ${day === 5 ? 'event' : ''}`}
+                                    >
+                                        {day && (
+                                            <div className="text-center">
+                                                <p className="font-semibold text-gray-900">{day}</p>
+                                                {day === 5 && <p className="text-xs text-blue-600">2B-9881</p>}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="mt-8 flex gap-4">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-3 h-3 bg-blue-300 rounded"></div>
+                                    <span className="text-sm">Normal Priority</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-3 h-3 bg-orange-400 rounded"></div>
+                                    <span className="text-sm">High Priority</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-3 h-3 bg-red-500 rounded"></div>
+                                    <span className="text-sm">Urgent Priority</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                </div>
+                </main>
             );
         }
 
-        // Main App Component
+        // Ticket Logs Page
+        function TicketLogsPage() {
+            return (
+                <main className="flex-1 overflow-auto bg-gray-50">
+                    <div className="p-8">
+                        <h1 className="text-3xl font-bold text-gray-900 mb-2">Ticket Logs</h1>
+                        <p className="text-gray-600 mb-8">Complete audit trail of all ticket activities</p>
+
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                            <div className="mb-6">
+                                <input type="text" placeholder="Search logs..." className="w-full"/>
+                            </div>
+
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="border-b border-gray-200">
+                                            <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900">Timestamp</th>
+                                            <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900">Ticket</th>
+                                            <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900">Action</th>
+                                            <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900">Priority</th>
+                                            <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900">Description</th>
+                                            <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900">Performed By</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {ACTIVITY_LOG.map((log, i) => (
+                                            <tr key={i} className="table-row border-b border-gray-200">
+                                                <td className="py-3 px-4 text-sm text-gray-600">{log.timestamp}</td>
+                                                <td className="py-3 px-4 text-sm text-blue-600 font-medium">{log.ticket}</td>
+                                                <td className="py-3 px-4 text-sm text-gray-900">{log.action}</td>
+                                                <td className="py-3 px-4">
+                                                    <span className={`badge ${log.priority === 'Urgent' ? 'badge-urgent' : 'badge-medium'}`}>
+                                                        {log.priority}
+                                                    </span>
+                                                </td>
+                                                <td className="py-3 px-4 text-sm text-gray-600">{log.description}</td>
+                                                <td className="py-3 px-4 text-sm text-gray-600">{log.user}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            );
+        }
+
+        // Staff Performance Page
+        function StaffPerformancePage() {
+            const [perfChart, setPerfChart] = React.useState(null);
+
+            React.useEffect(() => {
+                const ctx = document.getElementById('perfChart');
+                if (ctx && !perfChart) {
+                    const chart = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: STAFF_DATA.map(s => s.name.split(' ')[0]),
+                            datasets: [{
+                                label: 'Resolved',
+                                data: STAFF_DATA.map(s => s.resolved),
+                                backgroundColor: '#10B981'
+                            }]
+                        },
+                        options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: true } } }
+                    });
+                    setPerfChart(chart);
+                }
+            }, [perfChart]);
+
+            return (
+                <main className="flex-1 overflow-auto bg-gray-50">
+                    <div className="p-8">
+                        <h1 className="text-3xl font-bold text-gray-900 mb-2">Staff Performance</h1>
+                        <p className="text-gray-600 mb-8">Monitor team performance and metrics</p>
+
+                        <div className="grid grid-cols-4 gap-4 mb-8">
+                            {[
+                                { label: 'Total Resolved', value: '1' },
+                                { label: 'Total Assigned', value: '13' },
+                                { label: 'Team SLA', value: '61%' },
+                                { label: 'Avg Resolution', value: '30h' },
+                            ].map((stat, i) => (
+                                <div key={i} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                                    <p className="text-gray-600 text-xs font-medium">{stat.label}</p>
+                                    <p className="text-3xl font-bold text-gray-900 mt-2">{stat.value}</p>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+                            <h2 className="text-lg font-bold text-gray-900 mb-4">⭐ Top Performers This Month</h2>
+                            <div className="grid grid-cols-3 gap-4">
+                                {STAFF_DATA.slice(0, 3).map(staff => (
+                                    <div key={staff.name} className="border border-gray-200 rounded-lg p-4 text-center">
+                                        <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-lg font-bold text-blue-600 mx-auto mb-2">
+                                            {staff.avatar}
+                                        </div>
+                                        <p className="font-semibold text-gray-900">{staff.name}</p>
+                                        <p className="text-xs text-gray-600">{staff.resolved} tickets resolved</p>
+                                        <div className="flex justify-center gap-1 mt-2">
+                                            {[...Array(5)].map((_, i) => (
+                                                <span key={i} className={i < 4 ? '⭐' : '☆'}>⭐</span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                            <h2 className="text-lg font-bold text-gray-900 mb-4">📊 Resolution Comparison</h2>
+                            <div className="chart-container">
+                                <canvas id="perfChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            );
+        }
+
+        // Team Comparison Page
+        function TeamComparisonPage() {
+            const [teamChart, setTeamChart] = React.useState(null);
+
+            React.useEffect(() => {
+                const ctx = document.getElementById('teamChart');
+                if (ctx && !teamChart) {
+                    const chart = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: TEAMS_DATA.map(t => t.name),
+                            datasets: [{
+                                label: 'Resolved',
+                                data: TEAMS_DATA.map(t => t.resolved),
+                                backgroundColor: '#10B981'
+                            }]
+                        },
+                        options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: true } } }
+                    });
+                    setTeamChart(chart);
+                }
+            }, [teamChart]);
+
+            return (
+                <main className="flex-1 overflow-auto bg-gray-50">
+                    <div className="p-8">
+                        <h1 className="text-3xl font-bold text-gray-900 mb-2">Team Comparison</h1>
+                        <p className="text-gray-600 mb-8">Compare performance across departments</p>
+
+                        <div className="grid grid-cols-4 gap-4 mb-8">
+                            {[
+                                { label: 'Total Teams', value: '3' },
+                                { label: 'Total Staff', value: '10' },
+                                { label: 'Avg SLA', value: '36%' },
+                                { label: 'Total Resolved', value: '1' },
+                            ].map((stat, i) => (
+                                <div key={i} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                                    <p className="text-gray-600 text-xs font-medium">{stat.label}</p>
+                                    <p className="text-3xl font-bold text-gray-900 mt-2">{stat.value}</p>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+                            <h2 className="text-lg font-bold text-gray-900 mb-4">🏆 Top Performing Teams</h2>
+                            <div className="grid grid-cols-3 gap-4">
+                                {TEAMS_DATA.map(team => (
+                                    <div key={team.name} className="border border-gray-200 rounded-lg p-4">
+                                        <h3 className="font-semibold text-gray-900">{team.name}</h3>
+                                        <p className="text-xs text-gray-600 mt-2">{team.staff} Staff • {team.resolved} Resolved</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                            <h2 className="text-lg font-bold text-gray-900 mb-4">📊 Tickets by Team</h2>
+                            <div className="chart-container">
+                                <canvas id="teamChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            );
+        }
+
+        // Analytics Page
+        function AnalyticsPage() {
+            return (
+                <main className="flex-1 overflow-auto bg-gray-50">
+                    <div className="p-8">
+                        <h1 className="text-3xl font-bold text-gray-900 mb-2">Analytics</h1>
+                        <p className="text-gray-600 mb-8">System performance and insights</p>
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+                            <p className="text-gray-600">Analytics dashboard content coming soon...</p>
+                        </div>
+                    </div>
+                </main>
+            );
+        }
+
+        // Org Chart Page
+        function OrgChartPage() {
+            return (
+                <main className="flex-1 overflow-auto bg-gray-50">
+                    <div className="p-8">
+                        <h1 className="text-3xl font-bold text-gray-900 mb-2">Organization Chart</h1>
+                        <p className="text-gray-600 mb-8">Organizational hierarchy</p>
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+                            <p className="text-gray-600">Organization chart content coming soon...</p>
+                        </div>
+                    </div>
+                </main>
+            );
+        }
+
+        // Staff Management Page
+        function StaffManagementPage() {
+            return (
+                <main className="flex-1 overflow-auto bg-gray-50">
+                    <div className="p-8">
+                        <h1 className="text-3xl font-bold text-gray-900 mb-2">Staff Management</h1>
+                        <p className="text-gray-600 mb-8">Manage team members</p>
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="border-b border-gray-200">
+                                            <th className="text-left py-3 px-4 text-sm font-semibold">Name</th>
+                                            <th className="text-left py-3 px-4 text-sm font-semibold">Role</th>
+                                            <th className="text-left py-3 px-4 text-sm font-semibold">Assigned</th>
+                                            <th className="text-left py-3 px-4 text-sm font-semibold">Resolved</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {STAFF_DATA.map(staff => (
+                                            <tr key={staff.name} className="table-row border-b">
+                                                <td className="py-3 px-4 text-gray-900">{staff.name}</td>
+                                                <td className="py-3 px-4 text-gray-600">{staff.role}</td>
+                                                <td className="py-3 px-4 text-gray-600">{staff.assigned}</td>
+                                                <td className="py-3 px-4 text-gray-600">{staff.resolved}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            );
+        }
+
+        // Scheduled Reports Page
+        function ScheduledReportsPage() {
+            return (
+                <main className="flex-1 overflow-auto bg-gray-50">
+                    <div className="p-8">
+                        <h1 className="text-3xl font-bold text-gray-900 mb-2">Scheduled Reports</h1>
+                        <p className="text-gray-600 mb-8">Manage automated report schedules</p>
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+                            <p className="text-gray-600">Scheduled reports content coming soon...</p>
+                        </div>
+                    </div>
+                </main>
+            );
+        }
+
+        // Main App
         function App() {
             const [currentPage, setCurrentPage] = React.useState('dashboard');
 
             const renderPage = () => {
-                switch(currentPage) {
-                    case 'dashboard':
-                        return <DashboardPage />;
-                    case 'create-ticket':
-                        return <CreateTicketPage />;
-                    case 'tickets':
-                        return <TicketsPage />;
-                    case 'calendar':
-                        return <PlaceholderPage title="Calendar" description="View and manage ticket schedules and deadlines." />;
-                    case 'ticket-logs':
-                        return <PlaceholderPage title="Ticket Logs" description="View audit trail and activity history for all tickets." />;
-                    case 'analytics':
-                        return <PlaceholderPage title="Analytics" description="Track ticket metrics and team performance." />;
-                    case 'org-chart':
-                        return <PlaceholderPage title="Organizational Chart" description="View company hierarchy and team structure." />;
-                    case 'staff-performance':
-                        return <PlaceholderPage title="Staff Performance" description="Monitor team member performance metrics and KPIs." />;
-                    case 'team-comparison':
-                        return <PlaceholderPage title="Team Comparison" description="Compare performance metrics across teams." />;
-                    case 'staff-management':
-                        return <PlaceholderPage title="Staff Management" description="Manage team members and staff information." />;
-                    case 'scheduled-reports':
-                        return <PlaceholderPage title="Scheduled Reports" description="Create and manage automated report schedules." />;
-                    default:
-                        return <DashboardPage />;
+                switch (currentPage) {
+                    case 'dashboard': return <Dashboard />;
+                    case 'create-ticket': return <CreateTicket />;
+                    case 'tickets': return <TicketsPage />;
+                    case 'calendar': return <CalendarPage />;
+                    case 'ticket-logs': return <TicketLogsPage />;
+                    case 'analytics': return <AnalyticsPage />;
+                    case 'org-chart': return <OrgChartPage />;
+                    case 'staff-performance': return <StaffPerformancePage />;
+                    case 'team-comparison': return <TeamComparisonPage />;
+                    case 'staff-management': return <StaffManagementPage />;
+                    case 'scheduled-reports': return <ScheduledReportsPage />;
+                    default: return <Dashboard />;
                 }
             };
 
             return (
                 <div className="flex h-screen bg-gray-50">
                     <Navigation currentPage={currentPage} setCurrentPage={setCurrentPage} />
-                    <main className="flex-1 overflow-auto">
-                        {renderPage()}
-                    </main>
+                    {renderPage()}
                 </div>
             );
         }
