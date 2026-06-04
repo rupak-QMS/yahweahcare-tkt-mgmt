@@ -85,6 +85,95 @@
             { timestamp: '13 May 2026, 06:41 pm', ticket: 'YPC-TKT-2026-3359', action: 'Created', priority: 'Urgent', description: 'Test ticket', user: 'Ron Costa' },
         ];
 
+        // API Service Layer
+        const API_BASE_URL = 'https://yahweahcare-tkt-mgmt-hx48.vercel.app/api';
+
+        // Fallback mock data for lookups
+        const LOOKUPS_MOCK = {
+            categories: [
+                { id: 'it', label: 'IT Support', icon: '💻' },
+                { id: 'hr', label: 'HR & Payroll', icon: '👥' },
+                { id: 'facilities', label: 'Facilities & Maintenance', icon: '🔧' },
+                { id: 'care', label: 'Care Coordination', icon: '🤝' },
+                { id: 'clinical', label: 'Clinical / Compliance', icon: '🩺' },
+                { id: 'finance', label: 'Finance', icon: '💰' },
+                { id: 'general', label: 'General Enquiry', icon: '💬' }
+            ],
+            priorities: [
+                { id: 'critical', label: 'Critical' },
+                { id: 'high', label: 'High' },
+                { id: 'medium', label: 'Medium' },
+                { id: 'low', label: 'Low' }
+            ],
+            statuses: [
+                { id: 'new', label: 'New' },
+                { id: 'assigned', label: 'Assigned' },
+                { id: 'in_progress', label: 'In Progress' },
+                { id: 'waiting', label: 'Waiting on Requester' },
+                { id: 'resolved', label: 'Resolved' },
+                { id: 'closed', label: 'Closed' }
+            ]
+        };
+
+        const API = {
+            lookups: {
+                get: async () => {
+                    try {
+                        const res = await fetch(`${API_BASE_URL}/lookups`);
+                        if (!res.ok) throw new Error('API not responding');
+                        return res.json();
+                    } catch (err) {
+                        console.log('Using mock lookups data');
+                        return LOOKUPS_MOCK;
+                    }
+                }
+            },
+            tickets: {
+                getAll: async () => {
+                    const res = await fetch(`${API_BASE_URL}/tickets`);
+                    if (!res.ok) throw new Error('Failed to fetch tickets');
+                    return res.json();
+                },
+                getById: async (id) => {
+                    const res = await fetch(`${API_BASE_URL}/tickets/${id}`);
+                    if (!res.ok) throw new Error('Ticket not found');
+                    return res.json();
+                },
+                create: async (data) => {
+                    const res = await fetch(`${API_BASE_URL}/tickets`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                    if (!res.ok) throw new Error('Failed to create ticket');
+                    return res.json();
+                },
+                update: async (id, data) => {
+                    const res = await fetch(`${API_BASE_URL}/tickets/${id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                    if (!res.ok) throw new Error('Failed to update ticket');
+                    return res.json();
+                },
+                delete: async (id) => {
+                    const res = await fetch(`${API_BASE_URL}/tickets/${id}`, {
+                        method: 'DELETE'
+                    });
+                    if (!res.ok) throw new Error('Failed to delete ticket');
+                    return res.json();
+                }
+            },
+            users: {
+                getAll: async () => {
+                    const res = await fetch(`${API_BASE_URL}/users`);
+                    if (!res.ok) throw new Error('Failed to fetch users');
+                    return res.json();
+                }
+            }
+        };
+
         // Navigation Component
         function Navigation({ currentPage, setCurrentPage }) {
             const pages = [
