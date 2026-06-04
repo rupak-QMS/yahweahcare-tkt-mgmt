@@ -31,6 +31,11 @@ function dbTicket(row: Record<string, unknown>) {
     closedAt: row.closed_at || null,
     slaBreached: !!row.sla_breached,
     isClosed: !!row.is_closed,
+    isEscalated: !!row.is_escalated,
+    escalatedTo: row.escalated_to || null,
+    escalatedBy: row.escalated_by || null,
+    escalatedAt: row.escalated_at || null,
+    escalationReason: row.escalation_reason || null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     // enriched label fields (present when queried via v_open_tickets)
@@ -475,6 +480,103 @@ router.delete('/:id', async (req, res, next) => {
     await pool.query(`DELETE FROM yc_tkt_mgmt.tickets WHERE id = $1`, [id]);
     await logAudit({ userId: req.auth!.userId, actorEmail: req.auth!.email, action: 'ticket.delete', module: 'tickets', targetType: 'ticket', targetId: id, metadata: { ticketNumber: rows[0].ticket_number }, req });
     res.json({ ok: true });
+  } catch (err) { next(err); }
+});
+
+// ── POST /tickets/:id/escalate — manager escalates to any user ─
+// Reassigns ticket + logs full escalation trail
+router.post('/:id/escalate', async (req, res, next) => {
+  try {
+    const id     = Number(req.params.id);
+    const userId = req.auth!.userId;
+    const { escalateToUserId, reason } = req.body || {};
+
+    if (!escalateToUserId) {
+      return res.status(400).json({ error: 'missing_fields', message: 'escalateToUserId is required' });
+    }
+    if (!reason?.trim()) {
+      return res.status(400).json({ error: 'missing_fields', message: 'Escalation reason is required' });
+    }
+
+    // Verify target user exists
+    const { rows: targetRows } = await pool.query(
+      `SELECT id, name, email FROM yc_tkt_mgmt.users WHERE id = $1`, [escalateToUserId]
+    );
+    if (!targetRows[0]) return res.status(404).json({ error: 'user_not_found', message: 'Escalation target user not found' });
+
+    // Get current ticket
+    const { rows: tRows } = await pool.query(`SELECT * FROM yc_tkt_mgmt.tickets WHERE id = $1`, [id]);
+    if (!tRows[0]) return res.status(404).json({ error: 'not_found' });
+    const previousAssignee = tRows[0].assignee_id;
+
+    // Log escalation history
+    await pool.query(
+      `INSERT INTO yc_tkt_mgmt.ticket_escalations (ticket_id, escalated_by, escalated_to, reason, previous_assignee)
+       VALUES ($1,$2,$3,$4,$5)`,
+      [id, userId, escalateToUserId, reason.trim(), previousAssignee || null]
+    );
+
+    // Reassign + mark escalated
+    const { rows } = await pool.query(
+      `UPDATE yc_tkt_mgmt.tickets
+       SET assignee_id=$1, is_escalated=TRUE, escalated_to=$1,
+           escalated_by=$2, escalated_at=NOW(), escalation_reason=$3, updated_at=NOW()
+       WHERE id=$4 RETURNING *`,
+      [escalateToUserId, userId, reason.trim(), id]
+    );
+
+    // Activity log
+    await pool.query(
+      `INSERT INTO yc_tkt_mgmt.activity (ticket_id, actor_id, action_type, from_value, to_value, metadata)
+       VALUES ($1,$2,'escalated',$3,$4,$5)`,
+      [id, userId,
+       previousAssignee ? String(previousAssignee) : null,
+       String(escalateToUserId),
+       JSON.stringify({ reason: reason.trim(), escalatedTo: targetRows[0].name, escalatedToEmail: targetRows[0].email })]
+    );
+
+    await logAudit({ userId, actorEmail: req.auth!.email, action: 'ticket.escalate', module: 'tickets', targetType: 'ticket', targetId: id, metadata: { escalateToUserId, reason: reason.trim() }, req });
+
+    // Fetch approvers for response
+    const { rows: apRows } = await pool.query(
+      `SELECT ta.*, u.name AS user_name, u.email AS user_email
+       FROM yc_tkt_mgmt.ticket_approvers ta
+       JOIN yc_tkt_mgmt.users u ON u.id = ta.approver_user_id
+       WHERE ta.ticket_id=$1`, [id]
+    );
+
+    // Fetch escalation trail
+    const { rows: escRows } = await pool.query(
+      `SELECT te.*,
+              ub.name AS escalated_by_name,
+              ut.name AS escalated_to_name
+       FROM yc_tkt_mgmt.ticket_escalations te
+       JOIN yc_tkt_mgmt.users ub ON ub.id = te.escalated_by
+       JOIN yc_tkt_mgmt.users ut ON ut.id = te.escalated_to
+       WHERE te.ticket_id=$1 ORDER BY te.created_at ASC`, [id]
+    );
+
+    const t = dbTicket(rows[0]);
+    t.approvers = apRows.map(dbApprover);
+    t.escalations = escRows;
+    res.json({ ticket: t });
+  } catch (err) { next(err); }
+});
+
+// ── GET /tickets/:id/escalations — escalation trail ─────────
+router.get('/:id/escalations', async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    const { rows } = await pool.query(
+      `SELECT te.*,
+              ub.name AS escalated_by_name, ub.email AS escalated_by_email,
+              ut.name AS escalated_to_name, ut.email AS escalated_to_email
+       FROM yc_tkt_mgmt.ticket_escalations te
+       JOIN yc_tkt_mgmt.users ub ON ub.id = te.escalated_by
+       JOIN yc_tkt_mgmt.users ut ON ut.id = te.escalated_to
+       WHERE te.ticket_id=$1 ORDER BY te.created_at ASC`, [id]
+    );
+    res.json({ escalations: rows });
   } catch (err) { next(err); }
 });
 

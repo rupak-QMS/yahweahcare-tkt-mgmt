@@ -166,6 +166,20 @@
                     if (!res.ok) throw new Error('Failed to delete ticket');
                     return res.json();
                 },
+                escalate: async (id, escalateToUserId, reason) => {
+                    const res = await fetch(`${API_BASE_URL}/tickets/${id}/escalate`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ escalateToUserId, reason })
+                    });
+                    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || 'Failed to escalate'); }
+                    return res.json();
+                },
+                getEscalations: async (id) => {
+                    const res = await fetch(`${API_BASE_URL}/tickets/${id}/escalations`);
+                    if (!res.ok) throw new Error('Failed to fetch escalations');
+                    return res.json();
+                },
                 complete: async (id) => {
                     const res = await fetch(`${API_BASE_URL}/tickets/${id}/complete`, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
                     if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || 'Failed to mark complete'); }
@@ -706,6 +720,10 @@
             const [actionError, setActionError] = React.useState('');
             const [rejectMode, setRejectMode] = React.useState(false);
             const [justification, setJustification] = React.useState('');
+            const [escalateMode, setEscalateMode] = React.useState(false);
+            const [escalateTo, setEscalateTo] = React.useState('');
+            const [escalateReason, setEscalateReason] = React.useState('');
+            const [escalations, setEscalations] = React.useState([]);
 
             const filtered = TICKETS_DATA.filter(t => {
                 if (filter !== 'all' && t.status.toLowerCase() !== filter.toLowerCase()) return false;
@@ -791,16 +809,26 @@
                                             <tr key={t.id} className="table-row border-b border-gray-200 cursor-pointer hover:bg-gray-50" onClick={async () => {
                                                 setSelectedTicket(t);
                                                 setRejectMode(false); setJustification(''); setActionError('');
-                                                // Load approvers from API if ticket has a numeric DB id
+                                                setEscalateMode(false); setEscalateTo(''); setEscalateReason('');
+                                                setApprovers([]); setEscalations([]);
                                                 if (t.dbId || typeof t.id === 'number') {
                                                     try {
-                                                        const data = await API.tickets.getById(t.dbId || t.id);
-                                                        if (data.ticket?.approvers) setApprovers(data.ticket.approvers);
-                                                    } catch(_) { setApprovers([]); }
-                                                } else { setApprovers([]); }
+                                                        const [ticketData, escData] = await Promise.all([
+                                                            API.tickets.getById(t.dbId || t.id),
+                                                            API.tickets.getEscalations(t.dbId || t.id).catch(() => ({ escalations: [] }))
+                                                        ]);
+                                                        if (ticketData.ticket?.approvers) setApprovers(ticketData.ticket.approvers);
+                                                        if (escData.escalations) setEscalations(escData.escalations);
+                                                    } catch(_) {}
+                                                }
                                             }}>
                                                 <td className="py-3 px-4 text-sm text-blue-600 font-medium">{t.id}</td>
-                                                <td className="py-3 px-4 text-sm text-gray-900">{t.title}</td>
+                                                <td className="py-3 px-4 text-sm text-gray-900">
+                                                    <div className="flex items-center gap-2">
+                                                        {t.title}
+                                                        {t.isEscalated && <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 flex-shrink-0">⬆ Escalated</span>}
+                                                    </div>
+                                                </td>
                                                 <td className="py-3 px-4 text-sm text-gray-600">{t.category}</td>
                                                 <td className="py-3 px-4"><span className={`badge ${getPriorityBadge(t.priority)}`}>{t.priority}</span></td>
                                                 <td className="py-3 px-4"><span className={`badge ${getStatusBadge(t.status)}`}>{t.status}</span></td>
@@ -825,7 +853,7 @@
                                         <h2 className="text-lg font-bold text-gray-900">{selectedTicket.title}</h2>
                                         <p className="text-sm text-gray-400 mt-0.5">{selectedTicket.category}</p>
                                     </div>
-                                    <button onClick={() => { setSelectedTicket(null); setRejectMode(false); setJustification(''); setActionError(''); }} className="text-gray-300 hover:text-gray-500 text-2xl leading-none mt-1">×</button>
+                                    <button onClick={() => { setSelectedTicket(null); setRejectMode(false); setJustification(''); setActionError(''); setEscalateMode(false); setEscalateTo(''); setEscalateReason(''); setEscalations([]); }} className="text-gray-300 hover:text-gray-500 text-2xl leading-none mt-1">×</button>
                                 </div>
 
                                 <div className="p-6">
@@ -912,6 +940,104 @@
                                             </div>
                                         )}
                                     </div>
+
+                                    {/* Escalation trail */}
+                                    {(escalations.length > 0 || selectedTicket.isEscalated) && (
+                                        <div className="mb-5 p-4 bg-orange-50 border border-orange-100 rounded-xl">
+                                            <p className="text-xs font-semibold text-orange-700 uppercase tracking-widest mb-3">⬆ Escalation Trail</p>
+                                            <div className="space-y-2">
+                                                {escalations.map((e, i) => (
+                                                    <div key={e.id || i} className="text-xs text-orange-800">
+                                                        <span className="font-semibold">{e.escalated_by_name}</span> escalated to <span className="font-semibold">{e.escalated_to_name}</span>
+                                                        <span className="text-orange-500 ml-1">— {e.reason}</span>
+                                                        <span className="text-orange-400 ml-2">{e.created_at ? new Date(e.created_at).toLocaleDateString() : ''}</span>
+                                                    </div>
+                                                ))}
+                                                {escalations.length === 0 && selectedTicket.isEscalated && (
+                                                    <p className="text-xs text-orange-600 italic">This ticket has been escalated.</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Escalation action panel — managers/admins */}
+                                    {selectedTicket.status !== 'Resolved' && selectedTicket.status !== 'Closed' && (
+                                        <div className="mb-5">
+                                            {!escalateMode ? (
+                                                <button
+                                                    onClick={() => { setEscalateMode(true); setActionError(''); }}
+                                                    className="w-full py-2.5 border-2 border-orange-300 text-orange-700 text-sm font-semibold rounded-xl hover:bg-orange-50 transition flex items-center justify-center gap-2"
+                                                >
+                                                    ⬆ Escalate This Ticket
+                                                </button>
+                                            ) : (
+                                                <div className="border-2 border-orange-200 rounded-xl p-4 bg-orange-50">
+                                                    <p className="text-xs font-semibold text-orange-700 uppercase tracking-widest mb-3">Escalate Ticket</p>
+
+                                                    {actionError && (
+                                                        <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-3">{actionError}</div>
+                                                    )}
+
+                                                    <div className="mb-3">
+                                                        <label className="block text-xs font-semibold text-gray-600 mb-1.5">Escalate To <span className="text-red-400">*</span></label>
+                                                        <select
+                                                            value={escalateTo}
+                                                            onChange={e => setEscalateTo(e.target.value)}
+                                                            className="w-full border border-orange-200 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-400"
+                                                        >
+                                                            <option value="">— Select person —</option>
+                                                            {STAFF_DATA.map((s, i) => (
+                                                                <option key={i} value={i + 1}>{s.name} ({s.role})</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+
+                                                    <div className="mb-3">
+                                                        <label className="block text-xs font-semibold text-gray-600 mb-1.5">Reason <span className="text-red-400">*</span></label>
+                                                        <textarea
+                                                            rows="3"
+                                                            value={escalateReason}
+                                                            onChange={e => setEscalateReason(e.target.value)}
+                                                            placeholder="Why is this ticket being escalated?"
+                                                            className="w-full border border-orange-200 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-400 resize-none"
+                                                        />
+                                                    </div>
+
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            disabled={actionLoading || !escalateTo || !escalateReason.trim()}
+                                                            onClick={async () => {
+                                                                setActionLoading(true); setActionError('');
+                                                                try {
+                                                                    const data = await API.tickets.escalate(
+                                                                        selectedTicket.dbId || selectedTicket.id,
+                                                                        Number(escalateTo),
+                                                                        escalateReason
+                                                                    );
+                                                                    if (data.ticket?.escalations) setEscalations(data.ticket.escalations);
+                                                                    setSelectedTicket(t => ({ ...t, isEscalated: true }));
+                                                                    setEscalateMode(false); setEscalateTo(''); setEscalateReason('');
+                                                                    // Reload escalation trail
+                                                                    const escData = await API.tickets.getEscalations(selectedTicket.dbId || selectedTicket.id).catch(() => ({ escalations: [] }));
+                                                                    if (escData.escalations) setEscalations(escData.escalations);
+                                                                } catch(e) { setActionError(e.message); }
+                                                                finally { setActionLoading(false); }
+                                                            }}
+                                                            className="flex-1 py-2.5 bg-orange-600 text-white text-sm font-semibold rounded-xl hover:bg-orange-700 transition disabled:opacity-50"
+                                                        >
+                                                            {actionLoading ? '⏳…' : '⬆ Confirm Escalation'}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => { setEscalateMode(false); setEscalateTo(''); setEscalateReason(''); setActionError(''); }}
+                                                            className="px-4 py-2.5 bg-white border border-orange-200 text-orange-700 text-sm font-semibold rounded-xl hover:bg-orange-50 transition"
+                                                        >
+                                                            Cancel
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
 
                                     {/* Approver actions — only shown when pending_approval */}
                                     {selectedTicket.status === 'Pending Approval' && (
