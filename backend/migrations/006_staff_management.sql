@@ -61,122 +61,101 @@ ON CONFLICT (name) DO NOTHING;
 DO $$
 DECLARE
   d_dir  INTEGER; d_ops INTEGER; d_fin INTEGER; d_str INTEGER;
-  p_dir  INTEGER;
-  p_ops  INTEGER;
-  p_sdm  INTEGER;
-  p_rc   INTEGER;
-  p_scl  INTEGER;
-  p_hro  INTEGER;
-  p_dco  INTEGER;
-  p_fin  INTEGER;
-  p_str  INTEGER;
-  p_bdo  INTEGER;
+  p_dir  INTEGER; p_ops INTEGER; p_sdm INTEGER; p_rc  INTEGER;
+  p_scl  INTEGER; p_hro INTEGER; p_dco INTEGER; p_fin INTEGER;
+  p_str  INTEGER; p_bdo INTEGER;
 BEGIN
-  -- dept ids
   SELECT id INTO d_dir FROM yc_tkt_mgmt.departments WHERE name = 'Director Level';
   SELECT id INTO d_ops FROM yc_tkt_mgmt.departments WHERE name = 'Operations';
   SELECT id INTO d_fin FROM yc_tkt_mgmt.departments WHERE name = 'Finance';
   SELECT id INTO d_str FROM yc_tkt_mgmt.departments WHERE name = 'Strategic Development & Client Relations';
 
-  -- Director (root)
+  -- Use UPSERT (ON CONFLICT (title) DO UPDATE) so existing rows get hierarchy fields set
   INSERT INTO yc_tkt_mgmt.positions (title, dept_label, position_type, department_id, parent_id, sort_order, is_active)
   VALUES ('Director', '👤 Director', 'director', d_dir, NULL, 0, TRUE)
-  ON CONFLICT DO NOTHING;
-  SELECT id INTO p_dir FROM yc_tkt_mgmt.positions WHERE title='Director' AND position_type='director';
+  ON CONFLICT (title) DO UPDATE SET dept_label=EXCLUDED.dept_label, position_type=EXCLUDED.position_type,
+    department_id=EXCLUDED.department_id, sort_order=EXCLUDED.sort_order, is_active=TRUE;
+  SELECT id INTO p_dir FROM yc_tkt_mgmt.positions WHERE title='Director';
 
-  -- Operations Manager
   INSERT INTO yc_tkt_mgmt.positions (title, dept_label, position_type, department_id, parent_id, sort_order, is_active)
   VALUES ('Operations Manager', '👥 Operations Department', 'ops', d_ops, p_dir, 1, TRUE)
-  ON CONFLICT DO NOTHING;
-  SELECT id INTO p_ops FROM yc_tkt_mgmt.positions WHERE title='Operations Manager' AND department_id=d_ops AND parent_id=p_dir;
+  ON CONFLICT (title) DO UPDATE SET dept_label=EXCLUDED.dept_label, position_type=EXCLUDED.position_type,
+    department_id=EXCLUDED.department_id, parent_id=EXCLUDED.parent_id, sort_order=EXCLUDED.sort_order, is_active=TRUE;
+  SELECT id INTO p_ops FROM yc_tkt_mgmt.positions WHERE title='Operations Manager';
 
-  -- Service Delivery Manager (under Ops)
   INSERT INTO yc_tkt_mgmt.positions (title, dept_label, position_type, department_id, parent_id, sort_order, is_active)
   VALUES ('Service Delivery Manager', NULL, 'ops', d_ops, p_ops, 1, TRUE)
-  ON CONFLICT DO NOTHING;
-  SELECT id INTO p_sdm FROM yc_tkt_mgmt.positions WHERE title='Service Delivery Manager' AND parent_id=p_ops;
+  ON CONFLICT (title) DO UPDATE SET position_type=EXCLUDED.position_type, parent_id=EXCLUDED.parent_id, is_active=TRUE;
+  SELECT id INTO p_sdm FROM yc_tkt_mgmt.positions WHERE title='Service Delivery Manager';
 
-  -- Roster Coordinator (under SDM)
   INSERT INTO yc_tkt_mgmt.positions (title, dept_label, position_type, department_id, parent_id, sort_order, is_active)
   VALUES ('Roster Coordinator', NULL, 'ops', d_ops, p_sdm, 1, TRUE)
-  ON CONFLICT DO NOTHING;
-  SELECT id INTO p_rc FROM yc_tkt_mgmt.positions WHERE title='Roster Coordinator' AND parent_id=p_sdm;
+  ON CONFLICT (title) DO UPDATE SET position_type=EXCLUDED.position_type, parent_id=EXCLUDED.parent_id, is_active=TRUE;
+  SELECT id INTO p_rc FROM yc_tkt_mgmt.positions WHERE title='Roster Coordinator';
 
-  -- Support Workers (under RC) - typically vacant
   INSERT INTO yc_tkt_mgmt.positions (title, dept_label, position_type, department_id, parent_id, sort_order, is_active)
   VALUES ('Support Workers', NULL, 'staff', d_ops, p_rc, 1, TRUE)
-  ON CONFLICT DO NOTHING;
+  ON CONFLICT (title) DO UPDATE SET position_type=EXCLUDED.position_type, parent_id=EXCLUDED.parent_id, is_active=TRUE;
 
-  -- Support Coordination Lead (under Ops)
   INSERT INTO yc_tkt_mgmt.positions (title, dept_label, position_type, department_id, parent_id, sort_order, is_active)
   VALUES ('Support Coordination Lead', NULL, 'ops', d_ops, p_ops, 2, TRUE)
-  ON CONFLICT DO NOTHING;
-  SELECT id INTO p_scl FROM yc_tkt_mgmt.positions WHERE title='Support Coordination Lead' AND parent_id=p_ops;
+  ON CONFLICT (title) DO UPDATE SET position_type=EXCLUDED.position_type, parent_id=EXCLUDED.parent_id, is_active=TRUE;
+  SELECT id INTO p_scl FROM yc_tkt_mgmt.positions WHERE title='Support Coordination Lead';
 
-  -- Support Coordination Staff (under SCL)
   INSERT INTO yc_tkt_mgmt.positions (title, dept_label, position_type, department_id, parent_id, sort_order, is_active)
   VALUES ('Support Coordination Staff', NULL, 'ops', d_ops, p_scl, 1, TRUE)
-  ON CONFLICT DO NOTHING;
+  ON CONFLICT (title) DO UPDATE SET position_type=EXCLUDED.position_type, parent_id=EXCLUDED.parent_id, is_active=TRUE;
 
-  -- HR / Admin Officer (under Ops)
   INSERT INTO yc_tkt_mgmt.positions (title, dept_label, position_type, department_id, parent_id, sort_order, is_active)
   VALUES ('HR / Admin Officer', NULL, 'ops', d_ops, p_ops, 3, TRUE)
-  ON CONFLICT DO NOTHING;
-  SELECT id INTO p_hro FROM yc_tkt_mgmt.positions WHERE title='HR / Admin Officer' AND parent_id=p_ops;
+  ON CONFLICT (title) DO UPDATE SET position_type=EXCLUDED.position_type, parent_id=EXCLUDED.parent_id, is_active=TRUE;
+  SELECT id INTO p_hro FROM yc_tkt_mgmt.positions WHERE title='HR / Admin Officer';
 
-  -- External Consultant under HR
   INSERT INTO yc_tkt_mgmt.positions (title, dept_label, position_type, department_id, parent_id, sort_order, is_active)
   VALUES ('External Consultant (HR)', NULL, 'external', d_ops, p_hro, 1, TRUE)
-  ON CONFLICT DO NOTHING;
+  ON CONFLICT (title) DO UPDATE SET position_type=EXCLUDED.position_type, parent_id=EXCLUDED.parent_id, is_active=TRUE;
 
-  -- Day Centre Officer (under Ops)
   INSERT INTO yc_tkt_mgmt.positions (title, dept_label, position_type, department_id, parent_id, sort_order, is_active)
   VALUES ('Day Centre Officer', NULL, 'ops', d_ops, p_ops, 4, TRUE)
-  ON CONFLICT DO NOTHING;
-  SELECT id INTO p_dco FROM yc_tkt_mgmt.positions WHERE title='Day Centre Officer' AND parent_id=p_ops;
+  ON CONFLICT (title) DO UPDATE SET position_type=EXCLUDED.position_type, parent_id=EXCLUDED.parent_id, is_active=TRUE;
+  SELECT id INTO p_dco FROM yc_tkt_mgmt.positions WHERE title='Day Centre Officer';
 
-  -- Staff (Day Centre) vacant
   INSERT INTO yc_tkt_mgmt.positions (title, dept_label, position_type, department_id, parent_id, sort_order, is_active)
   VALUES ('Day Centre Staff', NULL, 'staff', d_ops, p_dco, 1, TRUE)
-  ON CONFLICT DO NOTHING;
+  ON CONFLICT (title) DO UPDATE SET position_type=EXCLUDED.position_type, parent_id=EXCLUDED.parent_id, is_active=TRUE;
 
-  -- Finance Manager (under Director)
   INSERT INTO yc_tkt_mgmt.positions (title, dept_label, position_type, department_id, parent_id, sort_order, is_active)
   VALUES ('Finance Manager', '💰 Finance Department', 'finance', d_fin, p_dir, 2, TRUE)
-  ON CONFLICT DO NOTHING;
-  SELECT id INTO p_fin FROM yc_tkt_mgmt.positions WHERE title='Finance Manager' AND department_id=d_fin AND parent_id=p_dir;
+  ON CONFLICT (title) DO UPDATE SET dept_label=EXCLUDED.dept_label, position_type=EXCLUDED.position_type,
+    department_id=EXCLUDED.department_id, parent_id=EXCLUDED.parent_id, is_active=TRUE;
+  SELECT id INTO p_fin FROM yc_tkt_mgmt.positions WHERE title='Finance Manager';
 
-  -- External Consultant under Finance
   INSERT INTO yc_tkt_mgmt.positions (title, dept_label, position_type, department_id, parent_id, sort_order, is_active)
   VALUES ('External Consultant (Finance)', NULL, 'external', d_fin, p_fin, 1, TRUE)
-  ON CONFLICT DO NOTHING;
+  ON CONFLICT (title) DO UPDATE SET position_type=EXCLUDED.position_type, parent_id=EXCLUDED.parent_id, is_active=TRUE;
 
-  -- Plan Manager under Finance
   INSERT INTO yc_tkt_mgmt.positions (title, dept_label, position_type, department_id, parent_id, sort_order, is_active)
   VALUES ('Plan Manager', NULL, 'finance', d_fin, p_fin, 2, TRUE)
-  ON CONFLICT DO NOTHING;
+  ON CONFLICT (title) DO UPDATE SET position_type=EXCLUDED.position_type, parent_id=EXCLUDED.parent_id, is_active=TRUE;
 
-  -- Strategic Dev Manager (under Director)
   INSERT INTO yc_tkt_mgmt.positions (title, dept_label, position_type, department_id, parent_id, sort_order, is_active)
   VALUES ('Strategic Dev / Client Relationship Manager', '🏢 Strategic Dev & Client Relationship', 'strategic', d_str, p_dir, 3, TRUE)
-  ON CONFLICT DO NOTHING;
-  SELECT id INTO p_str FROM yc_tkt_mgmt.positions WHERE title='Strategic Dev / Client Relationship Manager' AND parent_id=p_dir;
+  ON CONFLICT (title) DO UPDATE SET dept_label=EXCLUDED.dept_label, position_type=EXCLUDED.position_type,
+    department_id=EXCLUDED.department_id, parent_id=EXCLUDED.parent_id, is_active=TRUE;
+  SELECT id INTO p_str FROM yc_tkt_mgmt.positions WHERE title='Strategic Dev / Client Relationship Manager';
 
-  -- Business Development Officer (under Strategic)
   INSERT INTO yc_tkt_mgmt.positions (title, dept_label, position_type, department_id, parent_id, sort_order, is_active)
   VALUES ('Business Development Officer', NULL, 'strategic', d_str, p_str, 1, TRUE)
-  ON CONFLICT DO NOTHING;
-  SELECT id INTO p_bdo FROM yc_tkt_mgmt.positions WHERE title='Business Development Officer' AND parent_id=p_str;
+  ON CONFLICT (title) DO UPDATE SET position_type=EXCLUDED.position_type, parent_id=EXCLUDED.parent_id, is_active=TRUE;
+  SELECT id INTO p_bdo FROM yc_tkt_mgmt.positions WHERE title='Business Development Officer';
 
-  -- External Marketing Consultant (under BDO)
   INSERT INTO yc_tkt_mgmt.positions (title, dept_label, position_type, department_id, parent_id, sort_order, is_active)
   VALUES ('External Marketing Consultant', NULL, 'external', d_str, p_bdo, 1, TRUE)
-  ON CONFLICT DO NOTHING;
+  ON CONFLICT (title) DO UPDATE SET position_type=EXCLUDED.position_type, parent_id=EXCLUDED.parent_id, is_active=TRUE;
 
-  -- Client Relationship Officer (under Strategic)
   INSERT INTO yc_tkt_mgmt.positions (title, dept_label, position_type, department_id, parent_id, sort_order, is_active)
   VALUES ('Client Relationship Officer', NULL, 'strategic', d_str, p_str, 2, TRUE)
-  ON CONFLICT DO NOTHING;
+  ON CONFLICT (title) DO UPDATE SET position_type=EXCLUDED.position_type, parent_id=EXCLUDED.parent_id, is_active=TRUE;
 
 END $$;
 
@@ -226,18 +205,18 @@ BEGIN
   SELECT id INTO u_venujah FROM yc_tkt_mgmt.users WHERE email='venujah@yahwehcare.com.au';
   SELECT id INTO u_akila   FROM yc_tkt_mgmt.users WHERE email='akila@yahwehcare.com.au';
 
-  -- Get position IDs
-  SELECT id INTO p_dir  FROM yc_tkt_mgmt.positions WHERE title='Director'                              AND position_type='director';
-  SELECT id INTO p_ops  FROM yc_tkt_mgmt.positions WHERE title='Operations Manager'                    AND position_type='ops';
-  SELECT id INTO p_sdm  FROM yc_tkt_mgmt.positions WHERE title='Service Delivery Manager'              AND position_type='ops';
-  SELECT id INTO p_rc   FROM yc_tkt_mgmt.positions WHERE title='Roster Coordinator'                    AND position_type='ops';
-  SELECT id INTO p_scl  FROM yc_tkt_mgmt.positions WHERE title='Support Coordination Lead'             AND position_type='ops';
-  SELECT id INTO p_scs  FROM yc_tkt_mgmt.positions WHERE title='Support Coordination Staff'            AND position_type='ops';
-  SELECT id INTO p_hro  FROM yc_tkt_mgmt.positions WHERE title='HR / Admin Officer'                    AND position_type='ops';
-  SELECT id INTO p_dco  FROM yc_tkt_mgmt.positions WHERE title='Day Centre Officer'                    AND position_type='ops';
-  SELECT id INTO p_fin  FROM yc_tkt_mgmt.positions WHERE title='Finance Manager'                       AND position_type='finance';
-  SELECT id INTO p_pm   FROM yc_tkt_mgmt.positions WHERE title='Plan Manager'                          AND position_type='finance';
-  SELECT id INTO p_str  FROM yc_tkt_mgmt.positions WHERE title='Strategic Dev / Client Relationship Manager' AND position_type='strategic';
+  -- Get position IDs (title is UNIQUE — no position_type filter needed)
+  SELECT id INTO p_dir  FROM yc_tkt_mgmt.positions WHERE title='Director';
+  SELECT id INTO p_ops  FROM yc_tkt_mgmt.positions WHERE title='Operations Manager';
+  SELECT id INTO p_sdm  FROM yc_tkt_mgmt.positions WHERE title='Service Delivery Manager';
+  SELECT id INTO p_rc   FROM yc_tkt_mgmt.positions WHERE title='Roster Coordinator';
+  SELECT id INTO p_scl  FROM yc_tkt_mgmt.positions WHERE title='Support Coordination Lead';
+  SELECT id INTO p_scs  FROM yc_tkt_mgmt.positions WHERE title='Support Coordination Staff';
+  SELECT id INTO p_hro  FROM yc_tkt_mgmt.positions WHERE title='HR / Admin Officer';
+  SELECT id INTO p_dco  FROM yc_tkt_mgmt.positions WHERE title='Day Centre Officer';
+  SELECT id INTO p_fin  FROM yc_tkt_mgmt.positions WHERE title='Finance Manager';
+  SELECT id INTO p_pm   FROM yc_tkt_mgmt.positions WHERE title='Plan Manager';
+  SELECT id INTO p_str  FROM yc_tkt_mgmt.positions WHERE title='Strategic Dev / Client Relationship Manager';
 
   -- Assign staff to positions
   INSERT INTO yc_tkt_mgmt.staff_positions (user_id, position_id, is_primary) VALUES
