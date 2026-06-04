@@ -575,15 +575,19 @@
                                         </label>
                                     </div>
 
-                                    {/* Approvers */}
-                                    {lookups && lookups.users && (
+                                    {/* Approvers — always shown, uses API users or falls back to STAFF_DATA */}
+                                    {(() => {
+                                        const approverList = (lookups && lookups.users && lookups.users.length > 0)
+                                            ? lookups.users
+                                            : STAFF_DATA.map((s, i) => ({ id: i + 1, name: s.name, role: s.role, email: '' }));
+                                        return (
                                         <div className={cardCls}>
                                             <div className={sectionHeadCls}>
-                                                <span style={{color:'#6366F1',fontSize:'15px'}}>✅</span> Approvers <span className="text-red-400 normal-case font-normal tracking-normal text-xs">*</span>
+                                                <span style={{color:'#6366F1',fontSize:'15px'}}>✅</span> Approvers <span className="text-red-400 normal-case font-normal tracking-normal text-xs ml-1">*</span>
                                             </div>
-                                            <p className="text-xs text-gray-400 mb-3">All selected approvers must approve before the ticket is resolved.</p>
-                                            <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
-                                                {lookups.users.map(u => {
+                                            <p className="text-xs text-gray-400 mb-3">Select who must approve the resolution. <strong>All</strong> selected approvers must approve before the ticket closes.</p>
+                                            <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                                                {approverList.map(u => {
                                                     const selected = formData.approver_ids.includes(u.id);
                                                     return (
                                                         <label key={u.id} className={`flex items-center gap-3 p-2.5 rounded-lg cursor-pointer border transition ${selected ? 'border-indigo-300 bg-indigo-50' : 'border-gray-100 hover:bg-gray-50'}`}>
@@ -617,10 +621,13 @@
                                                 })}
                                             </div>
                                             {formData.approver_ids.length > 0 && (
-                                                <p className="text-xs text-indigo-600 font-medium mt-2">{formData.approver_ids.length} approver{formData.approver_ids.length > 1 ? 's' : ''} selected</p>
+                                                <p className="text-xs text-indigo-600 font-medium mt-2">
+                                                    {formData.approver_ids.length} approver{formData.approver_ids.length > 1 ? 's' : ''} selected
+                                                </p>
                                             )}
                                         </div>
-                                    )}
+                                        );
+                                    })()}
                                 </div>
 
                                 {/* RIGHT COLUMN — sidebar */}
