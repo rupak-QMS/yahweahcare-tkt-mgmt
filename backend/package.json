@@ -6,9 +6,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "init-db": "node init-db.js",
-    "seed": "node seed.js",
-    "reset": "node init-db.js && node seed.js"
+    "migrate": "node run-migrations.js",
+    "seed-enterprise": "node seed-enterprise.js",
+    "setup": "npm run migrate && npm run seed-enterprise"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

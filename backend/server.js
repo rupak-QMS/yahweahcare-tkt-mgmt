@@ -366,7 +366,12 @@ app.get('/api/dashboard', auth, requireRole('agent', 'manager', 'admin'), async 
   }
 });
 
-// ------------------------------------------------------------
+// ============================================================
+// ENTERPRISE APPROVAL WORKFLOW ROUTES
+// ============================================================
+const enterpriseRoutes = require('./enterprise-routes.js')(pool);
+app.use('/api', enterpriseRoutes);
+
 // ============================================================
 // Serve Frontend
 // ============================================================
