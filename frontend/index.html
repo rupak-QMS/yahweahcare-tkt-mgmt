@@ -2042,19 +2042,31 @@
 
             const fetchOrg = React.useCallback(async () => {
                 setLoading(true);
+                setError('');
                 try {
                     const res  = await fetch(`${API_BASE_URL}/org-chart`);
+                    if (!res.ok) throw new Error(`API returned ${res.status}`);
                     const data = await res.json();
-                    setOrgData(data);
-                } catch { setError('Could not load org chart. Showing cached structure.'); }
+                    // Ensure tree is always an array
+                    setOrgData({ tree: Array.isArray(data.tree) ? data.tree : [], systemRoles: data.systemRoles || [] });
+                } catch(e) {
+                    setError(`Could not load org chart from API (${e.message}). Check that the backend is deployed with staff-routes.js.`);
+                    setOrgData({ tree: [], systemRoles: [] });
+                }
                 finally { setLoading(false); }
             }, []);
 
             React.useEffect(() => { fetchOrg(); }, [fetchOrg]);
 
+            // Flatten tree helper — defined before use, guards against non-array input
+            const flattenTree = (nodes) => {
+                if (!Array.isArray(nodes)) return [];
+                return nodes.reduce((acc, n) => [...acc, n, ...flattenTree(n.children || [])], []);
+            };
+
             // Build OrgCard props from a position node
             const nodeToCard = (node) => {
-                const occupants = node.occupants || [];
+                const occupants = Array.isArray(node.occupants) ? node.occupants : [];
                 const vacant    = occupants.length === 0;
                 const primary   = occupants.find(o=>o.is_primary) || occupants[0];
                 return <OrgCard
@@ -2077,15 +2089,11 @@
                 return <OrgTree key={node.id} card={nodeToCard(node)} gap={node.dept_label?16:8} ch={children}/>;
             };
 
-            // Compute stats from org data
-            const allNodes   = orgData ? flattenTree(orgData.tree) : [];
+            // Compute stats from org data (safe — flattenTree guards against undefined)
+            const allNodes    = flattenTree(orgData?.tree);
             const vacantCount = allNodes.filter(n=>(n.occupants||[]).length===0).length;
             const activeCount = allNodes.filter(n=>(n.occupants||[]).length>0).length;
             const deptCount   = new Set(allNodes.map(n=>n.department_name).filter(Boolean)).size;
-
-            function flattenTree(nodes) {
-                return nodes.reduce((acc, n) => [...acc, n, ...flattenTree(n.children||[])], []);
-            }
 
             const sysRoles = orgData?.systemRoles || [];
 
