@@ -373,6 +373,12 @@ const enterpriseRoutes = require('./enterprise-routes.js')(pool);
 app.use('/api', enterpriseRoutes);
 
 // ============================================================
+// STAFF MANAGEMENT ROUTES
+// ============================================================
+const staffRoutes = require('./staff-routes.js')(pool, JWT_SECRET);
+app.use('/api', staffRoutes);
+
+// ============================================================
 // Serve Frontend
 // ============================================================
 const path = require('path');
