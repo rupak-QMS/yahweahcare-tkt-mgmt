@@ -1309,110 +1309,154 @@
                 return diff >= 0 && diff <= 90;
             }).sort((a,b) => a.date.localeCompare(b.date)).slice(0, 10);
 
+            const PRIORITY_STYLE = {
+                critical: { bar:'#EF4444', bg:'#FEF2F2', text:'#991B1B' },
+                urgent:   { bar:'#EF4444', bg:'#FEF2F2', text:'#991B1B' },
+                high:     { bar:'#F97316', bg:'#FFF7ED', text:'#9A3412' },
+                medium:   { bar:'#EAB308', bg:'#FEFCE8', text:'#854D0E' },
+                low:      { bar:'#6366F1', bg:'#EEF2FF', text:'#3730A3' },
+            };
+            const getPriStyle = p => PRIORITY_STYLE[(p||'').toLowerCase()] || PRIORITY_STYLE.low;
+
             return (
-                <main className="flex-1 overflow-auto" style={{background:'#F8F9FB'}}>
-                    <div className="max-w-7xl mx-auto px-8 py-8">
-                        {/* Header */}
-                        <div className="flex items-start justify-between mb-6">
+                <main className="flex-1 overflow-auto" style={{background:'#F4F5F8'}}>
+                    <style>{`
+                        .cal-cell { transition: background 0.15s; }
+                        .cal-cell:hover { background: #F0F1FF !important; }
+                        .cal-cell.selected { background: #EEF2FF !important; box-shadow: inset 0 0 0 2px #6366F1; }
+                        .cal-cell.holiday { background: #FFF5F5 !important; }
+                        .cal-cell.holiday:hover { background: #FFE8E8 !important; }
+                        .cal-cell.weekend { background: #F9FAFB; }
+                        .cal-cell.today-cell { }
+                        .state-btn { transition: all 0.15s; }
+                        .ticket-bar { transition: opacity 0.1s; }
+                        .ticket-bar:hover { opacity: 0.85; }
+                        .sidebar-card { background: white; border-radius: 16px; border: 1px solid #EAECF0; padding: 20px; margin-bottom: 12px; }
+                    `}</style>
+
+                    <div style={{maxWidth:'1400px', margin:'0 auto', padding:'28px 32px'}}>
+
+                        {/* ── Header ── */}
+                        <div style={{display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:'24px', gap:'16px', flexWrap:'wrap'}}>
                             <div>
-                                <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Australian Calendar</h1>
-                                <p className="text-sm text-gray-400 mt-1">Public holidays by state · {year}</p>
+                                <h1 style={{fontSize:'22px', fontWeight:'700', color:'#111827', margin:0, letterSpacing:'-0.3px'}}>
+                                    🇦🇺 Australian Calendar
+                                </h1>
+                                <p style={{fontSize:'13px', color:'#9CA3AF', margin:'4px 0 0'}}>
+                                    Public holidays + ticket due dates · {year}
+                                </p>
                             </div>
-                            {/* State filter */}
-                            <div className="flex flex-wrap gap-2 justify-end">
+                            {/* State pills */}
+                            <div style={{display:'flex', flexWrap:'wrap', gap:'6px', justifyContent:'flex-end'}}>
                                 {AU_STATES.map(s => (
-                                    <button key={s.code}
+                                    <button key={s.code} className="state-btn"
                                         onClick={() => setSelectedState(s.code)}
-                                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${
-                                            selectedState === s.code
-                                                ? 'bg-indigo-600 text-white border-indigo-600'
-                                                : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300 hover:text-indigo-600'
-                                        }`}
+                                        style={{
+                                            padding:'5px 12px', borderRadius:'20px', fontSize:'12px', fontWeight:'600',
+                                            border: selectedState===s.code ? '1.5px solid #6366F1' : '1.5px solid #E5E7EB',
+                                            background: selectedState===s.code ? '#6366F1' : 'white',
+                                            color: selectedState===s.code ? 'white' : '#6B7280',
+                                            cursor:'pointer',
+                                        }}
                                     >{s.label}</button>
                                 ))}
                             </div>
                         </div>
 
-                        <div className="flex gap-6 items-start">
-                            {/* Calendar */}
-                            <div className="flex-1 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                                {/* Month nav */}
-                                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                                    <button onClick={prevMonth} className="w-8 h-8 rounded-lg border border-gray-200 hover:bg-gray-50 flex items-center justify-center text-gray-500 font-bold">‹</button>
-                                    <h2 className="text-base font-bold text-gray-900">{monthNames[month]} {year}</h2>
-                                    <button onClick={nextMonth} className="w-8 h-8 rounded-lg border border-gray-200 hover:bg-gray-50 flex items-center justify-center text-gray-500 font-bold">›</button>
+                        <div style={{display:'flex', gap:'20px', alignItems:'flex-start'}}>
+
+                            {/* ── Main Calendar Card ── */}
+                            <div style={{flex:1, background:'white', borderRadius:'20px', border:'1px solid #EAECF0', overflow:'hidden', minWidth:0}}>
+
+                                {/* Month nav bar */}
+                                <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'18px 24px', borderBottom:'1px solid #F3F4F6'}}>
+                                    <button onClick={prevMonth} style={{width:'34px',height:'34px',borderRadius:'10px',border:'1px solid #E5E7EB',background:'white',cursor:'pointer',fontSize:'16px',display:'flex',alignItems:'center',justifyContent:'center',color:'#6B7280'}}>‹</button>
+                                    <div style={{textAlign:'center'}}>
+                                        <h2 style={{fontSize:'17px', fontWeight:'700', color:'#111827', margin:0}}>{monthNames[month]} {year}</h2>
+                                        <p style={{fontSize:'11px', color:'#9CA3AF', margin:'2px 0 0'}}>{visibleHolidays.length} holiday{visibleHolidays.length!==1?'s':''} · {AU_STATES.find(s=>s.code===selectedState)?.label}</p>
+                                    </div>
+                                    <button onClick={nextMonth} style={{width:'34px',height:'34px',borderRadius:'10px',border:'1px solid #E5E7EB',background:'white',cursor:'pointer',fontSize:'16px',display:'flex',alignItems:'center',justifyContent:'center',color:'#6B7280'}}>›</button>
                                 </div>
 
-                                {/* Day headers — Mon-first (Australian standard) */}
-                                <div className="grid grid-cols-7 border-b border-gray-100">
-                                    {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d => (
-                                        <div key={d} className="text-center text-xs font-semibold text-gray-400 uppercase py-3 tracking-wide">{d}</div>
+                                {/* Day-of-week headers */}
+                                <div style={{display:'grid', gridTemplateColumns:'repeat(7,1fr)', borderBottom:'1px solid #F3F4F6'}}>
+                                    {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d,i) => (
+                                        <div key={d} style={{textAlign:'center', fontSize:'11px', fontWeight:'700', letterSpacing:'0.06em', color: i>=5 ? '#D1D5DB' : '#9CA3AF', padding:'10px 0', textTransform:'uppercase'}}>{d}</div>
                                     ))}
                                 </div>
 
-                                {/* Cells — Mon-first grid (shift Sun to end) */}
+                                {/* Cells */}
                                 {(() => {
-                                    // Mon-first: convert Sun=0 → 6, Mon=1 → 0, …
                                     const monFirst = (firstDow + 6) % 7;
                                     const monCells = [];
-                                    for (let i = 0; i < monFirst; i++) monCells.push(null);
-                                    for (let d = 1; d <= daysInMonth; d++) monCells.push(d);
-                                    // Pad to complete last row
+                                    for (let i=0; i<monFirst; i++) monCells.push(null);
+                                    for (let d=1; d<=daysInMonth; d++) monCells.push(d);
                                     while (monCells.length % 7 !== 0) monCells.push(null);
                                     return (
-                                        <div className="grid grid-cols-7">
-                                            {monCells.map((d, i) => {
+                                        <div style={{display:'grid', gridTemplateColumns:'repeat(7,1fr)'}}>
+                                            {monCells.map((d,i) => {
                                                 const ds = d ? dateStr(d) : null;
-                                                const holidays = ds ? (holidayMap[ds] || []) : [];
-                                                const dayTickets = ds ? (ticketDateMap[ds] || []) : [];
+                                                const hols = ds ? (holidayMap[ds]||[]) : [];
+                                                const tkts = ds ? (ticketDateMap[ds]||[]) : [];
                                                 const dow = d ? new Date(year,month,d).getDay() : null;
-                                                const isWknd = dow === 0 || dow === 6;
+                                                const isWknd = dow===0||dow===6;
                                                 const isTd = d && isToday(d);
-                                                const isHol = holidays.length > 0;
-                                                const isSel = selectedDay === ds;
+                                                const isHol = hols.length>0;
+                                                const isSel = selectedDay===ds;
+                                                const isLastRow = i >= monCells.length - 7;
                                                 return (
-                                                    <div
-                                                        key={i}
-                                                        onClick={() => d && setSelectedDay(isSel ? null : ds)}
-                                                        className={`min-h-20 p-2 border-b border-r border-gray-50 transition cursor-pointer ${
-                                                            !d ? 'bg-gray-50/50' :
-                                                            isSel ? 'bg-indigo-50' :
-                                                            isHol ? 'bg-red-50 hover:bg-red-100' :
-                                                            isWknd ? 'bg-gray-50 hover:bg-gray-100' :
-                                                            'bg-white hover:bg-gray-50'
-                                                        }`}
+                                                    <div key={i}
+                                                        className={`cal-cell${isSel?' selected':''}${isHol&&!isSel?' holiday':''}${isWknd&&!isHol&&!isSel?' weekend':''}`}
+                                                        onClick={() => d && setSelectedDay(isSel?null:ds)}
+                                                        style={{
+                                                            minHeight:'96px', padding:'8px', cursor: d?'pointer':'default',
+                                                            borderBottom: isLastRow?'none':'1px solid #F3F4F6',
+                                                            borderRight: (i+1)%7===0?'none':'1px solid #F3F4F6',
+                                                            background: !d ? '#FAFAFA' : undefined,
+                                                            position:'relative',
+                                                        }}
                                                     >
-                                                        {d && (
-                                                            <>
-                                                                <div className={`w-7 h-7 flex items-center justify-center rounded-full text-sm font-semibold mb-1 ${
-                                                                    isTd ? 'bg-indigo-600 text-white' :
-                                                                    isHol ? 'text-red-700' :
-                                                                    isWknd ? 'text-gray-400' :
-                                                                    'text-gray-800'
-                                                                }`}>{d}</div>
-                                                                {/* Holiday label */}
-                                                                {holidays.slice(0,1).map((h,hi) => (
-                                                                    <div key={hi} className="text-xs text-red-600 font-medium leading-tight truncate mb-0.5">{h.name}</div>
-                                                                ))}
-                                                                {/* Ticket pills */}
-                                                                {dayTickets.slice(0,3).map((t,ti) => {
-                                                                    const p = (t.priority || t.priority_id || '').toLowerCase();
-                                                                    const dotCls = p==='critical'||p==='urgent' ? 'bg-red-500' : p==='high' ? 'bg-orange-400' : p==='medium' ? 'bg-yellow-400' : 'bg-blue-400';
-                                                                    const isDone = ['resolved','closed'].includes((t.status||t.status_id||'').toLowerCase());
-                                                                    return (
-                                                                        <div key={ti} className={`flex items-center gap-1 rounded px-1 py-0.5 mb-0.5 ${isDone ? 'bg-green-50' : 'bg-indigo-50'}`}>
-                                                                            <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dotCls}`}></div>
-                                                                            <span className={`text-xs font-medium truncate leading-tight ${isDone ? 'text-green-700' : 'text-indigo-700'}`}>
-                                                                                {t.ticketNumber || t.id}
-                                                                            </span>
-                                                                        </div>
-                                                                    );
-                                                                })}
-                                                                {dayTickets.length > 3 && (
-                                                                    <div className="text-xs text-indigo-400 font-medium">+{dayTickets.length - 3} more</div>
-                                                                )}
-                                                            </>
-                                                        )}
+                                                        {d && (<>
+                                                            {/* Holiday accent bar */}
+                                                            {isHol && <div style={{position:'absolute',top:0,left:0,right:0,height:'3px',background:'#F87171',borderRadius:'0'}}/>}
+
+                                                            {/* Day number */}
+                                                            <div style={{
+                                                                width:'28px', height:'28px', borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center',
+                                                                fontSize:'13px', fontWeight: isTd?'700':'500', marginBottom:'4px',
+                                                                background: isTd ? '#6366F1' : 'transparent',
+                                                                color: isTd ? 'white' : isHol ? '#B91C1C' : isWknd ? '#D1D5DB' : '#374151',
+                                                            }}>{d}</div>
+
+                                                            {/* Holiday name */}
+                                                            {isHol && (
+                                                                <div style={{fontSize:'10px', color:'#DC2626', fontWeight:'600', lineHeight:'1.3', marginBottom:'3px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+                                                                    {hols[0].name}
+                                                                </div>
+                                                            )}
+
+                                                            {/* Ticket bars */}
+                                                            {tkts.slice(0,3).map((t,ti) => {
+                                                                const ps = getPriStyle(t.priority || t.priority_id);
+                                                                const isDone = ['resolved','closed'].includes((t.status||t.status_id||'').toLowerCase());
+                                                                return (
+                                                                    <div key={ti} className="ticket-bar" style={{
+                                                                        display:'flex', alignItems:'center', gap:'4px',
+                                                                        background: isDone ? '#F0FDF4' : ps.bg,
+                                                                        borderLeft: `3px solid ${isDone ? '#22C55E' : ps.bar}`,
+                                                                        borderRadius:'0 4px 4px 0',
+                                                                        padding:'2px 5px', marginBottom:'2px',
+                                                                    }}>
+                                                                        <span style={{fontSize:'10px', fontWeight:'600', color: isDone?'#15803D':ps.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:'100%'}}>
+                                                                            {t.ticketNumber || t.id}
+                                                                        </span>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                            {tkts.length > 3 && (
+                                                                <div style={{fontSize:'10px', color:'#6366F1', fontWeight:'600'}}>+{tkts.length-3} more</div>
+                                                            )}
+                                                        </>)}
                                                     </div>
                                                 );
                                             })}
@@ -1421,125 +1465,117 @@
                                 })()}
 
                                 {/* Legend */}
-                                <div className="flex flex-wrap gap-4 px-6 py-4 border-t border-gray-100 text-xs text-gray-500">
-                                    <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-indigo-600"></div> Today</div>
-                                    <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-red-100 border border-red-200"></div> Public Holiday</div>
-                                    <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-gray-100 border border-gray-200"></div> Weekend</div>
-                                    <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-red-500"></div> Critical/Urgent ticket</div>
-                                    <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-orange-400"></div> High ticket</div>
-                                    <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-yellow-400"></div> Medium ticket</div>
-                                    <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-blue-400"></div> Low ticket</div>
+                                <div style={{display:'flex', flexWrap:'wrap', gap:'16px', padding:'14px 24px', borderTop:'1px solid #F3F4F6', alignItems:'center'}}>
+                                    <span style={{fontSize:'11px', color:'#9CA3AF', fontWeight:'600', textTransform:'uppercase', letterSpacing:'0.05em'}}>Legend</span>
+                                    {[
+                                        { swatch:<div style={{width:'20px',height:'20px',borderRadius:'50%',background:'#6366F1',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:'10px',fontWeight:'700'}}>7</div>, label:'Today' },
+                                        { swatch:<div style={{width:'20px',height:'6px',borderRadius:'2px',background:'#F87171'}}></div>, label:'Public holiday' },
+                                        { swatch:<div style={{width:'20px',height:'14px',borderRadius:'3px',borderLeft:'3px solid #EF4444',background:'#FEF2F2'}}></div>, label:'Critical' },
+                                        { swatch:<div style={{width:'20px',height:'14px',borderRadius:'3px',borderLeft:'3px solid #F97316',background:'#FFF7ED'}}></div>, label:'High' },
+                                        { swatch:<div style={{width:'20px',height:'14px',borderRadius:'3px',borderLeft:'3px solid #EAB308',background:'#FEFCE8'}}></div>, label:'Medium' },
+                                        { swatch:<div style={{width:'20px',height:'14px',borderRadius:'3px',borderLeft:'3px solid #6366F1',background:'#EEF2FF'}}></div>, label:'Low' },
+                                        { swatch:<div style={{width:'20px',height:'14px',borderRadius:'3px',borderLeft:'3px solid #22C55E',background:'#F0FDF4'}}></div>, label:'Resolved' },
+                                    ].map((l,i) => (
+                                        <div key={i} style={{display:'flex',alignItems:'center',gap:'6px'}}>
+                                            {l.swatch}
+                                            <span style={{fontSize:'11px',color:'#6B7280'}}>{l.label}</span>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
 
-                            {/* Sidebar — selected day detail + upcoming */}
-                            <div className="w-72 flex-shrink-0 space-y-4">
-                                {/* Selected day */}
+                            {/* ── Sidebar ── */}
+                            <div style={{width:'280px', flexShrink:0}}>
+
+                                {/* Selected day panel */}
                                 {selectedDay && (() => {
-                                    const hols = holidayMap[selectedDay] || [];
-                                    const dayTkts = ticketDateMap[selectedDay] || [];
-                                    const [sy,sm,sd] = selectedDay.split('-').map(Number);
-                                    const dateLabel = new Date(sy,sm-1,sd).toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+                                    const hols = holidayMap[selectedDay]||[];
+                                    const tkts = ticketDateMap[selectedDay]||[];
+                                    const [sy,sm,sd2] = selectedDay.split('-').map(Number);
+                                    const dl = new Date(sy,sm-1,sd2).toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'});
                                     return (
-                                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-                                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">Selected Date</p>
-                                            <p className="text-sm font-bold text-gray-900 mb-4">{dateLabel}</p>
+                                        <div className="sidebar-card" style={{borderLeft:'4px solid #6366F1', borderRadius:'16px'}}>
+                                            <p style={{fontSize:'10px',fontWeight:'700',color:'#6366F1',textTransform:'uppercase',letterSpacing:'0.08em',margin:'0 0 4px'}}>{dl}</p>
 
-                                            {/* Holidays */}
-                                            {hols.length > 0 && (
-                                                <div className="mb-4">
-                                                    <p className="text-xs font-semibold text-red-500 uppercase tracking-wide mb-2">Public Holiday</p>
-                                                    {hols.map((h,i) => (
-                                                        <div key={i} className="flex items-start gap-2 mb-2">
-                                                            <span className="text-red-500 mt-0.5">🎉</span>
-                                                            <div>
-                                                                <p className="text-sm font-semibold text-gray-900">{h.name}</p>
-                                                                <div className="flex gap-1 flex-wrap mt-1">
-                                                                    {h.states.includes('ALL')
-                                                                        ? <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-medium">National</span>
-                                                                        : h.states.map(s => <span key={s} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{s}</span>)
-                                                                    }
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-
-                                            {/* Tickets due this day */}
-                                            {dayTkts.length > 0 && (
-                                                <div>
-                                                    <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wide mb-2">Tickets Due ({dayTkts.length})</p>
-                                                    <div className="space-y-2">
-                                                        {dayTkts.map((t,i) => {
-                                                            const p = (t.priority || t.priority_id || '').toLowerCase();
-                                                            const dotCls = p==='critical'||p==='urgent' ? 'bg-red-500' : p==='high' ? 'bg-orange-400' : p==='medium' ? 'bg-yellow-400' : 'bg-blue-400';
-                                                            const status = t.status || t.status_id || t.statusLabel || '—';
-                                                            const isDone = ['resolved','closed'].includes(status.toLowerCase());
-                                                            return (
-                                                                <div key={i} className={`rounded-lg p-2.5 border ${isDone ? 'border-green-100 bg-green-50' : 'border-indigo-100 bg-indigo-50'}`}>
-                                                                    <div className="flex items-center gap-2 mb-1">
-                                                                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${dotCls}`}></div>
-                                                                        <span className="text-xs font-bold text-indigo-600">{t.ticketNumber || t.id}</span>
-                                                                        <span className={`ml-auto text-xs font-semibold px-2 py-0.5 rounded-full ${isDone ? 'bg-green-100 text-green-700' : 'bg-white text-gray-600 border border-gray-200'}`}>{status}</span>
-                                                                    </div>
-                                                                    <p className="text-xs text-gray-700 font-medium leading-snug truncate">{t.title || t.subtitle || '—'}</p>
-                                                                    {t.assigneeName || t.assigned ? (
-                                                                        <p className="text-xs text-gray-400 mt-0.5">👤 {t.assigneeName || t.assigned}</p>
-                                                                    ) : null}
-                                                                </div>
-                                                            );
-                                                        })}
+                                            {hols.map((h,i) => (
+                                                <div key={i} style={{background:'#FFF5F5',borderRadius:'8px',padding:'8px 10px',marginBottom:'6px'}}>
+                                                    <p style={{fontSize:'12px',fontWeight:'700',color:'#DC2626',margin:0}}>🎉 {h.name}</p>
+                                                    <div style={{display:'flex',gap:'4px',flexWrap:'wrap',marginTop:'4px'}}>
+                                                        {h.states.includes('ALL')
+                                                            ? <span style={{fontSize:'10px',background:'#EEF2FF',color:'#4338CA',padding:'2px 8px',borderRadius:'20px',fontWeight:'600'}}>National</span>
+                                                            : h.states.map(s => <span key={s} style={{fontSize:'10px',background:'#F3F4F6',color:'#6B7280',padding:'2px 7px',borderRadius:'20px'}}>{s}</span>)
+                                                        }
                                                     </div>
                                                 </div>
+                                            ))}
+
+                                            {tkts.length > 0 && (
+                                                <>
+                                                    <p style={{fontSize:'10px',fontWeight:'700',color:'#6366F1',textTransform:'uppercase',letterSpacing:'0.08em',margin:'10px 0 6px'}}>Tickets due · {tkts.length}</p>
+                                                    {tkts.map((t,i) => {
+                                                        const ps = getPriStyle(t.priority||t.priority_id);
+                                                        const status = t.status||t.status_id||t.statusLabel||'Open';
+                                                        const isDone = ['resolved','closed'].includes(status.toLowerCase());
+                                                        return (
+                                                            <div key={i} style={{borderLeft:`4px solid ${isDone?'#22C55E':ps.bar}`,background: isDone?'#F0FDF4':ps.bg,borderRadius:'0 8px 8px 0',padding:'8px 10px',marginBottom:'5px'}}>
+                                                                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'6px'}}>
+                                                                    <span style={{fontSize:'11px',fontWeight:'700',color: isDone?'#15803D':ps.text}}>{t.ticketNumber||t.id}</span>
+                                                                    <span style={{fontSize:'10px',fontWeight:'600',color:'#9CA3AF'}}>{status}</span>
+                                                                </div>
+                                                                <p style={{fontSize:'11px',color:'#374151',margin:'3px 0 0',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.title||t.subtitle||'—'}</p>
+                                                                {(t.assigneeName||t.assigned) && <p style={{fontSize:'10px',color:'#9CA3AF',margin:'2px 0 0'}}>👤 {t.assigneeName||t.assigned}</p>}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </>
                                             )}
 
-                                            {hols.length === 0 && dayTkts.length === 0 && (
-                                                <p className="text-sm text-gray-400 italic">No events on this day</p>
+                                            {hols.length===0 && tkts.length===0 && (
+                                                <p style={{fontSize:'12px',color:'#9CA3AF',fontStyle:'italic',margin:0}}>No events on this day</p>
                                             )}
                                         </div>
                                     );
                                 })()}
 
+                                {/* Monthly summary */}
+                                <div style={{background:'#6366F1',borderRadius:'16px',padding:'20px',marginBottom:'12px',color:'white'}}>
+                                    <p style={{fontSize:'10px',fontWeight:'700',textTransform:'uppercase',letterSpacing:'0.08em',opacity:0.75,margin:'0 0 4px'}}>{monthNames[month]}</p>
+                                    <p style={{fontSize:'32px',fontWeight:'700',margin:'0 0 2px',lineHeight:1}}>{visibleHolidays.length}</p>
+                                    <p style={{fontSize:'12px',opacity:0.8,margin:'0 0 12px'}}>public holiday{visibleHolidays.length!==1?'s':''} in {AU_STATES.find(s=>s.code===selectedState)?.label}</p>
+                                    {visibleHolidays.map((h,i) => (
+                                        <div key={i} style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'4px'}}>
+                                            <div style={{width:'5px',height:'5px',borderRadius:'50%',background:'rgba(255,255,255,0.6)',flexShrink:0}}></div>
+                                            <p style={{fontSize:'11px',opacity:0.9,margin:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{h.name}</p>
+                                        </div>
+                                    ))}
+                                    {visibleHolidays.length===0 && <p style={{fontSize:'11px',opacity:0.6,margin:0,fontStyle:'italic'}}>No holidays this month</p>}
+                                </div>
+
                                 {/* Upcoming holidays */}
-                                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-                                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">Upcoming Holidays</p>
-                                    <p className="text-xs text-gray-400 mb-3">
-                                        {AU_STATES.find(s => s.code === selectedState)?.label} · next 90 days
-                                    </p>
-                                    {upcoming.length === 0 ? (
-                                        <p className="text-sm text-gray-400 italic">No upcoming holidays</p>
+                                <div className="sidebar-card">
+                                    <p style={{fontSize:'10px',fontWeight:'700',color:'#9CA3AF',textTransform:'uppercase',letterSpacing:'0.08em',margin:'0 0 12px'}}>Upcoming · {AU_STATES.find(s=>s.code===selectedState)?.label}</p>
+                                    {upcoming.length===0 ? (
+                                        <p style={{fontSize:'12px',color:'#9CA3AF',fontStyle:'italic'}}>No upcoming holidays</p>
                                     ) : upcoming.map((h,i) => {
                                         const [hy,hm,hd] = h.date.split('-').map(Number);
-                                        const hDate = new Date(hy,hm-1,hd);
-                                        const diff = Math.round((hDate - today) / 86400000);
-                                        const label = diff === 0 ? 'Today' : diff === 1 ? 'Tomorrow' : `In ${diff} days`;
+                                        const diff = Math.round((new Date(hy,hm-1,hd) - today) / 86400000);
+                                        const dLabel = diff===0?'Today':diff===1?'Tomorrow':`${diff}d away`;
+                                        const mnths = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
                                         return (
-                                            <div key={i} className="flex items-start gap-3 mb-3">
-                                                <div className="w-10 flex-shrink-0 text-center">
-                                                    <p className="text-xs font-bold text-indigo-600">{['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][hm-1]}</p>
-                                                    <p className="text-lg font-bold text-gray-900 leading-tight">{hd}</p>
+                                            <div key={i} style={{display:'flex',alignItems:'center',gap:'10px',marginBottom:'10px'}}>
+                                                <div style={{width:'40px',flexShrink:0,textAlign:'center',background:'#F4F5F8',borderRadius:'8px',padding:'4px 0'}}>
+                                                    <p style={{fontSize:'9px',fontWeight:'700',color:'#6366F1',margin:0,textTransform:'uppercase'}}>{mnths[hm-1]}</p>
+                                                    <p style={{fontSize:'17px',fontWeight:'700',color:'#111827',margin:0,lineHeight:1.1}}>{hd}</p>
                                                 </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-semibold text-gray-900 leading-tight">{h.name}</p>
-                                                    <p className="text-xs text-gray-400 mt-0.5">{label}</p>
+                                                <div style={{flex:1,minWidth:0}}>
+                                                    <p style={{fontSize:'12px',fontWeight:'600',color:'#111827',margin:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{h.name}</p>
+                                                    <p style={{fontSize:'10px',color:'#9CA3AF',margin:'1px 0 0'}}>{dLabel}</p>
                                                 </div>
                                             </div>
                                         );
                                     })}
                                 </div>
 
-                                {/* Holiday count for this month */}
-                                <div className="bg-indigo-600 rounded-2xl p-5 text-white">
-                                    <p className="text-xs font-semibold uppercase tracking-widest opacity-80 mb-1">This Month</p>
-                                    <p className="text-3xl font-bold">{visibleHolidays.length}</p>
-                                    <p className="text-sm opacity-80">public holiday{visibleHolidays.length !== 1 ? 's' : ''} in {AU_STATES.find(s=>s.code===selectedState)?.label}</p>
-                                    <div className="mt-3 space-y-1">
-                                        {visibleHolidays.map((h,i) => (
-                                            <p key={i} className="text-xs opacity-90">· {h.name}</p>
-                                        ))}
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </div>
