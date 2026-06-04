@@ -25,6 +25,8 @@ function dbTicket(row: Record<string, unknown>) {
     site: row.site || '',
     source: row.source || 'web',
     dueAt: row.due_at,
+    expectedCompletion: row.expected_completion || null,
+    pendingApprovalAt: row.pending_approval_at || null,
     resolvedAt: row.resolved_at || null,
     closedAt: row.closed_at || null,
     slaBreached: !!row.sla_breached,
@@ -41,9 +43,24 @@ function dbTicket(row: Record<string, unknown>) {
     requesterEmail: row.requester_email || null,
     assigneeName:   row.assignee_name   || null,
     assigneeEmail:  row.assignee_email  || null,
-    // activity + comments fetched separately
+    // activity + comments + approvers fetched separately
     activity: row.activity || [],
     comments: row.comments || [],
+    approvers: row.approvers || [],
+  };
+}
+
+function dbApprover(row: Record<string, unknown>) {
+  return {
+    id: row.id,
+    ticketId: row.ticket_id,
+    userId: row.user_id,
+    userName: row.user_name || null,
+    userEmail: row.user_email || null,
+    status: row.status,
+    justification: row.justification || null,
+    respondedAt: row.responded_at || null,
+    createdAt: row.created_at,
   };
 }
 
@@ -127,19 +144,27 @@ router.get('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// ── GET /tickets/:id — single ticket with comments+activity ─
+// ── GET /tickets/:id — single ticket with comments+activity+approvers ─
 router.get('/:id', async (req, res, next) => {
   try {
     const id = Number(req.params.id);
-    const [{ rows: tRows }, { rows: cRows }, { rows: aRows }] = await Promise.all([
+    const [{ rows: tRows }, { rows: cRows }, { rows: aRows }, { rows: apRows }] = await Promise.all([
       pool.query(`SELECT * FROM yc_tkt_mgmt.tickets WHERE id = $1`, [id]),
       pool.query(`SELECT * FROM yc_tkt_mgmt.comments WHERE ticket_id = $1 ORDER BY created_at ASC`, [id]),
       pool.query(`SELECT * FROM yc_tkt_mgmt.activity WHERE ticket_id = $1 ORDER BY created_at ASC`, [id]),
+      pool.query(
+        `SELECT ta.*, u.name AS user_name, u.email AS user_email
+         FROM yc_tkt_mgmt.ticket_approvers ta
+         JOIN yc_tkt_mgmt.users u ON u.id = ta.user_id
+         WHERE ta.ticket_id = $1 ORDER BY ta.created_at ASC`,
+        [id]
+      ),
     ]);
     if (!tRows[0]) return res.status(404).json({ error: 'not_found' });
     const t = dbTicket(tRows[0]);
-    t.comments = cRows.map(dbComment);
-    t.activity = aRows.map(dbActivity);
+    t.comments  = cRows.map(dbComment);
+    t.activity  = aRows.map(dbActivity);
+    t.approvers = apRows.map(dbApprover);
     res.json({ ticket: t });
   } catch (err) { next(err); }
 });
@@ -147,9 +172,32 @@ router.get('/:id', async (req, res, next) => {
 // ── POST /tickets — create ──────────────────────────────────
 router.post('/', async (req, res, next) => {
   try {
-    const { title, description, category, priority, status, site, assigneeId } = req.body || {};
-    if (!title || !category || !priority) {
-      return res.status(400).json({ error: 'missing_fields', message: 'title, category and priority are required' });
+    const {
+      title, description, category, priority, status, site, assigneeId,
+      approverIds, expectedCompletion,
+      // frontend field aliases
+      title_type, subtitle, category_id, priority_id, initial_status, assign_to, approver_ids, expected_completion
+    } = req.body || {};
+
+    // Normalise field names (frontend may use snake_case or camelCase)
+    const resolvedTitle    = title    || [title_type, subtitle].filter(Boolean).join(' — ') || null;
+    const resolvedCategory = category || category_id || null;
+    const resolvedPriority = priority || priority_id || null;
+    const resolvedStatus   = (status  || initial_status || 'open').toLowerCase();
+    const resolvedAssignee = assigneeId || (assign_to && assign_to !== 'Unassigned' ? assign_to : null);
+    const resolvedApprovers: number[] = Array.isArray(approverIds)
+      ? approverIds
+      : Array.isArray(approver_ids) ? approver_ids : [];
+    const resolvedDueDate  = expectedCompletion || expected_completion || null;
+
+    if (!resolvedTitle || !resolvedCategory || !resolvedPriority) {
+      return res.status(400).json({ error: 'missing_fields', message: 'title, category, priority and expected_completion are required' });
+    }
+    if (!resolvedDueDate) {
+      return res.status(400).json({ error: 'missing_fields', message: 'expected_completion is required' });
+    }
+    if (!resolvedApprovers.length) {
+      return res.status(400).json({ error: 'missing_fields', message: 'At least one approver is required' });
     }
 
     // Generate ticket number
@@ -158,41 +206,211 @@ router.post('/', async (req, res, next) => {
     );
     const ticketNumber = `YAH-${String(seqRow[0].next).padStart(6, '0')}`;
 
-    // Calculate due date from priority SLA — fallback to 24h if priority not in DB
-    const { rows: priRows } = await pool.query(`SELECT sla_hours FROM yc_tkt_mgmt.priorities WHERE id = $1`, [priority]);
+    // SLA-based due date (fallback)
+    const { rows: priRows } = await pool.query(`SELECT sla_hours FROM yc_tkt_mgmt.priorities WHERE id = $1`, [resolvedPriority]);
     const slaHours = priRows[0]?.sla_hours || 24;
     const dueAt = new Date(Date.now() + slaHours * 3600000);
 
-    // Resolve status: use passed value if it exists in DB, otherwise use first available status
-    const passedStatus = (status || 'open').toLowerCase();
-    const { rows: statRows } = await pool.query(
-      `SELECT id FROM yc_tkt_mgmt.statuses WHERE id = $1`, [passedStatus]
-    );
-    const resolvedStatus = statRows[0]?.id || 'open';
+    // Resolve status
+    const { rows: statRows } = await pool.query(`SELECT id FROM yc_tkt_mgmt.statuses WHERE id = $1`, [resolvedStatus]);
+    const finalStatus = statRows[0]?.id || 'open';
 
     const { rows } = await pool.query(
       `INSERT INTO yc_tkt_mgmt.tickets
-         (ticket_number, title, description, category_id, priority_id, status_id, requester_id, assignee_id, site, source, due_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'web',$10)
+         (ticket_number, title, description, category_id, priority_id, status_id,
+          requester_id, assignee_id, site, source, due_at, expected_completion)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'web',$10,$11)
        RETURNING *`,
-      [ticketNumber, title, description || '', category, priority, resolvedStatus, req.auth!.userId, assigneeId || null, site || null, dueAt]
+      [ticketNumber, resolvedTitle, description || req.body.issue_details || '', resolvedCategory, resolvedPriority,
+       finalStatus, req.auth!.userId, resolvedAssignee || null, site || null, dueAt, resolvedDueDate]
     );
+    const ticketId = rows[0].id;
 
-    // Log creation activity
-    await pool.query(
-      `INSERT INTO yc_tkt_mgmt.activity (ticket_id, actor_id, action_type) VALUES ($1,$2,'created')`,
-      [rows[0].id, req.auth!.userId]
-    );
-
-    if (assigneeId) {
+    // Insert approvers
+    for (const uid of resolvedApprovers) {
       await pool.query(
-        `INSERT INTO yc_tkt_mgmt.activity (ticket_id, actor_id, action_type, to_value) VALUES ($1,$2,'assigned',$3)`,
-        [rows[0].id, req.auth!.userId, String(assigneeId)]
+        `INSERT INTO yc_tkt_mgmt.ticket_approvers (ticket_id, user_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
+        [ticketId, uid]
       );
     }
 
-    await logAudit({ userId: req.auth!.userId, actorEmail: req.auth!.email, action: 'ticket.create', module: 'tickets', targetType: 'ticket', targetId: rows[0].id, metadata: { ticketNumber, title }, req });
-    res.status(201).json({ ticket: dbTicket(rows[0]) });
+    // Activity log
+    await pool.query(
+      `INSERT INTO yc_tkt_mgmt.activity (ticket_id, actor_id, action_type) VALUES ($1,$2,'created')`,
+      [ticketId, req.auth!.userId]
+    );
+    if (resolvedAssignee) {
+      await pool.query(
+        `INSERT INTO yc_tkt_mgmt.activity (ticket_id, actor_id, action_type, to_value) VALUES ($1,$2,'assigned',$3)`,
+        [ticketId, req.auth!.userId, String(resolvedAssignee)]
+      );
+    }
+
+    await logAudit({ userId: req.auth!.userId, actorEmail: req.auth!.email, action: 'ticket.create', module: 'tickets', targetType: 'ticket', targetId: ticketId, metadata: { ticketNumber, title: resolvedTitle }, req });
+
+    // Return ticket with approvers
+    const { rows: apRows } = await pool.query(
+      `SELECT ta.*, u.name AS user_name, u.email AS user_email
+       FROM yc_tkt_mgmt.ticket_approvers ta
+       JOIN yc_tkt_mgmt.users u ON u.id = ta.user_id
+       WHERE ta.ticket_id = $1`, [ticketId]
+    );
+    const t = dbTicket(rows[0]);
+    t.approvers = apRows.map(dbApprover);
+    res.status(201).json({ ticket: t });
+  } catch (err) { next(err); }
+});
+
+// ── POST /tickets/:id/complete — assignee marks work done ───
+// Moves status to pending_approval; all approvers notified
+router.post('/:id/complete', async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    const { rows: tRows } = await pool.query(`SELECT * FROM yc_tkt_mgmt.tickets WHERE id = $1`, [id]);
+    if (!tRows[0]) return res.status(404).json({ error: 'not_found' });
+
+    const { rows: apRows } = await pool.query(
+      `SELECT count(*) FROM yc_tkt_mgmt.ticket_approvers WHERE ticket_id = $1`, [id]
+    );
+    if (Number(apRows[0].count) === 0) {
+      return res.status(400).json({ error: 'no_approvers', message: 'Ticket has no approvers assigned' });
+    }
+
+    // Reset any previous approver decisions back to pending
+    await pool.query(
+      `UPDATE yc_tkt_mgmt.ticket_approvers SET status='pending', justification=NULL, responded_at=NULL WHERE ticket_id=$1`,
+      [id]
+    );
+
+    const { rows } = await pool.query(
+      `UPDATE yc_tkt_mgmt.tickets
+       SET status_id='pending_approval', pending_approval_at=NOW(), updated_at=NOW()
+       WHERE id=$1 RETURNING *`,
+      [id]
+    );
+
+    await pool.query(
+      `INSERT INTO yc_tkt_mgmt.activity (ticket_id, actor_id, action_type, to_value)
+       VALUES ($1,$2,'status_changed','pending_approval')`,
+      [id, req.auth!.userId]
+    );
+
+    await logAudit({ userId: req.auth!.userId, actorEmail: req.auth!.email, action: 'ticket.complete', module: 'tickets', targetType: 'ticket', targetId: id, metadata: {}, req });
+    res.json({ ticket: dbTicket(rows[0]) });
+  } catch (err) { next(err); }
+});
+
+// ── POST /tickets/:id/approve — approver approves ──────────
+// If ALL approvers have approved → ticket becomes resolved
+router.post('/:id/approve', async (req, res, next) => {
+  try {
+    const id     = Number(req.params.id);
+    const userId = req.auth!.userId;
+
+    const { rows: apRow } = await pool.query(
+      `SELECT * FROM yc_tkt_mgmt.ticket_approvers WHERE ticket_id=$1 AND user_id=$2`, [id, userId]
+    );
+    if (!apRow[0]) return res.status(403).json({ error: 'not_approver', message: 'You are not an approver for this ticket' });
+
+    await pool.query(
+      `UPDATE yc_tkt_mgmt.ticket_approvers
+       SET status='approved', responded_at=NOW(), justification=NULL
+       WHERE ticket_id=$1 AND user_id=$2`,
+      [id, userId]
+    );
+
+    await pool.query(
+      `INSERT INTO yc_tkt_mgmt.activity (ticket_id, actor_id, action_type, to_value)
+       VALUES ($1,$2,'approved', $3)`,
+      [id, userId, req.auth!.email]
+    );
+
+    // Check if ALL approvers have now approved
+    const { rows: pendingRows } = await pool.query(
+      `SELECT count(*) FROM yc_tkt_mgmt.ticket_approvers WHERE ticket_id=$1 AND status != 'approved'`, [id]
+    );
+
+    let ticket;
+    if (Number(pendingRows[0].count) === 0) {
+      // All approved → resolve
+      const { rows } = await pool.query(
+        `UPDATE yc_tkt_mgmt.tickets
+         SET status_id='resolved', resolved_at=NOW(), updated_at=NOW()
+         WHERE id=$1 RETURNING *`,
+        [id]
+      );
+      ticket = rows[0];
+      await pool.query(
+        `INSERT INTO yc_tkt_mgmt.activity (ticket_id, actor_id, action_type, to_value)
+         VALUES ($1,$2,'status_changed','resolved')`,
+        [id, userId]
+      );
+    } else {
+      const { rows } = await pool.query(`SELECT * FROM yc_tkt_mgmt.tickets WHERE id=$1`, [id]);
+      ticket = rows[0];
+    }
+
+    const { rows: allAp } = await pool.query(
+      `SELECT ta.*, u.name AS user_name, u.email AS user_email
+       FROM yc_tkt_mgmt.ticket_approvers ta
+       JOIN yc_tkt_mgmt.users u ON u.id = ta.user_id
+       WHERE ta.ticket_id=$1`, [id]
+    );
+    const t = dbTicket(ticket);
+    t.approvers = allAp.map(dbApprover);
+    await logAudit({ userId, actorEmail: req.auth!.email, action: 'ticket.approve', module: 'tickets', targetType: 'ticket', targetId: id, metadata: {}, req });
+    res.json({ ticket: t });
+  } catch (err) { next(err); }
+});
+
+// ── POST /tickets/:id/reject — approver rejects (reopens) ──
+// Sets status back to in_progress, records justification
+router.post('/:id/reject', async (req, res, next) => {
+  try {
+    const id     = Number(req.params.id);
+    const userId = req.auth!.userId;
+    const { justification } = req.body || {};
+
+    if (!justification?.trim()) {
+      return res.status(400).json({ error: 'justification_required', message: 'A justification is required to reject the resolution' });
+    }
+
+    const { rows: apRow } = await pool.query(
+      `SELECT * FROM yc_tkt_mgmt.ticket_approvers WHERE ticket_id=$1 AND user_id=$2`, [id, userId]
+    );
+    if (!apRow[0]) return res.status(403).json({ error: 'not_approver', message: 'You are not an approver for this ticket' });
+
+    await pool.query(
+      `UPDATE yc_tkt_mgmt.ticket_approvers
+       SET status='rejected', responded_at=NOW(), justification=$3
+       WHERE ticket_id=$1 AND user_id=$2`,
+      [id, userId, justification.trim()]
+    );
+
+    // Reopen ticket — back to in_progress
+    const { rows } = await pool.query(
+      `UPDATE yc_tkt_mgmt.tickets
+       SET status_id='in_progress', pending_approval_at=NULL, updated_at=NOW()
+       WHERE id=$1 RETURNING *`,
+      [id]
+    );
+
+    await pool.query(
+      `INSERT INTO yc_tkt_mgmt.activity (ticket_id, actor_id, action_type, from_value, to_value, metadata)
+       VALUES ($1,$2,'rejected','pending_approval','in_progress',$3)`,
+      [id, userId, JSON.stringify({ justification: justification.trim(), rejectedBy: req.auth!.email })]
+    );
+
+    const { rows: allAp } = await pool.query(
+      `SELECT ta.*, u.name AS user_name, u.email AS user_email
+       FROM yc_tkt_mgmt.ticket_approvers ta
+       JOIN yc_tkt_mgmt.users u ON u.id = ta.user_id
+       WHERE ta.ticket_id=$1`, [id]
+    );
+    const t = dbTicket(rows[0]);
+    t.approvers = allAp.map(dbApprover);
+    await logAudit({ userId, actorEmail: req.auth!.email, action: 'ticket.reject', module: 'tickets', targetType: 'ticket', targetId: id, metadata: { justification }, req });
+    res.json({ ticket: t });
   } catch (err) { next(err); }
 });
 
