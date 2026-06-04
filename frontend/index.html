@@ -1319,94 +1319,68 @@
             const getPriStyle = p => PRIORITY_STYLE[(p||'').toLowerCase()] || PRIORITY_STYLE.low;
 
             return (
-                <main className="flex-1 overflow-auto" style={{background:'#F4F5F8'}}>
+                <main className="flex-1 overflow-auto" style={{background:'#F0F2F8'}}>
                     <style>{`
-                        .cal-cell { transition: background 0.15s; }
-                        .cal-cell:hover { background: #F0F1FF !important; }
-                        .cal-cell.selected { background: #EEF2FF !important; box-shadow: inset 0 0 0 2px #6366F1; }
-                        .cal-cell.holiday { background: #FFF5F5 !important; }
-                        .cal-cell.holiday:hover { background: #FFE8E8 !important; }
-                        .cal-cell.weekend { background: #FAFBFF; }
-                        .cal-cell.today-cell { }
-                        .state-btn { transition: all 0.15s; }
-                        .state-btn:hover { border-color: #6366F1 !important; color: #4338CA !important; background: #F5F3FF !important; }
-                        .ticket-bar { transition: opacity 0.1s; }
-                        .ticket-bar:hover { opacity: 0.85; }
-                        .sidebar-card { background: white; border-radius: 16px; border: 2px solid #E0E3FF; padding: 20px; margin-bottom: 12px; }
+                        .cal-cell { transition: background 0.12s; }
+                        .cal-cell:hover { background: #EEF2FF !important; }
+                        .cal-cell.selected { background: #E0E7FF !important; outline: 2px solid #6366F1; outline-offset: -2px; }
+                        .cal-cell.holiday { background: #FFF1F2 !important; }
+                        .cal-cell.holiday:hover { background: #FFE4E6 !important; }
+                        .cal-cell.weekend { background: #F8F9FE; }
+                        .ticket-bar { cursor: default; }
+                        .sc { background:white; border-radius:16px; border:1.5px solid #E0E7FF; padding:18px; margin-bottom:14px; }
+                        .upcoming-row:hover { background:#F5F3FF; border-radius:10px; }
+                        .cal-nav-btn:hover { background:#EEF2FF !important; }
+                        select.state-select { appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236366F1' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 12px center; padding-right:32px !important; }
                     `}</style>
 
-                    <div style={{maxWidth:'1400px', margin:'0 auto', padding:'28px 32px'}}>
+                    <div style={{maxWidth:'1440px', margin:'0 auto', padding:'24px 28px'}}>
 
-                        {/* ── Header ── */}
-                        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'20px', gap:'16px', flexWrap:'wrap'}}>
+                        {/* ══ Top bar: title + state dropdown ══ */}
+                        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'18px', flexWrap:'wrap', gap:'12px'}}>
                             <div>
-                                <h1 style={{fontSize:'22px', fontWeight:'700', color:'#111827', margin:0, letterSpacing:'-0.3px'}}>
-                                    🇦🇺 Australian Calendar
-                                </h1>
-                                <p style={{fontSize:'13px', color:'#9CA3AF', margin:'4px 0 0'}}>
-                                    Public holidays + ticket due dates · {year}
-                                </p>
+                                <h1 style={{fontSize:'21px', fontWeight:'700', color:'#1E1B4B', margin:0, letterSpacing:'-0.3px'}}>🇦🇺 Australian Calendar</h1>
+                                <p style={{fontSize:'12px', color:'#9CA3AF', margin:'3px 0 0'}}>Public holidays &amp; ticket due dates · {year}</p>
+                            </div>
+                            {/* ── State dropdown ── */}
+                            <div style={{display:'flex', alignItems:'center', gap:'10px', background:'white', border:'2px solid #C7D2FE', borderRadius:'12px', padding:'10px 16px', boxShadow:'0 1px 6px rgba(99,102,241,0.08)'}}>
+                                <span style={{fontSize:'11px', fontWeight:'700', color:'#6366F1', textTransform:'uppercase', letterSpacing:'0.07em', flexShrink:0}}>📍 State / Territory</span>
+                                <select
+                                    className="state-select"
+                                    value={selectedState}
+                                    onChange={e => setSelectedState(e.target.value)}
+                                    style={{border:'1.5px solid #E0E7FF', borderRadius:'8px', padding:'6px 32px 6px 10px', fontSize:'13px', fontWeight:'600', color:'#4338CA', background:'#F5F3FF', cursor:'pointer', outline:'none', minWidth:'170px'}}
+                                >
+                                    {AU_STATES.map(s => (
+                                        <option key={s.code} value={s.code}>{s.label} {s.code !== 'ALL' ? `— ${s.code}` : ''}</option>
+                                    ))}
+                                </select>
+                                <div style={{fontSize:'12px', color:'#9CA3AF', borderLeft:'1px solid #E5E7EB', paddingLeft:'10px', flexShrink:0}}>
+                                    <strong style={{color:'#4338CA'}}>{visibleHolidays.length}</strong> holiday{visibleHolidays.length!==1?'s':''} this month
+                                </div>
                             </div>
                         </div>
 
-                        {/* ── State Filter Bar ── */}
-                        <div style={{background:'white', borderRadius:'14px', border:'2px solid #E0E3FF', padding:'14px 20px', marginBottom:'20px', display:'flex', alignItems:'center', gap:'12px', flexWrap:'wrap', boxShadow:'0 1px 4px rgba(99,102,241,0.07)'}}>
-                            <div style={{display:'flex', alignItems:'center', gap:'7px', marginRight:'4px', flexShrink:0}}>
-                                <div style={{width:'8px', height:'8px', borderRadius:'50%', background:'#6366F1'}}></div>
-                                <span style={{fontSize:'11px', fontWeight:'700', color:'#6366F1', textTransform:'uppercase', letterSpacing:'0.08em'}}>Filter by State</span>
-                            </div>
-                            <div style={{width:'1px', height:'24px', background:'#E5E7EB', flexShrink:0}}></div>
-                            {AU_STATES.map(s => {
-                                const isActive = selectedState === s.code;
-                                return (
-                                    <button key={s.code} className="state-btn"
-                                        onClick={() => setSelectedState(s.code)}
-                                        style={{
-                                            padding: '6px 14px', borderRadius:'8px', fontSize:'12px', fontWeight:'600',
-                                            border: isActive ? '2px solid #6366F1' : '2px solid transparent',
-                                            background: isActive ? '#EEF2FF' : '#F9FAFB',
-                                            color: isActive ? '#4338CA' : '#6B7280',
-                                            cursor: 'pointer',
-                                            transition: 'all 0.15s',
-                                            position: 'relative',
-                                        }}
-                                    >
-                                        {s.label}
-                                        {isActive && (
-                                            <span style={{position:'absolute', top:'-5px', right:'-5px', width:'10px', height:'10px', borderRadius:'50%', background:'#6366F1', border:'2px solid white'}}></span>
-                                        )}
-                                    </button>
-                                );
-                            })}
-                            <div style={{marginLeft:'auto', fontSize:'12px', color:'#9CA3AF', flexShrink:0}}>
-                                Showing: <strong style={{color:'#4338CA'}}>{AU_STATES.find(s=>s.code===selectedState)?.label}</strong> · <strong style={{color:'#4338CA'}}>{visibleHolidays.length}</strong> holiday{visibleHolidays.length!==1?'s':''} this month
-                            </div>
-                        </div>
+                        {/* ══ Main 3-column layout ══ */}
+                        <div style={{display:'grid', gridTemplateColumns:'1fr 300px', gap:'18px', alignItems:'start'}}>
 
-                        <div style={{display:'flex', gap:'20px', alignItems:'flex-start'}}>
+                            {/* ── Calendar card ── */}
+                            <div style={{background:'white', borderRadius:'20px', border:'2.5px solid #C7D2FE', overflow:'hidden', boxShadow:'0 4px 20px rgba(99,102,241,0.10)'}}>
 
-                            {/* ── Main Calendar Card ── */}
-                            <div style={{flex:1, background:'white', borderRadius:'20px', border:'2px solid #C7D2FE', overflow:'hidden', minWidth:0, boxShadow:'0 2px 12px rgba(99,102,241,0.10)'}}>
-
-                                {/* Month nav bar */}
-                                <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 24px', borderBottom:'2px solid #EEF2FF', background:'#FAFBFF'}}>
-                                    <button onClick={prevMonth} style={{width:'36px',height:'36px',borderRadius:'10px',border:'2px solid #E0E3FF',background:'white',cursor:'pointer',fontSize:'18px',display:'flex',alignItems:'center',justifyContent:'center',color:'#6366F1',fontWeight:'700'}}>‹</button>
+                                {/* Month nav */}
+                                <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 22px', background:'linear-gradient(135deg,#6366F1,#818CF8)', color:'white'}}>
+                                    <button className="cal-nav-btn" onClick={prevMonth} style={{width:'34px',height:'34px',borderRadius:'10px',border:'1.5px solid rgba(255,255,255,0.3)',background:'rgba(255,255,255,0.12)',cursor:'pointer',fontSize:'18px',color:'white',fontWeight:'700',display:'flex',alignItems:'center',justifyContent:'center'}}>‹</button>
                                     <div style={{textAlign:'center'}}>
-                                        <h2 style={{fontSize:'18px', fontWeight:'700', color:'#111827', margin:0}}>{monthNames[month]} {year}</h2>
-                                        <p style={{fontSize:'11px', color:'#9CA3AF', margin:'3px 0 0'}}>{visibleHolidays.length} holiday{visibleHolidays.length!==1?'s':''} · {AU_STATES.find(s=>s.code===selectedState)?.label}</p>
+                                        <h2 style={{fontSize:'18px',fontWeight:'700',margin:0,color:'white'}}>{monthNames[month]} {year}</h2>
+                                        <p style={{fontSize:'11px',margin:'2px 0 0',opacity:0.8}}>{visibleHolidays.length} holiday{visibleHolidays.length!==1?'s':''} · {AU_STATES.find(s=>s.code===selectedState)?.label}</p>
                                     </div>
-                                    <button onClick={nextMonth} style={{width:'36px',height:'36px',borderRadius:'10px',border:'2px solid #E0E3FF',background:'white',cursor:'pointer',fontSize:'18px',display:'flex',alignItems:'center',justifyContent:'center',color:'#6366F1',fontWeight:'700'}}>›</button>
+                                    <button className="cal-nav-btn" onClick={nextMonth} style={{width:'34px',height:'34px',borderRadius:'10px',border:'1.5px solid rgba(255,255,255,0.3)',background:'rgba(255,255,255,0.12)',cursor:'pointer',fontSize:'18px',color:'white',fontWeight:'700',display:'flex',alignItems:'center',justifyContent:'center'}}>›</button>
                                 </div>
 
-                                {/* Day-of-week headers */}
-                                <div style={{display:'grid', gridTemplateColumns:'repeat(7,1fr)', borderBottom:'2px solid #EEF2FF', background:'#F8F9FF'}}>
+                                {/* Day headers */}
+                                <div style={{display:'grid', gridTemplateColumns:'repeat(7,1fr)', borderBottom:'2px solid #EEF2FF', background:'#F5F3FF'}}>
                                     {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d,i) => (
-                                        <div key={d} style={{
-                                            textAlign:'center', fontSize:'11px', fontWeight:'700', letterSpacing:'0.07em',
-                                            color: i>=5 ? '#C7D2FE' : '#818CF8',
-                                            padding:'11px 0', textTransform:'uppercase',
-                                            borderRight: i<6 ? '1px solid #EEF2FF' : 'none',
-                                        }}>{d}</div>
+                                        <div key={d} style={{textAlign:'center', fontSize:'11px', fontWeight:'700', letterSpacing:'0.06em', color: i>=5?'#A5B4FC':'#6366F1', padding:'10px 0', textTransform:'uppercase', borderRight: i<6?'1px solid #EEF2FF':'none'}}>{d}</div>
                                     ))}
                                 </div>
 
@@ -1414,73 +1388,37 @@
                                 {(() => {
                                     const monFirst = (firstDow + 6) % 7;
                                     const monCells = [];
-                                    for (let i=0; i<monFirst; i++) monCells.push(null);
-                                    for (let d=1; d<=daysInMonth; d++) monCells.push(d);
-                                    while (monCells.length % 7 !== 0) monCells.push(null);
+                                    for (let i=0;i<monFirst;i++) monCells.push(null);
+                                    for (let d=1;d<=daysInMonth;d++) monCells.push(d);
+                                    while (monCells.length%7!==0) monCells.push(null);
                                     return (
                                         <div style={{display:'grid', gridTemplateColumns:'repeat(7,1fr)'}}>
                                             {monCells.map((d,i) => {
                                                 const ds = d ? dateStr(d) : null;
-                                                const hols = ds ? (holidayMap[ds]||[]) : [];
-                                                const tkts = ds ? (ticketDateMap[ds]||[]) : [];
-                                                const dow = d ? new Date(year,month,d).getDay() : null;
+                                                const hols = ds?(holidayMap[ds]||[]):[];
+                                                const tkts = ds?(ticketDateMap[ds]||[]):[];
+                                                const dow = d?new Date(year,month,d).getDay():null;
                                                 const isWknd = dow===0||dow===6;
-                                                const isTd = d && isToday(d);
+                                                const isTd = d&&isToday(d);
                                                 const isHol = hols.length>0;
                                                 const isSel = selectedDay===ds;
-                                                const isLastRow = i >= monCells.length - 7;
+                                                const isLast = i>=monCells.length-7;
                                                 return (
                                                     <div key={i}
                                                         className={`cal-cell${isSel?' selected':''}${isHol&&!isSel?' holiday':''}${isWknd&&!isHol&&!isSel?' weekend':''}`}
-                                                        onClick={() => d && setSelectedDay(isSel?null:ds)}
-                                                        style={{
-                                                            minHeight:'96px', padding:'8px', cursor: d?'pointer':'default',
-                                                            borderBottom: isLastRow?'none':'1px solid #EEF2FF',
-                                                            borderRight: (i+1)%7===0?'none':'1px solid #EEF2FF',
-                                                            background: !d ? '#F8F9FF' : undefined,
-                                                            position:'relative',
-                                                        }}
+                                                        onClick={()=>d&&setSelectedDay(isSel?null:ds)}
+                                                        style={{minHeight:'100px', padding:'7px 6px', cursor:d?'pointer':'default', borderBottom:isLast?'none':'1px solid #EEF2FF', borderRight:(i+1)%7===0?'none':'1px solid #EEF2FF', background:!d?'#F8F7FF':undefined, position:'relative'}}
                                                     >
                                                         {d && (<>
-                                                            {/* Holiday accent bar */}
-                                                            {isHol && <div style={{position:'absolute',top:0,left:0,right:0,height:'3px',background:'#F87171',borderRadius:'0'}}/>}
-
-                                                            {/* Day number */}
-                                                            <div style={{
-                                                                width:'28px', height:'28px', borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center',
-                                                                fontSize:'13px', fontWeight: isTd?'700':'500', marginBottom:'4px',
-                                                                background: isTd ? '#6366F1' : 'transparent',
-                                                                color: isTd ? 'white' : isHol ? '#B91C1C' : isWknd ? '#D1D5DB' : '#374151',
-                                                            }}>{d}</div>
-
-                                                            {/* Holiday name */}
-                                                            {isHol && (
-                                                                <div style={{fontSize:'10px', color:'#DC2626', fontWeight:'600', lineHeight:'1.3', marginBottom:'3px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
-                                                                    {hols[0].name}
-                                                                </div>
-                                                            )}
-
-                                                            {/* Ticket bars */}
+                                                            {isHol && <div style={{position:'absolute',top:0,left:0,right:0,height:'3px',background:'#FDA4AF'}}/>}
+                                                            <div style={{width:'26px',height:'26px',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px',fontWeight:isTd?'700':'500',marginBottom:'3px',background:isTd?'#6366F1':'transparent',color:isTd?'white':isHol?'#BE123C':isWknd?'#C4B5FD':'#374151'}}>{d}</div>
+                                                            {isHol && <div style={{fontSize:'9.5px',color:'#BE123C',fontWeight:'700',lineHeight:'1.3',marginBottom:'3px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{hols[0].name}</div>}
                                                             {tkts.slice(0,3).map((t,ti) => {
-                                                                const ps = getPriStyle(t.priority || t.priority_id);
-                                                                const isDone = ['resolved','closed'].includes((t.status||t.status_id||'').toLowerCase());
-                                                                return (
-                                                                    <div key={ti} className="ticket-bar" style={{
-                                                                        display:'flex', alignItems:'center', gap:'4px',
-                                                                        background: isDone ? '#F0FDF4' : ps.bg,
-                                                                        borderLeft: `3px solid ${isDone ? '#22C55E' : ps.bar}`,
-                                                                        borderRadius:'0 4px 4px 0',
-                                                                        padding:'2px 5px', marginBottom:'2px',
-                                                                    }}>
-                                                                        <span style={{fontSize:'10px', fontWeight:'600', color: isDone?'#15803D':ps.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:'100%'}}>
-                                                                            {t.ticketNumber || t.id}
-                                                                        </span>
-                                                                    </div>
-                                                                );
+                                                                const ps=getPriStyle(t.priority||t.priority_id);
+                                                                const done=['resolved','closed'].includes((t.status||t.status_id||'').toLowerCase());
+                                                                return <div key={ti} className="ticket-bar" style={{display:'flex',alignItems:'center',borderLeft:`3px solid ${done?'#22C55E':ps.bar}`,background:done?'#F0FDF4':ps.bg,borderRadius:'0 4px 4px 0',padding:'1.5px 5px',marginBottom:'2px'}}><span style={{fontSize:'9.5px',fontWeight:'700',color:done?'#15803D':ps.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'100%'}}>{t.ticketNumber||t.id}</span></div>;
                                                             })}
-                                                            {tkts.length > 3 && (
-                                                                <div style={{fontSize:'10px', color:'#6366F1', fontWeight:'600'}}>+{tkts.length-3} more</div>
-                                                            )}
+                                                            {tkts.length>3 && <div style={{fontSize:'9px',color:'#6366F1',fontWeight:'700'}}>+{tkts.length-3} more</div>}
                                                         </>)}
                                                     </div>
                                                 );
@@ -1490,112 +1428,98 @@
                                 })()}
 
                                 {/* Legend */}
-                                <div style={{display:'flex', flexWrap:'wrap', gap:'16px', padding:'14px 24px', borderTop:'2px solid #EEF2FF', background:'#FAFBFF', alignItems:'center'}}>
-                                    <span style={{fontSize:'11px', color:'#9CA3AF', fontWeight:'600', textTransform:'uppercase', letterSpacing:'0.05em'}}>Legend</span>
+                                <div style={{display:'flex',flexWrap:'wrap',gap:'14px',padding:'12px 20px',borderTop:'2px solid #EEF2FF',background:'#F8F7FF',alignItems:'center'}}>
+                                    <span style={{fontSize:'10px',fontWeight:'700',color:'#6366F1',textTransform:'uppercase',letterSpacing:'0.07em'}}>Legend</span>
                                     {[
-                                        { swatch:<div style={{width:'20px',height:'20px',borderRadius:'50%',background:'#6366F1',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:'10px',fontWeight:'700'}}>7</div>, label:'Today' },
-                                        { swatch:<div style={{width:'20px',height:'6px',borderRadius:'2px',background:'#F87171'}}></div>, label:'Public holiday' },
-                                        { swatch:<div style={{width:'20px',height:'14px',borderRadius:'3px',borderLeft:'3px solid #EF4444',background:'#FEF2F2'}}></div>, label:'Critical' },
-                                        { swatch:<div style={{width:'20px',height:'14px',borderRadius:'3px',borderLeft:'3px solid #F97316',background:'#FFF7ED'}}></div>, label:'High' },
-                                        { swatch:<div style={{width:'20px',height:'14px',borderRadius:'3px',borderLeft:'3px solid #EAB308',background:'#FEFCE8'}}></div>, label:'Medium' },
-                                        { swatch:<div style={{width:'20px',height:'14px',borderRadius:'3px',borderLeft:'3px solid #6366F1',background:'#EEF2FF'}}></div>, label:'Low' },
-                                        { swatch:<div style={{width:'20px',height:'14px',borderRadius:'3px',borderLeft:'3px solid #22C55E',background:'#F0FDF4'}}></div>, label:'Resolved' },
-                                    ].map((l,i) => (
-                                        <div key={i} style={{display:'flex',alignItems:'center',gap:'6px'}}>
-                                            {l.swatch}
-                                            <span style={{fontSize:'11px',color:'#6B7280'}}>{l.label}</span>
-                                        </div>
-                                    ))}
+                                        {s:<div style={{width:'18px',height:'18px',borderRadius:'50%',background:'#6366F1',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:'9px',fontWeight:'700'}}>7</div>,l:'Today'},
+                                        {s:<div style={{width:'18px',height:'4px',borderRadius:'2px',background:'#FDA4AF'}}></div>,l:'Holiday'},
+                                        {s:<div style={{width:'18px',height:'12px',borderRadius:'2px',borderLeft:'3px solid #EF4444',background:'#FEF2F2'}}></div>,l:'Critical'},
+                                        {s:<div style={{width:'18px',height:'12px',borderRadius:'2px',borderLeft:'3px solid #F97316',background:'#FFF7ED'}}></div>,l:'High'},
+                                        {s:<div style={{width:'18px',height:'12px',borderRadius:'2px',borderLeft:'3px solid #EAB308',background:'#FEFCE8'}}></div>,l:'Medium'},
+                                        {s:<div style={{width:'18px',height:'12px',borderRadius:'2px',borderLeft:'3px solid #6366F1',background:'#EEF2FF'}}></div>,l:'Low'},
+                                        {s:<div style={{width:'18px',height:'12px',borderRadius:'2px',borderLeft:'3px solid #22C55E',background:'#F0FDF4'}}></div>,l:'Resolved'},
+                                    ].map((l,i)=><div key={i} style={{display:'flex',alignItems:'center',gap:'5px'}}>{l.s}<span style={{fontSize:'10px',color:'#6B7280'}}>{l.l}</span></div>)}
                                 </div>
                             </div>
 
-                            {/* ── Sidebar ── */}
-                            <div style={{width:'280px', flexShrink:0}}>
+                            {/* ── RIGHT SIDEBAR ── */}
+                            <div>
 
-                                {/* Selected day panel */}
-                                {selectedDay && (() => {
-                                    const hols = holidayMap[selectedDay]||[];
-                                    const tkts = ticketDateMap[selectedDay]||[];
-                                    const [sy,sm,sd2] = selectedDay.split('-').map(Number);
-                                    const dl = new Date(sy,sm-1,sd2).toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'});
+                                {/* Selected day card */}
+                                {selectedDay && (()=>{
+                                    const hols=holidayMap[selectedDay]||[];
+                                    const tkts=ticketDateMap[selectedDay]||[];
+                                    const [sy,sm2,sd2]=selectedDay.split('-').map(Number);
+                                    const dl=new Date(sy,sm2-1,sd2).toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'});
                                     return (
-                                        <div className="sidebar-card" style={{borderLeft:'4px solid #6366F1', borderRadius:'16px'}}>
-                                            <p style={{fontSize:'10px',fontWeight:'700',color:'#6366F1',textTransform:'uppercase',letterSpacing:'0.08em',margin:'0 0 4px'}}>{dl}</p>
-
-                                            {hols.map((h,i) => (
-                                                <div key={i} style={{background:'#FFF5F5',borderRadius:'8px',padding:'8px 10px',marginBottom:'6px'}}>
-                                                    <p style={{fontSize:'12px',fontWeight:'700',color:'#DC2626',margin:0}}>🎉 {h.name}</p>
-                                                    <div style={{display:'flex',gap:'4px',flexWrap:'wrap',marginTop:'4px'}}>
-                                                        {h.states.includes('ALL')
-                                                            ? <span style={{fontSize:'10px',background:'#EEF2FF',color:'#4338CA',padding:'2px 8px',borderRadius:'20px',fontWeight:'600'}}>National</span>
-                                                            : h.states.map(s => <span key={s} style={{fontSize:'10px',background:'#F3F4F6',color:'#6B7280',padding:'2px 7px',borderRadius:'20px'}}>{s}</span>)
-                                                        }
+                                        <div className="sc" style={{borderLeft:'4px solid #6366F1',marginBottom:'14px'}}>
+                                            <p style={{fontSize:'10px',fontWeight:'700',color:'#6366F1',textTransform:'uppercase',letterSpacing:'0.08em',margin:'0 0 8px'}}>{dl}</p>
+                                            {hols.map((h,i)=>(
+                                                <div key={i} style={{background:'#FFF1F2',borderRadius:'8px',padding:'8px 10px',marginBottom:'6px'}}>
+                                                    <p style={{fontSize:'12px',fontWeight:'700',color:'#BE123C',margin:0}}>🎉 {h.name}</p>
+                                                    <div style={{display:'flex',gap:'4px',flexWrap:'wrap',marginTop:'5px'}}>
+                                                        {h.states.includes('ALL')?<span style={{fontSize:'10px',background:'#EEF2FF',color:'#4338CA',padding:'2px 8px',borderRadius:'20px',fontWeight:'600'}}>National</span>:h.states.map(s=><span key={s} style={{fontSize:'10px',background:'#F3F4F6',color:'#6B7280',padding:'2px 7px',borderRadius:'20px'}}>{s}</span>)}
                                                     </div>
                                                 </div>
                                             ))}
-
-                                            {tkts.length > 0 && (
-                                                <>
-                                                    <p style={{fontSize:'10px',fontWeight:'700',color:'#6366F1',textTransform:'uppercase',letterSpacing:'0.08em',margin:'10px 0 6px'}}>Tickets due · {tkts.length}</p>
-                                                    {tkts.map((t,i) => {
-                                                        const ps = getPriStyle(t.priority||t.priority_id);
-                                                        const status = t.status||t.status_id||t.statusLabel||'Open';
-                                                        const isDone = ['resolved','closed'].includes(status.toLowerCase());
-                                                        return (
-                                                            <div key={i} style={{borderLeft:`4px solid ${isDone?'#22C55E':ps.bar}`,background: isDone?'#F0FDF4':ps.bg,borderRadius:'0 8px 8px 0',padding:'8px 10px',marginBottom:'5px'}}>
-                                                                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'6px'}}>
-                                                                    <span style={{fontSize:'11px',fontWeight:'700',color: isDone?'#15803D':ps.text}}>{t.ticketNumber||t.id}</span>
-                                                                    <span style={{fontSize:'10px',fontWeight:'600',color:'#9CA3AF'}}>{status}</span>
-                                                                </div>
-                                                                <p style={{fontSize:'11px',color:'#374151',margin:'3px 0 0',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.title||t.subtitle||'—'}</p>
-                                                                {(t.assigneeName||t.assigned) && <p style={{fontSize:'10px',color:'#9CA3AF',margin:'2px 0 0'}}>👤 {t.assigneeName||t.assigned}</p>}
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </>
-                                            )}
-
-                                            {hols.length===0 && tkts.length===0 && (
-                                                <p style={{fontSize:'12px',color:'#9CA3AF',fontStyle:'italic',margin:0}}>No events on this day</p>
-                                            )}
+                                            {tkts.length>0&&(<>
+                                                <p style={{fontSize:'10px',fontWeight:'700',color:'#6366F1',textTransform:'uppercase',letterSpacing:'0.07em',margin:'10px 0 6px'}}>Tickets due · {tkts.length}</p>
+                                                {tkts.map((t,i)=>{
+                                                    const ps=getPriStyle(t.priority||t.priority_id);
+                                                    const status=t.status||t.status_id||'Open';
+                                                    const done=['resolved','closed'].includes(status.toLowerCase());
+                                                    return <div key={i} style={{borderLeft:`4px solid ${done?'#22C55E':ps.bar}`,background:done?'#F0FDF4':ps.bg,borderRadius:'0 8px 8px 0',padding:'7px 10px',marginBottom:'5px'}}><div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}><span style={{fontSize:'11px',fontWeight:'700',color:done?'#15803D':ps.text}}>{t.ticketNumber||t.id}</span><span style={{fontSize:'10px',color:'#9CA3AF'}}>{status}</span></div><p style={{fontSize:'11px',color:'#374151',margin:'2px 0 0',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.title||t.subtitle||'—'}</p></div>;
+                                                })}
+                                            </>)}
+                                            {hols.length===0&&tkts.length===0&&<p style={{fontSize:'12px',color:'#9CA3AF',fontStyle:'italic',margin:0}}>No events on this day</p>}
                                         </div>
                                     );
                                 })()}
 
-                                {/* Monthly summary */}
-                                <div style={{background:'#6366F1',borderRadius:'16px',padding:'20px',marginBottom:'12px',color:'white'}}>
-                                    <p style={{fontSize:'10px',fontWeight:'700',textTransform:'uppercase',letterSpacing:'0.08em',opacity:0.75,margin:'0 0 4px'}}>{monthNames[month]}</p>
-                                    <p style={{fontSize:'32px',fontWeight:'700',margin:'0 0 2px',lineHeight:1}}>{visibleHolidays.length}</p>
-                                    <p style={{fontSize:'12px',opacity:0.8,margin:'0 0 12px'}}>public holiday{visibleHolidays.length!==1?'s':''} in {AU_STATES.find(s=>s.code===selectedState)?.label}</p>
-                                    {visibleHolidays.map((h,i) => (
-                                        <div key={i} style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'4px'}}>
-                                            <div style={{width:'5px',height:'5px',borderRadius:'50%',background:'rgba(255,255,255,0.6)',flexShrink:0}}></div>
-                                            <p style={{fontSize:'11px',opacity:0.9,margin:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{h.name}</p>
+                                {/* Monthly summary chip */}
+                                <div style={{background:'linear-gradient(135deg,#6366F1,#818CF8)',borderRadius:'16px',padding:'18px',marginBottom:'14px',color:'white',border:'2px solid #C7D2FE'}}>
+                                    <p style={{fontSize:'10px',fontWeight:'700',textTransform:'uppercase',letterSpacing:'0.08em',opacity:0.8,margin:'0 0 3px'}}>{monthNames[month]} · {AU_STATES.find(s=>s.code===selectedState)?.label}</p>
+                                    <p style={{fontSize:'30px',fontWeight:'700',margin:'0 0 2px',lineHeight:1}}>{visibleHolidays.length}</p>
+                                    <p style={{fontSize:'11px',opacity:0.8,margin:'0 0 10px'}}>public holiday{visibleHolidays.length!==1?'s':''} this month</p>
+                                    {visibleHolidays.map((h,i)=>(
+                                        <div key={i} style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'3px'}}>
+                                            <div style={{width:'4px',height:'4px',borderRadius:'50%',background:'rgba(255,255,255,0.65)',flexShrink:0}}></div>
+                                            <p style={{fontSize:'11px',opacity:0.92,margin:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{h.name}</p>
                                         </div>
                                     ))}
-                                    {visibleHolidays.length===0 && <p style={{fontSize:'11px',opacity:0.6,margin:0,fontStyle:'italic'}}>No holidays this month</p>}
+                                    {visibleHolidays.length===0&&<p style={{fontSize:'11px',opacity:0.55,fontStyle:'italic',margin:0}}>No holidays this month</p>}
                                 </div>
 
-                                {/* Upcoming holidays */}
-                                <div className="sidebar-card">
-                                    <p style={{fontSize:'10px',fontWeight:'700',color:'#9CA3AF',textTransform:'uppercase',letterSpacing:'0.08em',margin:'0 0 12px'}}>Upcoming · {AU_STATES.find(s=>s.code===selectedState)?.label}</p>
-                                    {upcoming.length===0 ? (
-                                        <p style={{fontSize:'12px',color:'#9CA3AF',fontStyle:'italic'}}>No upcoming holidays</p>
-                                    ) : upcoming.map((h,i) => {
-                                        const [hy,hm,hd] = h.date.split('-').map(Number);
-                                        const diff = Math.round((new Date(hy,hm-1,hd) - today) / 86400000);
-                                        const dLabel = diff===0?'Today':diff===1?'Tomorrow':`${diff}d away`;
-                                        const mnths = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                                {/* ── Upcoming holidays (next 90 days) ── */}
+                                <div className="sc">
+                                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'12px'}}>
+                                        <p style={{fontSize:'11px',fontWeight:'700',color:'#6366F1',textTransform:'uppercase',letterSpacing:'0.08em',margin:0}}>📅 Upcoming Holidays</p>
+                                        <span style={{fontSize:'10px',background:'#EEF2FF',color:'#4338CA',padding:'2px 8px',borderRadius:'20px',fontWeight:'700'}}>Next 90 days</span>
+                                    </div>
+                                    <p style={{fontSize:'11px',color:'#9CA3AF',margin:'0 0 12px'}}>{AU_STATES.find(s=>s.code===selectedState)?.label}</p>
+                                    {upcoming.length===0?(
+                                        <div style={{textAlign:'center',padding:'20px 0'}}>
+                                            <p style={{fontSize:'24px',margin:'0 0 6px'}}>🎊</p>
+                                            <p style={{fontSize:'12px',color:'#9CA3AF',fontStyle:'italic',margin:0}}>No holidays in the next 90 days</p>
+                                        </div>
+                                    ):upcoming.map((h,i)=>{
+                                        const [hy,hm2,hd2]=h.date.split('-').map(Number);
+                                        const diff=Math.round((new Date(hy,hm2-1,hd2)-today)/86400000);
+                                        const dLabel=diff===0?'Today 🎉':diff===1?'Tomorrow':`${diff} days away`;
+                                        const urgency=diff<=7?'#FEF2F2':diff<=30?'#FFF7ED':'#F5F3FF';
+                                        const urgencyText=diff<=7?'#DC2626':diff<=30?'#C2410C':'#4338CA';
+                                        const mnShort=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
                                         return (
-                                            <div key={i} style={{display:'flex',alignItems:'center',gap:'10px',marginBottom:'10px'}}>
-                                                <div style={{width:'40px',flexShrink:0,textAlign:'center',background:'#F4F5F8',borderRadius:'8px',padding:'4px 0'}}>
-                                                    <p style={{fontSize:'9px',fontWeight:'700',color:'#6366F1',margin:0,textTransform:'uppercase'}}>{mnths[hm-1]}</p>
-                                                    <p style={{fontSize:'17px',fontWeight:'700',color:'#111827',margin:0,lineHeight:1.1}}>{hd}</p>
+                                            <div key={i} className="upcoming-row" style={{display:'flex',alignItems:'center',gap:'10px',padding:'6px 8px',marginBottom:'4px',borderRadius:'10px',cursor:'default'}}>
+                                                <div style={{width:'42px',flexShrink:0,textAlign:'center',background:urgency,borderRadius:'10px',padding:'5px 0',border:`1px solid ${urgency==='#F5F3FF'?'#DDD6FE':urgency==='#FFF7ED'?'#FED7AA':'#FECACA'}`}}>
+                                                    <p style={{fontSize:'9px',fontWeight:'700',color:urgencyText,margin:0,textTransform:'uppercase'}}>{mnShort[hm2-1]}</p>
+                                                    <p style={{fontSize:'18px',fontWeight:'700',color:urgencyText,margin:0,lineHeight:1.15}}>{hd2}</p>
                                                 </div>
                                                 <div style={{flex:1,minWidth:0}}>
-                                                    <p style={{fontSize:'12px',fontWeight:'600',color:'#111827',margin:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{h.name}</p>
-                                                    <p style={{fontSize:'10px',color:'#9CA3AF',margin:'1px 0 0'}}>{dLabel}</p>
+                                                    <p style={{fontSize:'12px',fontWeight:'600',color:'#1E1B4B',margin:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{h.name}</p>
+                                                    <p style={{fontSize:'10px',color:urgencyText,margin:'2px 0 0',fontWeight:'600'}}>{dLabel}</p>
                                                 </div>
+                                                {h.states.includes('ALL')&&<span style={{fontSize:'9px',background:'#EEF2FF',color:'#4338CA',padding:'2px 6px',borderRadius:'20px',fontWeight:'700',flexShrink:0}}>NAT</span>}
                                             </div>
                                         );
                                     })}
