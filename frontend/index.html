@@ -1976,9 +1976,9 @@
 
         // Org Chart Page
         // ── Org Chart helpers (defined outside to keep stable references) ──
-        const ORG_GAP  = 10;   // default inner gap (px)
+        const ORG_GAP  = 6;    // default inner gap (px)
         const ORG_LINE = '#94A3B8';
-        const ORG_LH   = 14;   // connector line height (px)
+        const ORG_LH   = 10;   // connector line height (px)
 
         function OrgCard({ name, title, email, type, vacant, deptLabel }) {
             const S = {
@@ -1991,7 +1991,7 @@
             };
             const s = S[type] || S.ops;
             // compact widths: dept headers slightly wider, leaf nodes narrow
-            const w = deptLabel ? 178 : 108;
+            const w = deptLabel ? 140 : 88;
             return (
                 <div style={{ border:`1.5px ${vacant?'dashed':'solid'} ${vacant?'#9CA3AF':s.b}`, background:vacant?'#F9FAFB':s.bg, borderRadius:10, padding: deptLabel ? '8px 10px' : '6px 8px', width:w, textAlign:'center', boxShadow:'0 1px 5px rgba(0,0,0,0.07)', flexShrink:0 }}>
                     {deptLabel && <p style={{ fontSize:8.5, fontWeight:800, color:s.t, textTransform:'uppercase', letterSpacing:'0.06em', margin:'0 0 3px', lineHeight:1.3 }}>{deptLabel}</p>}
@@ -2146,7 +2146,7 @@
                                 <div style={{width:'fit-content', minWidth:'100%', display:'flex', justifyContent:'center', boxSizing:'border-box'}}>
                                     <OrgTree
                                         card={<OrgCard name="Alex" title="Director" email="alex@yahwehpc.com.au" type="director" deptLabel="👤 Director"/>}
-                                        gap={24}
+                                        gap={16}
                                         ch={[
                                             /* ── OPERATIONS ── */
                                             <OrgTree
