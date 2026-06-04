@@ -369,6 +369,7 @@
             const [loading, setLoading] = React.useState(false);
             const [lookups, setLookups] = React.useState(null);
             const [error, setError] = React.useState('');
+            const [success, setSuccess] = React.useState(false);
 
             React.useEffect(() => {
                 fetchLookups();
@@ -387,15 +388,15 @@
                 e.preventDefault();
                 setLoading(true);
                 setError('');
+                setSuccess(false);
                 try {
-                    // Validate approvers
                     if (!formData.approver_ids || formData.approver_ids.length === 0) {
                         setError('At least one approver must be selected');
                         setLoading(false);
                         return;
                     }
                     await API.tickets.create(formData);
-                    alert('✅ Ticket created successfully!');
+                    setSuccess(true);
                     setFormData({
                         title_type: 'Service Request',
                         subtitle: '',
@@ -414,6 +415,7 @@
                         created_by: 1,
                         assigned_to: null
                     });
+                    setTimeout(() => setSuccess(false), 5000);
                 } catch (err) {
                     setError('Failed to create ticket: ' + err.message);
                 } finally {
@@ -429,150 +431,195 @@
                 }));
             };
 
+            const inputCls = "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition";
+            const labelCls = "block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5";
+            const cardCls = "bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-5";
+            const sectionHeadCls = "text-sm font-semibold text-gray-400 uppercase tracking-widest mb-5 flex items-center gap-2";
+
             return (
-                <main className="flex-1 overflow-auto bg-gray-50">
-                    <div className="max-w-4xl mx-auto p-8">
-                        <div className="mb-8">
-                            <h1 className="text-4xl font-bold text-gray-900 mb-2">Create New Ticket</h1>
-                            <p className="text-gray-600">Submit a new support request</p>
+                <main className="flex-1 overflow-auto" style={{background:'#F8F9FB'}}>
+                    <div className="max-w-6xl mx-auto px-8 py-8">
+                        {/* Page header */}
+                        <div className="mb-7">
+                            <div className="flex items-center gap-2 text-sm text-gray-400 mb-2 cursor-pointer hover:text-indigo-600 transition w-fit" onClick={() => {}}>
+                                <span style={{fontSize:'16px'}}>←</span>
+                                <span>Back</span>
+                            </div>
+                            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Create New Ticket</h1>
+                            <p className="text-sm text-gray-400 mt-1">Submit a new support request</p>
                         </div>
 
-                        {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6">{error}</div>}
+                        {error && (
+                            <div className="flex items-center gap-3 bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-xl mb-5 text-sm">
+                                <span>⚠️</span> {error}
+                            </div>
+                        )}
+                        {success && (
+                            <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-100 text-emerald-700 px-4 py-3 rounded-xl mb-5 text-sm">
+                                <span>✅</span> Ticket created successfully!
+                            </div>
+                        )}
 
-                        {!lookups ? <div className="text-center py-12"><p>Loading form...</p></div> : (
-                        <form onSubmit={handleSubmit} className="space-y-8">
-                            {/* Ticket Details Section */}
-                            <div className="bg-white rounded-lg border border-gray-200 p-6">
-                                <h2 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
-                                    <span>📋</span> Ticket Details
-                                </h2>
-                                <div className="grid grid-cols-2 gap-6 mb-6">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-900 mb-2">Title Type *</label>
-                                        <select name="title_type" value={formData.title_type} onChange={handleChange} className="w-full border border-gray-300 rounded px-3 py-2">
-                                            <option>Service Request</option>
-                                            <option>Complaint</option>
-                                            <option>Incident Report</option>
-                                            <option>Equipment Request</option>
-                                            <option>Schedule Change</option>
-                                            <option>Quality Issue</option>
-                                            <option>Safety Report</option>
-                                            <option>Other</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-900 mb-2">Subtitle *</label>
-                                        <input type="text" name="subtitle" value={formData.subtitle} onChange={handleChange} placeholder="Brief description" className="w-full border border-gray-300 rounded px-3 py-2"/>
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-6">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-900 mb-2">Category *</label>
-                                        <select name="category_id" value={formData.category_id} onChange={handleChange} className="w-full border border-gray-300 rounded px-3 py-2">
-                                            <option value="it">IT Support</option>
-                                            <option value="hr">HR & Payroll</option>
-                                            <option value="facilities">Facilities & Maintenance</option>
-                                            <option value="care">Care Coordination</option>
-                                            <option value="clinical">Clinical / Compliance</option>
-                                            <option value="finance">Finance</option>
-                                            <option value="general">General Enquiry</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-900 mb-2">Subcategory</label>
-                                        <input type="text" name="subcategory" value={formData.subcategory} onChange={handleChange} placeholder="Optional subcategory" className="w-full border border-gray-300 rounded px-3 py-2"/>
-                                    </div>
-                                </div>
-                                <div className="mt-6">
-                                    <label className="block text-sm font-medium text-gray-900 mb-2">Issue Details *</label>
-                                    <textarea name="issue_details" value={formData.issue_details} onChange={handleChange} placeholder="Describe the issue in detail..." className="w-full h-32 border border-gray-300 rounded px-3 py-2"></textarea>
+                        {!lookups ? (
+                            <div className="flex items-center justify-center py-20">
+                                <div className="text-center">
+                                    <div className="text-3xl mb-3">⏳</div>
+                                    <p className="text-gray-400 text-sm">Loading form…</p>
                                 </div>
                             </div>
-
-                            {/* Reporter Information Section */}
-                            <div className="bg-white rounded-lg border border-gray-200 p-6">
-                                <h2 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
-                                    <span>👤</span> Reporter Information
-                                </h2>
-                                <div className="grid grid-cols-2 gap-6 mb-6">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-900 mb-2">Submitted By *</label>
-                                        <input type="text" value={formData.submitted_by} className="w-full border border-gray-300 rounded px-3 py-2 bg-gray-100" disabled/>
+                        ) : (
+                        <form onSubmit={handleSubmit}>
+                            {/* Two-column layout */}
+                            <div className="flex gap-6 items-start">
+                                {/* LEFT COLUMN — main form */}
+                                <div className="flex-1 min-w-0">
+                                    {/* Ticket Details */}
+                                    <div className={cardCls}>
+                                        <div className={sectionHeadCls}>
+                                            <span style={{color:'#6366F1', fontSize:'15px'}}>📋</span> Ticket Details
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4 mb-4">
+                                            <div>
+                                                <label className={labelCls}>Title Type <span className="text-red-400">*</span></label>
+                                                <select name="title_type" value={formData.title_type} onChange={handleChange} className={inputCls}>
+                                                    <option>Service Request</option>
+                                                    <option>Complaint</option>
+                                                    <option>Incident Report</option>
+                                                    <option>Equipment Request</option>
+                                                    <option>Schedule Change</option>
+                                                    <option>Quality Issue</option>
+                                                    <option>Safety Report</option>
+                                                    <option>Other</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className={labelCls}>Subtitle <span className="text-red-400">*</span></label>
+                                                <input type="text" name="subtitle" value={formData.subtitle} onChange={handleChange} placeholder="Brief description" className={inputCls}/>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4 mb-4">
+                                            <div>
+                                                <label className={labelCls}>Category <span className="text-red-400">*</span></label>
+                                                <select name="category_id" value={formData.category_id} onChange={handleChange} className={inputCls}>
+                                                    <option value="it">IT Support</option>
+                                                    <option value="hr">HR &amp; Payroll</option>
+                                                    <option value="facilities">Facilities &amp; Maintenance</option>
+                                                    <option value="care">Care Coordination</option>
+                                                    <option value="clinical">Clinical / Compliance</option>
+                                                    <option value="finance">Finance</option>
+                                                    <option value="general">General Enquiry</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className={labelCls}>Subcategory</label>
+                                                <input type="text" name="subcategory" value={formData.subcategory} onChange={handleChange} placeholder="Optional subcategory" className={inputCls}/>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className={labelCls}>Issue Details <span className="text-red-400">*</span></label>
+                                            <textarea name="issue_details" value={formData.issue_details} onChange={handleChange} placeholder="Describe the issue in detail…" rows="4" className={inputCls + " resize-none"}></textarea>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-900 mb-2">Email *</label>
-                                        <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="IT@yahweahcare.com.au" className="w-full border border-gray-300 rounded px-3 py-2"/>
+
+                                    {/* Reporter Information */}
+                                    <div className={cardCls}>
+                                        <div className="flex items-center justify-between mb-5">
+                                            <div className={sectionHeadCls} style={{marginBottom:0}}>
+                                                <span style={{color:'#6366F1', fontSize:'15px'}}>👤</span> Reporter Information
+                                            </div>
+                                            <span className="text-xs text-gray-400 flex items-center gap-1">
+                                                <span>🔒</span> Auto-filled from your account
+                                            </span>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4 mb-4">
+                                            <div>
+                                                <label className={labelCls}>Submitted By <span className="text-red-400">*</span></label>
+                                                <input type="text" value={formData.submitted_by} className={inputCls + " bg-gray-50 text-gray-500 cursor-not-allowed"} disabled/>
+                                            </div>
+                                            <div>
+                                                <label className={labelCls}>Email <span className="text-red-400">*</span></label>
+                                                <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="IT@yahweahcare.com.au" className={inputCls}/>
+                                            </div>
+                                        </div>
+                                        <label className="flex items-center gap-3 cursor-pointer group w-fit">
+                                            <div className="relative">
+                                                <input type="checkbox" name="ndis_related" checked={formData.ndis_related} onChange={handleChange} className="sr-only"/>
+                                                <div className={`w-10 h-6 rounded-full transition ${formData.ndis_related ? 'bg-indigo-600' : 'bg-gray-200'}`}></div>
+                                                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${formData.ndis_related ? 'left-5' : 'left-1'}`}></div>
+                                            </div>
+                                            <span className="text-sm font-medium text-gray-700">NDIS Related</span>
+                                        </label>
                                     </div>
-                                </div>
-                                <div>
-                                    <label className="flex items-center gap-3 cursor-pointer">
-                                        <input type="checkbox" name="ndis_related" checked={formData.ndis_related} onChange={handleChange} className="w-5 h-5 text-blue-600 rounded"/>
-                                        <span className="text-sm font-medium text-gray-900">NDIS Related</span>
-                                    </label>
-                                </div>
-                            </div>
 
-                            {/* Classification Section */}
-                            <div className="bg-white rounded-lg border border-gray-200 p-6">
-                                <h2 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
-                                    <span>🏷️</span> Classification
-                                </h2>
-                                <div className="grid grid-cols-2 gap-6 mb-6">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-900 mb-2">Priority *</label>
-                                        <select name="priority_id" value={formData.priority_id} onChange={handleChange} className="w-full border border-gray-300 rounded px-3 py-2">
-                                            <option value="low">Low</option>
-                                            <option value="medium">Medium</option>
-                                            <option value="high">High</option>
-                                            <option value="critical">Critical</option>
-                                        </select>
+                                    {/* Approval Configuration */}
+                                    {lookups && lookups.users && (
+                                        <div className={cardCls}>
+                                            <ApproversSection
+                                                formData={formData}
+                                                setFormData={setFormData}
+                                                users={lookups.users}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* RIGHT COLUMN — sidebar */}
+                                <div className="w-72 flex-shrink-0">
+                                    {/* Classification */}
+                                    <div className={cardCls}>
+                                        <div className={sectionHeadCls}>
+                                            <span style={{color:'#6366F1', fontSize:'15px'}}>🏷️</span> Classification
+                                        </div>
+                                        <div className="mb-4">
+                                            <label className={labelCls}>Priority <span className="text-red-400">*</span></label>
+                                            <select name="priority_id" value={formData.priority_id} onChange={handleChange} className={inputCls}>
+                                                <option value="low">Low</option>
+                                                <option value="medium">Medium</option>
+                                                <option value="high">High</option>
+                                                <option value="critical">Critical</option>
+                                            </select>
+                                        </div>
+                                        <div className="mb-4">
+                                            <label className={labelCls}>Initial Status <span className="text-red-400">*</span></label>
+                                            <select name="initial_status" value={formData.initial_status} onChange={handleChange} className={inputCls}>
+                                                <option value="new">New</option>
+                                                <option value="assigned">Assigned</option>
+                                                <option value="in_progress">In Progress</option>
+                                                <option value="waiting">Waiting on Requester</option>
+                                                <option value="resolved">Resolved</option>
+                                                <option value="closed">Closed</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className={labelCls}>Expected Completion</label>
+                                            <input type="date" name="expected_completion" value={formData.expected_completion} onChange={handleChange} className={inputCls}/>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-900 mb-2">Initial Status *</label>
-                                        <select name="initial_status" value={formData.initial_status} onChange={handleChange} className="w-full border border-gray-300 rounded px-3 py-2">
-                                            <option value="new">New</option>
-                                            <option value="assigned">Assigned</option>
-                                            <option value="in_progress">In Progress</option>
-                                            <option value="waiting">Waiting on Requester</option>
-                                            <option value="resolved">Resolved</option>
-                                            <option value="closed">Closed</option>
-                                        </select>
+
+                                    {/* Assignment */}
+                                    <div className={cardCls}>
+                                        <div className={sectionHeadCls}>
+                                            <span style={{color:'#6366F1', fontSize:'15px'}}>👥</span> Assignment
+                                        </div>
+                                        <div>
+                                            <label className={labelCls}>Assign To</label>
+                                            <select name="assign_to" value={formData.assign_to} onChange={handleChange} className={inputCls}>
+                                                <option>Unassigned</option>
+                                                {STAFF_DATA.map(s => <option key={s.name}>{s.name}</option>)}
+                                            </select>
+                                        </div>
                                     </div>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-900 mb-2">Expected Completion</label>
-                                    <input type="date" name="expected_completion" value={formData.expected_completion} onChange={handleChange} className="w-full border border-gray-300 rounded px-3 py-2"/>
-                                </div>
-                            </div>
 
-                            {/* Assignment Section */}
-                            <div className="bg-white rounded-lg border border-gray-200 p-6">
-                                <h2 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
-                                    <span>👥</span> Assignment
-                                </h2>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-900 mb-2">Assign To</label>
-                                    <select name="assign_to" value={formData.assign_to} onChange={handleChange} className="w-full border border-gray-300 rounded px-3 py-2">
-                                        <option>Unassigned</option>
-                                        {STAFF_DATA.map(s => <option key={s.name}>{s.name}</option>)}
-                                    </select>
+                                    {/* Submit button */}
+                                    <button
+                                        type="submit"
+                                        disabled={loading}
+                                        className="w-full py-3 rounded-xl font-semibold text-sm text-white transition-all"
+                                        style={{background: loading ? '#A5B4FC' : 'linear-gradient(135deg, #6366F1, #8B5CF6)', boxShadow: loading ? 'none' : '0 4px 14px rgba(99,102,241,0.35)'}}
+                                    >
+                                        {loading ? '⏳  Creating ticket…' : '➕  Create Ticket'}
+                                    </button>
                                 </div>
-                            </div>
-
-                            {/* Approval Configuration Section */}
-                            {lookups && lookups.users && (
-                                <ApproversSection
-                                    formData={formData}
-                                    setFormData={setFormData}
-                                    users={lookups.users}
-                                />
-                            )}
-
-                            {/* Submit Button */}
-                            <div>
-                                <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-semibold transition">
-                                    {loading ? '⏳ Creating...' : '✈️ Create Ticket'}
-                                </button>
                             </div>
                         </form>
                         )}
