@@ -1976,8 +1976,9 @@
 
         // Org Chart Page
         // ── Org Chart helpers (defined outside to keep stable references) ──
-        const ORG_GAP = 20;
+        const ORG_GAP  = 10;   // default inner gap (px)
         const ORG_LINE = '#94A3B8';
+        const ORG_LH   = 14;   // connector line height (px)
 
         function OrgCard({ name, title, email, type, vacant, deptLabel }) {
             const S = {
@@ -1989,39 +1990,38 @@
                 external:  { b:'#9CA3AF', bg:'#F9FAFB', t:'#6B7280' },
             };
             const s = S[type] || S.ops;
-            const w = deptLabel ? 215 : 172;
+            // compact widths: dept headers slightly wider, leaf nodes narrow
+            const w = deptLabel ? 178 : 108;
             return (
-                <div style={{ border:`2px ${vacant?'dashed':'solid'} ${vacant?'#9CA3AF':s.b}`, background:vacant?'#F9FAFB':s.bg, borderRadius:12, padding:'10px 13px', width:w, textAlign:'center', boxShadow:'0 2px 8px rgba(0,0,0,0.07)', flexShrink:0 }}>
-                    {deptLabel && <p style={{ fontSize:10, fontWeight:800, color:s.t, textTransform:'uppercase', letterSpacing:'0.07em', margin:'0 0 5px', lineHeight:1.3 }}>{deptLabel}</p>}
-                    <p style={{ fontSize: deptLabel?13:12, fontWeight:700, color:vacant?'#6B7280':'#111827', margin:'0 0 2px', lineHeight:1.3 }}>{name}</p>
-                    {title && !vacant && <p style={{ fontSize:10.5, fontWeight:600, color:s.t, margin:'0 0 2px', lineHeight:1.3 }}>{title}</p>}
-                    {email && !vacant && <p style={{ fontSize:9, color:'#2563EB', margin:'0 0 4px', wordBreak:'break-word', lineHeight:1.3 }}>{email}</p>}
-                    <span style={{ display:'inline-block', fontSize:10, fontWeight:700, background:vacant?'#FEF2F2':'#DCFCE7', color:vacant?'#DC2626':'#15803D', padding:'2px 8px', borderRadius:20 }}>{vacant?'[VACANT]':'[ACTIVE]'}</span>
+                <div style={{ border:`1.5px ${vacant?'dashed':'solid'} ${vacant?'#9CA3AF':s.b}`, background:vacant?'#F9FAFB':s.bg, borderRadius:10, padding: deptLabel ? '8px 10px' : '6px 8px', width:w, textAlign:'center', boxShadow:'0 1px 5px rgba(0,0,0,0.07)', flexShrink:0 }}>
+                    {deptLabel && <p style={{ fontSize:8.5, fontWeight:800, color:s.t, textTransform:'uppercase', letterSpacing:'0.06em', margin:'0 0 3px', lineHeight:1.3 }}>{deptLabel}</p>}
+                    <p style={{ fontSize: deptLabel?11:10, fontWeight:700, color:vacant?'#6B7280':'#111827', margin:'0 0 1px', lineHeight:1.3 }}>{name}</p>
+                    {title && !vacant && <p style={{ fontSize:8.5, fontWeight:600, color:s.t, margin:'0 0 1px', lineHeight:1.3 }}>{title}</p>}
+                    {email && !vacant && <p style={{ fontSize:7.5, color:'#2563EB', margin:'0 0 3px', wordBreak:'break-word', lineHeight:1.3 }}>{email}</p>}
+                    <span style={{ display:'inline-block', fontSize:8.5, fontWeight:700, background:vacant?'#FEF2F2':'#DCFCE7', color:vacant?'#DC2626':'#15803D', padding:'1px 6px', borderRadius:20 }}>{vacant?'[VACANT]':'[ACTIVE]'}</span>
                 </div>
             );
         }
 
-        function OrgTree({ card, ch=[] }) {
-            const G = ORG_GAP, L = ORG_LINE;
+        // gap  = px between sibling sub-trees (overrides ORG_GAP)
+        // lineH = connector vertical height in px (overrides ORG_LH)
+        function OrgTree({ card, ch=[], gap=ORG_GAP, lineH=ORG_LH }) {
+            const G = gap, L = ORG_LINE, LH = lineH;
             const n = ch.length;
             return (
                 <div style={{ display:'flex', flexDirection:'column', alignItems:'center' }}>
                     {card}
                     {n > 0 && <>
-                        {/* vertical line down from parent */}
-                        <div style={{ width:2, height:20, background:L, flexShrink:0 }} />
+                        <div style={{ width:2, height:LH, background:L, flexShrink:0 }} />
                         {n === 1
                             ? ch[0]
-                            : <div style={{ display:'flex', gap:G, alignItems:'flex-start' }}>
+                            : <div style={{ display:'flex', gap:`${G}px`, alignItems:'flex-start' }}>
                                 {ch.map((c,i) => {
-                                    const first = i===0, last = i===n-1;
+                                    const first=i===0, last=i===n-1;
                                     return (
-                                        <div key={i} style={{ display:'flex', flexDirection:'column', alignItems:'center', position:'relative', paddingTop:20 }}>
-                                            {/* vertical drop to child */}
-                                            <div style={{ position:'absolute', top:0, left:'50%', transform:'translateX(-50%)', width:2, height:20, background:L }} />
-                                            {/* horizontal left arm (into left gap) */}
+                                        <div key={i} style={{ display:'flex', flexDirection:'column', alignItems:'center', position:'relative', paddingTop:LH }}>
+                                            <div style={{ position:'absolute', top:0, left:'50%', transform:'translateX(-50%)', width:2, height:LH, background:L }} />
                                             {!first && <div style={{ position:'absolute', top:0, left:`${-G/2}px`, right:'50%', height:2, background:L }} />}
-                                            {/* horizontal right arm (into right gap) */}
                                             {!last  && <div style={{ position:'absolute', top:0, left:'50%', right:`${-G/2}px`, height:2, background:L }} />}
                                             {c}
                                         </div>
@@ -2134,20 +2134,22 @@
 
                         <div style={{display:'flex', gap:'20px', alignItems:'flex-start'}}>
 
-                            {/* ── Chart card (scrollable) ── */}
-                            <div style={{flex:1, background:'white', borderRadius:'20px', border:'2px solid #E0E7FF', padding:'28px 24px 24px', boxShadow:'0 4px 20px rgba(99,102,241,0.08)', overflowX:'auto', overflowY:'visible'}}>
-                                <h2 style={{textAlign:'center', fontSize:'15px', fontWeight:'800', color:'#1E1B4B', marginBottom:'28px', letterSpacing:'0.5px', textTransform:'uppercase', whiteSpace:'nowrap'}}>
+                            {/* ── Chart card — overflow:auto activates scroll when tree grows ── */}
+                            <div style={{flex:1, background:'white', borderRadius:'20px', border:'2px solid #E0E7FF', padding:'20px 20px 16px', boxShadow:'0 4px 20px rgba(99,102,241,0.08)', overflow:'auto'}}>
+                                <h2 style={{textAlign:'center', fontSize:'14px', fontWeight:'800', color:'#1E1B4B', marginBottom:'18px', letterSpacing:'0.5px', textTransform:'uppercase', whiteSpace:'nowrap'}}>
                                     Organizational Chart for Yahweh Care
                                 </h2>
 
-                                {/* ── Tree using OrgTree + OrgCard ── */}
-                                <div style={{display:'inline-flex', justifyContent:'center', width:'100%', paddingBottom:'16px'}}>
+                                {/* ── Tree — gap=24 between departments, gap=10 within ── */}
+                                <div style={{display:'flex', justifyContent:'center', width:'100%'}}>
                                     <OrgTree
                                         card={<OrgCard name="Alex" title="Director" email="alex@yahwehpc.com.au" type="director" deptLabel="👤 Director"/>}
+                                        gap={24}
                                         ch={[
                                             /* ── OPERATIONS ── */
                                             <OrgTree
                                                 card={<OrgCard deptLabel="👥 Operations Department" name="Suganty P" title="Operations Manager" email="suganty@yahwehpc.com.au" type="ops"/>}
+                                                gap={10}
                                                 ch={[
                                                     <OrgTree
                                                         card={<OrgCard name="Sunita Maharjan" title="Service Delivery Manager" email="sunny@yahwehcare.com.au" type="ops"/>}
@@ -2176,6 +2178,7 @@
                                             /* ── FINANCE ── */
                                             <OrgTree
                                                 card={<OrgCard deptLabel="💰 Finance Department" name="Akila Nanayakkara" title="Finance Manager" email="akila@yahwehcare.com.au" type="finance"/>}
+                                                gap={10}
                                                 ch={[
                                                     <OrgTree card={<OrgCard name="External Consultant" type="external" vacant={true}/>}/>,
                                                     <OrgTree card={<OrgCard name="Akila Nanayakkara" title="Plan Manager" email="akila@yahwehcare.com.au" type="finance"/>}/>,
@@ -2185,6 +2188,7 @@
                                             /* ── STRATEGIC DEVELOPMENT ── */
                                             <OrgTree
                                                 card={<OrgCard deptLabel="🏢 Strategic Dev &amp; Client Relationship" name="Alex" title="Strategic Dev / Client Relationship Manager" email="alex@yahwehpc.com.au" type="strategic"/>}
+                                                gap={10}
                                                 ch={[
                                                     <OrgTree
                                                         card={<OrgCard name="Business Development Officer" type="strategic" vacant={true}/>}
