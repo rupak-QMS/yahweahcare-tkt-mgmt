@@ -852,7 +852,23 @@
 
         // Main App
         function App() {
-            const [currentPage, setCurrentPage] = React.useState('dashboard');
+            const [currentPage, setCurrentPage] = React.useState(() => {
+                const hash = window.location.hash.slice(1) || 'dashboard';
+                return hash;
+            });
+
+            React.useEffect(() => {
+                const handleHashChange = () => {
+                    const hash = window.location.hash.slice(1) || 'dashboard';
+                    setCurrentPage(hash);
+                };
+                window.addEventListener('hashchange', handleHashChange);
+                return () => window.removeEventListener('hashchange', handleHashChange);
+            }, []);
+
+            const handlePageChange = (pageId) => {
+                window.location.hash = pageId;
+            };
 
             const renderPage = () => {
                 switch (currentPage) {
@@ -873,7 +889,7 @@
 
             return (
                 <div className="flex h-screen bg-gray-50">
-                    <Navigation currentPage={currentPage} setCurrentPage={setCurrentPage} />
+                    <Navigation currentPage={currentPage} setCurrentPage={handlePageChange} />
                     {renderPage()}
                 </div>
             );
