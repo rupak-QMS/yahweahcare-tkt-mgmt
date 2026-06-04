@@ -1976,13 +1976,302 @@
 
         // Org Chart Page
         function OrgChartPage() {
+
+            // ── Node component ──────────────────────────────────
+            const Node = ({ name, title, subtitle, email, active, type='ops', icon, vacant }) => {
+                const styles = {
+                    director:  { border:'2px solid #16A34A', bg:'#F0FDF4', titleColor:'#15803D', accent:'#16A34A' },
+                    ops:       { border:'2px solid #DC2626', bg:'#FFF5F5', titleColor:'#DC2626', accent:'#DC2626' },
+                    finance:   { border:'2px solid #D97706', bg:'#FFFBEB', titleColor:'#D97706', accent:'#D97706' },
+                    strategic: { border:'2px solid #7C3AED', bg:'#F5F3FF', titleColor:'#7C3AED', accent:'#7C3AED' },
+                    staff:     { border:'2px solid #3B82F6', bg:'#EFF6FF', titleColor:'#1D4ED8', accent:'#3B82F6' },
+                    external:  { border:'2px solid #9CA3AF', bg:'#F9FAFB', titleColor:'#6B7280', accent:'#9CA3AF' },
+                };
+                const s = styles[type] || styles.ops;
+                return (
+                    <div style={{
+                        border: vacant ? '2px dashed #9CA3AF' : s.border,
+                        background: vacant ? '#F9FAFB' : s.bg,
+                        borderRadius:'12px', padding:'10px 14px', minWidth:'160px', maxWidth:'200px',
+                        textAlign:'center', position:'relative', boxShadow:'0 2px 8px rgba(0,0,0,0.07)'
+                    }}>
+                        {icon && <div style={{fontSize:'22px', marginBottom:'4px'}}>{icon}</div>}
+                        <p style={{fontSize:'13px', fontWeight:'700', color: vacant?'#6B7280':'#111827', margin:'0 0 2px', lineHeight:'1.3'}}>{name}</p>
+                        {title && <p style={{fontSize:'11px', fontWeight:'600', color: s.titleColor, margin:'0 0 2px', lineHeight:'1.3'}}>{title}</p>}
+                        {subtitle && <p style={{fontSize:'10px', color:'#6B7280', margin:'0 0 3px', lineHeight:'1.3'}}>{subtitle}</p>}
+                        {email && <p style={{fontSize:'9.5px', color:'#2563EB', margin:'0 0 4px', wordBreak:'break-all'}}>{email}</p>}
+                        <span style={{
+                            fontSize:'10px', fontWeight:'700', padding:'2px 8px', borderRadius:'20px',
+                            background: active===false||vacant ? '#FEF2F2' : '#DCFCE7',
+                            color: active===false||vacant ? '#DC2626' : '#15803D'
+                        }}>{vacant ? '[VACANT]' : '[ACTIVE]'}</span>
+                    </div>
+                );
+            };
+
+            // ── Connector line styles ────────────────────────────
+            const lineV = { width:'2px', background:'#CBD5E1', margin:'0 auto' };
+            const lineH = (w='100%') => ({ height:'2px', background:'#CBD5E1', width:w });
+
+            // ── Children wrapper with T-connector ───────────────
+            const Children = ({ children, gap=16 }) => (
+                <div style={{display:'flex', flexDirection:'column', alignItems:'center'}}>
+                    <div style={{...lineV, height:'20px'}}></div>
+                    <div style={{position:'relative', display:'flex', flexDirection:'column', alignItems:'center', width:'100%'}}>
+                        {/* horizontal bar across all children */}
+                        <div style={{display:'flex', alignItems:'flex-start', gap:`${gap}px`, position:'relative'}}>
+                            {React.Children.map(children, (child, i) => (
+                                <div key={i} style={{display:'flex', flexDirection:'column', alignItems:'center'}}>
+                                    {React.Children.count(children) > 1 && (
+                                        <div style={{...lineV, height:'20px'}}></div>
+                                    )}
+                                    {child}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+
+            // ── Branch: vertical parent → horizontal bar → children
+            const Branch = ({ parent, children: kids, gap=14 }) => {
+                const count = React.Children.count(kids);
+                return (
+                    <div style={{display:'flex', flexDirection:'column', alignItems:'center'}}>
+                        {parent}
+                        {kids && count > 0 && (
+                            <>
+                                <div style={{...lineV, height:'18px'}}></div>
+                                {count === 1 ? (
+                                    <>{kids}</>
+                                ) : (
+                                    <div style={{position:'relative', display:'flex', flexDirection:'column', alignItems:'center', width:'100%'}}>
+                                        <div style={{display:'flex', gap:`${gap}px`, alignItems:'flex-start', position:'relative'}}>
+                                            {React.Children.map(kids, (kid, i) => (
+                                                <div key={i} style={{display:'flex', flexDirection:'column', alignItems:'center'}}>
+                                                    <div style={{...lineV, height:'18px'}}></div>
+                                                    {kid}
+                                                </div>
+                                            ))}
+                                            {/* horizontal connector */}
+                                            <div style={{position:'absolute', top:'0px', left:'50%', right:'50%', height:'2px', background:'#CBD5E1', transform:'translateX(-50%)', width:'calc(100% - 100px)'}}></div>
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </div>
+                );
+            };
+
             return (
-                <main className="flex-1 overflow-auto bg-gray-50">
-                    <div className="p-8">
-                        <h1 className="text-3xl font-bold text-gray-900 mb-2">Organization Chart</h1>
-                        <p className="text-gray-600 mb-8">Organizational hierarchy</p>
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
-                            <p className="text-gray-600">Organization chart content coming soon...</p>
+                <main className="flex-1 overflow-auto" style={{background:'#F0F2F8'}}>
+                    <style>{`
+                        .org-tree ul { list-style:none; padding:0; margin:0; display:flex; justify-content:center; }
+                        .org-tree li { padding:0 8px; position:relative; text-align:center; }
+                        .org-tree li::before, .org-tree li::after { content:''; position:absolute; top:0; right:50%; border-top:2px solid #CBD5E1; width:50%; height:20px; }
+                        .org-tree li::after { right:auto; left:50%; border-left:2px solid #CBD5E1; }
+                        .org-tree li:only-child::after, .org-tree li:only-child::before { display:none; }
+                        .org-tree li:first-child::before, .org-tree li:last-child::after { border:0 none; }
+                        .org-tree li:last-child::before { border-right:2px solid #CBD5E1; border-radius:0 4px 0 0; }
+                        .org-tree li:first-child::after { border-radius:4px 0 0 0; }
+                        .org-tree ul ul { padding-top:20px; position:relative; }
+                        .org-tree ul ul::before { content:''; position:absolute; top:0; left:50%; border-left:2px solid #CBD5E1; width:0; height:20px; }
+                        .org-node { display:inline-block; }
+                    `}</style>
+
+                    <div style={{padding:'24px 28px'}}>
+                        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'20px', flexWrap:'wrap', gap:'12px'}}>
+                            <div>
+                                <h1 style={{fontSize:'22px', fontWeight:'700', color:'#1E1B4B', margin:0}}>🏢 Organizational Chart</h1>
+                                <p style={{fontSize:'12px', color:'#9CA3AF', margin:'4px 0 0'}}>Yahweh Care — staff hierarchy &amp; reporting structure</p>
+                            </div>
+                        </div>
+
+                        <div style={{display:'flex', gap:'20px', alignItems:'flex-start'}}>
+
+                            {/* ── Main chart ── */}
+                            <div style={{flex:1, background:'white', borderRadius:'20px', border:'2px solid #E0E7FF', padding:'28px 20px', boxShadow:'0 4px 20px rgba(99,102,241,0.08)', overflowX:'auto'}}>
+                                <h2 style={{textAlign:'center', fontSize:'16px', fontWeight:'700', color:'#1E1B4B', marginBottom:'28px', letterSpacing:'0.5px', textTransform:'uppercase'}}>Organizational Chart for Yahweh Care</h2>
+
+                                {/* Use CSS tree approach */}
+                                <div className="org-tree" style={{minWidth:'900px'}}>
+                                    <ul>
+                                        <li>
+                                            <div className="org-node">
+                                                <Node name="Alex" title="Director" subtitle="Strategic Development / Client Relationship Manager" email="alex@yahwehpc.com.au" active={true} type="director" icon="👤"/>
+                                            </div>
+                                            <ul>
+                                                {/* OPERATIONS */}
+                                                <li>
+                                                    <div className="org-node">
+                                                        <div style={{background:'#FFF5F5', border:'2px solid #DC2626', borderRadius:'12px', padding:'10px 14px', minWidth:'220px', textAlign:'center', boxShadow:'0 2px 8px rgba(0,0,0,0.07)'}}>
+                                                            <p style={{fontSize:'11px', fontWeight:'800', color:'#DC2626', textTransform:'uppercase', letterSpacing:'0.08em', margin:'0 0 4px'}}>👥 Operations Department</p>
+                                                            <p style={{fontSize:'13px', fontWeight:'700', color:'#111827', margin:'0 0 2px'}}>Suganty P</p>
+                                                            <p style={{fontSize:'11px', color:'#DC2626', fontWeight:'600', margin:'0 0 2px'}}>Operations Manager</p>
+                                                            <p style={{fontSize:'9.5px', color:'#2563EB', margin:'0 0 4px'}}>suganty@yahwehpc.com.au</p>
+                                                            <span style={{fontSize:'10px', fontWeight:'700', background:'#DCFCE7', color:'#15803D', padding:'2px 8px', borderRadius:'20px'}}>[ACTIVE]</span>
+                                                        </div>
+                                                    </div>
+                                                    <ul>
+                                                        {/* Sunita */}
+                                                        <li>
+                                                            <div className="org-node"><Node name="Sunita Maharjan" title="Service Delivery Manager" email="sunny@yahwehcare.com.au" active={true} type="ops"/></div>
+                                                            <ul>
+                                                                <li>
+                                                                    <div className="org-node"><Node name="Elenor Elia" title="Roster Coordinator" email="elenor@yahwehcare.com.au" active={true} type="ops"/></div>
+                                                                    <ul>
+                                                                        <li><div className="org-node"><Node name="Support Workers" type="staff" vacant={true}/></div></li>
+                                                                    </ul>
+                                                                </li>
+                                                            </ul>
+                                                        </li>
+                                                        {/* Saloni */}
+                                                        <li>
+                                                            <div className="org-node"><Node name="Saloni" title="Support Coordination Lead" email="saloni@yahwehcare.com.au" active={true} type="ops"/></div>
+                                                            <ul>
+                                                                <li><div className="org-node"><Node name="James Baskaran" title="Support Coordination Staff" email="james@yahwehcare.com.au" active={true} type="ops"/></div></li>
+                                                            </ul>
+                                                        </li>
+                                                        {/* Miejkyla */}
+                                                        <li>
+                                                            <div className="org-node"><Node name="Miejkyla" title="HR / Admin Officer" email="miejkyla@yahwehcare.com.au" active={true} type="ops"/></div>
+                                                            <ul>
+                                                                <li><div className="org-node"><Node name="External Consultant" type="external" vacant={true}/></div></li>
+                                                            </ul>
+                                                        </li>
+                                                        {/* Venujah */}
+                                                        <li>
+                                                            <div className="org-node"><Node name="Venujah Arudselvam" title="Day Centre Officer" email="venujah@yahwehcare.com.au" active={true} type="ops"/></div>
+                                                            <ul>
+                                                                <li><div className="org-node"><Node name="Staff" type="staff" vacant={true}/></div></li>
+                                                            </ul>
+                                                        </li>
+                                                    </ul>
+                                                </li>
+
+                                                {/* FINANCE */}
+                                                <li>
+                                                    <div className="org-node">
+                                                        <div style={{background:'#FFFBEB', border:'2px solid #D97706', borderRadius:'12px', padding:'10px 14px', minWidth:'220px', textAlign:'center', boxShadow:'0 2px 8px rgba(0,0,0,0.07)'}}>
+                                                            <p style={{fontSize:'11px', fontWeight:'800', color:'#D97706', textTransform:'uppercase', letterSpacing:'0.08em', margin:'0 0 4px'}}>💰 Finance Department</p>
+                                                            <p style={{fontSize:'13px', fontWeight:'700', color:'#111827', margin:'0 0 2px'}}>Akila Nanayakkara</p>
+                                                            <p style={{fontSize:'11px', color:'#D97706', fontWeight:'600', margin:'0 0 2px'}}>Finance Manager</p>
+                                                            <p style={{fontSize:'9.5px', color:'#2563EB', margin:'0 0 4px'}}>akila@yahwehcare.com.au</p>
+                                                            <span style={{fontSize:'10px', fontWeight:'700', background:'#DCFCE7', color:'#15803D', padding:'2px 8px', borderRadius:'20px'}}>[ACTIVE]</span>
+                                                        </div>
+                                                    </div>
+                                                    <ul>
+                                                        <li><div className="org-node"><Node name="External Consultant" type="external" vacant={true}/></div></li>
+                                                        <li>
+                                                            <div className="org-node"><Node name="Akila Nanayakkara" title="Plan Manager" email="akila@yahwehcare.com.au" active={true} type="finance"/></div>
+                                                        </li>
+                                                    </ul>
+                                                </li>
+
+                                                {/* STRATEGIC */}
+                                                <li>
+                                                    <div className="org-node">
+                                                        <div style={{background:'#F5F3FF', border:'2px solid #7C3AED', borderRadius:'12px', padding:'10px 14px', minWidth:'240px', textAlign:'center', boxShadow:'0 2px 8px rgba(0,0,0,0.07)'}}>
+                                                            <p style={{fontSize:'10px', fontWeight:'800', color:'#7C3AED', textTransform:'uppercase', letterSpacing:'0.06em', margin:'0 0 4px', lineHeight:'1.3'}}>🏢 Strategic Development &amp; Client Relationship Dept</p>
+                                                            <p style={{fontSize:'13px', fontWeight:'700', color:'#111827', margin:'0 0 2px'}}>Alex</p>
+                                                            <p style={{fontSize:'11px', color:'#7C3AED', fontWeight:'600', margin:'0 0 2px', lineHeight:'1.3'}}>Strategic Development / Client Relationship Manager</p>
+                                                            <p style={{fontSize:'9.5px', color:'#2563EB', margin:'0 0 4px'}}>alex@yahwehpc.com.au</p>
+                                                            <span style={{fontSize:'10px', fontWeight:'700', background:'#DCFCE7', color:'#15803D', padding:'2px 8px', borderRadius:'20px'}}>[ACTIVE]</span>
+                                                        </div>
+                                                    </div>
+                                                    <ul>
+                                                        <li>
+                                                            <div className="org-node"><Node name="Business Development Officer" type="strategic" vacant={true}/></div>
+                                                            <ul>
+                                                                <li><div className="org-node"><Node name="External Marketing Consultant" type="external" vacant={true}/></div></li>
+                                                            </ul>
+                                                        </li>
+                                                        <li><div className="org-node"><Node name="Client Relationship Officer" type="strategic" vacant={true}/></div></li>
+                                                    </ul>
+                                                </li>
+                                            </ul>
+                                        </li>
+                                    </ul>
+                                </div>
+
+                                {/* Legend */}
+                                <div style={{marginTop:'32px', borderTop:'1px solid #E0E7FF', paddingTop:'16px', display:'flex', flexWrap:'wrap', gap:'10px', alignItems:'center'}}>
+                                    <span style={{fontSize:'11px', fontWeight:'700', color:'#6B7280', marginRight:'4px'}}>LEGEND</span>
+                                    {[
+                                        { color:'#16A34A', label:'Director Level' },
+                                        { color:'#DC2626', label:'Operations (Managers/Officers)' },
+                                        { color:'#D97706', label:'Finance (Managers/Officers)' },
+                                        { color:'#7C3AED', label:'Strategic Development' },
+                                        { color:'#3B82F6', label:'Team / Staff' },
+                                        { color:'#9CA3AF', label:'Consultant / External' },
+                                    ].map((l,i) => (
+                                        <div key={i} style={{display:'flex', alignItems:'center', gap:'6px', background:'#F9FAFB', padding:'4px 10px', borderRadius:'8px', border:`1.5px solid ${l.color}20`}}>
+                                            <div style={{width:'12px', height:'12px', borderRadius:'3px', border:`2px solid ${l.color}`, background:`${l.color}15`}}></div>
+                                            <span style={{fontSize:'11px', color:'#374151'}}>{l.label}</span>
+                                        </div>
+                                    ))}
+                                    <div style={{display:'flex', alignItems:'center', gap:'12px', marginLeft:'auto'}}>
+                                        <div style={{display:'flex', alignItems:'center', gap:'5px'}}><span style={{fontSize:'10px', fontWeight:'700', background:'#DCFCE7', color:'#15803D', padding:'2px 8px', borderRadius:'20px'}}>[ACTIVE]</span><span style={{fontSize:'11px', color:'#6B7280'}}>Active Position</span></div>
+                                        <div style={{display:'flex', alignItems:'center', gap:'5px'}}><span style={{fontSize:'10px', fontWeight:'700', background:'#FEF2F2', color:'#DC2626', padding:'2px 8px', borderRadius:'20px'}}>[VACANT]</span><span style={{fontSize:'11px', color:'#6B7280'}}>Inactive Position</span></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* ── Right sidebar: System Roles + Notes ── */}
+                            <div style={{width:'260px', flexShrink:0, display:'flex', flexDirection:'column', gap:'14px'}}>
+
+                                {/* System Roles */}
+                                <div style={{background:'white', borderRadius:'16px', border:'2px solid #E0E7FF', padding:'16px', boxShadow:'0 2px 8px rgba(99,102,241,0.07)'}}>
+                                    <p style={{fontSize:'10px', fontWeight:'800', color:'#4338CA', textTransform:'uppercase', letterSpacing:'0.08em', margin:'0 0 12px', padding:'4px 8px', background:'#EEF2FF', borderRadius:'6px'}}>⚙️ System Roles (Not Part of Org Hierarchy)</p>
+                                    {[
+                                        { name:'Alex', role:'Bootstrap Admin', email:'alex@yahwehpc.com.au', icon:'⭐' },
+                                        { name:'Ron Costa', role:'Bootstrap Super Admin', email:'it@yahwehcare.com.au', icon:'🔒' },
+                                    ].map((r,i) => (
+                                        <div key={i} style={{display:'flex', gap:'10px', marginBottom:'12px', padding:'10px', background:'#F8F9FF', borderRadius:'10px', border:'1px solid #E0E7FF'}}>
+                                            <div style={{width:'36px', height:'36px', borderRadius:'50%', background:'#EEF2FF', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'18px', flexShrink:0}}>{r.icon}</div>
+                                            <div>
+                                                <p style={{fontSize:'13px', fontWeight:'700', color:'#1E1B4B', margin:'0 0 1px'}}>{r.name}</p>
+                                                <p style={{fontSize:'11px', color:'#6366F1', fontWeight:'600', margin:'0 0 2px'}}>{r.role}</p>
+                                                <p style={{fontSize:'9.5px', color:'#2563EB', margin:'0 0 4px'}}>{r.email}</p>
+                                                <span style={{fontSize:'10px', fontWeight:'700', background:'#DCFCE7', color:'#15803D', padding:'2px 8px', borderRadius:'20px'}}>[ACTIVE]</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    <p style={{fontSize:'10px', color:'#6B7280', lineHeight:'1.5', margin:0, padding:'8px', background:'#FAFAFA', borderRadius:'8px', border:'1px solid #E5E7EB'}}>Has full system access and control at the platform level. Not included in the organizational reporting structure.</p>
+                                </div>
+
+                                {/* Notes */}
+                                <div style={{background:'white', borderRadius:'16px', border:'2px solid #E0E7FF', padding:'16px', boxShadow:'0 2px 8px rgba(99,102,241,0.07)'}}>
+                                    <p style={{fontSize:'11px', fontWeight:'800', color:'#1E1B4B', textTransform:'uppercase', letterSpacing:'0.07em', margin:'0 0 10px'}}>📝 Notes</p>
+                                    {[
+                                        'Only active positions are assigned to current staff.',
+                                        'All vacant positions are kept in the structure for future growth and scalability.',
+                                        'System roles (e.g., Bootstrap Admin, Bootstrap Super Admin) are separate from the organizational hierarchy.',
+                                    ].map((note,i) => (
+                                        <div key={i} style={{display:'flex', gap:'8px', marginBottom:'8px'}}>
+                                            <div style={{width:'5px', height:'5px', borderRadius:'50%', background:'#6366F1', flexShrink:0, marginTop:'5px'}}></div>
+                                            <p style={{fontSize:'11px', color:'#374151', margin:0, lineHeight:'1.5'}}>{note}</p>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Stats */}
+                                <div style={{background:'linear-gradient(135deg,#6366F1,#818CF8)', borderRadius:'16px', padding:'16px', color:'white'}}>
+                                    <p style={{fontSize:'11px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.08em', opacity:0.8, margin:'0 0 10px'}}>Quick Stats</p>
+                                    {[
+                                        { label:'Total Positions', value:'20' },
+                                        { label:'Active Staff', value:'11' },
+                                        { label:'Vacant Positions', value:'9' },
+                                        { label:'Departments', value:'3' },
+                                    ].map((s,i) => (
+                                        <div key={i} style={{display:'flex', justifyContent:'space-between', marginBottom:'6px'}}>
+                                            <span style={{fontSize:'12px', opacity:0.85}}>{s.label}</span>
+                                            <span style={{fontSize:'13px', fontWeight:'700'}}>{s.value}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </main>
