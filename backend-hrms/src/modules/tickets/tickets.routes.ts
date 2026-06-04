@@ -54,13 +54,13 @@ function dbApprover(row: Record<string, unknown>) {
   return {
     id: row.id,
     ticketId: row.ticket_id,
-    userId: row.user_id,
+    userId: row.approver_user_id,
     userName: row.user_name || null,
     userEmail: row.user_email || null,
-    status: row.status,
-    justification: row.justification || null,
-    respondedAt: row.responded_at || null,
-    createdAt: row.created_at,
+    status: row.approval_status,
+    justification: row.comments || null,
+    respondedAt: row.approval_date || null,
+    createdAt: row.created_date,
   };
 }
 
@@ -155,8 +155,8 @@ router.get('/:id', async (req, res, next) => {
       pool.query(
         `SELECT ta.*, u.name AS user_name, u.email AS user_email
          FROM yc_tkt_mgmt.ticket_approvers ta
-         JOIN yc_tkt_mgmt.users u ON u.id = ta.user_id
-         WHERE ta.ticket_id = $1 ORDER BY ta.created_at ASC`,
+         JOIN yc_tkt_mgmt.users u ON u.id = ta.approver_user_id
+         WHERE ta.ticket_id = $1 ORDER BY ta.created_date ASC`,
         [id]
       ),
     ]);
@@ -229,7 +229,7 @@ router.post('/', async (req, res, next) => {
     // Insert approvers
     for (const uid of resolvedApprovers) {
       await pool.query(
-        `INSERT INTO yc_tkt_mgmt.ticket_approvers (ticket_id, user_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
+        `INSERT INTO yc_tkt_mgmt.ticket_approvers (ticket_id, approver_user_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
         [ticketId, uid]
       );
     }
@@ -252,7 +252,7 @@ router.post('/', async (req, res, next) => {
     const { rows: apRows } = await pool.query(
       `SELECT ta.*, u.name AS user_name, u.email AS user_email
        FROM yc_tkt_mgmt.ticket_approvers ta
-       JOIN yc_tkt_mgmt.users u ON u.id = ta.user_id
+       JOIN yc_tkt_mgmt.users u ON u.id = ta.approver_user_id
        WHERE ta.ticket_id = $1`, [ticketId]
     );
     const t = dbTicket(rows[0]);
@@ -276,9 +276,9 @@ router.post('/:id/complete', async (req, res, next) => {
       return res.status(400).json({ error: 'no_approvers', message: 'Ticket has no approvers assigned' });
     }
 
-    // Reset any previous approver decisions back to pending
+    // Reset any previous approver decisions back to Pending
     await pool.query(
-      `UPDATE yc_tkt_mgmt.ticket_approvers SET status='pending', justification=NULL, responded_at=NULL WHERE ticket_id=$1`,
+      `UPDATE yc_tkt_mgmt.ticket_approvers SET approval_status='Pending', comments=NULL, approval_date=NULL WHERE ticket_id=$1`,
       [id]
     );
 
@@ -308,14 +308,14 @@ router.post('/:id/approve', async (req, res, next) => {
     const userId = req.auth!.userId;
 
     const { rows: apRow } = await pool.query(
-      `SELECT * FROM yc_tkt_mgmt.ticket_approvers WHERE ticket_id=$1 AND user_id=$2`, [id, userId]
+      `SELECT * FROM yc_tkt_mgmt.ticket_approvers WHERE ticket_id=$1 AND approver_user_id=$2`, [id, userId]
     );
     if (!apRow[0]) return res.status(403).json({ error: 'not_approver', message: 'You are not an approver for this ticket' });
 
     await pool.query(
       `UPDATE yc_tkt_mgmt.ticket_approvers
-       SET status='approved', responded_at=NOW(), justification=NULL
-       WHERE ticket_id=$1 AND user_id=$2`,
+       SET approval_status='Approved', approval_date=NOW(), comments=NULL
+       WHERE ticket_id=$1 AND approver_user_id=$2`,
       [id, userId]
     );
 
@@ -327,7 +327,7 @@ router.post('/:id/approve', async (req, res, next) => {
 
     // Check if ALL approvers have now approved
     const { rows: pendingRows } = await pool.query(
-      `SELECT count(*) FROM yc_tkt_mgmt.ticket_approvers WHERE ticket_id=$1 AND status != 'approved'`, [id]
+      `SELECT count(*) FROM yc_tkt_mgmt.ticket_approvers WHERE ticket_id=$1 AND approval_status != 'Approved'`, [id]
     );
 
     let ticket;
@@ -353,7 +353,7 @@ router.post('/:id/approve', async (req, res, next) => {
     const { rows: allAp } = await pool.query(
       `SELECT ta.*, u.name AS user_name, u.email AS user_email
        FROM yc_tkt_mgmt.ticket_approvers ta
-       JOIN yc_tkt_mgmt.users u ON u.id = ta.user_id
+       JOIN yc_tkt_mgmt.users u ON u.id = ta.approver_user_id
        WHERE ta.ticket_id=$1`, [id]
     );
     const t = dbTicket(ticket);
@@ -376,14 +376,14 @@ router.post('/:id/reject', async (req, res, next) => {
     }
 
     const { rows: apRow } = await pool.query(
-      `SELECT * FROM yc_tkt_mgmt.ticket_approvers WHERE ticket_id=$1 AND user_id=$2`, [id, userId]
+      `SELECT * FROM yc_tkt_mgmt.ticket_approvers WHERE ticket_id=$1 AND approver_user_id=$2`, [id, userId]
     );
     if (!apRow[0]) return res.status(403).json({ error: 'not_approver', message: 'You are not an approver for this ticket' });
 
     await pool.query(
       `UPDATE yc_tkt_mgmt.ticket_approvers
-       SET status='rejected', responded_at=NOW(), justification=$3
-       WHERE ticket_id=$1 AND user_id=$2`,
+       SET approval_status='Rejected', approval_date=NOW(), comments=$3
+       WHERE ticket_id=$1 AND approver_user_id=$2`,
       [id, userId, justification.trim()]
     );
 
@@ -404,7 +404,7 @@ router.post('/:id/reject', async (req, res, next) => {
     const { rows: allAp } = await pool.query(
       `SELECT ta.*, u.name AS user_name, u.email AS user_email
        FROM yc_tkt_mgmt.ticket_approvers ta
-       JOIN yc_tkt_mgmt.users u ON u.id = ta.user_id
+       JOIN yc_tkt_mgmt.users u ON u.id = ta.approver_user_id
        WHERE ta.ticket_id=$1`, [id]
     );
     const t = dbTicket(rows[0]);
