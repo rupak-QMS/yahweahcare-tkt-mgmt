@@ -181,7 +181,6 @@
             const pages = [
                 { id: 'dashboard', label: 'Dashboard', icon: '📊' },
                 { id: 'create-ticket', label: 'Create Ticket', icon: '➕' },
-                { id: 'approvals', label: 'Approvals', icon: '✅' },
                 { id: 'tickets', label: 'Tickets', icon: '📋' },
                 { id: 'calendar', label: 'Calendar', icon: '📅' },
                 { id: 'ticket-logs', label: 'Ticket Logs', icon: '📝' },
@@ -586,6 +585,12 @@
         function TicketsPage() {
             const [filter, setFilter] = React.useState('all');
             const [search, setSearch] = React.useState('');
+            const [selectedTicket, setSelectedTicket] = React.useState(null);
+            const [approvalComments, setApprovalComments] = React.useState('');
+            const [approvers, setApprovers] = React.useState([
+                { id: 1, name: 'Alex', status: 'Pending' },
+                { id: 2, name: 'Ron Costa', status: 'Approved' }
+            ]);
 
             const filtered = TICKETS_DATA.filter(t => {
                 if (filter !== 'all' && t.status.toLowerCase() !== filter.toLowerCase()) return false;
@@ -668,7 +673,7 @@
                                     </thead>
                                     <tbody>
                                         {filtered.map(t => (
-                                            <tr key={t.id} className="table-row border-b border-gray-200">
+                                            <tr key={t.id} className="table-row border-b border-gray-200 cursor-pointer hover:bg-gray-50" onClick={() => setSelectedTicket(t)}>
                                                 <td className="py-3 px-4 text-sm text-blue-600 font-medium">{t.id}</td>
                                                 <td className="py-3 px-4 text-sm text-gray-900">{t.title}</td>
                                                 <td className="py-3 px-4 text-sm text-gray-600">{t.category}</td>
@@ -683,6 +688,98 @@
                             </div>
                         </div>
                     </div>
+
+                    {/* Ticket Detail Modal with Approval */}
+                    {selectedTicket && (
+                        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                            <div className="bg-white rounded-lg max-w-2xl w-full max-h-96 overflow-y-auto p-6">
+                                <div className="flex justify-between items-start mb-6">
+                                    <div>
+                                        <h2 className="text-2xl font-bold text-gray-900">{selectedTicket.id}: {selectedTicket.title}</h2>
+                                        <p className="text-gray-600 mt-1">{selectedTicket.category}</p>
+                                    </div>
+                                    <button onClick={() => setSelectedTicket(null)} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4 mb-6 pb-6 border-b border-gray-200">
+                                    <div>
+                                        <p className="text-xs text-gray-600 font-medium">PRIORITY</p>
+                                        <p className={`badge ${getPriorityBadge(selectedTicket.priority)} mt-1`}>{selectedTicket.priority}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-600 font-medium">STATUS</p>
+                                        <p className={`badge ${getStatusBadge(selectedTicket.status)} mt-1`}>{selectedTicket.status}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-600 font-medium">ASSIGNED TO</p>
+                                        <p className="text-sm text-gray-900 mt-1">{selectedTicket.assigned}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-600 font-medium">DATE</p>
+                                        <p className="text-sm text-gray-900 mt-1">{selectedTicket.date}</p>
+                                    </div>
+                                </div>
+
+                                {/* Approval Section */}
+                                <div className="mb-6">
+                                    <h3 className="text-lg font-bold text-gray-900 mb-4">✅ Approvers</h3>
+                                    <div className="space-y-3 mb-4">
+                                        {approvers.map(approver => (
+                                            <div key={approver.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                                <span className="font-medium text-gray-900">{approver.name}</span>
+                                                <span className={`text-xs font-semibold px-3 py-1 rounded-full ${
+                                                    approver.status === 'Approved'
+                                                        ? 'bg-green-100 text-green-800'
+                                                        : 'bg-yellow-100 text-yellow-800'
+                                                }`}>
+                                                    {approver.status}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                                        <label className="block text-sm font-medium text-gray-900 mb-2">Approval Comments *</label>
+                                        <textarea
+                                            value={approvalComments}
+                                            onChange={(e) => setApprovalComments(e.target.value)}
+                                            placeholder="Enter approval comments or rejection reason..."
+                                            className="w-full h-20 border border-gray-300 rounded px-3 py-2 text-sm"
+                                        />
+                                    </div>
+
+                                    <div className="flex gap-3">
+                                        <button
+                                            onClick={() => {
+                                                alert('✅ Approved!');
+                                                setSelectedTicket(null);
+                                                setApprovalComments('');
+                                            }}
+                                            className="flex-1 bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700 transition"
+                                        >
+                                            Approve
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                alert('❌ Rejected and reopened!');
+                                                setSelectedTicket(null);
+                                                setApprovalComments('');
+                                            }}
+                                            className="flex-1 bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 transition"
+                                        >
+                                            Reject
+                                        </button>
+                                        <button
+                                            onClick={() => setSelectedTicket(null)}
+                                            className="flex-1 bg-gray-200 text-gray-900 py-2 rounded-lg font-semibold hover:bg-gray-300 transition"
+                                        >
+                                            Close
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </main>
             );
         }
@@ -1045,7 +1142,6 @@
                 switch (currentPage) {
                     case 'dashboard': return <Dashboard />;
                     case 'create-ticket': return <CreateTicket />;
-                    case 'approvals': return <ApprovalDashboard />;
                     case 'tickets': return <TicketsPage />;
                     case 'calendar': return <CalendarPage />;
                     case 'ticket-logs': return <TicketLogsPage />;
