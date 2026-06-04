@@ -347,10 +347,18 @@
         // Create Ticket Page
         function CreateTicket() {
             const [formData, setFormData] = React.useState({
-                title: '',
-                description: '',
-                category_id: 'general',
-                priority_id: 'medium'
+                title_type: 'Service Request',
+                subtitle: '',
+                category_id: 'it',
+                subcategory: '',
+                issue_details: '',
+                submitted_by: 'Ron Costa',
+                email: 'IT@yahweahcare.com.au',
+                ndis_related: false,
+                priority_id: 'medium',
+                initial_status: 'new',
+                expected_completion: '',
+                assign_to: 'Unassigned'
             });
             const [loading, setLoading] = React.useState(false);
             const [lookups, setLookups] = React.useState(null);
@@ -376,7 +384,20 @@
                 try {
                     await API.tickets.create(formData);
                     alert('✅ Ticket created successfully!');
-                    setFormData({ title: '', description: '', category_id: 'general', priority_id: 'medium' });
+                    setFormData({
+                        title_type: 'Service Request',
+                        subtitle: '',
+                        category_id: 'it',
+                        subcategory: '',
+                        issue_details: '',
+                        submitted_by: 'Ron Costa',
+                        email: 'IT@yahweahcare.com.au',
+                        ndis_related: false,
+                        priority_id: 'medium',
+                        initial_status: 'new',
+                        expected_completion: '',
+                        assign_to: 'Unassigned'
+                    });
                 } catch (err) {
                     setError('Failed to create ticket: ' + err.message);
                 } finally {
@@ -384,113 +405,148 @@
                 }
             };
 
+            const handleChange = (e) => {
+                const { name, value, type, checked } = e.target;
+                setFormData(prev => ({
+                    ...prev,
+                    [name]: type === 'checkbox' ? checked : value
+                }));
+            };
+
             return (
                 <main className="flex-1 overflow-auto bg-gray-50">
-                    <div className="p-8">
-                        <h1 className="text-3xl font-bold text-gray-900 mb-2">Create New Ticket</h1>
-                        <p className="text-gray-600 mb-8">Submit a new support request</p>
+                    <div className="max-w-4xl mx-auto p-8">
+                        <div className="mb-8">
+                            <h1 className="text-4xl font-bold text-gray-900 mb-2">Create New Ticket</h1>
+                            <p className="text-gray-600">Submit a new support request</p>
+                        </div>
 
                         {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6">{error}</div>}
 
-                        {!lookups ? <div className="text-center py-12"><div className="spinner mx-auto mb-4"></div></div> : (
-                        <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
-                            <div className="grid grid-cols-2 gap-6 mb-6">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-900 mb-2">Title Type *</label>
-                                    <select className="w-full">
-                                        <option>Service Request</option>
-                                        <option>Bug Report</option>
-                                        <option>Feature Request</option>
-                                    </select>
+                        {!lookups ? <div className="text-center py-12"><p>Loading form...</p></div> : (
+                        <form onSubmit={handleSubmit} className="space-y-8">
+                            {/* Ticket Details Section */}
+                            <div className="bg-white rounded-lg border border-gray-200 p-6">
+                                <h2 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
+                                    <span>📋</span> Ticket Details
+                                </h2>
+                                <div className="grid grid-cols-2 gap-6 mb-6">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-900 mb-2">Title Type *</label>
+                                        <select name="title_type" value={formData.title_type} onChange={handleChange} className="w-full border border-gray-300 rounded px-3 py-2">
+                                            <option>Service Request</option>
+                                            <option>Complaint</option>
+                                            <option>Incident Report</option>
+                                            <option>Equipment Request</option>
+                                            <option>Schedule Change</option>
+                                            <option>Quality Issue</option>
+                                            <option>Safety Report</option>
+                                            <option>Other</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-900 mb-2">Subtitle *</label>
+                                        <input type="text" name="subtitle" value={formData.subtitle} onChange={handleChange} placeholder="Brief description" className="w-full border border-gray-300 rounded px-3 py-2"/>
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-900 mb-2">Subtitle *</label>
-                                    <input type="text" placeholder="Brief description" className="w-full"/>
+                                <div className="grid grid-cols-2 gap-6">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-900 mb-2">Category *</label>
+                                        <select name="category_id" value={formData.category_id} onChange={handleChange} className="w-full border border-gray-300 rounded px-3 py-2">
+                                            <option value="it">IT Support</option>
+                                            <option value="hr">HR & Payroll</option>
+                                            <option value="facilities">Facilities & Maintenance</option>
+                                            <option value="care">Care Coordination</option>
+                                            <option value="clinical">Clinical / Compliance</option>
+                                            <option value="finance">Finance</option>
+                                            <option value="general">General Enquiry</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-900 mb-2">Subcategory</label>
+                                        <input type="text" name="subcategory" value={formData.subcategory} onChange={handleChange} placeholder="Optional subcategory" className="w-full border border-gray-300 rounded px-3 py-2"/>
+                                    </div>
+                                </div>
+                                <div className="mt-6">
+                                    <label className="block text-sm font-medium text-gray-900 mb-2">Issue Details *</label>
+                                    <textarea name="issue_details" value={formData.issue_details} onChange={handleChange} placeholder="Describe the issue in detail..." className="w-full h-32 border border-gray-300 rounded px-3 py-2"></textarea>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-6 mb-6">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-900 mb-2">Category *</label>
-                                    <select className="w-full">
-                                        <option>Client Issue</option>
-                                        <option>Equipment Issue</option>
-                                        <option>HR Issue</option>
-                                        <option>Account Issue</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-900 mb-2">Subcategory</label>
-                                    <input type="text" placeholder="Optional subcategory" className="w-full"/>
-                                </div>
-                            </div>
-
-                            <div className="mb-6">
-                                <label className="block text-sm font-medium text-gray-900 mb-2">Issue Details *</label>
-                                <textarea placeholder="Describe the issue in detail..." className="w-full h-32"></textarea>
-                            </div>
-
-                            <div className="border-t border-gray-200 pt-6 mt-6">
-                                <h3 className="text-lg font-bold text-gray-900 mb-6">Reporter Information</h3>
+                            {/* Reporter Information Section */}
+                            <div className="bg-white rounded-lg border border-gray-200 p-6">
+                                <h2 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
+                                    <span>👤</span> Reporter Information
+                                </h2>
                                 <div className="grid grid-cols-2 gap-6 mb-6">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-900 mb-2">Submitted By *</label>
-                                        <input type="text" value="Ron Costa" className="w-full bg-gray-100" disabled/>
+                                        <input type="text" value={formData.submitted_by} className="w-full border border-gray-300 rounded px-3 py-2 bg-gray-100" disabled/>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-900 mb-2">Email *</label>
-                                        <input type="email" placeholder="IT@yahweahcare.com.au" className="w-full"/>
+                                        <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="IT@yahweahcare.com.au" className="w-full border border-gray-300 rounded px-3 py-2"/>
                                     </div>
                                 </div>
-                                <div className="mb-6">
-                                    <label className="flex items-center gap-2">
-                                        <input type="checkbox" />
-                                        <span className="text-sm text-gray-700">NDIS Related</span>
+                                <div>
+                                    <label className="flex items-center gap-3 cursor-pointer">
+                                        <input type="checkbox" name="ndis_related" checked={formData.ndis_related} onChange={handleChange} className="w-5 h-5 text-blue-600 rounded"/>
+                                        <span className="text-sm font-medium text-gray-900">NDIS Related</span>
                                     </label>
                                 </div>
                             </div>
 
-                            <div className="border-t border-gray-200 pt-6 mt-6">
-                                <h3 className="text-lg font-bold text-gray-900 mb-6">Classification</h3>
+                            {/* Classification Section */}
+                            <div className="bg-white rounded-lg border border-gray-200 p-6">
+                                <h2 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
+                                    <span>🏷️</span> Classification
+                                </h2>
                                 <div className="grid grid-cols-2 gap-6 mb-6">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-900 mb-2">Priority *</label>
-                                        <select className="w-full">
-                                            <option>Medium</option>
-                                            <option>Low</option>
-                                            <option>High</option>
-                                            <option>Urgent</option>
+                                        <select name="priority_id" value={formData.priority_id} onChange={handleChange} className="w-full border border-gray-300 rounded px-3 py-2">
+                                            <option value="low">Low</option>
+                                            <option value="medium">Medium</option>
+                                            <option value="high">High</option>
+                                            <option value="critical">Critical</option>
                                         </select>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-900 mb-2">Initial Status *</label>
-                                        <select className="w-full">
-                                            <option>Open</option>
-                                            <option>In Progress</option>
-                                            <option>On Hold</option>
+                                        <select name="initial_status" value={formData.initial_status} onChange={handleChange} className="w-full border border-gray-300 rounded px-3 py-2">
+                                            <option value="new">New</option>
+                                            <option value="assigned">Assigned</option>
+                                            <option value="in_progress">In Progress</option>
+                                            <option value="waiting">Waiting on Requester</option>
+                                            <option value="resolved">Resolved</option>
+                                            <option value="closed">Closed</option>
                                         </select>
                                     </div>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-900 mb-2">Expected Completion</label>
-                                    <input type="date" className="w-full"/>
+                                    <input type="date" name="expected_completion" value={formData.expected_completion} onChange={handleChange} className="w-full border border-gray-300 rounded px-3 py-2"/>
                                 </div>
                             </div>
 
-                            <div className="border-t border-gray-200 pt-6 mt-6">
-                                <h3 className="text-lg font-bold text-gray-900 mb-6">Assignment</h3>
+                            {/* Assignment Section */}
+                            <div className="bg-white rounded-lg border border-gray-200 p-6">
+                                <h2 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
+                                    <span>👥</span> Assignment
+                                </h2>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-900 mb-2">Assign To</label>
-                                    <select className="w-full">
+                                    <select name="assign_to" value={formData.assign_to} onChange={handleChange} className="w-full border border-gray-300 rounded px-3 py-2">
                                         <option>Unassigned</option>
                                         {STAFF_DATA.map(s => <option key={s.name}>{s.name}</option>)}
                                     </select>
                                 </div>
                             </div>
 
-                            <div className="mt-8">
-                                <button className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700">
-                                    ✈️ Create Ticket
+                            {/* Submit Button */}
+                            <div>
+                                <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-semibold transition">
+                                    {loading ? '⏳ Creating...' : '✈️ Create Ticket'}
                                 </button>
                             </div>
                         </form>
