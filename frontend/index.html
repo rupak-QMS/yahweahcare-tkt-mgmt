@@ -1326,18 +1326,19 @@
                         .cal-cell.selected { background: #EEF2FF !important; box-shadow: inset 0 0 0 2px #6366F1; }
                         .cal-cell.holiday { background: #FFF5F5 !important; }
                         .cal-cell.holiday:hover { background: #FFE8E8 !important; }
-                        .cal-cell.weekend { background: #F9FAFB; }
+                        .cal-cell.weekend { background: #FAFBFF; }
                         .cal-cell.today-cell { }
                         .state-btn { transition: all 0.15s; }
+                        .state-btn:hover { border-color: #6366F1 !important; color: #4338CA !important; background: #F5F3FF !important; }
                         .ticket-bar { transition: opacity 0.1s; }
                         .ticket-bar:hover { opacity: 0.85; }
-                        .sidebar-card { background: white; border-radius: 16px; border: 1px solid #EAECF0; padding: 20px; margin-bottom: 12px; }
+                        .sidebar-card { background: white; border-radius: 16px; border: 2px solid #E0E3FF; padding: 20px; margin-bottom: 12px; }
                     `}</style>
 
                     <div style={{maxWidth:'1400px', margin:'0 auto', padding:'28px 32px'}}>
 
                         {/* ── Header ── */}
-                        <div style={{display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:'24px', gap:'16px', flexWrap:'wrap'}}>
+                        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'20px', gap:'16px', flexWrap:'wrap'}}>
                             <div>
                                 <h1 style={{fontSize:'22px', fontWeight:'700', color:'#111827', margin:0, letterSpacing:'-0.3px'}}>
                                     🇦🇺 Australian Calendar
@@ -1346,42 +1347,66 @@
                                     Public holidays + ticket due dates · {year}
                                 </p>
                             </div>
-                            {/* State pills */}
-                            <div style={{display:'flex', flexWrap:'wrap', gap:'6px', justifyContent:'flex-end'}}>
-                                {AU_STATES.map(s => (
+                        </div>
+
+                        {/* ── State Filter Bar ── */}
+                        <div style={{background:'white', borderRadius:'14px', border:'2px solid #E0E3FF', padding:'14px 20px', marginBottom:'20px', display:'flex', alignItems:'center', gap:'12px', flexWrap:'wrap', boxShadow:'0 1px 4px rgba(99,102,241,0.07)'}}>
+                            <div style={{display:'flex', alignItems:'center', gap:'7px', marginRight:'4px', flexShrink:0}}>
+                                <div style={{width:'8px', height:'8px', borderRadius:'50%', background:'#6366F1'}}></div>
+                                <span style={{fontSize:'11px', fontWeight:'700', color:'#6366F1', textTransform:'uppercase', letterSpacing:'0.08em'}}>Filter by State</span>
+                            </div>
+                            <div style={{width:'1px', height:'24px', background:'#E5E7EB', flexShrink:0}}></div>
+                            {AU_STATES.map(s => {
+                                const isActive = selectedState === s.code;
+                                return (
                                     <button key={s.code} className="state-btn"
                                         onClick={() => setSelectedState(s.code)}
                                         style={{
-                                            padding:'5px 12px', borderRadius:'20px', fontSize:'12px', fontWeight:'600',
-                                            border: selectedState===s.code ? '1.5px solid #6366F1' : '1.5px solid #E5E7EB',
-                                            background: selectedState===s.code ? '#6366F1' : 'white',
-                                            color: selectedState===s.code ? 'white' : '#6B7280',
-                                            cursor:'pointer',
+                                            padding: '6px 14px', borderRadius:'8px', fontSize:'12px', fontWeight:'600',
+                                            border: isActive ? '2px solid #6366F1' : '2px solid transparent',
+                                            background: isActive ? '#EEF2FF' : '#F9FAFB',
+                                            color: isActive ? '#4338CA' : '#6B7280',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.15s',
+                                            position: 'relative',
                                         }}
-                                    >{s.label}</button>
-                                ))}
+                                    >
+                                        {s.label}
+                                        {isActive && (
+                                            <span style={{position:'absolute', top:'-5px', right:'-5px', width:'10px', height:'10px', borderRadius:'50%', background:'#6366F1', border:'2px solid white'}}></span>
+                                        )}
+                                    </button>
+                                );
+                            })}
+                            <div style={{marginLeft:'auto', fontSize:'12px', color:'#9CA3AF', flexShrink:0}}>
+                                Showing: <strong style={{color:'#4338CA'}}>{AU_STATES.find(s=>s.code===selectedState)?.label}</strong> · <strong style={{color:'#4338CA'}}>{visibleHolidays.length}</strong> holiday{visibleHolidays.length!==1?'s':''} this month
                             </div>
                         </div>
 
                         <div style={{display:'flex', gap:'20px', alignItems:'flex-start'}}>
 
                             {/* ── Main Calendar Card ── */}
-                            <div style={{flex:1, background:'white', borderRadius:'20px', border:'1px solid #EAECF0', overflow:'hidden', minWidth:0}}>
+                            <div style={{flex:1, background:'white', borderRadius:'20px', border:'2px solid #C7D2FE', overflow:'hidden', minWidth:0, boxShadow:'0 2px 12px rgba(99,102,241,0.10)'}}>
 
                                 {/* Month nav bar */}
-                                <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'18px 24px', borderBottom:'1px solid #F3F4F6'}}>
-                                    <button onClick={prevMonth} style={{width:'34px',height:'34px',borderRadius:'10px',border:'1px solid #E5E7EB',background:'white',cursor:'pointer',fontSize:'16px',display:'flex',alignItems:'center',justifyContent:'center',color:'#6B7280'}}>‹</button>
+                                <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 24px', borderBottom:'2px solid #EEF2FF', background:'#FAFBFF'}}>
+                                    <button onClick={prevMonth} style={{width:'36px',height:'36px',borderRadius:'10px',border:'2px solid #E0E3FF',background:'white',cursor:'pointer',fontSize:'18px',display:'flex',alignItems:'center',justifyContent:'center',color:'#6366F1',fontWeight:'700'}}>‹</button>
                                     <div style={{textAlign:'center'}}>
-                                        <h2 style={{fontSize:'17px', fontWeight:'700', color:'#111827', margin:0}}>{monthNames[month]} {year}</h2>
-                                        <p style={{fontSize:'11px', color:'#9CA3AF', margin:'2px 0 0'}}>{visibleHolidays.length} holiday{visibleHolidays.length!==1?'s':''} · {AU_STATES.find(s=>s.code===selectedState)?.label}</p>
+                                        <h2 style={{fontSize:'18px', fontWeight:'700', color:'#111827', margin:0}}>{monthNames[month]} {year}</h2>
+                                        <p style={{fontSize:'11px', color:'#9CA3AF', margin:'3px 0 0'}}>{visibleHolidays.length} holiday{visibleHolidays.length!==1?'s':''} · {AU_STATES.find(s=>s.code===selectedState)?.label}</p>
                                     </div>
-                                    <button onClick={nextMonth} style={{width:'34px',height:'34px',borderRadius:'10px',border:'1px solid #E5E7EB',background:'white',cursor:'pointer',fontSize:'16px',display:'flex',alignItems:'center',justifyContent:'center',color:'#6B7280'}}>›</button>
+                                    <button onClick={nextMonth} style={{width:'36px',height:'36px',borderRadius:'10px',border:'2px solid #E0E3FF',background:'white',cursor:'pointer',fontSize:'18px',display:'flex',alignItems:'center',justifyContent:'center',color:'#6366F1',fontWeight:'700'}}>›</button>
                                 </div>
 
                                 {/* Day-of-week headers */}
-                                <div style={{display:'grid', gridTemplateColumns:'repeat(7,1fr)', borderBottom:'1px solid #F3F4F6'}}>
+                                <div style={{display:'grid', gridTemplateColumns:'repeat(7,1fr)', borderBottom:'2px solid #EEF2FF', background:'#F8F9FF'}}>
                                     {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d,i) => (
-                                        <div key={d} style={{textAlign:'center', fontSize:'11px', fontWeight:'700', letterSpacing:'0.06em', color: i>=5 ? '#D1D5DB' : '#9CA3AF', padding:'10px 0', textTransform:'uppercase'}}>{d}</div>
+                                        <div key={d} style={{
+                                            textAlign:'center', fontSize:'11px', fontWeight:'700', letterSpacing:'0.07em',
+                                            color: i>=5 ? '#C7D2FE' : '#818CF8',
+                                            padding:'11px 0', textTransform:'uppercase',
+                                            borderRight: i<6 ? '1px solid #EEF2FF' : 'none',
+                                        }}>{d}</div>
                                     ))}
                                 </div>
 
@@ -1410,9 +1435,9 @@
                                                         onClick={() => d && setSelectedDay(isSel?null:ds)}
                                                         style={{
                                                             minHeight:'96px', padding:'8px', cursor: d?'pointer':'default',
-                                                            borderBottom: isLastRow?'none':'1px solid #F3F4F6',
-                                                            borderRight: (i+1)%7===0?'none':'1px solid #F3F4F6',
-                                                            background: !d ? '#FAFAFA' : undefined,
+                                                            borderBottom: isLastRow?'none':'1px solid #EEF2FF',
+                                                            borderRight: (i+1)%7===0?'none':'1px solid #EEF2FF',
+                                                            background: !d ? '#F8F9FF' : undefined,
                                                             position:'relative',
                                                         }}
                                                     >
@@ -1465,7 +1490,7 @@
                                 })()}
 
                                 {/* Legend */}
-                                <div style={{display:'flex', flexWrap:'wrap', gap:'16px', padding:'14px 24px', borderTop:'1px solid #F3F4F6', alignItems:'center'}}>
+                                <div style={{display:'flex', flexWrap:'wrap', gap:'16px', padding:'14px 24px', borderTop:'2px solid #EEF2FF', background:'#FAFBFF', alignItems:'center'}}>
                                     <span style={{fontSize:'11px', color:'#9CA3AF', fontWeight:'600', textTransform:'uppercase', letterSpacing:'0.05em'}}>Legend</span>
                                     {[
                                         { swatch:<div style={{width:'20px',height:'20px',borderRadius:'50%',background:'#6366F1',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:'10px',fontWeight:'700'}}>7</div>, label:'Today' },
