@@ -1225,6 +1225,46 @@
             const [viewDate, setViewDate] = React.useState(new Date(today.getFullYear(), today.getMonth(), 1));
             const [selectedState, setSelectedState] = React.useState('NSW');
             const [selectedDay, setSelectedDay] = React.useState(null);
+            const [tickets, setTickets] = React.useState([]);
+
+            // Load all tickets once
+            React.useEffect(() => {
+                API.tickets.getAll().then(data => {
+                    setTickets(data.tickets || []);
+                }).catch(() => {
+                    // Fall back to static sample data
+                    setTickets(TICKETS_DATA.map((t, i) => ({
+                        ...t,
+                        dueAt: null,
+                        expectedCompletion: null,
+                        // Spread some sample tickets across recent dates for demo
+                        _calDate: (() => {
+                            const d = new Date();
+                            d.setDate(d.getDate() + (i * 3 - 4));
+                            return d.toISOString().slice(0,10);
+                        })()
+                    })));
+                });
+            }, []);
+
+            // Build ticket map: date string → tickets[]
+            const ticketDateMap = {};
+            tickets.forEach(t => {
+                // Use expectedCompletion, then dueAt, then _calDate fallback
+                const raw = t.expectedCompletion || t.dueAt || t._calDate;
+                if (!raw) return;
+                const ds = raw.slice(0, 10);
+                if (!ticketDateMap[ds]) ticketDateMap[ds] = [];
+                ticketDateMap[ds].push(t);
+            });
+
+            const priorityColor = p => {
+                const s = (p || '').toLowerCase();
+                if (s === 'critical' || s === 'urgent') return 'bg-red-500';
+                if (s === 'high')   return 'bg-orange-400';
+                if (s === 'medium') return 'bg-yellow-400';
+                return 'bg-blue-400';
+            };
 
             const year  = viewDate.getFullYear();
             const month = viewDate.getMonth();
@@ -1324,6 +1364,7 @@
                                             {monCells.map((d, i) => {
                                                 const ds = d ? dateStr(d) : null;
                                                 const holidays = ds ? (holidayMap[ds] || []) : [];
+                                                const dayTickets = ds ? (ticketDateMap[ds] || []) : [];
                                                 const dow = d ? new Date(year,month,d).getDay() : null;
                                                 const isWknd = dow === 0 || dow === 6;
                                                 const isTd = d && isToday(d);
@@ -1333,7 +1374,7 @@
                                                     <div
                                                         key={i}
                                                         onClick={() => d && setSelectedDay(isSel ? null : ds)}
-                                                        className={`min-h-16 p-2 border-b border-r border-gray-50 transition cursor-pointer ${
+                                                        className={`min-h-20 p-2 border-b border-r border-gray-50 transition cursor-pointer ${
                                                             !d ? 'bg-gray-50/50' :
                                                             isSel ? 'bg-indigo-50' :
                                                             isHol ? 'bg-red-50 hover:bg-red-100' :
@@ -1349,11 +1390,26 @@
                                                                     isWknd ? 'text-gray-400' :
                                                                     'text-gray-800'
                                                                 }`}>{d}</div>
-                                                                {holidays.slice(0,2).map((h,hi) => (
-                                                                    <div key={hi} className="text-xs text-red-600 font-medium leading-tight truncate">{h.name}</div>
+                                                                {/* Holiday label */}
+                                                                {holidays.slice(0,1).map((h,hi) => (
+                                                                    <div key={hi} className="text-xs text-red-600 font-medium leading-tight truncate mb-0.5">{h.name}</div>
                                                                 ))}
-                                                                {holidays.length > 2 && (
-                                                                    <div className="text-xs text-red-400">+{holidays.length-2} more</div>
+                                                                {/* Ticket pills */}
+                                                                {dayTickets.slice(0,3).map((t,ti) => {
+                                                                    const p = (t.priority || t.priority_id || '').toLowerCase();
+                                                                    const dotCls = p==='critical'||p==='urgent' ? 'bg-red-500' : p==='high' ? 'bg-orange-400' : p==='medium' ? 'bg-yellow-400' : 'bg-blue-400';
+                                                                    const isDone = ['resolved','closed'].includes((t.status||t.status_id||'').toLowerCase());
+                                                                    return (
+                                                                        <div key={ti} className={`flex items-center gap-1 rounded px-1 py-0.5 mb-0.5 ${isDone ? 'bg-green-50' : 'bg-indigo-50'}`}>
+                                                                            <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dotCls}`}></div>
+                                                                            <span className={`text-xs font-medium truncate leading-tight ${isDone ? 'text-green-700' : 'text-indigo-700'}`}>
+                                                                                {t.ticketNumber || t.id}
+                                                                            </span>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                                {dayTickets.length > 3 && (
+                                                                    <div className="text-xs text-indigo-400 font-medium">+{dayTickets.length - 3} more</div>
                                                                 )}
                                                             </>
                                                         )}
@@ -1365,10 +1421,14 @@
                                 })()}
 
                                 {/* Legend */}
-                                <div className="flex gap-5 px-6 py-4 border-t border-gray-100 text-xs text-gray-500">
+                                <div className="flex flex-wrap gap-4 px-6 py-4 border-t border-gray-100 text-xs text-gray-500">
                                     <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-indigo-600"></div> Today</div>
                                     <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-red-100 border border-red-200"></div> Public Holiday</div>
                                     <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-gray-100 border border-gray-200"></div> Weekend</div>
+                                    <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-red-500"></div> Critical/Urgent ticket</div>
+                                    <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-orange-400"></div> High ticket</div>
+                                    <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-yellow-400"></div> Medium ticket</div>
+                                    <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-blue-400"></div> Low ticket</div>
                                 </div>
                             </div>
 
@@ -1377,28 +1437,66 @@
                                 {/* Selected day */}
                                 {selectedDay && (() => {
                                     const hols = holidayMap[selectedDay] || [];
+                                    const dayTkts = ticketDateMap[selectedDay] || [];
                                     const [sy,sm,sd] = selectedDay.split('-').map(Number);
                                     const dateLabel = new Date(sy,sm-1,sd).toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
                                     return (
                                         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
                                             <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">Selected Date</p>
-                                            <p className="text-sm font-bold text-gray-900 mb-3">{dateLabel}</p>
-                                            {hols.length === 0 ? (
-                                                <p className="text-sm text-gray-400 italic">No public holiday</p>
-                                            ) : hols.map((h,i) => (
-                                                <div key={i} className="flex items-start gap-2 mb-2">
-                                                    <span className="text-red-500 mt-0.5">🎉</span>
-                                                    <div>
-                                                        <p className="text-sm font-semibold text-gray-900">{h.name}</p>
-                                                        <div className="flex gap-1 flex-wrap mt-1">
-                                                            {h.states.includes('ALL')
-                                                                ? <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-medium">National</span>
-                                                                : h.states.map(s => <span key={s} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{s}</span>)
-                                                            }
+                                            <p className="text-sm font-bold text-gray-900 mb-4">{dateLabel}</p>
+
+                                            {/* Holidays */}
+                                            {hols.length > 0 && (
+                                                <div className="mb-4">
+                                                    <p className="text-xs font-semibold text-red-500 uppercase tracking-wide mb-2">Public Holiday</p>
+                                                    {hols.map((h,i) => (
+                                                        <div key={i} className="flex items-start gap-2 mb-2">
+                                                            <span className="text-red-500 mt-0.5">🎉</span>
+                                                            <div>
+                                                                <p className="text-sm font-semibold text-gray-900">{h.name}</p>
+                                                                <div className="flex gap-1 flex-wrap mt-1">
+                                                                    {h.states.includes('ALL')
+                                                                        ? <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-medium">National</span>
+                                                                        : h.states.map(s => <span key={s} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{s}</span>)
+                                                                    }
+                                                                </div>
+                                                            </div>
                                                         </div>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {/* Tickets due this day */}
+                                            {dayTkts.length > 0 && (
+                                                <div>
+                                                    <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wide mb-2">Tickets Due ({dayTkts.length})</p>
+                                                    <div className="space-y-2">
+                                                        {dayTkts.map((t,i) => {
+                                                            const p = (t.priority || t.priority_id || '').toLowerCase();
+                                                            const dotCls = p==='critical'||p==='urgent' ? 'bg-red-500' : p==='high' ? 'bg-orange-400' : p==='medium' ? 'bg-yellow-400' : 'bg-blue-400';
+                                                            const status = t.status || t.status_id || t.statusLabel || '—';
+                                                            const isDone = ['resolved','closed'].includes(status.toLowerCase());
+                                                            return (
+                                                                <div key={i} className={`rounded-lg p-2.5 border ${isDone ? 'border-green-100 bg-green-50' : 'border-indigo-100 bg-indigo-50'}`}>
+                                                                    <div className="flex items-center gap-2 mb-1">
+                                                                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${dotCls}`}></div>
+                                                                        <span className="text-xs font-bold text-indigo-600">{t.ticketNumber || t.id}</span>
+                                                                        <span className={`ml-auto text-xs font-semibold px-2 py-0.5 rounded-full ${isDone ? 'bg-green-100 text-green-700' : 'bg-white text-gray-600 border border-gray-200'}`}>{status}</span>
+                                                                    </div>
+                                                                    <p className="text-xs text-gray-700 font-medium leading-snug truncate">{t.title || t.subtitle || '—'}</p>
+                                                                    {t.assigneeName || t.assigned ? (
+                                                                        <p className="text-xs text-gray-400 mt-0.5">👤 {t.assigneeName || t.assigned}</p>
+                                                                    ) : null}
+                                                                </div>
+                                                            );
+                                                        })}
                                                     </div>
                                                 </div>
-                                            ))}
+                                            )}
+
+                                            {hols.length === 0 && dayTkts.length === 0 && (
+                                                <p className="text-sm text-gray-400 italic">No events on this day</p>
+                                            )}
                                         </div>
                                     );
                                 })()}
