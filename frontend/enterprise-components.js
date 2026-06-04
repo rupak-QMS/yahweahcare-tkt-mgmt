@@ -147,7 +147,8 @@ function ApprovalDashboard() {
     const fetchPendingApprovals = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`https://yahweahcare-tkt-mgmt.vercel.app/api/approvals/pending/${currentUserId}`);
+            const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:4000' : 'https://yahweahcare-tkt-mgmt.vercel.app';
+            const response = await fetch(`${API_URL}/api/approvals/pending/${currentUserId}`);
             const data = await response.json();
             setPendingApprovals(data);
         } catch (err) {
@@ -160,7 +161,8 @@ function ApprovalDashboard() {
 
     const handleApprove = async (ticketId) => {
         try {
-            const response = await fetch(`https://yahweahcare-tkt-mgmt.vercel.app/api/tickets/${ticketId}/approval`, {
+            const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:4000' : 'https://yahweahcare-tkt-mgmt.vercel.app';
+            const response = await fetch(`${API_URL}/api/tickets/${ticketId}/approval`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -189,7 +191,8 @@ function ApprovalDashboard() {
         }
 
         try {
-            const response = await fetch(`https://yahweahcare-tkt-mgmt.vercel.app/api/tickets/${ticketId}/approval`, {
+            const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:4000' : 'https://yahweahcare-tkt-mgmt.vercel.app';
+            const response = await fetch(`${API_URL}/api/tickets/${ticketId}/approval`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

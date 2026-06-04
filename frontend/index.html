@@ -85,8 +85,10 @@
             { timestamp: '13 May 2026, 06:41 pm', ticket: 'YPC-TKT-2026-3359', action: 'Created', priority: 'Urgent', description: 'Test ticket', user: 'Ron Costa' },
         ];
 
-        // API Service Layer
-        const API_BASE_URL = 'https://yahweahcare-tkt-mgmt-hx48.vercel.app/api';
+        // API Service Layer - Detect localhost vs production
+        const API_BASE_URL = window.location.hostname === 'localhost'
+            ? 'http://localhost:4000/api'
+            : 'https://yahweahcare-tkt-mgmt-hx48.vercel.app/api';
 
         // Fallback mock data for lookups
         const LOOKUPS_MOCK = {
@@ -179,6 +181,7 @@
             const pages = [
                 { id: 'dashboard', label: 'Dashboard', icon: '📊' },
                 { id: 'create-ticket', label: 'Create Ticket', icon: '➕' },
+                { id: 'approvals', label: 'Approvals', icon: '✅' },
                 { id: 'tickets', label: 'Tickets', icon: '📋' },
                 { id: 'calendar', label: 'Calendar', icon: '📅' },
                 { id: 'ticket-logs', label: 'Ticket Logs', icon: '📝' },
@@ -358,7 +361,11 @@
                 priority_id: 'medium',
                 initial_status: 'new',
                 expected_completion: '',
-                assign_to: 'Unassigned'
+                assign_to: 'Unassigned',
+                approval_mode: 'AnyOne',
+                approver_ids: [],
+                created_by: 1,  // Ron Costa
+                assigned_to: null
             });
             const [loading, setLoading] = React.useState(false);
             const [lookups, setLookups] = React.useState(null);
@@ -382,6 +389,12 @@
                 setLoading(true);
                 setError('');
                 try {
+                    // Validate approvers
+                    if (!formData.approver_ids || formData.approver_ids.length === 0) {
+                        setError('At least one approver must be selected');
+                        setLoading(false);
+                        return;
+                    }
                     await API.tickets.create(formData);
                     alert('✅ Ticket created successfully!');
                     setFormData({
@@ -396,7 +409,11 @@
                         priority_id: 'medium',
                         initial_status: 'new',
                         expected_completion: '',
-                        assign_to: 'Unassigned'
+                        assign_to: 'Unassigned',
+                        approval_mode: 'AnyOne',
+                        approver_ids: [],
+                        created_by: 1,
+                        assigned_to: null
                     });
                 } catch (err) {
                     setError('Failed to create ticket: ' + err.message);
@@ -542,6 +559,15 @@
                                     </select>
                                 </div>
                             </div>
+
+                            {/* Approval Configuration Section */}
+                            {lookups && lookups.users && (
+                                <ApproversSection
+                                    formData={formData}
+                                    setFormData={setFormData}
+                                    users={lookups.users}
+                                />
+                            )}
 
                             {/* Submit Button */}
                             <div>
@@ -1019,6 +1045,7 @@
                 switch (currentPage) {
                     case 'dashboard': return <Dashboard />;
                     case 'create-ticket': return <CreateTicket />;
+                    case 'approvals': return <ApprovalDashboard />;
                     case 'tickets': return <TicketsPage />;
                     case 'calendar': return <CalendarPage />;
                     case 'ticket-logs': return <TicketLogsPage />;
@@ -1042,5 +1069,8 @@
 
         ReactDOM.render(<App />, document.getElementById('root'));
     </script>
+
+    <!-- Enterprise Components (Approval Workflow) -->
+    <script type="text/babel" src="enterprise-components.js"></script>
 </body>
 </html>
