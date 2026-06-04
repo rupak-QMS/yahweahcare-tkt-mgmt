@@ -2134,8 +2134,8 @@
 
                         <div style={{display:'flex', gap:'20px', alignItems:'flex-start'}}>
 
-                            {/* ── Chart card — overflow:auto activates scroll when tree grows ── */}
-                            <div style={{flex:1, background:'white', borderRadius:'20px', border:'2px solid #E0E7FF', padding:'20px 20px 16px', boxShadow:'0 4px 20px rgba(99,102,241,0.08)', overflow:'auto'}}>
+                            {/* ── Chart card — minWidth:0 lets flex child shrink so overflow:auto scrolls correctly ── */}
+                            <div style={{flex:1, minWidth:0, background:'white', borderRadius:'20px', border:'2px solid #E0E7FF', padding:'20px 20px 16px', boxShadow:'0 4px 20px rgba(99,102,241,0.08)', overflowX:'auto', overflowY:'visible'}}>
                                 <h2 style={{textAlign:'center', fontSize:'14px', fontWeight:'800', color:'#1E1B4B', marginBottom:'18px', letterSpacing:'0.5px', textTransform:'uppercase', whiteSpace:'nowrap'}}>
                                     Organizational Chart for Yahweh Care
                                 </h2>
