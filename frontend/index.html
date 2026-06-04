@@ -257,13 +257,54 @@
 
         // Create Ticket Page
         function CreateTicket() {
+            const [formData, setFormData] = React.useState({
+                title: '',
+                description: '',
+                category_id: 'general',
+                priority_id: 'medium'
+            });
+            const [loading, setLoading] = React.useState(false);
+            const [lookups, setLookups] = React.useState(null);
+            const [error, setError] = React.useState('');
+
+            React.useEffect(() => {
+                fetchLookups();
+            }, []);
+
+            const fetchLookups = async () => {
+                try {
+                    const data = await API.lookups.get();
+                    setLookups(data);
+                } catch (err) {
+                    setError('Failed to load form options');
+                }
+            };
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setError('');
+                try {
+                    await API.tickets.create(formData);
+                    alert('✅ Ticket created successfully!');
+                    setFormData({ title: '', description: '', category_id: 'general', priority_id: 'medium' });
+                } catch (err) {
+                    setError('Failed to create ticket: ' + err.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
             return (
                 <main className="flex-1 overflow-auto bg-gray-50">
                     <div className="p-8">
                         <h1 className="text-3xl font-bold text-gray-900 mb-2">Create New Ticket</h1>
                         <p className="text-gray-600 mb-8">Submit a new support request</p>
 
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+                        {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6">{error}</div>}
+
+                        {!lookups ? <div className="text-center py-12"><div className="spinner mx-auto mb-4"></div></div> : (
+                        <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
                             <div className="grid grid-cols-2 gap-6 mb-6">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-900 mb-2">Title Type *</label>
