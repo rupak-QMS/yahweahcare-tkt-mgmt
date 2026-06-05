@@ -14,7 +14,7 @@ const isSuperAdmin = (role: string) => role === 'super_admin';
 const isAdminOrAbove = (role: string) => ['super_admin', 'admin'].includes(role);
 const isManagerOrAbove = (role: string) => ['super_admin', 'admin', 'manager', 'hr'].includes(role);
 
-// GET /users — returns all positions from staff_positions
+// GET /users — returns all positions via correlated subquery
 router.get('/', optionalAuth, async (req, res, next) => {
   try {
     const limit  = Math.min(Number(req.query.limit) || 100, 200);
@@ -32,39 +32,29 @@ router.get('/', optionalAuth, async (req, res, next) => {
     if (status === 'active')   where.push('u.is_active = TRUE');
     else if (status === 'inactive') where.push('u.is_active = FALSE');
 
-    const limitParam  = '$' + pi;
-    const offsetParam = '$' + (pi + 1);
-
-    const sql = `
-      SELECT u.id, u.email, u.name, u.is_active, u.is_bootstrap_admin, u.auth_provider,
-             u.employment_type, u.phone, u.department_id, u.position_id, u.manager_id,
-             u.start_date, u.profile_notes, u.created_at,
-             d.name AS department_name, m.name AS manager_name,
-             COALESCE(
-               json_agg(
-                 json_build_object('id', p2.id, 'title', p2.title,
-                   'type', COALESCE(p2.position_type,'ops'), 'is_primary', sp.is_primary)
-                 ORDER BY sp.is_primary DESC NULLS LAST, p2.title
-               ) FILTER (WHERE sp.position_id IS NOT NULL),
-               '[]'::json
-             ) AS positions
-      FROM yc_tkt_mgmt.users u
-      LEFT JOIN yc_tkt_mgmt.departments d  ON d.id  = u.department_id
-      LEFT JOIN yc_tkt_mgmt.users       m  ON m.id  = u.manager_id
-      LEFT JOIN yc_tkt_mgmt.staff_positions sp ON sp.user_id = u.id
-      LEFT JOIN yc_tkt_mgmt.positions   p2 ON p2.id = sp.position_id
-      WHERE ${where.join(' AND ')}
-      GROUP BY u.id, d.name, m.name
-      ORDER BY u.name
-      LIMIT ${limitParam} OFFSET ${offsetParam}
-    `;
-
-    const { rows } = await pool.query(sql, [...params, limit, offset]);
-    const users = rows.map(r => ({
-      ...r,
-      active: r.is_active,
-      positions: Array.isArray(r.positions) ? r.positions : [],
-    }));
+    const { rows } = await pool.query(
+      'SELECT u.id, u.email, u.name, u.is_active, u.is_bootstrap_admin, u.auth_provider,' +
+      ' u.employment_type, u.phone, u.department_id, u.position_id, u.manager_id,' +
+      ' u.start_date, u.profile_notes, u.created_at,' +
+      ' d.name AS department_name, m.name AS manager_name,' +
+      ' (SELECT COALESCE(json_agg(' +
+      "   json_build_object('id',p2.id,'title',p2.title,'type',COALESCE(p2.position_type,'ops'),'is_primary',sp2.is_primary)" +
+      '   ORDER BY sp2.is_primary DESC NULLS LAST, p2.title' +
+      ' ),' +
+      " '[]'::json)" +
+      '  FROM yc_tkt_mgmt.staff_positions sp2' +
+      '  JOIN yc_tkt_mgmt.positions p2 ON p2.id = sp2.position_id' +
+      '  WHERE sp2.user_id = u.id' +
+      ' ) AS positions' +
+      ' FROM yc_tkt_mgmt.users u' +
+      ' LEFT JOIN yc_tkt_mgmt.departments d ON d.id = u.department_id' +
+      ' LEFT JOIN yc_tkt_mgmt.users m ON m.id = u.manager_id' +
+      ' WHERE ' + where.join(' AND ') +
+      ' ORDER BY u.name' +
+      ' LIMIT $' + pi + ' OFFSET $' + (pi + 1),
+      [...params, limit, offset]
+    );
+    const users = rows.map(r => ({ ...r, active: r.is_active, positions: Array.isArray(r.positions) ? r.positions : [] }));
     res.json({ users, total: users.length });
   } catch (err) { next(err); }
 });
@@ -128,12 +118,9 @@ router.patch('/:id', optionalAuth, async (req, res, next) => {
         values.push((col === 'department_id' || col === 'manager_id' || col === 'position_id') && val !== null && val !== '' ? Number(val) : (val === '' ? null : val));
       }
     }
-    if (!updates.length && !('position_ids' in req.body)) return res.json({ user: target });
     if (updates.length) {
       values.push(id);
-      await pool.query(
-        `UPDATE yc_tkt_mgmt.users SET ${updates.join(', ')}, updated_at=NOW() WHERE id=$${i}`, values
-      );
+      await pool.query(`UPDATE yc_tkt_mgmt.users SET ${updates.join(', ')}, updated_at=NOW() WHERE id=$${i}`, values);
     }
 
     // ── Sync staff_positions (multi-position) ────────────────────────────────
@@ -177,7 +164,6 @@ router.delete('/:id', optionalAuth, async (req, res, next) => {
     if (!rows[0]) return res.status(404).json({ error: 'not_found' });
     if (rows[0].is_bootstrap_admin) return res.status(403).json({ error: 'bootstrap_admin_delete_blocked', message: 'Bootstrap admin accounts cannot be deleted' });
     await pool.query(`UPDATE yc_tkt_mgmt.users SET is_active=FALSE, updated_at=NOW() WHERE id=$1`, [id]);
-    // Vacate all positions held
     const { rows: spRows } = await pool.query(`SELECT position_id FROM yc_tkt_mgmt.staff_positions WHERE user_id=$1`, [id]);
     await pool.query(`DELETE FROM yc_tkt_mgmt.staff_positions WHERE user_id=$1`, [id]);
     for (const sp of spRows) {
