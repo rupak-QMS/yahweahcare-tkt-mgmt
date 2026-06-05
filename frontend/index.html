@@ -2369,6 +2369,7 @@
                         start_date:      form.start_date      || null,
                         profile_notes:   form.profile_notes   || null,
                         position_id:     form.position_ids?.length ? form.position_ids[0] : null,
+                        position_ids:    form.position_ids || [],
                         auth_provider:   form.auth_provider   || 'azure_ad',
                         is_active:       true,
                     };
