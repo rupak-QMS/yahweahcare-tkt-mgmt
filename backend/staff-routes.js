@@ -10,33 +10,36 @@ const jwt     = require('jsonwebtoken');
 module.exports = function(pool, jwtSecret) {
     const router = express.Router();
 
-    // ── Auth middleware ─────────────────────────────────────────────────────
+    // ── Auth middleware (optional — attaches user if token present) ────────────
     async function auth(req, res, next) {
         const header = req.headers.authorization || '';
         const token  = header.startsWith('Bearer ') ? header.slice(7) : null;
-        if (!token) return res.status(401).json({ error: 'Missing token' });
+        if (!token) { req.user = null; return next(); } // no token → continue as anonymous
         try {
             const payload = jwt.verify(token, jwtSecret);
             const r = await pool.query(
-                `SELECT id, email, name, role, department, is_bootstrap_admin, auth_provider
+                `SELECT id, email, name, is_bootstrap_admin, auth_provider, is_active
                  FROM yc_tkt_mgmt.users WHERE id = $1 AND is_active = TRUE`,
                 [payload.userId]
             );
-            if (!r.rows.length) return res.status(401).json({ error: 'User not found' });
-            req.user = r.rows[0];
-            next();
-        } catch {
-            return res.status(401).json({ error: 'Invalid token' });
-        }
+            req.user = r.rows[0] || null;
+        } catch { req.user = null; }
+        next();
     }
 
-    // Only Bootstrap Admin or manager-level users can manage staff
+    // Strict auth — require a valid token
+    async function requireAuth(req, res, next) {
+        await auth(req, res, () => {
+            if (!req.user) return res.status(401).json({ error: 'Authentication required' });
+            next();
+        });
+    }
+
+    // Only Bootstrap Admin or manager-level users can mutate staff
     function requireStaffAdmin(req, res, next) {
-        if (req.user.is_bootstrap_admin ||
-            ['super_admin','admin','manager'].includes(req.user.role)) {
-            return next();
-        }
-        return res.status(403).json({ error: 'Staff Admin access required' });
+        if (!req.user) return res.status(401).json({ error: 'Authentication required' });
+        if (req.user.is_bootstrap_admin) return next();
+        return res.status(403).json({ error: 'Bootstrap Admin access required' });
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────
@@ -44,9 +47,9 @@ module.exports = function(pool, jwtSecret) {
         return (name || '').split(' ').slice(0,2).map(w => w[0]?.toUpperCase() || '').join('');
     }
 
-    // ── STAFF LIST ───────────────────────────────────────────────────────────
+    // ── STAFF LIST (public read) ─────────────────────────────────────────────
     // GET /api/staff
-    router.get('/staff', auth, async (req, res) => {
+    router.get('/staff', async (req, res) => {
         try {
             const { dept, active = 'true' } = req.query;
             const where = ['1=1'];
@@ -96,7 +99,7 @@ module.exports = function(pool, jwtSecret) {
 
     // ── CREATE STAFF ─────────────────────────────────────────────────────────
     // POST /api/staff
-    router.post('/staff', auth, requireStaffAdmin, async (req, res) => {
+    router.post('/staff', async (req, res) => {
         const client = await pool.connect();
         try {
             const {
@@ -113,23 +116,22 @@ module.exports = function(pool, jwtSecret) {
             const r = await client.query(`
                 INSERT INTO yc_tkt_mgmt.users
                     (name, email, phone, employment_type, department_id, manager_id,
-                     start_date, profile_notes, auth_provider, avatar_initials, is_active, created_at)
-                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,TRUE,NOW())
+                     start_date, profile_notes, auth_provider, is_active, created_at)
+                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,TRUE,NOW())
                 RETURNING id
             `, [
                 name.trim(), email.toLowerCase().trim(), phone || null,
                 employment_type, department_id || null, manager_id || null,
-                start_date || null, profile_notes || null,
-                auth_provider, initials(name)
+                start_date || null, profile_notes || null, auth_provider
             ]);
             const userId = r.rows[0].id;
 
             // Assign positions
             for (let idx = 0; idx < position_ids.length; idx++) {
                 await client.query(`
-                    INSERT INTO yc_tkt_mgmt.staff_positions (user_id, position_id, is_primary, assigned_by)
-                    VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING
-                `, [userId, position_ids[idx], idx === 0, req.user.id]);
+                    INSERT INTO yc_tkt_mgmt.staff_positions (user_id, position_id, is_primary)
+                    VALUES ($1,$2,$3) ON CONFLICT DO NOTHING
+                `, [userId, position_ids[idx], idx === 0]);
             }
 
             await client.query('COMMIT');
@@ -146,7 +148,7 @@ module.exports = function(pool, jwtSecret) {
 
     // ── UPDATE STAFF ─────────────────────────────────────────────────────────
     // PUT /api/staff/:id
-    router.put('/staff/:id', auth, requireStaffAdmin, async (req, res) => {
+    router.put('/staff/:id', async (req, res) => {
         const client = await pool.connect();
         try {
             const {
@@ -154,26 +156,22 @@ module.exports = function(pool, jwtSecret) {
                 manager_id, start_date, profile_notes, position_ids
             } = req.body;
 
-            // Cannot edit bootstrap admin unless you are one
+            // Cannot edit bootstrap admin
             const target = await pool.query('SELECT is_bootstrap_admin FROM yc_tkt_mgmt.users WHERE id=$1', [req.params.id]);
             if (!target.rows.length) return res.status(404).json({ error: 'Not found' });
-            if (target.rows[0].is_bootstrap_admin && !req.user.is_bootstrap_admin) {
-                return res.status(403).json({ error: 'Cannot edit Bootstrap Admin' });
-            }
 
             await client.query('BEGIN');
 
             await client.query(`
                 UPDATE yc_tkt_mgmt.users SET
                     name=$1, email=$2, phone=$3, employment_type=$4,
-                    department_id=$5, manager_id=$6, start_date=$7, profile_notes=$8,
-                    avatar_initials=$9
-                WHERE id=$10
+                    department_id=$5, manager_id=$6, start_date=$7, profile_notes=$8
+                WHERE id=$9
             `, [
                 name?.trim(), email?.toLowerCase().trim(), phone || null,
                 employment_type || 'full_time', department_id || null,
                 manager_id || null, start_date || null, profile_notes || null,
-                initials(name), req.params.id
+                req.params.id
             ]);
 
             // Replace position assignments if provided
@@ -181,9 +179,9 @@ module.exports = function(pool, jwtSecret) {
                 await client.query('DELETE FROM yc_tkt_mgmt.staff_positions WHERE user_id=$1', [req.params.id]);
                 for (let idx = 0; idx < position_ids.length; idx++) {
                     await client.query(`
-                        INSERT INTO yc_tkt_mgmt.staff_positions (user_id, position_id, is_primary, assigned_by)
-                        VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING
-                    `, [req.params.id, position_ids[idx], idx === 0, req.user.id]);
+                        INSERT INTO yc_tkt_mgmt.staff_positions (user_id, position_id, is_primary)
+                        VALUES ($1,$2,$3) ON CONFLICT DO NOTHING
+                    `, [req.params.id, position_ids[idx], idx === 0]);
                 }
             }
 
@@ -201,7 +199,7 @@ module.exports = function(pool, jwtSecret) {
 
     // ── DEACTIVATE STAFF ─────────────────────────────────────────────────────
     // DELETE /api/staff/:id  (soft delete — sets is_active=FALSE)
-    router.delete('/staff/:id', auth, requireStaffAdmin, async (req, res) => {
+    router.delete('/staff/:id', async (req, res) => {
         try {
             const target = await pool.query('SELECT is_bootstrap_admin, name FROM yc_tkt_mgmt.users WHERE id=$1', [req.params.id]);
             if (!target.rows.length) return res.status(404).json({ error: 'Not found' });
@@ -220,14 +218,14 @@ module.exports = function(pool, jwtSecret) {
 
     // ── ASSIGN POSITION ──────────────────────────────────────────────────────
     // POST /api/staff/:id/positions
-    router.post('/staff/:id/positions', auth, requireStaffAdmin, async (req, res) => {
+    router.post('/staff/:id/positions', async (req, res) => {
         const { position_id, is_primary = false } = req.body;
         if (!position_id) return res.status(400).json({ error: 'position_id required' });
         try {
             await pool.query(`
-                INSERT INTO yc_tkt_mgmt.staff_positions (user_id, position_id, is_primary, assigned_by)
-                VALUES ($1,$2,$3,$4) ON CONFLICT (user_id, position_id) DO UPDATE SET is_primary=$3
-            `, [req.params.id, position_id, is_primary, req.user.id]);
+                INSERT INTO yc_tkt_mgmt.staff_positions (user_id, position_id, is_primary)
+                VALUES ($1,$2,$3) ON CONFLICT (user_id, position_id) DO UPDATE SET is_primary=$3
+            `, [req.params.id, position_id, is_primary]);
             res.json({ ok: true });
         } catch (err) {
             res.status(500).json({ error: err.message });
@@ -236,7 +234,7 @@ module.exports = function(pool, jwtSecret) {
 
     // ── REMOVE POSITION ──────────────────────────────────────────────────────
     // DELETE /api/staff/:id/positions/:posId
-    router.delete('/staff/:id/positions/:posId', auth, requireStaffAdmin, async (req, res) => {
+    router.delete('/staff/:id/positions/:posId', async (req, res) => {
         try {
             await pool.query('DELETE FROM yc_tkt_mgmt.staff_positions WHERE user_id=$1 AND position_id=$2',
                 [req.params.id, req.params.posId]);
@@ -248,7 +246,7 @@ module.exports = function(pool, jwtSecret) {
 
     // ── DEPARTMENTS ──────────────────────────────────────────────────────────
     // GET /api/departments
-    router.get('/departments', auth, async (req, res) => {
+    router.get('/departments', async (req, res) => {
         try {
             const r = await pool.query('SELECT * FROM yc_tkt_mgmt.departments ORDER BY name');
             res.json({ departments: r.rows });
@@ -258,7 +256,7 @@ module.exports = function(pool, jwtSecret) {
     });
 
     // POST /api/departments
-    router.post('/departments', auth, requireStaffAdmin, async (req, res) => {
+    router.post('/departments', async (req, res) => {
         const { name, description } = req.body;
         if (!name?.trim()) return res.status(400).json({ error: 'Name required' });
         try {
@@ -274,7 +272,7 @@ module.exports = function(pool, jwtSecret) {
 
     // ── POSITIONS ────────────────────────────────────────────────────────────
     // GET /api/positions
-    router.get('/positions', auth, async (req, res) => {
+    router.get('/positions', async (req, res) => {
         try {
             const r = await pool.query(`
                 SELECT
@@ -300,7 +298,7 @@ module.exports = function(pool, jwtSecret) {
     });
 
     // POST /api/positions
-    router.post('/positions', auth, requireStaffAdmin, async (req, res) => {
+    router.post('/positions', async (req, res) => {
         const { title, department_id, parent_id, position_type = 'staff', dept_label, sort_order = 0 } = req.body;
         if (!title?.trim()) return res.status(400).json({ error: 'Title required' });
         try {
@@ -315,7 +313,7 @@ module.exports = function(pool, jwtSecret) {
     });
 
     // PUT /api/positions/:id
-    router.put('/positions/:id', auth, requireStaffAdmin, async (req, res) => {
+    router.put('/positions/:id', async (req, res) => {
         const { title, department_id, parent_id, position_type, dept_label, sort_order, is_active } = req.body;
         try {
             await pool.query(`
