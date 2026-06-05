@@ -2070,6 +2070,26 @@
             const [orgData, setOrgData] = React.useState(null);
             const [loading, setLoading] = React.useState(true);
             const [error,   setError]   = React.useState('');
+            const [scale,   setScale]   = React.useState(1);
+            const chartWrapRef  = React.useRef(null);
+            const containerRef  = React.useRef(null);
+
+            // Auto-scale chart to fit container width
+            const calcScale = React.useCallback(() => {
+                const wrap = chartWrapRef.current;
+                const cont = containerRef.current;
+                if (!wrap || !cont) return;
+                wrap.style.zoom = '';                      // reset to measure natural size
+                const naturalW = wrap.scrollWidth;
+                const contW    = cont.clientWidth - 16;   // subtract small padding
+                setScale(naturalW > contW ? contW / naturalW : 1);
+            }, []);
+
+            React.useEffect(() => {
+                if (!orgData) return;
+                const t = setTimeout(calcScale, 150);      // wait for DOM to settle
+                return () => clearTimeout(t);
+            }, [orgData, calcScale]);
 
             const fetchOrg = React.useCallback(async () => {
                 setLoading(true);
@@ -2153,8 +2173,8 @@
                                 {error && <div style={{textAlign:'center',padding:'12px',fontSize:'13px',color:'#D97706',background:'#FFFBEB',borderRadius:'8px',marginBottom:'16px',border:'1px solid #FDE68A'}}>{error}</div>}
 
                                 {!loading && orgData && (
-                                    <div style={{overflowX:'auto', width:'100%', paddingBottom:'8px'}}>
-                                        <div style={{width:'fit-content', minWidth:'100%', display:'flex', justifyContent:'center', boxSizing:'border-box'}}>
+                                    <div ref={containerRef} style={{width:'100%', overflowX:'hidden'}}>
+                                        <div ref={chartWrapRef} style={{zoom: scale, width:'fit-content', minWidth:'100%', display:'flex', justifyContent:'center', transformOrigin:'top center', boxSizing:'border-box'}}>
                                             {(() => {
                                                 // Show only meaningful roots: has children, or has staff, or is director-type
                                                 const roots = orgData.tree.filter(n =>
