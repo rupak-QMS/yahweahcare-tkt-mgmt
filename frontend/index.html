@@ -2057,94 +2057,55 @@
         }
 
         function OrgChartPage() {
-            const [orgData,   setOrgData]   = React.useState(null);
-            const [loading,   setLoading]   = React.useState(true);
-            const [error,     setError]     = React.useState('');
+            const [orgData, setOrgData] = React.useState(null);
+            const [loading, setLoading] = React.useState(true);
+            const [error,   setError]   = React.useState('');
 
             const fetchOrg = React.useCallback(async () => {
                 setLoading(true);
                 setError('');
                 try {
-                    const res  = await fetch(`${HRMS_API}/org/chart`);
-                    if (!res.ok) throw new Error(`API returned ${res.status}`);
+                    const res = await fetch(`${HRMS_API}/org/chart`);
+                    if (!res.ok) {
+                        const err = await res.json().catch(() => ({}));
+                        throw new Error(`API returned ${res.status}${err.message ? ': ' + err.message : ''}`);
+                    }
                     const data = await res.json();
-                    // backend-hrms returns { tree, departments, bootstrapAdmins }
-                    setOrgData({
-                        tree: Array.isArray(data.tree) ? data.tree : [],
-                        systemRoles: data.bootstrapAdmins || data.systemRoles || []
-                    });
+                    setOrgData(data);
                 } catch(e) {
-                    setError(`Could not load org chart from API (${e.message}). Check that the backend is deployed with staff-routes.js.`);
-                    setOrgData({ tree: [], systemRoles: [] });
-                }
-                finally { setLoading(false); }
+                    setError('Could not load org chart from API (' + e.message + ').');
+                } finally { setLoading(false); }
             }, []);
 
             React.useEffect(() => { fetchOrg(); }, [fetchOrg]);
 
-            // Flatten tree helper — defined before use, guards against non-array input
-            const flattenTree = (nodes) => {
-                if (!Array.isArray(nodes)) return [];
-                return nodes.reduce((acc, n) => [...acc, n, ...flattenTree(n.children || [])], []);
-            };
+            // Flatten tree for stats
+            const flatNodes = (node) => [node, ...(node.children||[]).flatMap(flatNodes)];
+            const allNodes    = (orgData?.tree || []).flatMap(flatNodes);
+            const activeCount = allNodes.filter(n => !n.is_vacant).length;
+            const vacantCount = allNodes.filter(n =>  n.is_vacant).length;
+            const deptCount   = (orgData?.departments || []).length;
+            const sysRoles    = orgData?.bootstrapAdmins || [];
 
-            // Map position_type from title/dept for colour coding
-            const inferType = (node) => {
-                const t = (node.title || '').toLowerCase();
-                if (t.includes('director')) return 'director';
-                if (t.includes('finance') || t.includes('plan manager')) return 'finance';
-                if (t.includes('strategic') || t.includes('client relationship') || t.includes('business development') || t.includes('marketing')) return 'strategic';
-                if (t.includes('external') || t.includes('consultant')) return 'external';
-                if (t.includes('support worker') || t.includes('staff (day')) return 'staff';
-                return 'ops';
-            };
-
-            // dept_label derived from position title for top-level dept positions
-            const inferDeptLabel = (node) => {
-                const t = (node.title || '');
-                if (t.includes('Director')) return '👤 Director';
-                if (t.includes('Operations Manager')) return '👥 Operations Department';
-                if (t.includes('Finance Manager')) return '💰 Finance Department';
-                if (t.includes('Strategic Development')) return '🏢 Strategic Dev & Client Relationship';
-                return null;
-            };
-
-            // Build OrgCard props from a position node (backend-hrms schema)
-            const nodeToCard = (node) => {
-                // backend-hrms uses node.staff[] array, node.is_vacant
-                const staff   = Array.isArray(node.staff) ? node.staff : [];
-                const vacant  = node.is_vacant !== false ? staff.length === 0 : false;
-                const primary = staff[0];
-                const type    = node.position_type || inferType(node);
-                const dLabel  = node.dept_label || inferDeptLabel(node);
-                return <OrgCard
-                    key={node.id}
-                    deptLabel={dLabel}
+            // Render a position node from the API tree
+            const renderTree = (node) => {
+                const staffArr = node.staff || [];
+                const vacant   = node.is_vacant !== false && staffArr.length === 0;
+                const primary  = staffArr[0];
+                const extra    = staffArr.length > 1 ? `+${staffArr.length-1} more` : null;
+                const type     = node.position_type || 'ops';
+                const card = <OrgCard
+                    deptLabel={node.dept_label || null}
                     name={vacant ? node.title : primary.name}
                     title={vacant ? null : node.title}
                     email={vacant ? null : primary.email}
                     type={type}
                     vacant={vacant}
-                    extra={staff.length > 1 ? `+${staff.length-1} more` : null}
+                    extra={extra}
                 />;
+                const children = (node.children || []).map(c => renderTree(c));
+                return <OrgTree key={node.id} card={card} gap={node.dept_label ? 16 : 8} ch={children}/>;
             };
-
-            // Recursively render tree nodes
-            const renderTree = (node) => {
-                const children = (node.children || [])
-                    .sort((a,b) => (a.sort_order||0) - (b.sort_order||0))
-                    .map(c => renderTree(c));
-                const dLabel = node.dept_label || inferDeptLabel(node);
-                return <OrgTree key={node.id} card={nodeToCard(node)} gap={dLabel?16:8} ch={children}/>;
-            };
-
-            // Compute stats from org data (safe — flattenTree guards against undefined)
-            const allNodes    = flattenTree(orgData?.tree);
-            const vacantCount = allNodes.filter(n=>(n.occupants||[]).length===0).length;
-            const activeCount = allNodes.filter(n=>(n.occupants||[]).length>0).length;
-            const deptCount   = new Set(allNodes.map(n=>n.department_name).filter(Boolean)).size;
-
-            const sysRoles = orgData?.systemRoles || [];
 
             return (
                 <main className="flex-1 overflow-auto" style={{background:'#F0F2F8'}}>
