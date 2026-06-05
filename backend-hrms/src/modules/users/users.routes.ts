@@ -32,19 +32,29 @@ router.get('/', optionalAuth, async (req, res, next) => {
       `SELECT u.id, u.email, u.name, u.is_active, u.is_bootstrap_admin, u.auth_provider,
           u.employment_type, u.phone, u.department_id, u.position_id, u.manager_id,
           u.start_date, u.profile_notes, u.created_at,
-          d.name AS department_name, p.title AS position_title, m.name AS manager_name,
-          COUNT(*) OVER() AS total
+          d.name AS department_name, m.name AS manager_name,
+          COALESCE(
+            json_agg(
+              json_build_object('id', p2.id, 'title', p2.title, 'type', COALESCE(p2.position_type,'ops'), 'is_primary', sp.is_primary)
+              ORDER BY sp.is_primary DESC, p2.title
+            ) FILTER (WHERE sp.position_id IS NOT NULL),
+            '[]'::json
+          ) AS positions,
+          COUNT(u.id) OVER() AS total
        FROM yc_tkt_mgmt.users u
        LEFT JOIN yc_tkt_mgmt.departments d ON d.id = u.department_id
-       LEFT JOIN yc_tkt_mgmt.positions   p ON p.id = u.position_id
        LEFT JOIN yc_tkt_mgmt.users       m ON m.id = u.manager_id
-       WHERE ${where.join(' AND ')} ORDER BY u.name LIMIT $${i++} OFFSET $${i++}`,
+       LEFT JOIN yc_tkt_mgmt.staff_positions sp ON sp.user_id = u.id
+       LEFT JOIN yc_tkt_mgmt.positions   p2 ON p2.id = sp.position_id
+       WHERE ${where.join(' AND ')}
+       GROUP BY u.id, d.name, m.name
+       ORDER BY u.name LIMIT ${i++} OFFSET ${i++}`,
       [...params, limit, offset]
     );
     const total = rows.length ? Number(rows[0].total) : 0;
     const users = rows.map(({ total: _, ...r }) => ({
       ...r, active: r.is_active,
-      positions: r.position_title ? [{ id: r.position_id, title: r.position_title, type: 'ops', is_primary: true }] : [],
+      positions: Array.isArray(r.positions) ? r.positions : [],
     }));
     res.json({ users, total });
   } catch (err) { next(err); }
