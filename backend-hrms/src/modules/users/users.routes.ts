@@ -16,42 +16,59 @@ const isAdminOrAbove = (role: string) => ['super_admin', 'admin'].includes(role)
 const isManagerOrAbove = (role: string) => ['super_admin', 'admin', 'manager', 'hr'].includes(role);
 
 // GET /users — list (public read — no auth required)
+// Uses only columns guaranteed to exist across all schema versions
 router.get('/', optionalAuth, async (req, res, next) => {
   try {
-
-    const limit  = Math.min(Number(req.query.limit) || 50, 200);
+    const limit  = Math.min(Number(req.query.limit) || 100, 200);
     const offset = Number(req.query.offset) || 0;
     const q      = (req.query.q as string || '').trim().toLowerCase();
-    const dept   = (req.query.department as string || '').trim();
-    const role   = (req.query.role as string || '').trim();
     const status = (req.query.status as string || '').trim();
 
     const where: string[] = ['1=1'];
     const params: unknown[] = [];
     let i = 1;
-    if (q)      { where.push(`(LOWER(u.name) LIKE $${i} OR LOWER(u.email) LIKE $${i})`); params.push(`%${q}%`); i++; }
-    if (dept)   { where.push(`u.department = $${i++}`); params.push(dept); }
-    if (role)   { where.push(`r.name = $${i++}`);       params.push(role); }
-    if (status === 'active')   where.push('u.active = TRUE');
-    else if (status === 'inactive') where.push('u.active = FALSE');
+    if (q) { where.push(`(LOWER(u.name) LIKE $${i} OR LOWER(u.email) LIKE $${i})`); params.push(`%${q}%`); i++; }
+    if (status === 'active')   where.push('u.is_active = TRUE');
+    else if (status === 'inactive') where.push('u.is_active = FALSE');
 
     const { rows } = await pool.query(
-      `SELECT u.id, u.email, u.name, r.name AS role, r.display_name AS role_label,
-              u.department, u.designation, u.site, u.employee_id,
-              u.profile_photo_url, u.bootstrap_admin, u.system_created,
-              u.assignable, u.active, u.last_login_at, u.created_at,
-              u.position_id, u.manager_id,
-              COALESCE(u.is_bootstrap_admin, u.bootstrap_admin, FALSE) AS is_bootstrap_admin,
-              COUNT(*) OVER() AS total
+      `SELECT
+          u.id, u.email, u.name,
+          u.is_active,
+          u.is_bootstrap_admin,
+          u.auth_provider,
+          u.employment_type,
+          u.phone,
+          u.department_id,
+          u.position_id,
+          u.manager_id,
+          u.start_date,
+          u.profile_notes,
+          u.created_at,
+          d.name  AS department_name,
+          p.title AS position_title,
+          m.name  AS manager_name,
+          COUNT(*) OVER() AS total
        FROM yc_tkt_mgmt.users u
-       LEFT JOIN yc_tkt_mgmt.roles r ON r.id = u.role_id
+       LEFT JOIN yc_tkt_mgmt.departments d ON d.id = u.department_id
+       LEFT JOIN yc_tkt_mgmt.positions   p ON p.id = u.position_id
+       LEFT JOIN yc_tkt_mgmt.users       m ON m.id = u.manager_id
        WHERE ${where.join(' AND ')}
-       ORDER BY u.created_at DESC
+       ORDER BY u.name
        LIMIT $${i++} OFFSET $${i++}`,
       [...params, limit, offset]
     );
+
     const total = rows.length ? Number(rows[0].total) : 0;
-    res.json({ users: rows.map(({ total: _, ...r }) => r), total });
+    // Normalize to match what the Staff Management page expects
+    const users = rows.map(({ total: _, ...r }) => ({
+      ...r,
+      active: r.is_active,
+      positions: r.position_title
+        ? [{ id: r.position_id, title: r.position_title, type: 'ops', is_primary: true }]
+        : [],
+    }));
+    res.json({ users, total });
   } catch (err) { next(err); }
 });
 
