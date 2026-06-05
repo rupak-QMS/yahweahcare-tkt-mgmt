@@ -147,12 +147,12 @@
                     return res.json();
                 },
                 create: async (data) => {
-                    const res = await fetch(`${API_BASE_URL}/tickets`, {
+                    const res = await fetch(`${HRMS_API}/tickets`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(data)
                     });
-                    if (!res.ok) throw new Error('Failed to create ticket');
+                    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.message || 'Failed to create ticket'); }
                     return res.json();
                 },
                 update: async (id, data) => {
@@ -415,10 +415,23 @@
 
             const fetchLookups = async () => {
                 try {
+                    const [lookupsData, usersRes] = await Promise.all([
+                        API.lookups.get(),
+                        fetch(`${HRMS_API}/users`)
+                    ]);
+                    const usersData = usersRes.ok ? await usersRes.json() : { users: [] };
+                    // Merge real staff into lookups.users for approver list
+                    const realStaff = (usersData.users || []).map(u => ({
+                        id: u.id, name: u.name, email: u.email,
+                        role: u.position_title || 'Staff'
+                    }));
+                    setLookups({ ...lookupsData, users: realStaff });
+                    // Set created_by to current user (Ron Costa by email)
+                    const ron = (usersData.users || []).find(u => u.email === 'it@yahwehcare.com.au');
+                    if (ron) setFormData(prev => ({ ...prev, created_by: ron.id }));
+                } catch (err) {
                     const data = await API.lookups.get();
                     setLookups(data);
-                } catch (err) {
-                    setError('Failed to load form options');
                 }
             };
 

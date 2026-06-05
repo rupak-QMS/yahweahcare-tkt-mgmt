@@ -4,11 +4,10 @@
 
 import { Router } from 'express';
 import { pool } from '../../db/pool';
-import { requireAuth } from '../../middleware/auth.middleware';
+import { requireAuth, optionalAuth } from '../../middleware/auth.middleware';
 import { logAudit } from '../audit/audit.service';
 
 const router = Router();
-router.use(requireAuth);
 
 // ── Mapper: DB row → frontend shape ────────────────────────
 function dbTicket(row: Record<string, unknown>) {
@@ -93,8 +92,8 @@ function dbActivity(row: Record<string, unknown>) {
   };
 }
 
-// ── GET /tickets — list (uses v_open_tickets for enriched labels) ───────────
-router.get('/', async (req, res, next) => {
+// ── GET /tickets ─────────────────────────────────────────────────────────────
+router.get('/', optionalAuth, async (req, res, next) => {
   try {
     const limit    = Math.min(Number(req.query.limit) || 200, 500);
     const offset   = Number(req.query.offset) || 0;
@@ -149,8 +148,8 @@ router.get('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// ── GET /tickets/:id — single ticket with comments+activity+approvers ─
-router.get('/:id', async (req, res, next) => {
+// ── GET /tickets/:id ──────────────────────────────────────────────────────────
+router.get('/:id', optionalAuth, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     const [{ rows: tRows }, { rows: cRows }, { rows: aRows }, { rows: apRows }] = await Promise.all([
@@ -175,7 +174,7 @@ router.get('/:id', async (req, res, next) => {
 });
 
 // ── POST /tickets — create ──────────────────────────────────
-router.post('/', async (req, res, next) => {
+router.post('/', optionalAuth, async (req, res, next) => {
   try {
     const {
       title, description, category, priority, status, site, assigneeId,
@@ -227,7 +226,7 @@ router.post('/', async (req, res, next) => {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'web',$10,$11)
        RETURNING *`,
       [ticketNumber, resolvedTitle, description || req.body.issue_details || '', resolvedCategory, resolvedPriority,
-       finalStatus, req.auth!.userId, resolvedAssignee || null, site || null, dueAt, resolvedDueDate]
+       finalStatus, req.auth?.userId || req.body.created_by || null, resolvedAssignee || null, site || null, dueAt, resolvedDueDate]
     );
     const ticketId = rows[0].id;
 
@@ -240,18 +239,19 @@ router.post('/', async (req, res, next) => {
     }
 
     // Activity log
+    const actorId = req.auth?.userId || req.body.created_by || null;
     await pool.query(
       `INSERT INTO yc_tkt_mgmt.activity (ticket_id, actor_id, action_type) VALUES ($1,$2,'created')`,
-      [ticketId, req.auth!.userId]
+      [ticketId, actorId]
     );
     if (resolvedAssignee) {
       await pool.query(
         `INSERT INTO yc_tkt_mgmt.activity (ticket_id, actor_id, action_type, to_value) VALUES ($1,$2,'assigned',$3)`,
-        [ticketId, req.auth!.userId, String(resolvedAssignee)]
+        [ticketId, actorId, String(resolvedAssignee)]
       );
     }
 
-    await logAudit({ userId: req.auth!.userId, actorEmail: req.auth!.email, action: 'ticket.create', module: 'tickets', targetType: 'ticket', targetId: ticketId, metadata: { ticketNumber, title: resolvedTitle }, req });
+    if (req.auth) await logAudit({ userId: req.auth.userId, actorEmail: req.auth.email, action: 'ticket.create', module: 'tickets', targetType: 'ticket', targetId: ticketId, metadata: { ticketNumber, title: resolvedTitle }, req });
 
     // Return ticket with approvers
     const { rows: apRows } = await pool.query(
