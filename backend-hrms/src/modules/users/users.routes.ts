@@ -16,78 +16,50 @@ const isAdminOrAbove = (role: string) => ['super_admin', 'admin'].includes(role)
 const isManagerOrAbove = (role: string) => ['super_admin', 'admin', 'manager', 'hr'].includes(role);
 
 // GET /users — list (public read — no auth required)
-// Uses only columns guaranteed to exist across all schema versions
 router.get('/', optionalAuth, async (req, res, next) => {
   try {
     const limit  = Math.min(Number(req.query.limit) || 100, 200);
     const offset = Number(req.query.offset) || 0;
     const q      = (req.query.q as string || '').trim().toLowerCase();
     const status = (req.query.status as string || '').trim();
-
     const where: string[] = ['1=1'];
     const params: unknown[] = [];
     let i = 1;
     if (q) { where.push(`(LOWER(u.name) LIKE $${i} OR LOWER(u.email) LIKE $${i})`); params.push(`%${q}%`); i++; }
     if (status === 'active')   where.push('u.is_active = TRUE');
     else if (status === 'inactive') where.push('u.is_active = FALSE');
-
     const { rows } = await pool.query(
-      `SELECT
-          u.id, u.email, u.name,
-          u.is_active,
-          u.is_bootstrap_admin,
-          u.auth_provider,
-          u.employment_type,
-          u.phone,
-          u.department_id,
-          u.position_id,
-          u.manager_id,
-          u.start_date,
-          u.profile_notes,
-          u.created_at,
-          d.name  AS department_name,
-          p.title AS position_title,
-          m.name  AS manager_name,
+      `SELECT u.id, u.email, u.name, u.is_active, u.is_bootstrap_admin, u.auth_provider,
+          u.employment_type, u.phone, u.department_id, u.position_id, u.manager_id,
+          u.start_date, u.profile_notes, u.created_at,
+          d.name AS department_name, p.title AS position_title, m.name AS manager_name,
           COUNT(*) OVER() AS total
        FROM yc_tkt_mgmt.users u
        LEFT JOIN yc_tkt_mgmt.departments d ON d.id = u.department_id
        LEFT JOIN yc_tkt_mgmt.positions   p ON p.id = u.position_id
        LEFT JOIN yc_tkt_mgmt.users       m ON m.id = u.manager_id
-       WHERE ${where.join(' AND ')}
-       ORDER BY u.name
-       LIMIT $${i++} OFFSET $${i++}`,
+       WHERE ${where.join(' AND ')} ORDER BY u.name LIMIT $${i++} OFFSET $${i++}`,
       [...params, limit, offset]
     );
-
     const total = rows.length ? Number(rows[0].total) : 0;
-    // Normalize to match what the Staff Management page expects
     const users = rows.map(({ total: _, ...r }) => ({
-      ...r,
-      active: r.is_active,
-      positions: r.position_title
-        ? [{ id: r.position_id, title: r.position_title, type: 'ops', is_primary: true }]
-        : [],
+      ...r, active: r.is_active,
+      positions: r.position_title ? [{ id: r.position_id, title: r.position_title, type: 'ops', is_primary: true }] : [],
     }));
     res.json({ users, total });
   } catch (err) { next(err); }
 });
 
-// POST /users — create staff member (no auth required; used by Staff Management page)
+// POST /users — create staff (no auth required; used by Staff Management page)
 router.post('/', optionalAuth, async (req, res, next) => {
   try {
-    const {
-      email, name, phone, employment_type, department_id, manager_id,
-      start_date, profile_notes, position_id, auth_provider, is_active,
-      designation,
-    } = req.body || {};
-
+    const { email, name, phone, employment_type, department_id, manager_id,
+      start_date, profile_notes, position_id, auth_provider, is_active, designation } = req.body || {};
     if (!email?.trim()) return res.status(400).json({ error: 'missing_fields', message: 'Email is required' });
     if (!name?.trim())  return res.status(400).json({ error: 'missing_fields', message: 'Name is required' });
-
     const initials = (name.trim().split(/\s+/).map((s: string) => s[0] || '').slice(0, 2).join('') || '?').toUpperCase();
-    const active   = is_active !== false;
-    const posId    = position_id ? Number(position_id) : null;
-
+    const active = is_active !== false;
+    const posId  = position_id ? Number(position_id) : null;
     const { rows } = await pool.query(
       `INSERT INTO yc_tkt_mgmt.users
          (email, name, phone, employment_type, department_id, manager_id,
@@ -95,27 +67,13 @@ router.post('/', optionalAuth, async (req, res, next) => {
           avatar_initials, designation, created_at, updated_at)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NOW(),NOW())
        RETURNING id, email, name, is_active, position_id, department_id, manager_id, employment_type, auth_provider, avatar_initials`,
-      [
-        email.toLowerCase().trim(), name.trim(),
-        phone || null, employment_type || 'full_time',
-        department_id ? Number(department_id) : null,
-        manager_id    ? Number(manager_id)    : null,
-        start_date    || null, profile_notes || null,
-        posId, auth_provider || 'azure_ad', active, initials, designation || null,
-      ]
+      [email.toLowerCase().trim(), name.trim(), phone || null, employment_type || 'full_time',
+       department_id ? Number(department_id) : null, manager_id ? Number(manager_id) : null,
+       start_date || null, profile_notes || null, posId, auth_provider || 'azure_ad',
+       active, initials, designation || null]
     );
-
-    // Mark position as active / not-vacant
-    if (posId) {
-      await pool.query(
-        `UPDATE yc_tkt_mgmt.positions SET is_active=TRUE, is_vacant=FALSE, updated_at=NOW() WHERE id=$1`,
-        [posId]
-      );
-    }
-
-    if (req.auth) {
-      await logAudit({ userId: req.auth.userId, actorEmail: req.auth.email, action: 'user.create', module: 'users', targetType: 'user', targetId: rows[0].id, metadata: { email: rows[0].email }, req });
-    }
+    if (posId) await pool.query(`UPDATE yc_tkt_mgmt.positions SET is_active=TRUE, is_vacant=FALSE, updated_at=NOW() WHERE id=$1`, [posId]);
+    if (req.auth) await logAudit({ userId: req.auth.userId, actorEmail: req.auth.email, action: 'user.create', module: 'users', targetType: 'user', targetId: rows[0].id, metadata: { email: rows[0].email }, req });
     res.status(201).json({ user: rows[0] });
   } catch (err: unknown) {
     const e = err as { code?: string };
@@ -128,107 +86,65 @@ router.post('/', optionalAuth, async (req, res, next) => {
 router.patch('/:id', optionalAuth, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
-    const { rows: tRows } = await pool.query(
-      `SELECT * FROM yc_tkt_mgmt.users WHERE id = $1`, [id]
-    );
+    const { rows: tRows } = await pool.query(`SELECT * FROM yc_tkt_mgmt.users WHERE id = $1`, [id]);
     const target = tRows[0];
     if (!target) return res.status(404).json({ error: 'not_found' });
-
-    // Bootstrap admins cannot be deactivated
-    if (target.is_bootstrap_admin) {
-      if ('is_active' in req.body && req.body.is_active === false) {
-        return res.status(403).json({ error: 'bootstrap_admin_deactivate_blocked', message: 'Bootstrap admins cannot be deactivated' });
-      }
-    }
-
-    // Map incoming Staff Management fields to DB columns
+    if (target.is_bootstrap_admin && 'is_active' in req.body && req.body.is_active === false)
+      return res.status(403).json({ error: 'bootstrap_admin_deactivate_blocked', message: 'Bootstrap admins cannot be deactivated' });
     const fieldMap: Record<string, string> = {
-      name: 'name', email: 'email', phone: 'phone',
-      employment_type: 'employment_type', department_id: 'department_id',
-      manager_id: 'manager_id', start_date: 'start_date',
-      profile_notes: 'profile_notes', position_id: 'position_id',
-      auth_provider: 'auth_provider', is_active: 'is_active',
-      designation: 'designation', avatar_initials: 'avatar_initials',
+      name: 'name', email: 'email', phone: 'phone', employment_type: 'employment_type',
+      department_id: 'department_id', manager_id: 'manager_id', start_date: 'start_date',
+      profile_notes: 'profile_notes', position_id: 'position_id', auth_provider: 'auth_provider',
+      is_active: 'is_active', designation: 'designation', avatar_initials: 'avatar_initials',
     };
-
     const updates: string[] = []; const values: unknown[] = []; let i = 1;
     for (const [key, col] of Object.entries(fieldMap)) {
       if (key in req.body) {
         updates.push(`${col} = $${i++}`);
-        // Coerce numeric FK fields
         const val = req.body[key];
-        values.push((col === 'department_id' || col === 'manager_id' || col === 'position_id') && val !== null && val !== ''
-          ? Number(val) : (val === '' ? null : val));
+        values.push((col === 'department_id' || col === 'manager_id' || col === 'position_id') && val !== null && val !== '' ? Number(val) : (val === '' ? null : val));
       }
     }
     if (!updates.length) return res.json({ user: target });
-
     values.push(id);
     const { rows: updRows } = await pool.query(
-      `UPDATE yc_tkt_mgmt.users SET ${updates.join(', ')}, updated_at = NOW()
-       WHERE id = $${i}
+      `UPDATE yc_tkt_mgmt.users SET ${updates.join(', ')}, updated_at=NOW() WHERE id=$${i}
        RETURNING id, email, name, is_active, position_id, department_id, manager_id, employment_type, auth_provider, avatar_initials, designation`,
       values
     );
-
-    // ── Sync positions.is_vacant when position or active status changes ──
-    const syncPos = async (posId: number, excludeUserId: number) => {
-      await pool.query(
-        `UPDATE yc_tkt_mgmt.positions
-         SET is_active = EXISTS(SELECT 1 FROM yc_tkt_mgmt.users WHERE position_id=$1 AND is_active=TRUE AND id!=$2),
-             is_vacant = NOT EXISTS(SELECT 1 FROM yc_tkt_mgmt.users WHERE position_id=$1 AND is_active=TRUE AND id!=$2),
-             updated_at = NOW()
-         WHERE id = $1`,
-        [posId, excludeUserId]
-      );
-    };
-
+    const syncPos = async (posId: number, excludeId: number) => pool.query(
+      `UPDATE yc_tkt_mgmt.positions
+       SET is_active=EXISTS(SELECT 1 FROM yc_tkt_mgmt.users WHERE position_id=$1 AND is_active=TRUE AND id!=$2),
+           is_vacant=NOT EXISTS(SELECT 1 FROM yc_tkt_mgmt.users WHERE position_id=$1 AND is_active=TRUE AND id!=$2),
+           updated_at=NOW() WHERE id=$1`, [posId, excludeId]
+    );
     if ('position_id' in req.body) {
       const oldPos = target.position_id;
       const newPos = req.body.position_id ? Number(req.body.position_id) : null;
       if (oldPos && oldPos !== newPos) await syncPos(oldPos, id);
-      if (newPos) {
-        await pool.query(
-          `UPDATE yc_tkt_mgmt.positions SET is_active=TRUE, is_vacant=FALSE, updated_at=NOW() WHERE id=$1`,
-          [newPos]
-        );
-      }
+      if (newPos) await pool.query(`UPDATE yc_tkt_mgmt.positions SET is_active=TRUE, is_vacant=FALSE, updated_at=NOW() WHERE id=$1`, [newPos]);
     }
-    if ('is_active' in req.body && req.body.is_active === false && target.position_id) {
-      await syncPos(target.position_id, id);
-    }
-    // ─────────────────────────────────────────────────────────────────────
-
-    if (req.auth) {
-      await logAudit({ userId: req.auth.userId, actorEmail: req.auth.email, action: 'user.update', module: 'users', targetType: 'user', targetId: id, metadata: { changes: req.body }, req });
-    }
+    if ('is_active' in req.body && req.body.is_active === false && target.position_id) await syncPos(target.position_id, id);
+    if (req.auth) await logAudit({ userId: req.auth.userId, actorEmail: req.auth.email, action: 'user.update', module: 'users', targetType: 'user', targetId: id, metadata: { changes: req.body }, req });
     res.json({ user: updRows[0] });
   } catch (err) { next(err); }
 });
 
-// DELETE /users/:id — deactivate (soft delete; no auth required for Staff Management page)
+// DELETE /users/:id — soft delete (no auth required for Staff Management page)
 router.delete('/:id', optionalAuth, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     const { rows } = await pool.query(`SELECT * FROM yc_tkt_mgmt.users WHERE id = $1`, [id]);
     if (!rows[0]) return res.status(404).json({ error: 'not_found' });
     if (rows[0].is_bootstrap_admin) return res.status(403).json({ error: 'bootstrap_admin_delete_blocked', message: 'Bootstrap admin accounts cannot be deleted' });
-
-    // Soft delete — deactivate and vacate their position
     await pool.query(`UPDATE yc_tkt_mgmt.users SET is_active=FALSE, updated_at=NOW() WHERE id=$1`, [id]);
-    if (rows[0].position_id) {
-      await pool.query(
-        `UPDATE yc_tkt_mgmt.positions
-         SET is_active=EXISTS(SELECT 1 FROM yc_tkt_mgmt.users WHERE position_id=$1 AND is_active=TRUE AND id!=$2),
-             is_vacant=NOT EXISTS(SELECT 1 FROM yc_tkt_mgmt.users WHERE position_id=$1 AND is_active=TRUE AND id!=$2),
-             updated_at=NOW()
-         WHERE id=$1`,
-        [rows[0].position_id, id]
-      );
-    }
-    if (req.auth) {
-      await logAudit({ userId: req.auth.userId, actorEmail: req.auth.email, action: 'user.delete', module: 'users', targetType: 'user', targetId: id, req });
-    }
+    if (rows[0].position_id) await pool.query(
+      `UPDATE yc_tkt_mgmt.positions
+       SET is_active=EXISTS(SELECT 1 FROM yc_tkt_mgmt.users WHERE position_id=$1 AND is_active=TRUE AND id!=$2),
+           is_vacant=NOT EXISTS(SELECT 1 FROM yc_tkt_mgmt.users WHERE position_id=$1 AND is_active=TRUE AND id!=$2),
+           updated_at=NOW() WHERE id=$1`, [rows[0].position_id, id]
+    );
+    if (req.auth) await logAudit({ userId: req.auth.userId, actorEmail: req.auth.email, action: 'user.delete', module: 'users', targetType: 'user', targetId: id, req });
     res.json({ ok: true, message: `${rows[0].name} has been deactivated. Their position is now vacant.` });
   } catch (err) { next(err); }
 });
