@@ -4,22 +4,20 @@
 
 import { Router } from 'express';
 import { pool } from '../../db/pool';
-import { requireAuth } from '../../middleware/auth.middleware';
+import { requireAuth, optionalAuth } from '../../middleware/auth.middleware';
 import { validateEmail } from '../../utils/emailDomain';
 import { logAudit } from '../audit/audit.service';
 
 const router = Router();
-router.use(requireAuth);
 
 // ── Inline role helpers (no dependency on role_permissions table) ──
 const isSuperAdmin = (role: string) => role === 'super_admin';
 const isAdminOrAbove = (role: string) => ['super_admin', 'admin'].includes(role);
 const isManagerOrAbove = (role: string) => ['super_admin', 'admin', 'manager', 'hr'].includes(role);
 
-// GET /users — list (managers and above can read)
-router.get('/', async (req, res, next) => {
+// GET /users — list (public read — no auth required)
+router.get('/', optionalAuth, async (req, res, next) => {
   try {
-    if (!isManagerOrAbove(req.auth!.role)) return res.status(403).json({ error: 'forbidden', message: 'Insufficient role' });
 
     const limit  = Math.min(Number(req.query.limit) || 50, 200);
     const offset = Number(req.query.offset) || 0;
@@ -58,7 +56,7 @@ router.get('/', async (req, res, next) => {
 });
 
 // POST /users — create (Super Admin only)
-router.post('/', async (req, res, next) => {
+router.post('/', requireAuth, async (req, res, next) => {
   try {
     if (!isSuperAdmin(req.auth!.role)) return res.status(403).json({ error: 'forbidden', message: 'Only Super Admins can create users' });
 
@@ -89,7 +87,7 @@ router.post('/', async (req, res, next) => {
 });
 
 // PATCH /users/:id — update (admins and above; managers can edit non-admins)
-router.patch('/:id', async (req, res, next) => {
+router.patch('/:id', requireAuth, async (req, res, next) => {
   try {
     if (!isManagerOrAbove(req.auth!.role)) return res.status(403).json({ error: 'forbidden', message: 'Insufficient role' });
 
@@ -186,7 +184,7 @@ router.patch('/:id', async (req, res, next) => {
 });
 
 // DELETE /users/:id — super admin only
-router.delete('/:id', async (req, res, next) => {
+router.delete('/:id', requireAuth, async (req, res, next) => {
   try {
     if (!isSuperAdmin(req.auth!.role)) return res.status(403).json({ error: 'forbidden', message: 'Only Super Admins can delete users' });
 

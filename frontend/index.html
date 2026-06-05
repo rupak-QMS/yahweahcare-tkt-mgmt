@@ -90,6 +90,11 @@
             ? 'http://localhost:4000/api'
             : 'https://yahweahcare-tkt-mgmt-hx48.vercel.app/api';
 
+        // HRMS backend — no /api prefix, different route structure
+        const HRMS_API = window.location.hostname === 'localhost'
+            ? 'http://localhost:4001'
+            : 'https://yahweahcare-tkt-mgmt-hx48.vercel.app';
+
         // Fallback mock data for lookups
         const LOOKUPS_MOCK = {
             categories: [
@@ -2044,11 +2049,14 @@
                 setLoading(true);
                 setError('');
                 try {
-                    const res  = await fetch(`${API_BASE_URL}/org-chart`);
+                    const res  = await fetch(`${HRMS_API}/org/chart`);
                     if (!res.ok) throw new Error(`API returned ${res.status}`);
                     const data = await res.json();
-                    // Ensure tree is always an array
-                    setOrgData({ tree: Array.isArray(data.tree) ? data.tree : [], systemRoles: data.systemRoles || [] });
+                    // backend-hrms returns { tree, departments, bootstrapAdmins }
+                    setOrgData({
+                        tree: Array.isArray(data.tree) ? data.tree : [],
+                        systemRoles: data.bootstrapAdmins || data.systemRoles || []
+                    });
                 } catch(e) {
                     setError(`Could not load org chart from API (${e.message}). Check that the backend is deployed with staff-routes.js.`);
                     setOrgData({ tree: [], systemRoles: [] });
@@ -2064,29 +2072,54 @@
                 return nodes.reduce((acc, n) => [...acc, n, ...flattenTree(n.children || [])], []);
             };
 
-            // Build OrgCard props from a position node
+            // Map position_type from title/dept for colour coding
+            const inferType = (node) => {
+                const t = (node.title || '').toLowerCase();
+                if (t.includes('director')) return 'director';
+                if (t.includes('finance') || t.includes('plan manager')) return 'finance';
+                if (t.includes('strategic') || t.includes('client relationship') || t.includes('business development') || t.includes('marketing')) return 'strategic';
+                if (t.includes('external') || t.includes('consultant')) return 'external';
+                if (t.includes('support worker') || t.includes('staff (day')) return 'staff';
+                return 'ops';
+            };
+
+            // dept_label derived from position title for top-level dept positions
+            const inferDeptLabel = (node) => {
+                const t = (node.title || '');
+                if (t.includes('Director')) return '👤 Director';
+                if (t.includes('Operations Manager')) return '👥 Operations Department';
+                if (t.includes('Finance Manager')) return '💰 Finance Department';
+                if (t.includes('Strategic Development')) return '🏢 Strategic Dev & Client Relationship';
+                return null;
+            };
+
+            // Build OrgCard props from a position node (backend-hrms schema)
             const nodeToCard = (node) => {
-                const occupants = Array.isArray(node.occupants) ? node.occupants : [];
-                const vacant    = occupants.length === 0;
-                const primary   = occupants.find(o=>o.is_primary) || occupants[0];
+                // backend-hrms uses node.staff[] array, node.is_vacant
+                const staff   = Array.isArray(node.staff) ? node.staff : [];
+                const vacant  = node.is_vacant !== false ? staff.length === 0 : false;
+                const primary = staff[0];
+                const type    = node.position_type || inferType(node);
+                const dLabel  = node.dept_label || inferDeptLabel(node);
                 return <OrgCard
                     key={node.id}
-                    deptLabel={node.dept_label}
+                    deptLabel={dLabel}
                     name={vacant ? node.title : primary.name}
                     title={vacant ? null : node.title}
                     email={vacant ? null : primary.email}
-                    type={node.position_type || 'staff'}
+                    type={type}
                     vacant={vacant}
-                    extra={occupants.length > 1 ? `+${occupants.length-1} more` : null}
+                    extra={staff.length > 1 ? `+${staff.length-1} more` : null}
                 />;
             };
 
             // Recursively render tree nodes
             const renderTree = (node) => {
                 const children = (node.children || [])
-                    .sort((a,b) => a.sort_order - b.sort_order)
+                    .sort((a,b) => (a.sort_order||0) - (b.sort_order||0))
                     .map(c => renderTree(c));
-                return <OrgTree key={node.id} card={nodeToCard(node)} gap={node.dept_label?16:8} ch={children}/>;
+                const dLabel = node.dept_label || inferDeptLabel(node);
+                return <OrgTree key={node.id} card={nodeToCard(node)} gap={dLabel?16:8} ch={children}/>;
             };
 
             // Compute stats from org data (safe — flattenTree guards against undefined)
@@ -2237,15 +2270,25 @@
                 setLoading(true);
                 try {
                     const [sR,dR,pR] = await Promise.all([
-                        fetch(`${API_BASE_URL}/staff`),
-                        fetch(`${API_BASE_URL}/departments`),
-                        fetch(`${API_BASE_URL}/positions`),
+                        fetch(`${HRMS_API}/users`),
+                        fetch(`${HRMS_API}/org/departments`),
+                        fetch(`${HRMS_API}/org/positions`),
                     ]);
                     const [sd,dd,pd] = await Promise.all([sR.json(),dR.json(),pR.json()]);
-                    setStaff(sd.staff || []);
+                    // backend-hrms returns { users } for /users and { departments } and { positions }
+                    const rawStaff = sd.users || sd.staff || [];
+                    // Normalize to the shape the page expects
+                    const normalised = rawStaff.map(u => ({
+                        ...u,
+                        is_active: u.active !== false,
+                        department_name: u.department || '',
+                        positions: u.position_id ? [{ id: u.position_id, title: u.designation || '', type: 'ops', is_primary: true }] : [],
+                        auth_provider: u.auth_provider || (u.microsoft_id ? 'azure_ad' : 'local'),
+                    }));
+                    setStaff(normalised);
                     setDepts(dd.departments || []);
                     setPositions(pd.positions || []);
-                } catch { setError('Failed to load staff data. Check API connection.'); }
+                } catch(e) { setError('Failed to load staff data: ' + e.message); }
                 finally { setLoading(false); }
             }, []);
 

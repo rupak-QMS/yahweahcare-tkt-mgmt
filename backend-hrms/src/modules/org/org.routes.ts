@@ -11,17 +11,16 @@
 
 import { Router } from 'express';
 import { pool } from '../../db/pool';
-import { requireAuth } from '../../middleware/auth.middleware';
+import { requireAuth, optionalAuth } from '../../middleware/auth.middleware';
 import { logAudit } from '../audit/audit.service';
 
 const router = Router();
-router.use(requireAuth);
 
 const isSuperAdmin = (role: string) => ['super_admin'].includes(role);
 const isManagerOrAbove = (role: string) => ['super_admin', 'admin', 'manager', 'hr'].includes(role);
 
-// ── GET /org/chart — recursive tree ─────────────────────────
-router.get('/chart', async (req, res, next) => {
+// ── GET /org/chart — recursive tree (public — no auth required) ─────────────
+router.get('/chart', optionalAuth, async (req, res, next) => {
   try {
     // Fetch all positions with their holder(s) — aggregated so multiple staff per position work
     const { rows: positions } = await pool.query(`
@@ -45,7 +44,7 @@ router.get('/chart', async (req, res, next) => {
         ) AS staff
       FROM yc_tkt_mgmt.positions p
       LEFT JOIN yc_tkt_mgmt.departments d ON d.id = p.department_id
-      LEFT JOIN yc_tkt_mgmt.users u ON u.position_id = p.id AND u.active = TRUE
+      LEFT JOIN yc_tkt_mgmt.users u ON u.position_id = p.id AND u.is_active = TRUE
       GROUP BY p.id, p.title, p.parent_position_id, p.sort_order, p.department_id, d.name
       ORDER BY p.department_id NULLS FIRST, p.sort_order, p.id
     `);
@@ -92,11 +91,9 @@ router.get('/chart', async (req, res, next) => {
 
     // Bootstrap admins (system roles — not part of hierarchy)
     const { rows: bootstrapAdmins } = await pool.query(`
-      SELECT id, name, email, role,
-             COALESCE(is_bootstrap_admin, bootstrap_admin, FALSE) AS is_bootstrap_admin,
-             profile_photo_url, avatar_initials, active
+      SELECT id, name, email, is_bootstrap_admin, is_active AS active
       FROM yc_tkt_mgmt.users
-      WHERE COALESCE(is_bootstrap_admin, bootstrap_admin, FALSE) = TRUE
+      WHERE is_bootstrap_admin = TRUE
       ORDER BY id
     `);
 
@@ -104,8 +101,8 @@ router.get('/chart', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// ── GET /org/departments ─────────────────────────────────────
-router.get('/departments', async (_req, res, next) => {
+// ── GET /org/departments (public) ───────────────────────────────────────────
+router.get('/departments', optionalAuth, async (_req, res, next) => {
   try {
     const { rows } = await pool.query(
       `SELECT id, name, parent_dept_id, sort_order FROM yc_tkt_mgmt.departments ORDER BY sort_order, id`
@@ -115,7 +112,7 @@ router.get('/departments', async (_req, res, next) => {
 });
 
 // ── POST /org/departments ────────────────────────────────────
-router.post('/departments', async (req, res, next) => {
+router.post('/departments', requireAuth, async (req, res, next) => {
   try {
     if (!isSuperAdmin(req.auth!.role)) return res.status(403).json({ error: 'forbidden' });
     const { name, parentDeptId, sortOrder } = req.body || {};
@@ -129,8 +126,8 @@ router.post('/departments', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// ── GET /org/positions ───────────────────────────────────────
-router.get('/positions', async (req, res, next) => {
+// ── GET /org/positions (public) ──────────────────────────────────────────────
+router.get('/positions', optionalAuth, async (req, res, next) => {
   try {
     const deptId = req.query.departmentId ? Number(req.query.departmentId) : null;
     const { rows } = await pool.query(
@@ -138,7 +135,7 @@ router.get('/positions', async (req, res, next) => {
               u.id AS user_id, u.name AS user_name, u.email AS user_email
        FROM yc_tkt_mgmt.positions p
        LEFT JOIN yc_tkt_mgmt.departments d ON d.id = p.department_id
-       LEFT JOIN yc_tkt_mgmt.users u ON u.position_id = p.id AND u.active = TRUE
+       LEFT JOIN yc_tkt_mgmt.users u ON u.position_id = p.id AND u.is_active = TRUE
        ${deptId ? 'WHERE p.department_id = $1' : ''}
        ORDER BY p.sort_order, p.id`,
       deptId ? [deptId] : []
@@ -148,7 +145,7 @@ router.get('/positions', async (req, res, next) => {
 });
 
 // ── POST /org/positions ──────────────────────────────────────
-router.post('/positions', async (req, res, next) => {
+router.post('/positions', requireAuth, async (req, res, next) => {
   try {
     if (!isSuperAdmin(req.auth!.role)) return res.status(403).json({ error: 'forbidden' });
     const { title, departmentId, parentPositionId, sortOrder } = req.body || {};
@@ -164,7 +161,7 @@ router.post('/positions', async (req, res, next) => {
 });
 
 // ── PATCH /org/positions/:id ─────────────────────────────────
-router.patch('/positions/:id', async (req, res, next) => {
+router.patch('/positions/:id', requireAuth, async (req, res, next) => {
   try {
     if (!isSuperAdmin(req.auth!.role)) return res.status(403).json({ error: 'forbidden' });
     const id = Number(req.params.id);
@@ -187,7 +184,7 @@ router.patch('/positions/:id', async (req, res, next) => {
 });
 
 // ── PATCH /org/move — assign user to new position (drag-drop) ─
-router.patch('/move', async (req, res, next) => {
+router.patch('/move', requireAuth, async (req, res, next) => {
   try {
     if (!isSuperAdmin(req.auth!.role)) return res.status(403).json({ error: 'forbidden' });
     const { userId, positionId, managerId } = req.body || {};
