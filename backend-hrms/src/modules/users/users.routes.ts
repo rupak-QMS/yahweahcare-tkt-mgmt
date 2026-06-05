@@ -112,10 +112,34 @@ router.patch('/:id', optionalAuth, async (req, res, next) => {
        RETURNING id, email, name, is_active, position_id, department_id, manager_id, employment_type, auth_provider, avatar_initials, designation`,
       values
     );
+    // ── Sync staff_positions (multi-position support) ──────────────────────
+    if ('position_ids' in req.body && Array.isArray(req.body.position_ids)) {
+      const newIds: number[] = req.body.position_ids.map(Number).filter(Boolean);
+      const { rows: oldSp } = await pool.query(`SELECT position_id FROM yc_tkt_mgmt.staff_positions WHERE user_id=$1`, [id]);
+      const oldIds = oldSp.map((r: { position_id: number }) => r.position_id);
+      await pool.query(`DELETE FROM yc_tkt_mgmt.staff_positions WHERE user_id=$1`, [id]);
+      for (let idx = 0; idx < newIds.length; idx++) {
+        await pool.query(
+          `INSERT INTO yc_tkt_mgmt.staff_positions (user_id, position_id, is_primary) VALUES ($1,$2,$3) ON CONFLICT (user_id, position_id) DO UPDATE SET is_primary=$3`,
+          [id, newIds[idx], idx === 0]
+        );
+        await pool.query(`UPDATE yc_tkt_mgmt.positions SET is_active=TRUE, is_vacant=FALSE, updated_at=NOW() WHERE id=$1`, [newIds[idx]]);
+      }
+      for (const oldId of oldIds) {
+        if (!newIds.includes(oldId)) {
+          await pool.query(
+            `UPDATE yc_tkt_mgmt.positions
+             SET is_active=EXISTS(SELECT 1 FROM yc_tkt_mgmt.staff_positions sp2 JOIN yc_tkt_mgmt.users u2 ON u2.id=sp2.user_id AND u2.is_active=TRUE WHERE sp2.position_id=$1),
+                 is_vacant=NOT EXISTS(SELECT 1 FROM yc_tkt_mgmt.staff_positions sp2 JOIN yc_tkt_mgmt.users u2 ON u2.id=sp2.user_id AND u2.is_active=TRUE WHERE sp2.position_id=$1),
+                 updated_at=NOW() WHERE id=$1`, [oldId]
+          );
+        }
+      }
+    }
     const syncPos = async (posId: number, excludeId: number) => pool.query(
       `UPDATE yc_tkt_mgmt.positions
-       SET is_active=EXISTS(SELECT 1 FROM yc_tkt_mgmt.users WHERE position_id=$1 AND is_active=TRUE AND id!=$2),
-           is_vacant=NOT EXISTS(SELECT 1 FROM yc_tkt_mgmt.users WHERE position_id=$1 AND is_active=TRUE AND id!=$2),
+       SET is_active=EXISTS(SELECT 1 FROM yc_tkt_mgmt.staff_positions sp2 JOIN yc_tkt_mgmt.users u2 ON u2.id=sp2.user_id AND u2.is_active=TRUE WHERE sp2.position_id=$1 AND u2.id!=$2),
+           is_vacant=NOT EXISTS(SELECT 1 FROM yc_tkt_mgmt.staff_positions sp2 JOIN yc_tkt_mgmt.users u2 ON u2.id=sp2.user_id AND u2.is_active=TRUE WHERE sp2.position_id=$1 AND u2.id!=$2),
            updated_at=NOW() WHERE id=$1`, [posId, excludeId]
     );
     if ('position_id' in req.body) {
