@@ -777,7 +777,10 @@
                                 <h1 className="text-3xl font-bold text-gray-900">Tickets</h1>
                                 <p className="text-gray-600">Manage and track all support tickets</p>
                             </div>
-                            <button className="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-blue-700">
+                            <button
+                                className="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-blue-700"
+                                onClick={() => { window.location.hash = 'create-ticket'; }}
+                            >
                                 ➕ Create Ticket
                             </button>
                         </div>
