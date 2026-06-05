@@ -22,7 +22,6 @@ const isManagerOrAbove = (role: string) => ['super_admin', 'admin', 'manager', '
 // ── GET /org/chart — recursive tree (public — no auth required) ─────────────
 router.get('/chart', optionalAuth, async (req, res, next) => {
   try {
-    // Fetch all positions with their holder(s) — aggregated so multiple staff per position work
     const { rows: positions } = await pool.query(`
       SELECT
         p.id, p.title, p.parent_position_id,
@@ -45,32 +44,28 @@ router.get('/chart', optionalAuth, async (req, res, next) => {
         ) AS staff
       FROM yc_tkt_mgmt.positions p
       LEFT JOIN yc_tkt_mgmt.departments d ON d.id = p.department_id
-      LEFT JOIN yc_tkt_mgmt.users u ON u.position_id = p.id AND u.is_active = TRUE
+      LEFT JOIN yc_tkt_mgmt.staff_positions sp ON sp.position_id = p.id
+      LEFT JOIN yc_tkt_mgmt.users u ON u.id = sp.user_id AND u.is_active = TRUE
       GROUP BY p.id, p.title, p.parent_position_id, p.sort_order, p.department_id, p.position_type, p.dept_label, d.name
       ORDER BY p.department_id NULLS FIRST, p.sort_order, p.id
     `);
 
-    // Fetch departments
     const { rows: departments } = await pool.query(`
       SELECT id, name, parent_dept_id, sort_order
       FROM yc_tkt_mgmt.departments
       ORDER BY sort_order, id
     `);
 
-    // Build position map — staff is already an array from json_agg
-    // Derive is_active / is_vacant from whether any staff are assigned
     const posMap: Record<number, Record<string, unknown>> = {};
     for (const p of positions) {
       const staffArr: unknown[] = Array.isArray(p.staff) ? p.staff : [];
       const isActive = staffArr.length > 0;
-      // Expose first occupant fields at top-level for backward compat with OrgCard
       const first = staffArr[0] as Record<string, unknown> | undefined;
       posMap[p.id] = {
         ...p,
         staff: staffArr,
         is_active: isActive,
         is_vacant: !isActive,
-        // legacy single-user fields — first occupant (for director-level card)
         user_id:          first?.id ?? null,
         user_name:        first?.name ?? null,
         user_email:       first?.email ?? null,
@@ -80,7 +75,6 @@ router.get('/chart', optionalAuth, async (req, res, next) => {
       };
     }
 
-    // Build tree
     const roots: Record<string, unknown>[] = [];
     for (const p of positions) {
       if (p.parent_position_id && posMap[p.parent_position_id]) {
@@ -90,7 +84,6 @@ router.get('/chart', optionalAuth, async (req, res, next) => {
       }
     }
 
-    // Bootstrap admins (system roles — not part of hierarchy)
     const { rows: bootstrapAdmins } = await pool.query(`
       SELECT id, name, email, is_bootstrap_admin, is_active AS active
       FROM yc_tkt_mgmt.users
@@ -136,7 +129,8 @@ router.get('/positions', optionalAuth, async (req, res, next) => {
               u.id AS user_id, u.name AS user_name, u.email AS user_email
        FROM yc_tkt_mgmt.positions p
        LEFT JOIN yc_tkt_mgmt.departments d ON d.id = p.department_id
-       LEFT JOIN yc_tkt_mgmt.users u ON u.position_id = p.id AND u.is_active = TRUE
+       LEFT JOIN yc_tkt_mgmt.staff_positions sp ON sp.position_id = p.id AND sp.is_primary = TRUE
+       LEFT JOIN yc_tkt_mgmt.users u ON u.id = sp.user_id AND u.is_active = TRUE
        ${deptId ? 'WHERE p.department_id = $1' : ''}
        ORDER BY p.sort_order, p.id`,
       deptId ? [deptId] : []
@@ -146,9 +140,8 @@ router.get('/positions', optionalAuth, async (req, res, next) => {
 });
 
 // ── POST /org/positions ──────────────────────────────────────
-router.post('/positions', requireAuth, async (req, res, next) => {
+router.post('/positions', optionalAuth, async (req, res, next) => {
   try {
-    if (!isSuperAdmin(req.auth!.role)) return res.status(403).json({ error: 'forbidden' });
     const { title, departmentId, parentPositionId, sortOrder } = req.body || {};
     if (!title) return res.status(400).json({ error: 'missing_title' });
     const { rows } = await pool.query(
@@ -156,7 +149,6 @@ router.post('/positions', requireAuth, async (req, res, next) => {
        VALUES ($1,$2,$3,$4,FALSE,TRUE) RETURNING *`,
       [title, departmentId || null, parentPositionId || null, sortOrder || 0]
     );
-    await logAudit({ userId: req.auth!.userId, actorEmail: req.auth!.email, action: 'position.create', module: 'org', targetType: 'position', targetId: rows[0].id, metadata: { title }, req });
     res.status(201).json({ position: rows[0] });
   } catch (err) { next(err); }
 });
@@ -169,7 +161,7 @@ router.patch('/positions/:id', requireAuth, async (req, res, next) => {
     const allowed = ['title', 'department_id', 'parent_position_id', 'sort_order'];
     const updates: string[] = []; const vals: unknown[] = []; let i = 1;
     for (const k of allowed) {
-      const fk = k.replace(/_([a-z])/g, (_, c) => c.toUpperCase()); // camelCase key
+      const fk = k.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
       const bodyKey = req.body[k] !== undefined ? k : fk;
       if (req.body[bodyKey] !== undefined) { updates.push(`${k} = $${i++}`); vals.push(req.body[bodyKey]); }
     }
@@ -179,47 +171,21 @@ router.patch('/positions/:id', requireAuth, async (req, res, next) => {
       `UPDATE yc_tkt_mgmt.positions SET ${updates.join(', ')}, updated_at=NOW() WHERE id=$${i} RETURNING *`,
       vals
     );
-    await logAudit({ userId: req.auth!.userId, actorEmail: req.auth!.email, action: 'position.update', module: 'org', targetType: 'position', targetId: id, metadata: req.body, req });
     res.json({ position: rows[0] });
   } catch (err) { next(err); }
 });
 
-// ── PATCH /org/move — assign user to new position (drag-drop) ─
+// ── PATCH /org/move — assign user to new position ─
 router.patch('/move', requireAuth, async (req, res, next) => {
   try {
     if (!isSuperAdmin(req.auth!.role)) return res.status(403).json({ error: 'forbidden' });
     const { userId, positionId, managerId } = req.body || {};
     if (!userId) return res.status(400).json({ error: 'missing_userId' });
-
-    const { rows: userRows } = await pool.query(
-      `SELECT * FROM yc_tkt_mgmt.users WHERE id = $1`, [userId]
-    );
+    const { rows: userRows } = await pool.query(`SELECT * FROM yc_tkt_mgmt.users WHERE id = $1`, [userId]);
     if (!userRows[0]) return res.status(404).json({ error: 'user_not_found' });
-    if (userRows[0].is_bootstrap_admin) {
-      return res.status(403).json({ error: 'cannot_move_bootstrap_admin', message: 'Bootstrap admins cannot be moved in the hierarchy' });
-    }
-
-    // Free old position
-    if (userRows[0].position_id) {
-      await pool.query(
-        `UPDATE yc_tkt_mgmt.positions SET is_active=FALSE, is_vacant=TRUE, updated_at=NOW() WHERE id=$1`,
-        [userRows[0].position_id]
-      );
-    }
-
-    // Assign new position
-    await pool.query(
-      `UPDATE yc_tkt_mgmt.users SET position_id=$1, manager_id=$2, updated_at=NOW() WHERE id=$3`,
-      [positionId || null, managerId || null, userId]
-    );
-    if (positionId) {
-      await pool.query(
-        `UPDATE yc_tkt_mgmt.positions SET is_active=TRUE, is_vacant=FALSE, updated_at=NOW() WHERE id=$1`,
-        [positionId]
-      );
-    }
-
-    await logAudit({ userId: req.auth!.userId, actorEmail: req.auth!.email, action: 'org.move', module: 'org', targetType: 'user', targetId: userId, metadata: { positionId, managerId }, req });
+    if (userRows[0].is_bootstrap_admin) return res.status(403).json({ error: 'cannot_move_bootstrap_admin' });
+    await pool.query(`UPDATE yc_tkt_mgmt.users SET position_id=$1, manager_id=$2, updated_at=NOW() WHERE id=$3`, [positionId || null, managerId || null, userId]);
+    if (positionId) await pool.query(`UPDATE yc_tkt_mgmt.positions SET is_active=TRUE, is_vacant=FALSE, updated_at=NOW() WHERE id=$1`, [positionId]);
     res.json({ ok: true });
   } catch (err) { next(err); }
 });
