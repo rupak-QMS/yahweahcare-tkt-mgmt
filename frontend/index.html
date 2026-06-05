@@ -2358,12 +2358,26 @@
                 if (!form.email.trim()) return setError('Email is required');
                 setSaving(true); setError('');
                 try {
-                    const url    = modalMode==='add' ? `${API_BASE_URL}/staff` : `${API_BASE_URL}/staff/${selStaff.id}`;
-                    const method = modalMode==='add' ? 'POST' : 'PUT';
-                    const res    = await fetch(url, { method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(form) });
-                    if (!res.ok) { const e=await res.json(); throw new Error(e.error||'Save failed'); }
+                    // Use single position_id (first selected) — org chart links one user → one position
+                    const payload = {
+                        name:            form.name.trim(),
+                        email:           form.email.trim(),
+                        phone:           form.phone || null,
+                        employment_type: form.employment_type || 'full_time',
+                        department_id:   form.department_id   || null,
+                        manager_id:      form.manager_id      || null,
+                        start_date:      form.start_date      || null,
+                        profile_notes:   form.profile_notes   || null,
+                        position_id:     form.position_ids?.length ? form.position_ids[0] : null,
+                        auth_provider:   form.auth_provider   || 'azure_ad',
+                        is_active:       true,
+                    };
+                    const url    = modalMode==='add' ? `${HRMS_API}/users` : `${HRMS_API}/users/${selStaff.id}`;
+                    const method = modalMode==='add' ? 'POST' : 'PATCH';
+                    const res    = await fetch(url, { method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+                    if (!res.ok) { const e=await res.json(); throw new Error(e.error || e.message || 'Save failed'); }
                     setShowModal(false);
-                    showToast(modalMode==='add' ? '✅ Staff member added successfully' : '✅ Staff member updated');
+                    showToast(modalMode==='add' ? '✅ Staff member added' : '✅ Staff member updated');
                     fetchAll();
                 } catch(e) { setError(e.message); }
                 finally { setSaving(false); }
@@ -2372,11 +2386,11 @@
             const handleDelete = async () => {
                 if (!delConfirm) return;
                 try {
-                    const res = await fetch(`${API_BASE_URL}/staff/${delConfirm.id}`, { method:'DELETE' });
+                    const res  = await fetch(`${HRMS_API}/users/${delConfirm.id}`, { method:'DELETE' });
                     const data = await res.json();
-                    if (!res.ok) throw new Error(data.error);
+                    if (!res.ok) throw new Error(data.error || data.message || 'Delete failed');
                     setDelConfirm(null);
-                    showToast(`✅ ${data.message}`);
+                    showToast(`✅ ${data.message || 'Staff member deactivated'}`);
                     fetchAll();
                 } catch(e) { setError(e.message); }
             };
@@ -2384,10 +2398,16 @@
             const handleAddPosition = async () => {
                 if (!posForm.title.trim()) return;
                 try {
-                    const res = await fetch(`${API_BASE_URL}/positions`, {
-                        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(posForm)
+                    const res = await fetch(`${HRMS_API}/org/positions`, {
+                        method:'POST', headers:{'Content-Type':'application/json'},
+                        body:JSON.stringify({
+                            title:           posForm.title.trim(),
+                            departmentId:    posForm.department_id || null,
+                            parentPositionId:posForm.parent_id     || null,
+                            sortOrder:       0,
+                        })
                     });
-                    if (!res.ok) { const e=await res.json(); throw new Error(e.error); }
+                    if (!res.ok) { const e=await res.json(); throw new Error(e.error || e.message); }
                     const data = await res.json();
                     setPositions(prev=>[...prev, data.position]);
                     setForm(f=>({...f, position_ids:[...f.position_ids, data.position.id]}));

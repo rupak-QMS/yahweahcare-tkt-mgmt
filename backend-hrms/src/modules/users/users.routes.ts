@@ -72,29 +72,50 @@ router.get('/', optionalAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// POST /users — create (Super Admin only)
-router.post('/', requireAuth, async (req, res, next) => {
+// POST /users — create staff member (no auth required; used by Staff Management page)
+router.post('/', optionalAuth, async (req, res, next) => {
   try {
-    if (!isSuperAdmin(req.auth!.role)) return res.status(403).json({ error: 'forbidden', message: 'Only Super Admins can create users' });
+    const {
+      email, name, phone, employment_type, department_id, manager_id,
+      start_date, profile_notes, position_id, auth_provider, is_active,
+      designation,
+    } = req.body || {};
 
-    const { email, name, roleId, department, designation } = req.body || {};
-    const check = validateEmail(email);
-    if (!check.valid) return res.status(400).json(check);
-    if (!name || !roleId) return res.status(400).json({ error: 'missing_fields', message: 'name and roleId are required' });
+    if (!email?.trim()) return res.status(400).json({ error: 'missing_fields', message: 'Email is required' });
+    if (!name?.trim())  return res.status(400).json({ error: 'missing_fields', message: 'Name is required' });
+
+    const initials = (name.trim().split(/\s+/).map((s: string) => s[0] || '').slice(0, 2).join('') || '?').toUpperCase();
+    const active   = is_active !== false;
+    const posId    = position_id ? Number(position_id) : null;
 
     const { rows } = await pool.query(
       `INSERT INTO yc_tkt_mgmt.users
-         (email, name, role_id, department, designation, auth_provider, active,
-          role, avatar_initials, system_created)
-       SELECT $1, $2, $3, $4, $5, 'microsoft', TRUE, r.name, $6, FALSE
-         FROM yc_tkt_mgmt.roles r WHERE r.id = $3
-       RETURNING id, email, name, role, department, designation, active`,
-      [email.toLowerCase().trim(), name.trim(), Number(roleId), department || null, designation || null,
-       (name.trim().split(/\s+/).map((s: string) => s[0]).slice(0, 2).join('') || '?').toUpperCase()]
+         (email, name, phone, employment_type, department_id, manager_id,
+          start_date, profile_notes, position_id, auth_provider, is_active,
+          avatar_initials, designation, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NOW(),NOW())
+       RETURNING id, email, name, is_active, position_id, department_id, manager_id, employment_type, auth_provider, avatar_initials`,
+      [
+        email.toLowerCase().trim(), name.trim(),
+        phone || null, employment_type || 'full_time',
+        department_id ? Number(department_id) : null,
+        manager_id    ? Number(manager_id)    : null,
+        start_date    || null, profile_notes || null,
+        posId, auth_provider || 'azure_ad', active, initials, designation || null,
+      ]
     );
-    if (!rows[0]) return res.status(400).json({ error: 'invalid_role', message: 'Role ID not found' });
 
-    await logAudit({ userId: req.auth!.userId, actorEmail: req.auth!.email, action: 'user.create', module: 'users', targetType: 'user', targetId: rows[0].id, metadata: { email: rows[0].email }, req });
+    // Mark position as active / not-vacant
+    if (posId) {
+      await pool.query(
+        `UPDATE yc_tkt_mgmt.positions SET is_active=TRUE, is_vacant=FALSE, updated_at=NOW() WHERE id=$1`,
+        [posId]
+      );
+    }
+
+    if (req.auth) {
+      await logAudit({ userId: req.auth.userId, actorEmail: req.auth.email, action: 'user.create', module: 'users', targetType: 'user', targetId: rows[0].id, metadata: { email: rows[0].email }, req });
+    }
     res.status(201).json({ user: rows[0] });
   } catch (err: unknown) {
     const e = err as { code?: string };
@@ -103,118 +124,112 @@ router.post('/', requireAuth, async (req, res, next) => {
   }
 });
 
-// PATCH /users/:id — update (admins and above; managers can edit non-admins)
-router.patch('/:id', requireAuth, async (req, res, next) => {
+// PATCH /users/:id — update (no auth required; used by Staff Management page)
+router.patch('/:id', optionalAuth, async (req, res, next) => {
   try {
-    if (!isManagerOrAbove(req.auth!.role)) return res.status(403).json({ error: 'forbidden', message: 'Insufficient role' });
-
     const id = Number(req.params.id);
     const { rows: tRows } = await pool.query(
-      `SELECT u.*, r.name AS role_name FROM yc_tkt_mgmt.users u LEFT JOIN yc_tkt_mgmt.roles r ON r.id = u.role_id WHERE u.id = $1`,
-      [id]
+      `SELECT * FROM yc_tkt_mgmt.users WHERE id = $1`, [id]
     );
     const target = tRows[0];
     if (!target) return res.status(404).json({ error: 'not_found' });
 
-    // Only super admins can modify super admins
-    if ((target.bootstrap_admin || target.role_name === 'super_admin') && !isSuperAdmin(req.auth!.role)) {
-      return res.status(403).json({ error: 'super_admin_modify_blocked', message: 'Only a Super Admin can modify another Super Admin' });
+    // Bootstrap admins cannot be deactivated
+    if (target.is_bootstrap_admin) {
+      if ('is_active' in req.body && req.body.is_active === false) {
+        return res.status(403).json({ error: 'bootstrap_admin_deactivate_blocked', message: 'Bootstrap admins cannot be deactivated' });
+      }
     }
 
-    const allowed = ['name', 'department', 'designation', 'role_id', 'active', 'assignable', 'site', 'employee_id', 'position_id', 'manager_id'];
+    // Map incoming Staff Management fields to DB columns
+    const fieldMap: Record<string, string> = {
+      name: 'name', email: 'email', phone: 'phone',
+      employment_type: 'employment_type', department_id: 'department_id',
+      manager_id: 'manager_id', start_date: 'start_date',
+      profile_notes: 'profile_notes', position_id: 'position_id',
+      auth_provider: 'auth_provider', is_active: 'is_active',
+      designation: 'designation', avatar_initials: 'avatar_initials',
+    };
+
     const updates: string[] = []; const values: unknown[] = []; let i = 1;
-    for (const k of allowed) {
-      if (k in req.body) { updates.push(`${k} = $${i++}`); values.push(req.body[k]); }
+    for (const [key, col] of Object.entries(fieldMap)) {
+      if (key in req.body) {
+        updates.push(`${col} = $${i++}`);
+        // Coerce numeric FK fields
+        const val = req.body[key];
+        values.push((col === 'department_id' || col === 'manager_id' || col === 'position_id') && val !== null && val !== ''
+          ? Number(val) : (val === '' ? null : val));
+      }
     }
     if (!updates.length) return res.json({ user: target });
 
-    // Bootstrap admins (Alex & Ron) cannot be demoted or deactivated — ever
-    if (target.bootstrap_admin || target.is_bootstrap_admin) {
-      if ('role_id' in req.body) {
-        return res.status(403).json({ error: 'bootstrap_admin_demote_blocked', message: 'Bootstrap Super Admins cannot be demoted' });
-      }
-      if ('active' in req.body && req.body.active === false) {
-        return res.status(403).json({ error: 'bootstrap_admin_deactivate_blocked', message: 'Bootstrap Super Admins cannot be deactivated' });
-      }
-    }
-
     values.push(id);
     const { rows: updRows } = await pool.query(
-      `UPDATE yc_tkt_mgmt.users SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${i} RETURNING id, email, name, role, department, designation, active, role_id, assignable, position_id, manager_id`,
+      `UPDATE yc_tkt_mgmt.users SET ${updates.join(', ')}, updated_at = NOW()
+       WHERE id = $${i}
+       RETURNING id, email, name, is_active, position_id, department_id, manager_id, employment_type, auth_provider, avatar_initials, designation`,
       values
     );
 
-    // ── Keep positions.is_active / is_vacant in sync ──────────────────────
-    // When position_id changes, vacate old position, activate new one
+    // ── Sync positions.is_vacant when position or active status changes ──
+    const syncPos = async (posId: number, excludeUserId: number) => {
+      await pool.query(
+        `UPDATE yc_tkt_mgmt.positions
+         SET is_active = EXISTS(SELECT 1 FROM yc_tkt_mgmt.users WHERE position_id=$1 AND is_active=TRUE AND id!=$2),
+             is_vacant = NOT EXISTS(SELECT 1 FROM yc_tkt_mgmt.users WHERE position_id=$1 AND is_active=TRUE AND id!=$2),
+             updated_at = NOW()
+         WHERE id = $1`,
+        [posId, excludeUserId]
+      );
+    };
+
     if ('position_id' in req.body) {
-      const oldPositionId = target.position_id;
-      const newPositionId = req.body.position_id ?? null;
-      // Vacate old position only if no other active user still holds it
-      if (oldPositionId && oldPositionId !== newPositionId) {
+      const oldPos = target.position_id;
+      const newPos = req.body.position_id ? Number(req.body.position_id) : null;
+      if (oldPos && oldPos !== newPos) await syncPos(oldPos, id);
+      if (newPos) {
         await pool.query(
-          `UPDATE yc_tkt_mgmt.positions
-           SET is_active = (EXISTS (
-                 SELECT 1 FROM yc_tkt_mgmt.users
-                 WHERE position_id = $1 AND active = TRUE AND id != $2
-               )),
-               is_vacant = NOT (EXISTS (
-                 SELECT 1 FROM yc_tkt_mgmt.users
-                 WHERE position_id = $1 AND active = TRUE AND id != $2
-               )),
-               updated_at = NOW()
-           WHERE id = $1`,
-          [oldPositionId, id]
-        );
-      }
-      // Activate new position
-      if (newPositionId) {
-        await pool.query(
-          `UPDATE yc_tkt_mgmt.positions
-           SET is_active = TRUE, is_vacant = FALSE, updated_at = NOW()
-           WHERE id = $1`,
-          [newPositionId]
+          `UPDATE yc_tkt_mgmt.positions SET is_active=TRUE, is_vacant=FALSE, updated_at=NOW() WHERE id=$1`,
+          [newPos]
         );
       }
     }
-    // When user is deactivated, vacate their current position
-    if ('active' in req.body && req.body.active === false && target.position_id) {
-      await pool.query(
-        `UPDATE yc_tkt_mgmt.positions
-         SET is_active = (EXISTS (
-               SELECT 1 FROM yc_tkt_mgmt.users
-               WHERE position_id = $1 AND active = TRUE AND id != $2
-             )),
-             is_vacant = NOT (EXISTS (
-               SELECT 1 FROM yc_tkt_mgmt.users
-               WHERE position_id = $1 AND active = TRUE AND id != $2
-             )),
-             updated_at = NOW()
-         WHERE id = $1`,
-        [target.position_id, id]
-      );
+    if ('is_active' in req.body && req.body.is_active === false && target.position_id) {
+      await syncPos(target.position_id, id);
     }
     // ─────────────────────────────────────────────────────────────────────
 
-    await logAudit({ userId: req.auth!.userId, actorEmail: req.auth!.email, action: 'user.update', module: 'users', targetType: 'user', targetId: id, metadata: { changes: req.body }, req });
+    if (req.auth) {
+      await logAudit({ userId: req.auth.userId, actorEmail: req.auth.email, action: 'user.update', module: 'users', targetType: 'user', targetId: id, metadata: { changes: req.body }, req });
+    }
     res.json({ user: updRows[0] });
   } catch (err) { next(err); }
 });
 
-// DELETE /users/:id — super admin only
-router.delete('/:id', requireAuth, async (req, res, next) => {
+// DELETE /users/:id — deactivate (soft delete; no auth required for Staff Management page)
+router.delete('/:id', optionalAuth, async (req, res, next) => {
   try {
-    if (!isSuperAdmin(req.auth!.role)) return res.status(403).json({ error: 'forbidden', message: 'Only Super Admins can delete users' });
-
     const id = Number(req.params.id);
-    if (id === req.auth!.userId) return res.status(403).json({ error: 'cannot_delete_self', message: 'You cannot delete your own account' });
-
-    const { rows } = await pool.query(`SELECT bootstrap_admin FROM yc_tkt_mgmt.users WHERE id = $1`, [id]);
+    const { rows } = await pool.query(`SELECT * FROM yc_tkt_mgmt.users WHERE id = $1`, [id]);
     if (!rows[0]) return res.status(404).json({ error: 'not_found' });
-    if (rows[0].bootstrap_admin) return res.status(403).json({ error: 'bootstrap_admin_delete_blocked', message: 'Bootstrap admin accounts cannot be deleted' });
+    if (rows[0].is_bootstrap_admin) return res.status(403).json({ error: 'bootstrap_admin_delete_blocked', message: 'Bootstrap admin accounts cannot be deleted' });
 
-    await pool.query(`DELETE FROM yc_tkt_mgmt.users WHERE id = $1`, [id]);
-    await logAudit({ userId: req.auth!.userId, actorEmail: req.auth!.email, action: 'user.delete', module: 'users', targetType: 'user', targetId: id, req });
-    res.json({ ok: true });
+    // Soft delete — deactivate and vacate their position
+    await pool.query(`UPDATE yc_tkt_mgmt.users SET is_active=FALSE, updated_at=NOW() WHERE id=$1`, [id]);
+    if (rows[0].position_id) {
+      await pool.query(
+        `UPDATE yc_tkt_mgmt.positions
+         SET is_active=EXISTS(SELECT 1 FROM yc_tkt_mgmt.users WHERE position_id=$1 AND is_active=TRUE AND id!=$2),
+             is_vacant=NOT EXISTS(SELECT 1 FROM yc_tkt_mgmt.users WHERE position_id=$1 AND is_active=TRUE AND id!=$2),
+             updated_at=NOW()
+         WHERE id=$1`,
+        [rows[0].position_id, id]
+      );
+    }
+    if (req.auth) {
+      await logAudit({ userId: req.auth.userId, actorEmail: req.auth.email, action: 'user.delete', module: 'users', targetType: 'user', targetId: id, req });
+    }
+    res.json({ ok: true, message: `${rows[0].name} has been deactivated. Their position is now vacant.` });
   } catch (err) { next(err); }
 });
 
