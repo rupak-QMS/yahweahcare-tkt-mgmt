@@ -105,6 +105,9 @@ export async function provisionFromGraph(
      WHERE id = $3`,
     [graphUser.displayName, graphUser.id, user.id]
   );
+  // Reflect the synced name in the returned object so the caller has the up-to-date value
+  // (the SELECT above captured the pre-update name; if Microsoft provides a displayName, prefer it)
+  if (graphUser.displayName) user.name = graphUser.displayName;
   return user;
 }
 

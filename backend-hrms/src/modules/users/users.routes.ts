@@ -66,6 +66,9 @@ router.post('/', optionalAuth, async (req, res, next) => {
       start_date, profile_notes, position_id, auth_provider, is_active, designation } = req.body || {};
     if (!email?.trim()) return res.status(400).json({ error: 'missing_fields', message: 'Email is required' });
     if (!name?.trim())  return res.status(400).json({ error: 'missing_fields', message: 'Name is required' });
+    // Enforce org-domain policy — staff must have an allowed email to be able to sign in via Microsoft Entra
+    const domainCheck = validateEmail(email.trim());
+    if (!domainCheck.valid) return res.status(400).json({ error: 'invalid_email_domain', message: domainCheck.reason });
     const initials = (name.trim().split(/\s+/).map((s: string) => s[0] || '').slice(0, 2).join('') || '?').toUpperCase();
     const active = is_active !== false;
     const posId  = position_id ? Number(position_id) : null;
@@ -103,6 +106,11 @@ router.patch('/:id', optionalAuth, async (req, res, next) => {
     if (!target) return res.status(404).json({ error: 'not_found' });
     if (target.is_bootstrap_admin && 'is_active' in req.body && req.body.is_active === false)
       return res.status(403).json({ error: 'bootstrap_admin_deactivate_blocked', message: 'Bootstrap admins cannot be deactivated' });
+    // If email is being changed, enforce org-domain policy
+    if ('email' in req.body && req.body.email) {
+      const domainCheck = validateEmail(req.body.email.toString().trim());
+      if (!domainCheck.valid) return res.status(400).json({ error: 'invalid_email_domain', message: domainCheck.reason });
+    }
 
     const fieldMap: Record<string, string> = {
       name: 'name', email: 'email', phone: 'phone', employment_type: 'employment_type',

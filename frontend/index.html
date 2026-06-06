@@ -2832,9 +2832,16 @@
                                     {error && <div style={{background:'#FEF2F2',border:'1px solid #FECACA',borderRadius:'8px',padding:'8px 12px',marginBottom:'14px',fontSize:'12px',color:'#DC2626'}}>⚠️ {error}</div>}
 
                                     {/* Login method notice */}
-                                    <div style={{background:'#EFF6FF',border:'1px solid #BFDBFE',borderRadius:'8px',padding:'10px 14px',marginBottom:'16px',fontSize:'12px',color:'#1D4ED8',display:'flex',alignItems:'center',gap:'8px'}}>
-                                        <span style={{fontSize:'16px'}}>🔷</span>
-                                        <span><strong>Microsoft Entra Login:</strong> New staff members login exclusively via Microsoft Entra (Azure AD). They will not have a password — only the "Sign in with Microsoft" button.</span>
+                                    <div style={{background:'#EFF6FF',border:'1px solid #BFDBFE',borderRadius:'8px',padding:'10px 14px',marginBottom:'16px',fontSize:'12px',color:'#1D4ED8'}}>
+                                        <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'4px'}}>
+                                            <span style={{fontSize:'16px'}}>🔷</span>
+                                            <strong>Microsoft Entra Login</strong>
+                                        </div>
+                                        <ul style={{margin:'4px 0 0 24px',padding:0,lineHeight:'1.7'}}>
+                                            <li>Staff log in via <strong>"Sign in with Microsoft"</strong> — no password needed.</li>
+                                            <li>The email entered here <strong>must exactly match</strong> their Microsoft 365 / Azure AD email address.</li>
+                                            <li>Once added, they can sign in immediately — no further setup required.</li>
+                                        </ul>
                                     </div>
 
                                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'14px'}}>
