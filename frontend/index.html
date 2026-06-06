@@ -2575,6 +2575,10 @@
             const handleSave = async () => {
                 if (!form.name.trim()) return setError('Name is required');
                 if (!form.email.trim()) return setError('Email is required');
+                const emailDomain = form.email.trim().split('@')[1] || '';
+                if (!['yahwehcare.com.au','yahwehpc.com.au'].includes(emailDomain)) {
+                    return setError('Email must be a @yahwehcare.com.au or @yahwehpc.com.au address to allow Microsoft Entra login.');
+                }
                 setSaving(true); setError('');
                 try {
                     // Use single position_id (first selected) — org chart links one user → one position
@@ -2833,7 +2837,21 @@
                                         {/* Email */}
                                         <div>
                                             <label style={labelStyle}>Email Address <span style={{color:'#DC2626'}}>*</span></label>
-                                            <input style={inputStyle} type="email" value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))} placeholder="jane@yahwehcare.com.au"/>
+                                            <input
+                                                style={{...inputStyle, borderColor: form.email && !['yahwehcare.com.au','yahwehpc.com.au'].includes(form.email.split('@')[1]||'') ? '#F59E0B' : inputStyle.borderColor}}
+                                                type="email"
+                                                value={form.email}
+                                                onChange={e=>setForm(f=>({...f,email:e.target.value}))}
+                                                placeholder="jane@yahwehcare.com.au"
+                                            />
+                                            {form.email && !['yahwehcare.com.au','yahwehpc.com.au'].includes(form.email.split('@')[1]||'') && (
+                                                <p style={{fontSize:12,color:'#B45309',marginTop:4}}>
+                                                    ⚠️ Must be a <strong>@yahwehcare.com.au</strong> or <strong>@yahwehpc.com.au</strong> address — this must match their Microsoft Entra account exactly.
+                                                </p>
+                                            )}
+                                            {form.email && ['yahwehcare.com.au','yahwehpc.com.au'].includes(form.email.split('@')[1]||'') && (
+                                                <p style={{fontSize:12,color:'#16A34A',marginTop:4}}>✅ Valid organisation domain</p>
+                                            )}
                                         </div>
                                         {/* Phone */}
                                         <div>
