@@ -215,7 +215,9 @@
         };
 
         // Navigation Component
-        function Navigation({ currentPage, setCurrentPage }) {
+        function Navigation({ currentPage, setCurrentPage, onSignOut }) {
+            const [profileOpen, setProfileOpen] = React.useState(false);
+
             const pages = [
                 { id: 'dashboard', label: 'Dashboard', icon: '📊' },
                 { id: 'create-ticket', label: 'Create Ticket', icon: '➕' },
@@ -230,12 +232,30 @@
                 { id: 'scheduled-reports', label: 'Scheduled Reports', icon: '📧' },
             ];
 
+            // Close dropdown when clicking outside
+            React.useEffect(() => {
+                if (!profileOpen) return;
+                const close = () => setProfileOpen(false);
+                document.addEventListener('click', close);
+                return () => document.removeEventListener('click', close);
+            }, [profileOpen]);
+
+            const handleSettings = () => {
+                setProfileOpen(false);
+                setCurrentPage('staff-management');
+            };
+
+            const handleSignOut = () => {
+                setProfileOpen(false);
+                onSignOut();
+            };
+
             return (
-                <aside className="w-64 bg-white border-r border-gray-200 p-4 min-h-screen overflow-y-auto">
+                <aside className="w-64 bg-white border-r border-gray-200 p-4 min-h-screen overflow-y-auto flex flex-col">
                     <div className="mb-8">
                         <h1 className="font-bold text-gray-900 text-lg">YAHWEH<br/><span className="text-sm text-gray-500">CARE</span></h1>
                     </div>
-                    <nav className="space-y-1">
+                    <nav className="space-y-1 flex-1">
                         {pages.map((page) => (
                             <button
                                 key={page.id}
@@ -251,16 +271,83 @@
                             </button>
                         ))}
                     </nav>
-                    <div className="mt-8 pt-8 border-t border-gray-200">
-                        <div className="flex items-center gap-3 p-4 rounded-lg bg-orange-50">
-                            <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center text-white font-bold text-sm">RC</div>
-                            <div className="text-sm">
+
+                    {/* Profile section with dropdown */}
+                    <div className="mt-8 pt-8 border-t border-gray-200" style={{position: 'relative'}}>
+                        {/* Dropdown menu — opens upward */}
+                        {profileOpen && (
+                            <div
+                                onClick={e => e.stopPropagation()}
+                                style={{
+                                    position: 'absolute',
+                                    bottom: '100%',
+                                    left: 0,
+                                    right: 0,
+                                    background: 'white',
+                                    borderRadius: 12,
+                                    boxShadow: '0 4px 24px rgba(0,0,0,0.14)',
+                                    border: '1px solid #E5E7EB',
+                                    marginBottom: 6,
+                                    overflow: 'hidden',
+                                    zIndex: 200
+                                }}
+                            >
+                                <button
+                                    onClick={handleSettings}
+                                    className="w-full text-left flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition"
+                                >
+                                    <span style={{fontSize: 16}}>⚙️</span>
+                                    <span className="font-medium">Settings</span>
+                                </button>
+                                <div style={{height: 1, background: '#F3F4F6', margin: '0 12px'}} />
+                                <button
+                                    onClick={handleSignOut}
+                                    className="w-full text-left flex items-center gap-3 px-4 py-3 text-sm font-semibold hover:bg-red-50 transition"
+                                    style={{color: '#DC2626'}}
+                                >
+                                    <span style={{fontSize: 16}}>↪️</span>
+                                    <span>Sign Out</span>
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Clickable profile card */}
+                        <button
+                            onClick={e => { e.stopPropagation(); setProfileOpen(o => !o); }}
+                            className="w-full flex items-center gap-3 p-4 rounded-lg bg-orange-50 hover:bg-orange-100 transition text-left"
+                        >
+                            <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">RC</div>
+                            <div className="text-sm flex-1 min-w-0">
                                 <p className="font-semibold text-gray-900">Ron Costa</p>
                                 <p className="text-xs text-gray-600">IT</p>
                             </div>
-                        </div>
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{flexShrink:0, transform: profileOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s'}}>
+                                <path d="M2 4l4 4 4-4" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                        </button>
                     </div>
                 </aside>
+            );
+        }
+
+        // Signed-Out Screen
+        function SignedOutScreen({ onSignBackIn }) {
+            return (
+                <div style={{minHeight: '100vh', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#F0F2F8'}}>
+                    <div style={{background: 'white', borderRadius: 20, padding: '48px 40px', textAlign: 'center', boxShadow: '0 8px 32px rgba(99,102,241,0.12)', border: '2px solid #E0E7FF', maxWidth: 400, width: '90%'}}>
+                        <div style={{width: 64, height: 64, borderRadius: '50%', background: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, margin: '0 auto 20px'}}>👤</div>
+                        <h2 style={{fontSize: 22, fontWeight: 800, color: '#1E1B4B', margin: '0 0 8px'}}>You've been signed out</h2>
+                        <p style={{fontSize: 14, color: '#6B7280', margin: '0 0 28px', lineHeight: 1.6}}>
+                            Your app session has ended. Your Microsoft Entra account remains active — no action needed there.
+                        </p>
+                        <button
+                            onClick={onSignBackIn}
+                            style={{background: 'linear-gradient(135deg, #6366F1, #8B5CF6)', color: 'white', border: 'none', borderRadius: 10, padding: '12px 32px', fontSize: 15, fontWeight: 700, cursor: 'pointer', width: '100%'}}
+                        >
+                            Sign Back In
+                        </button>
+                    </div>
+                </div>
             );
         }
 
@@ -2784,6 +2871,7 @@
                 const hash = window.location.hash.slice(1) || 'dashboard';
                 return hash;
             });
+            const [signedOut, setSignedOut] = React.useState(false);
 
             React.useEffect(() => {
                 const handleHashChange = () => {
@@ -2797,6 +2885,25 @@
             const handlePageChange = (pageId) => {
                 window.location.hash = pageId;
             };
+
+            // Sign Out — clears app session only, does NOT touch Microsoft Entra
+            const handleSignOut = () => {
+                sessionStorage.clear();
+                localStorage.removeItem('authToken');
+                window.location.hash = '';
+                setCurrentPage('dashboard');
+                setSignedOut(true);
+            };
+
+            const handleSignBackIn = () => {
+                setSignedOut(false);
+                window.location.hash = 'dashboard';
+                setCurrentPage('dashboard');
+            };
+
+            if (signedOut) {
+                return <SignedOutScreen onSignBackIn={handleSignBackIn} />;
+            }
 
             const renderPage = () => {
                 switch (currentPage) {
@@ -2817,7 +2924,7 @@
 
             return (
                 <div className="flex h-screen bg-gray-50">
-                    <Navigation currentPage={currentPage} setCurrentPage={handlePageChange} />
+                    <Navigation currentPage={currentPage} setCurrentPage={handlePageChange} onSignOut={handleSignOut} />
                     {renderPage()}
                 </div>
             );
