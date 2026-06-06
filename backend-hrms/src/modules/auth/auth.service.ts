@@ -57,15 +57,20 @@ export async function provisionFromGraph(
   }
 
   // 2. DB-allowlist check — must already exist
+  // Column mapping: production DB uses azure_oid (not microsoft_id), is_active, is_bootstrap_admin
   const { rows } = await pool.query<UserRecord>(
-    `SELECT u.id, u.email, u.name, u.role,
+    `SELECT u.id, u.email, u.name,
+            NULL::text               AS role,
             NULL::integer            AS role_id,
-            u.department, u.designation,
-            u.microsoft_id, u.tenant_id, u.profile_photo_url,
-            u.is_bootstrap_admin    AS bootstrap_admin,
-            u.is_active             AS active
+            NULL::text               AS department,
+            NULL::text               AS designation,
+            u.azure_oid              AS microsoft_id,
+            NULL::text               AS tenant_id,
+            NULL::text               AS profile_photo_url,
+            u.is_bootstrap_admin     AS bootstrap_admin,
+            u.is_active              AS active
      FROM yc_tkt_mgmt.users u
-     WHERE u.microsoft_id = $1 OR LOWER(u.email) = $2
+     WHERE u.azure_oid = $1 OR LOWER(u.email) = $2
      LIMIT 1`,
     [graphUser.id, email]
   );
@@ -91,22 +96,14 @@ export async function provisionFromGraph(
     );
   }
 
-  // 4. Sync — keep our record in step with Microsoft
+  // 4. Sync — update only columns confirmed to exist in production DB
   await pool.query(
     `UPDATE yc_tkt_mgmt.users SET
-       name              = COALESCE($1, name),
-       microsoft_id      = COALESCE(microsoft_id, $2),
-       tenant_id         = COALESCE(tenant_id, $3),
-       department        = COALESCE(department, $4),
-       designation       = COALESCE(designation, $5),
-       profile_photo_url = COALESCE($6, profile_photo_url),
-       employee_id       = COALESCE(employee_id, $7),
-       last_login_at     = NOW(),
-       last_login_ip     = $8,
-       updated_at        = NOW()
-     WHERE id = $9`,
-    [graphUser.displayName, graphUser.id, tenantId, graphUser.department, graphUser.jobTitle,
-     profilePhoto, graphUser.employeeId, req.ip, user.id]
+       name       = COALESCE($1, name),
+       azure_oid  = COALESCE(azure_oid, $2),
+       updated_at = NOW()
+     WHERE id = $3`,
+    [graphUser.displayName, graphUser.id, user.id]
   );
   return user;
 }
