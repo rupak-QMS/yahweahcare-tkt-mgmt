@@ -58,8 +58,12 @@ export async function provisionFromGraph(
 
   // 2. DB-allowlist check — must already exist
   const { rows } = await pool.query<UserRecord>(
-    `SELECT u.id, u.email, u.name, u.role, u.role_id, u.department, u.designation,
-            u.microsoft_id, u.tenant_id, u.profile_photo_url, u.bootstrap_admin, u.bootstrap_admin, u.active
+    `SELECT u.id, u.email, u.name, u.role,
+            NULL::integer            AS role_id,
+            u.department, u.designation,
+            u.microsoft_id, u.tenant_id, u.profile_photo_url,
+            u.is_bootstrap_admin    AS bootstrap_admin,
+            u.is_active             AS active
      FROM yc_tkt_mgmt.users u
      WHERE u.microsoft_id = $1 OR LOWER(u.email) = $2
      LIMIT 1`,
@@ -119,13 +123,22 @@ export async function createSession(opts: {
   const { user, rememberMe, req } = opts;
 
   // Lookup permissions for the JWT payload
-  const { rows: perms } = await pool.query<{ name: string }>(
-    `SELECT p.name FROM yc_tkt_mgmt.permissions p
-     JOIN yc_tkt_mgmt.role_permissions rp ON rp.permission_id = p.id
-     WHERE rp.role_id = $1`,
-    [user.role_id]
-  );
-  const permissions = perms.map(p => p.name);
+  // DB uses role TEXT (not role_id FK) — look up via roles.name join if available,
+  // otherwise return empty array so login still succeeds.
+  let permissions: string[] = [];
+  try {
+    const { rows: perms } = await pool.query<{ name: string }>(
+      `SELECT p.name FROM yc_tkt_mgmt.permissions p
+       JOIN yc_tkt_mgmt.role_permissions rp ON rp.permission_id = p.id
+       JOIN yc_tkt_mgmt.roles r              ON r.id = rp.role_id
+       WHERE LOWER(r.name) = LOWER($1)`,
+      [user.role]
+    );
+    permissions = perms.map(p => p.name);
+  } catch {
+    // roles/permissions tables not yet migrated — proceed with empty permissions
+    permissions = [];
+  }
 
   const sessionToken = generateSessionToken();
   const refreshLife = rememberMe ? 90 : 30; // days
@@ -171,7 +184,7 @@ export async function createSession(opts: {
 export async function rotateTokens(sessionId: number, refreshToken: string, req: Request) {
   const { rows } = await pool.query(
     `SELECT s.id, s.user_id, s.refresh_token_hash, s.is_revoked, s.expires_at,
-            u.email, u.role, u.role_id
+            u.email, u.role, NULL::integer AS role_id
      FROM yc_tkt_mgmt.sessions s
      JOIN yc_tkt_mgmt.users u ON u.id = s.user_id
      WHERE s.id = $1`,
@@ -189,11 +202,17 @@ export async function rotateTokens(sessionId: number, refreshToken: string, req:
     throw Object.assign(new Error('Refresh token mismatch'), { statusCode: 401 });
   }
 
-  const { rows: perms } = await pool.query<{ name: string }>(
-    `SELECT p.name FROM yc_tkt_mgmt.permissions p
-     JOIN yc_tkt_mgmt.role_permissions rp ON rp.permission_id = p.id WHERE rp.role_id = $1`,
-    [s.role_id]
-  );
+  let perms: { name: string }[] = [];
+  try {
+    const { rows } = await pool.query<{ name: string }>(
+      `SELECT p.name FROM yc_tkt_mgmt.permissions p
+       JOIN yc_tkt_mgmt.role_permissions rp ON rp.permission_id = p.id
+       JOIN yc_tkt_mgmt.roles r              ON r.id = rp.role_id
+       WHERE LOWER(r.name) = LOWER($1)`,
+      [s.role]
+    );
+    perms = rows;
+  } catch { perms = []; }
   const newAccess  = signAccessToken({ sub: String(s.user_id), email: s.email, role: s.role, permissions: perms.map(p => p.name), sid: String(s.id) });
   const newRefresh = signRefreshToken({ sub: String(s.user_id), sid: String(s.id) });
   const newHash    = await bcrypt.hash(newRefresh.token, 10);
