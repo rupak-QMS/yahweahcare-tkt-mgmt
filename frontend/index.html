@@ -9,8 +9,6 @@
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- Microsoft Authentication Library (MSAL) v2 -->
-    <script src="https://unpkg.com/@azure/msal-browser@2.38.3/dist/msal-browser.min.js"></script>
     <style>
         :root {
             --brand-from: #6366F1;
@@ -51,38 +49,122 @@
 <body class="bg-gray-50">
     <div id="root"></div>
 
-    <!-- MSAL initialisation — must run before React -->
+    <!-- Microsoft Entra sign-in — no external library, uses PKCE + native fetch -->
     <script>
         (function () {
-            // Defensive: if MSAL CDN fails to load, app still renders normally
-            if (typeof msal === 'undefined') {
-                console.error('[MSAL] msal-browser CDN failed to load. Microsoft sign-in unavailable.');
-                window.msalInstance = null;
-                window._msalRedirectPromise = Promise.resolve(null);
-                return;
+            var CLIENT_ID   = '40f00e9e-7eaa-4c6e-b54c-317a6c6252a4';
+            var TENANT_ID   = '54dce09f-95ad-4636-98fc-b7103f4564db';
+            var REDIRECT_URI = window.location.origin;
+            var AUTHORITY   = 'https://login.microsoftonline.com/' + TENANT_ID;
+
+            // ── helpers ──────────────────────────────────────────────────────
+            function b64url(buf) {
+                return btoa(String.fromCharCode.apply(null, new Uint8Array(buf)))
+                    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
             }
-            try {
-                var msalConfig = {
-                    auth: {
-                        clientId: '40f00e9e-7eaa-4c6e-b54c-317a6c6252a4',
-                        authority: 'https://login.microsoftonline.com/54dce09f-95ad-4636-98fc-b7103f4564db',
-                        redirectUri: window.location.origin,
-                        postLogoutRedirectUri: window.location.origin,
-                        navigateToLoginRequestUrl: false,
-                    },
-                    cache: {
-                        cacheLocation: 'sessionStorage',
-                        storeAuthStateInCookie: false,
-                    },
-                };
-                window.msalInstance = new msal.PublicClientApplication(msalConfig);
-                // Kick off redirect handling immediately; React will await this promise
-                window._msalRedirectPromise = window.msalInstance.handleRedirectPromise();
-            } catch (e) {
-                console.error('[MSAL] Init error:', e);
-                window.msalInstance = null;
-                window._msalRedirectPromise = Promise.resolve(null);
+            function randomB64url(len) {
+                var a = new Uint8Array(len);
+                crypto.getRandomValues(a);
+                return b64url(a);
             }
+            async function sha256b64url(str) {
+                var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+                return b64url(buf);
+            }
+
+            // ── check if we're landing back from Microsoft (query-string code) ──
+            var urlParams = new URLSearchParams(window.location.search);
+            var msCode    = urlParams.get('code');
+            var msError   = urlParams.get('error');
+            var msState   = urlParams.get('state');
+
+            if (msCode || msError) {
+                // Strip the Microsoft params from the URL immediately so hash
+                // routing starts clean
+                window.history.replaceState({}, '', window.location.pathname);
+            }
+
+            // ── public API exposed to React ───────────────────────────────────
+            window.MicrosoftAuth = {
+
+                // Start sign-in: generate PKCE challenge and redirect to Microsoft
+                signIn: async function () {
+                    var verifier   = randomB64url(48);           // 64-char code_verifier
+                    var challenge  = await sha256b64url(verifier);
+                    var state      = randomB64url(16);
+
+                    sessionStorage.setItem('pkce_verifier', verifier);
+                    sessionStorage.setItem('pkce_state',    state);
+
+                    var params = new URLSearchParams({
+                        client_id:             CLIENT_ID,
+                        response_type:         'code',
+                        redirect_uri:          REDIRECT_URI,
+                        scope:                 'openid profile email',
+                        response_mode:         'query',
+                        code_challenge:        challenge,
+                        code_challenge_method: 'S256',
+                        state:                 state,
+                        prompt:                'select_account',
+                    });
+                    window.location.href = AUTHORITY + '/oauth2/v2.0/authorize?' + params;
+                },
+
+                // Called once on page load — resolves with auth result or null
+                handleCallback: async function () {
+                    if (msError) {
+                        sessionStorage.removeItem('pkce_verifier');
+                        sessionStorage.removeItem('pkce_state');
+                        return { error: urlParams.get('error_description') || msError };
+                    }
+                    if (!msCode) return null;   // normal page load
+
+                    var verifier   = sessionStorage.getItem('pkce_verifier');
+                    var savedState = sessionStorage.getItem('pkce_state');
+                    sessionStorage.removeItem('pkce_verifier');
+                    sessionStorage.removeItem('pkce_state');
+
+                    if (msState !== savedState) {
+                        return { error: 'State mismatch — possible CSRF. Please try again.' };
+                    }
+
+                    // Exchange code for tokens at Microsoft's token endpoint
+                    var tokenParams = new URLSearchParams({
+                        client_id:    CLIENT_ID,
+                        grant_type:   'authorization_code',
+                        code:         msCode,
+                        redirect_uri: REDIRECT_URI,
+                        code_verifier: verifier,
+                        scope:        'openid profile email',
+                    });
+
+                    var res  = await fetch(AUTHORITY + '/oauth2/v2.0/token', {
+                        method:  'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body:    tokenParams.toString(),
+                    });
+                    var data = await res.json();
+
+                    if (data.error) {
+                        return { error: data.error_description || data.error };
+                    }
+
+                    // Decode JWT payload (no signature verification — backend does that)
+                    var payload = JSON.parse(atob(
+                        data.id_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
+                    ));
+
+                    return {
+                        idToken:   data.id_token,
+                        email:     payload.preferred_username || payload.email || payload.upn || '',
+                        name:      payload.name  || '',
+                        azure_oid: payload.oid   || '',
+                    };
+                },
+            };
+
+            // Kick off the callback check immediately so it's ready when React mounts
+            window._microsoftAuthPromise = window.MicrosoftAuth.handleCallback();
         })();
     </script>
 
@@ -2919,22 +3001,26 @@
             const [signedOut, setSignedOut] = React.useState(false);
             const [authError, setAuthError] = React.useState(null);
 
-            // Handle MSAL redirect response on first load
+            // Handle Microsoft OAuth callback on first load (PKCE flow)
             React.useEffect(() => {
-                window._msalRedirectPromise
-                    .then(function (response) {
-                        if (!response) return; // normal page load, not a redirect callback
-                        // Microsoft returned an ID token — exchange it for an app JWT
-                        var idToken   = response.idToken;
-                        var account   = response.account || {};
-                        var email     = account.username || '';
-                        var name      = account.name     || '';
-                        var azure_oid = account.localAccountId || '';
-
+                window._microsoftAuthPromise
+                    .then(function (result) {
+                        if (!result) return; // normal page load, not a callback
+                        if (result.error) {
+                            setAuthError('Microsoft sign-in error: ' + result.error);
+                            setSignedOut(true);
+                            return;
+                        }
+                        // Exchange Microsoft id_token for an app JWT
                         return fetch(API_BASE_URL + '/auth/azure', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ id_token: idToken, email, name, azure_oid }),
+                            body: JSON.stringify({
+                                id_token:  result.idToken,
+                                email:     result.email,
+                                name:      result.name,
+                                azure_oid: result.azure_oid,
+                            }),
                         })
                         .then(function (r) { return r.json(); })
                         .then(function (data) {
@@ -2944,16 +3030,13 @@
                                 window.location.hash = 'dashboard';
                                 setCurrentPage('dashboard');
                             } else {
-                                // Backend rejected the identity
                                 setAuthError(data.error || 'Sign-in failed. Contact your administrator.');
                                 setSignedOut(true);
                             }
                         });
                     })
                     .catch(function (err) {
-                        console.error('MSAL redirect error:', err);
-                        setAuthError('Microsoft sign-in error: ' + err.message);
-                        setSignedOut(true);
+                        console.error('Microsoft auth callback error:', err);
                     });
             }, []);
 
@@ -2974,33 +3057,17 @@
             const handleSignOut = () => {
                 try { sessionStorage.clear(); } catch(e) {}
                 try { localStorage.removeItem('authToken'); } catch(e) {}
-                // Clear MSAL token cache if available
-                if (window.msalInstance) {
-                    try {
-                        var accounts = window.msalInstance.getAllAccounts();
-                        accounts.forEach(function (acct) {
-                            window.msalInstance.getTokenCache().removeAccount(acct);
-                        });
-                    } catch(e) {
-                        console.warn('[MSAL] Cache clear skipped:', e.message);
-                    }
-                }
                 window.location.hash = '';
                 setCurrentPage('dashboard');
                 setAuthError(null);
                 setSignedOut(true);
             };
 
-            // Sign Back In — triggers Microsoft Entra interactive login
+            // Sign Back In — redirects to Microsoft Entra via PKCE flow
             const handleSignBackIn = () => {
                 setAuthError(null);
-                if (!window.msalInstance) {
-                    setAuthError('Microsoft sign-in is unavailable (MSAL failed to load). Please refresh the page and try again.');
-                    return;
-                }
-                window.msalInstance.loginRedirect({
-                    scopes: ['openid', 'profile', 'email'],
-                    prompt: 'select_account',
+                window.MicrosoftAuth.signIn().catch(function(err) {
+                    setAuthError('Could not start Microsoft sign-in: ' + err.message);
                 });
             };
 
