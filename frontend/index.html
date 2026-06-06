@@ -2320,7 +2320,7 @@
                         ...u,
                         is_active: u.active !== false,
                         department_name: u.department || '',
-                        positions: u.position_id ? [{ id: u.position_id, title: u.designation || '', type: 'ops', is_primary: true }] : [],
+                        positions: Array.isArray(u.positions) && u.positions.length > 0 ? u.positions : (u.position_id ? [{ id: u.position_id, title: u.position_title || '', type: 'ops', is_primary: true }] : []),
                         auth_provider: u.auth_provider || (u.microsoft_id ? 'azure_ad' : 'local'),
                     }));
                     setStaff(normalised);
