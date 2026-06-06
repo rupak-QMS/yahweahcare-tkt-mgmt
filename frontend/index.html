@@ -10,7 +10,7 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <!-- Microsoft Authentication Library (MSAL) v2 -->
-    <script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
+    <script src="https://unpkg.com/@azure/msal-browser@2.38.3/dist/msal-browser.min.js"></script>
     <style>
         :root {
             --brand-from: #6366F1;
@@ -54,22 +54,35 @@
     <!-- MSAL initialisation — must run before React -->
     <script>
         (function () {
-            var msalConfig = {
-                auth: {
-                    clientId: '40f00e9e-7eaa-4c6e-b54c-317a6c6252a4',
-                    authority: 'https://login.microsoftonline.com/54dce09f-95ad-4636-98fc-b7103f4564db',
-                    redirectUri: window.location.origin,
-                    postLogoutRedirectUri: window.location.origin,
-                    navigateToLoginRequestUrl: false,
-                },
-                cache: {
-                    cacheLocation: 'sessionStorage',
-                    storeAuthStateInCookie: false,
-                },
-            };
-            window.msalInstance = new msal.PublicClientApplication(msalConfig);
-            // Kick off redirect handling immediately; React will await this promise
-            window._msalRedirectPromise = window.msalInstance.handleRedirectPromise();
+            // Defensive: if MSAL CDN fails to load, app still renders normally
+            if (typeof msal === 'undefined') {
+                console.error('[MSAL] msal-browser CDN failed to load. Microsoft sign-in unavailable.');
+                window.msalInstance = null;
+                window._msalRedirectPromise = Promise.resolve(null);
+                return;
+            }
+            try {
+                var msalConfig = {
+                    auth: {
+                        clientId: '40f00e9e-7eaa-4c6e-b54c-317a6c6252a4',
+                        authority: 'https://login.microsoftonline.com/54dce09f-95ad-4636-98fc-b7103f4564db',
+                        redirectUri: window.location.origin,
+                        postLogoutRedirectUri: window.location.origin,
+                        navigateToLoginRequestUrl: false,
+                    },
+                    cache: {
+                        cacheLocation: 'sessionStorage',
+                        storeAuthStateInCookie: false,
+                    },
+                };
+                window.msalInstance = new msal.PublicClientApplication(msalConfig);
+                // Kick off redirect handling immediately; React will await this promise
+                window._msalRedirectPromise = window.msalInstance.handleRedirectPromise();
+            } catch (e) {
+                console.error('[MSAL] Init error:', e);
+                window.msalInstance = null;
+                window._msalRedirectPromise = Promise.resolve(null);
+            }
         })();
     </script>
 
@@ -2981,9 +2994,13 @@
             // Sign Back In — triggers Microsoft Entra interactive login
             const handleSignBackIn = () => {
                 setAuthError(null);
+                if (!window.msalInstance) {
+                    setAuthError('Microsoft sign-in is unavailable (MSAL failed to load). Please refresh the page and try again.');
+                    return;
+                }
                 window.msalInstance.loginRedirect({
                     scopes: ['openid', 'profile', 'email'],
-                    prompt: 'select_account', // let user pick/switch account
+                    prompt: 'select_account',
                 });
             };
 
