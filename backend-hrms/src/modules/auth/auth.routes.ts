@@ -107,12 +107,30 @@ router.get('/microsoft/callback', async (req, res, next) => {
     // Mint our own session + JWTs
     const { accessToken, refreshToken, sessionToken } = await createSession({ user, rememberMe: rememberMe, req });
 
+    // Fetch department name for the user profile
+    let deptName = '';
+    try {
+      const deptRow = await pool.query(
+        `SELECT d.name FROM yc_tkt_mgmt.departments d
+         JOIN yc_tkt_mgmt.users u ON u.department_id = d.id
+         WHERE u.id = $1 LIMIT 1`, [user.id]
+      );
+      deptName = deptRow.rows[0]?.name || '';
+    } catch { /* dept not critical */ }
+
     // Set HTTP-only cookies
-    res.cookie('yc_access',  accessToken,  cookieOpts(15 * 60_000));                                // 15m
+    res.cookie('yc_access',  accessToken,  cookieOpts(15 * 60_000));
     res.cookie('yc_refresh', refreshToken, cookieOpts((rememberMe ? 90 : 30) * 86_400_000));
     res.cookie('yc_session', sessionToken, cookieOpts((rememberMe ? 90 : 30) * 86_400_000));
 
-    res.redirect(`${env.FRONTEND_URL}/dashboard`);
+    // Embed user info in redirect so frontend can display correct name immediately
+    const userParam = Buffer.from(JSON.stringify({
+      name:  user.name  || '',
+      email: user.email || '',
+      dept:  deptName,
+    })).toString('base64url');
+
+    res.redirect(`${env.FRONTEND_URL}?ms_user=${userParam}`);
   } catch (err) {
     const e = err as { statusCode?: number; code?: string; message?: string };
     await logAudit({ action: 'login.failed', module: 'auth', metadata: { reason: e.code || 'callback_error', error: String(err) }, success: false, req });

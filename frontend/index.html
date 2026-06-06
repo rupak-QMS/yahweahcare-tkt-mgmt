@@ -56,19 +56,25 @@
                 ? 'http://localhost:4001'
                 : 'https://yahweahcare-tkt-mgmt-hx48.vercel.app';
 
-            // If backend redirected back with ?error= after a failed login, capture it
             var urlParams  = new URLSearchParams(window.location.search);
             var loginError = urlParams.get('error');
-            if (loginError) {
+            var msUserB64  = urlParams.get('ms_user');
+
+            // Capture user info passed from backend redirect, store in sessionStorage
+            if (msUserB64) {
+                try {
+                    var decoded = JSON.parse(atob(msUserB64.replace(/-/g,'+').replace(/_/g,'/')));
+                    sessionStorage.setItem('ms_current_user', JSON.stringify(decoded));
+                } catch(e) {}
+            }
+
+            // Clean URL so hash routing starts fresh
+            if (loginError || msUserB64) {
                 window.history.replaceState({}, '', window.location.pathname);
             }
 
             window.MicrosoftAuth = {
-                // Redirect to backend — backend does PKCE, sets cookies, redirects back
-                signIn: function () {
-                    window.location.href = BACKEND + '/auth/microsoft';
-                },
-                // Error passed back from backend via ?error= query param
+                signIn: function () { window.location.href = BACKEND + '/auth/microsoft'; },
                 loginError: loginError,
             };
         })();
@@ -244,7 +250,7 @@
             const [profileOpen, setProfileOpen] = React.useState(false);
             const displayName = currentUser?.name || 'User';
             const initials = displayName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-            const deptLabel = currentUser?.department_name || currentUser?.employment_type || '';
+            const deptLabel = currentUser?.dept || currentUser?.department_name || currentUser?.employment_type || '';
 
             const pages = [
                 { id: 'dashboard', label: 'Dashboard', icon: '📊' },
@@ -2999,19 +3005,13 @@
             });
             const [signedOut, setSignedOut] = React.useState(false);
             const [authError, setAuthError] = React.useState(null);
-            const [currentUser, setCurrentUser] = React.useState(null);
-
-            // Fetch logged-in user from backend on mount (uses HttpOnly session cookie)
-            React.useEffect(() => {
-                const BACKEND = window.MicrosoftAuth
-                    ? (window.location.hostname === 'localhost' ? 'http://localhost:4001' : 'https://yahweahcare-tkt-mgmt-hx48.vercel.app')
-                    : null;
-                if (!BACKEND) return;
-                fetch(BACKEND + '/auth/me', { credentials: 'include' })
-                    .then(r => r.ok ? r.json() : null)
-                    .then(data => { if (data?.user) setCurrentUser(data.user); })
-                    .catch(() => {});
-            }, []);
+            const [currentUser, setCurrentUser] = React.useState(() => {
+                // Seed from sessionStorage — set by init script after Microsoft login redirect
+                try {
+                    const stored = sessionStorage.getItem('ms_current_user');
+                    return stored ? JSON.parse(stored) : null;
+                } catch(e) { return null; }
+            });
 
             // Show any error the backend passed back via ?error= after Microsoft login
             React.useEffect(() => {
@@ -3043,6 +3043,7 @@
             const handleSignOut = () => {
                 const BACKEND = window.location.hostname === 'localhost' ? 'http://localhost:4001' : 'https://yahweahcare-tkt-mgmt-hx48.vercel.app';
                 fetch(BACKEND + '/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
+                try { sessionStorage.removeItem('ms_current_user'); } catch(e) {}
                 try { sessionStorage.clear(); } catch(e) {}
                 try { localStorage.removeItem('authToken'); } catch(e) {}
                 setCurrentUser(null);
