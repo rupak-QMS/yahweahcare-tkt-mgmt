@@ -9,6 +9,8 @@
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Microsoft Authentication Library (MSAL) v2 -->
+    <script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
     <style>
         :root {
             --brand-from: #6366F1;
@@ -48,6 +50,28 @@
 </head>
 <body class="bg-gray-50">
     <div id="root"></div>
+
+    <!-- MSAL initialisation — must run before React -->
+    <script>
+        (function () {
+            var msalConfig = {
+                auth: {
+                    clientId: '40f00e9e-7eaa-4c6e-b54c-317a6c6252a4',
+                    authority: 'https://login.microsoftonline.com/54dce09f-95ad-4636-98fc-b7103f4564db',
+                    redirectUri: window.location.origin,
+                    postLogoutRedirectUri: window.location.origin,
+                    navigateToLoginRequestUrl: false,
+                },
+                cache: {
+                    cacheLocation: 'sessionStorage',
+                    storeAuthStateInCookie: false,
+                },
+            };
+            window.msalInstance = new msal.PublicClientApplication(msalConfig);
+            // Kick off redirect handling immediately; React will await this promise
+            window._msalRedirectPromise = window.msalInstance.handleRedirectPromise();
+        })();
+    </script>
 
     <script type="text/babel">
         // Sample Data
@@ -331,20 +355,34 @@
         }
 
         // Signed-Out Screen
-        function SignedOutScreen({ onSignBackIn }) {
+        function SignedOutScreen({ onSignBackIn, authError }) {
             return (
                 <div style={{minHeight: '100vh', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#F0F2F8'}}>
                     <div style={{background: 'white', borderRadius: 20, padding: '48px 40px', textAlign: 'center', boxShadow: '0 8px 32px rgba(99,102,241,0.12)', border: '2px solid #E0E7FF', maxWidth: 400, width: '90%'}}>
                         <div style={{width: 64, height: 64, borderRadius: '50%', background: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, margin: '0 auto 20px'}}>👤</div>
                         <h2 style={{fontSize: 22, fontWeight: 800, color: '#1E1B4B', margin: '0 0 8px'}}>You've been signed out</h2>
                         <p style={{fontSize: 14, color: '#6B7280', margin: '0 0 28px', lineHeight: 1.6}}>
-                            Your app session has ended. Your Microsoft Entra account remains active — no action needed there.
+                            Your app session has ended. Your Microsoft Entra account remains active.
                         </p>
+
+                        {authError && (
+                            <div style={{background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '10px 14px', marginBottom: 20, fontSize: 13, color: '#991B1B', textAlign: 'left'}}>
+                                ⚠️ {authError}
+                            </div>
+                        )}
+
                         <button
                             onClick={onSignBackIn}
-                            style={{background: 'linear-gradient(135deg, #6366F1, #8B5CF6)', color: 'white', border: 'none', borderRadius: 10, padding: '12px 32px', fontSize: 15, fontWeight: 700, cursor: 'pointer', width: '100%'}}
+                            style={{background: 'linear-gradient(135deg, #6366F1, #8B5CF6)', color: 'white', border: 'none', borderRadius: 10, padding: '12px 32px', fontSize: 15, fontWeight: 700, cursor: 'pointer', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10}}
                         >
-                            Sign Back In
+                            {/* Microsoft logo mark */}
+                            <svg width="18" height="18" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
+                                <rect x="11" y="1" width="9" height="9" fill="#7FBA00"/>
+                                <rect x="1" y="11" width="9" height="9" fill="#00A4EF"/>
+                                <rect x="11" y="11" width="9" height="9" fill="#FFB900"/>
+                            </svg>
+                            Sign in with Microsoft
                         </button>
                     </div>
                 </div>
@@ -2872,6 +2910,45 @@
                 return hash;
             });
             const [signedOut, setSignedOut] = React.useState(false);
+            const [authError, setAuthError] = React.useState(null);
+
+            // Handle MSAL redirect response on first load
+            React.useEffect(() => {
+                window._msalRedirectPromise
+                    .then(function (response) {
+                        if (!response) return; // normal page load, not a redirect callback
+                        // Microsoft returned an ID token — exchange it for an app JWT
+                        var idToken   = response.idToken;
+                        var account   = response.account || {};
+                        var email     = account.username || '';
+                        var name      = account.name     || '';
+                        var azure_oid = account.localAccountId || '';
+
+                        return fetch(API_BASE_URL + '/auth/azure', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ id_token: idToken, email, name, azure_oid }),
+                        })
+                        .then(function (r) { return r.json(); })
+                        .then(function (data) {
+                            if (data.token) {
+                                localStorage.setItem('authToken', data.token);
+                                setSignedOut(false);
+                                window.location.hash = 'dashboard';
+                                setCurrentPage('dashboard');
+                            } else {
+                                // Backend rejected the identity
+                                setAuthError(data.error || 'Sign-in failed. Contact your administrator.');
+                                setSignedOut(true);
+                            }
+                        });
+                    })
+                    .catch(function (err) {
+                        console.error('MSAL redirect error:', err);
+                        setAuthError('Microsoft sign-in error: ' + err.message);
+                        setSignedOut(true);
+                    });
+            }, []);
 
             React.useEffect(() => {
                 const handleHashChange = () => {
@@ -2886,23 +2963,32 @@
                 window.location.hash = pageId;
             };
 
-            // Sign Out — clears app session only, does NOT touch Microsoft Entra
+            // Sign Out — clears app session only, does NOT sign out from Microsoft Entra
             const handleSignOut = () => {
                 sessionStorage.clear();
                 localStorage.removeItem('authToken');
+                // Clear MSAL cache so it doesn't silently re-auth
+                var accounts = window.msalInstance.getAllAccounts();
+                accounts.forEach(function (acct) {
+                    window.msalInstance.getTokenCache().removeAccount(acct);
+                });
                 window.location.hash = '';
                 setCurrentPage('dashboard');
+                setAuthError(null);
                 setSignedOut(true);
             };
 
+            // Sign Back In — triggers Microsoft Entra interactive login
             const handleSignBackIn = () => {
-                setSignedOut(false);
-                window.location.hash = 'dashboard';
-                setCurrentPage('dashboard');
+                setAuthError(null);
+                window.msalInstance.loginRedirect({
+                    scopes: ['openid', 'profile', 'email'],
+                    prompt: 'select_account', // let user pick/switch account
+                });
             };
 
             if (signedOut) {
-                return <SignedOutScreen onSignBackIn={handleSignBackIn} />;
+                return <SignedOutScreen onSignBackIn={handleSignBackIn} authError={authError} />;
             }
 
             const renderPage = () => {
