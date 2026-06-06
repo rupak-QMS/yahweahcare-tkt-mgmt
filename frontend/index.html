@@ -116,15 +116,17 @@
             { timestamp: '13 May 2026, 06:41 pm', ticket: 'YPC-TKT-2026-3359', action: 'Created', priority: 'Urgent', description: 'Test ticket', user: 'Ron Costa' },
         ];
 
-        // API Service Layer - Detect localhost vs production
-        const API_BASE_URL = window.location.hostname === 'localhost'
-            ? 'http://localhost:4000/api'
-            : 'https://yahweahcare-tkt-mgmt-hx48.vercel.app/api';
-
-        // HRMS backend — no /api prefix, different route structure
+        // API Service Layer — all routes go to backend-hrms (HRMS_API)
+        // API_BASE_URL kept for legacy references; both point to the same deployed backend.
         const HRMS_API = window.location.hostname === 'localhost'
             ? 'http://localhost:4001'
             : 'https://yahweahcare-tkt-mgmt-hx48.vercel.app';
+        const API_BASE_URL = HRMS_API; // alias — old code used API_BASE_URL
+
+        // Helper: read the logged-in user from sessionStorage
+        function getSessionUser() {
+            try { return JSON.parse(sessionStorage.getItem('ms_current_user') || 'null'); } catch { return null; }
+        }
 
         // Fallback mock data for lookups
         const LOOKUPS_MOCK = {
@@ -157,8 +159,8 @@
             lookups: {
                 get: async () => {
                     try {
-                        const res = await fetch(`${API_BASE_URL}/lookups`);
-                        if (!res.ok) throw new Error('API not responding');
+                        const res = await fetch(`${HRMS_API}/lookup/all`);
+                        if (!res.ok) throw new Error('lookup not responding');
                         return res.json();
                     } catch (err) {
                         console.log('Using mock lookups data');
@@ -167,13 +169,16 @@
                 }
             },
             tickets: {
-                getAll: async () => {
-                    const res = await fetch(`${API_BASE_URL}/tickets`);
+                getAll: async (opts = {}) => {
+                    const params = new URLSearchParams();
+                    if (opts.all) params.set('all', '1');
+                    if (opts.status) params.set('status', opts.status);
+                    const res = await fetch(`${HRMS_API}/tickets?${params}`);
                     if (!res.ok) throw new Error('Failed to fetch tickets');
                     return res.json();
                 },
                 getById: async (id) => {
-                    const res = await fetch(`${API_BASE_URL}/tickets/${id}`);
+                    const res = await fetch(`${HRMS_API}/tickets/${id}`);
                     if (!res.ok) throw new Error('Ticket not found');
                     return res.json();
                 },
@@ -187,50 +192,66 @@
                     return res.json();
                 },
                 update: async (id, data) => {
-                    const res = await fetch(`${API_BASE_URL}/tickets/${id}`, {
-                        method: 'PUT',
+                    const u = getSessionUser();
+                    const res = await fetch(`${HRMS_API}/tickets/${id}`, {
+                        method: 'PATCH',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(data)
+                        body: JSON.stringify({ ...data, actorId: u?.id })
                     });
-                    if (!res.ok) throw new Error('Failed to update ticket');
+                    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.message || 'Failed to update ticket'); }
                     return res.json();
                 },
                 delete: async (id) => {
-                    const res = await fetch(`${API_BASE_URL}/tickets/${id}`, {
-                        method: 'DELETE'
+                    const u = getSessionUser();
+                    const res = await fetch(`${HRMS_API}/tickets/${id}`, {
+                        method: 'DELETE',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ actorId: u?.id })
                     });
                     if (!res.ok) throw new Error('Failed to delete ticket');
                     return res.json();
                 },
                 escalate: async (id, escalateToUserId, reason) => {
-                    const res = await fetch(`${API_BASE_URL}/tickets/${id}/escalate`, {
+                    const u = getSessionUser();
+                    const res = await fetch(`${HRMS_API}/tickets/${id}/escalate`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ escalateToUserId, reason })
+                        body: JSON.stringify({ escalateToUserId, reason, actorId: u?.id })
                     });
                     if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || 'Failed to escalate'); }
                     return res.json();
                 },
                 getEscalations: async (id) => {
-                    const res = await fetch(`${API_BASE_URL}/tickets/${id}/escalations`);
+                    const res = await fetch(`${HRMS_API}/tickets/${id}/escalations`);
                     if (!res.ok) throw new Error('Failed to fetch escalations');
                     return res.json();
                 },
                 complete: async (id) => {
-                    const res = await fetch(`${API_BASE_URL}/tickets/${id}/complete`, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+                    const u = getSessionUser();
+                    const res = await fetch(`${HRMS_API}/tickets/${id}/complete`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ actorId: u?.id })
+                    });
                     if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || 'Failed to mark complete'); }
                     return res.json();
                 },
                 approve: async (id) => {
-                    const res = await fetch(`${API_BASE_URL}/tickets/${id}/approve`, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+                    const u = getSessionUser();
+                    const res = await fetch(`${HRMS_API}/tickets/${id}/approve`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ actorId: u?.id })
+                    });
                     if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || 'Failed to approve'); }
                     return res.json();
                 },
                 reject: async (id, justification) => {
-                    const res = await fetch(`${API_BASE_URL}/tickets/${id}/reject`, {
+                    const u = getSessionUser();
+                    const res = await fetch(`${HRMS_API}/tickets/${id}/reject`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ justification })
+                        body: JSON.stringify({ justification, actorId: u?.id })
                     });
                     if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || 'Failed to reject'); }
                     return res.json();
@@ -614,22 +635,25 @@
 
         // Create Ticket Page
         function CreateTicket() {
+            // Read logged-in user from sessionStorage so we can auto-fill reporter fields
+            const sessionUser = React.useMemo(() => getSessionUser(), []);
+
             const [formData, setFormData] = React.useState({
                 title_type: 'Service Request',
                 subtitle: '',
-                category_id: 'it',
+                category_id: '',        // populated from lookups
                 subcategory: '',
                 issue_details: '',
-                submitted_by: 'Ron Costa',
-                email: 'IT@yahweahcare.com.au',
+                submitted_by: sessionUser?.name || '',
+                email: sessionUser?.email || '',
                 ndis_related: false,
-                priority_id: 'medium',
+                priority_id: '',        // populated from lookups
                 initial_status: 'new',
                 expected_completion: '',
-                assign_to: 'Unassigned',
+                assigneeId: null,       // real DB user ID (null = unassigned)
                 approval_mode: 'AnyOne',
                 approver_ids: [],
-                created_by: 1,  // Ron Costa
+                created_by: sessionUser?.id || null,
                 assigned_to: null
             });
             const [loading, setLoading] = React.useState(false);
@@ -654,9 +678,14 @@
                         role: u.position_title || 'Staff'
                     }));
                     setLookups({ ...lookupsData, users: realStaff });
-                    // Set created_by to current user (Ron Costa by email)
-                    const ron = (usersData.users || []).find(u => u.email === 'it@yahwehcare.com.au');
-                    if (ron) setFormData(prev => ({ ...prev, created_by: ron.id }));
+                    // Set defaults from lookup data and current user
+                    const currentUser = (usersData.users || []).find(u => u.email?.toLowerCase() === sessionUser?.email?.toLowerCase());
+                    setFormData(prev => ({
+                        ...prev,
+                        created_by: currentUser?.id || prev.created_by,
+                        category_id: prev.category_id || (lookupsData.categories?.[0]?.id || ''),
+                        priority_id: prev.priority_id || (lookupsData.priorities?.find(p => p.label?.toLowerCase() === 'medium')?.id || lookupsData.priorities?.[0]?.id || ''),
+                    }));
                 } catch (err) {
                     const data = await API.lookups.get();
                     setLookups(data);
@@ -669,6 +698,21 @@
                 setError('');
                 setSuccess(false);
                 try {
+                    if (!formData.subtitle?.trim()) {
+                        setError('Subtitle is required');
+                        setLoading(false);
+                        return;
+                    }
+                    if (!formData.category_id) {
+                        setError('Please select a category');
+                        setLoading(false);
+                        return;
+                    }
+                    if (!formData.priority_id) {
+                        setError('Please select a priority');
+                        setLoading(false);
+                        return;
+                    }
                     if (!formData.expected_completion) {
                         setError('Expected Completion date is required');
                         setLoading(false);
@@ -684,19 +728,19 @@
                     setFormData({
                         title_type: 'Service Request',
                         subtitle: '',
-                        category_id: 'it',
+                        category_id: '',
                         subcategory: '',
                         issue_details: '',
-                        submitted_by: 'Ron Costa',
-                        email: 'IT@yahweahcare.com.au',
+                        submitted_by: sessionUser?.name || '',
+                        email: sessionUser?.email || '',
                         ndis_related: false,
-                        priority_id: 'medium',
+                        priority_id: '',
                         initial_status: 'new',
                         expected_completion: '',
-                        assign_to: 'Unassigned',
+                        assigneeId: null,
                         approval_mode: 'AnyOne',
                         approver_ids: [],
-                        created_by: 1,
+                        created_by: sessionUser?.id || null,
                         assigned_to: null
                     });
                     setTimeout(() => setSuccess(false), 5000);
@@ -785,13 +829,10 @@
                                             <div>
                                                 <label className={labelCls}>Category <span className="text-red-400">*</span></label>
                                                 <select name="category_id" value={formData.category_id} onChange={handleChange} className={inputCls}>
-                                                    <option value="it">IT Support</option>
-                                                    <option value="hr">HR &amp; Payroll</option>
-                                                    <option value="facilities">Facilities &amp; Maintenance</option>
-                                                    <option value="care">Care Coordination</option>
-                                                    <option value="clinical">Clinical / Compliance</option>
-                                                    <option value="finance">Finance</option>
-                                                    <option value="general">General Enquiry</option>
+                                                    <option value="">— Select category —</option>
+                                                    {(lookups?.categories || []).map(c => (
+                                                        <option key={c.id} value={c.id}>{c.icon ? c.icon + ' ' : ''}{c.label}</option>
+                                                    ))}
                                                 </select>
                                             </div>
                                             <div>
@@ -900,10 +941,10 @@
                                         <div className="mb-4">
                                             <label className={labelCls}>Priority <span className="text-red-400">*</span></label>
                                             <select name="priority_id" value={formData.priority_id} onChange={handleChange} className={inputCls}>
-                                                <option value="low">Low</option>
-                                                <option value="medium">Medium</option>
-                                                <option value="high">High</option>
-                                                <option value="critical">Critical</option>
+                                                <option value="">— Select priority —</option>
+                                                {(lookups?.priorities || []).map(p => (
+                                                    <option key={p.id} value={p.id}>{p.label}</option>
+                                                ))}
                                             </select>
                                         </div>
                                         <div className="mb-4">
@@ -930,9 +971,15 @@
                                         </div>
                                         <div>
                                             <label className={labelCls}>Assign To</label>
-                                            <select name="assign_to" value={formData.assign_to} onChange={handleChange} className={inputCls}>
-                                                <option>Unassigned</option>
-                                                {STAFF_DATA.map(s => <option key={s.name}>{s.name}</option>)}
+                                            <select
+                                                value={formData.assigneeId || ''}
+                                                onChange={e => setFormData(prev => ({ ...prev, assigneeId: e.target.value ? Number(e.target.value) : null }))}
+                                                className={inputCls}
+                                            >
+                                                <option value="">Unassigned</option>
+                                                {(lookups?.users || []).map(u => (
+                                                    <option key={u.id} value={u.id}>{u.name}</option>
+                                                ))}
                                             </select>
                                         </div>
                                     </div>
@@ -957,10 +1004,12 @@
 
         // Tickets Page
         function TicketsPage() {
+            const [tickets, setTickets] = React.useState([]);
+            const [staffList, setStaffList] = React.useState([]);
+            const [ticketsLoading, setTicketsLoading] = React.useState(true);
             const [filter, setFilter] = React.useState('all');
             const [search, setSearch] = React.useState('');
             const [selectedTicket, setSelectedTicket] = React.useState(null);
-            const [approvalComments, setApprovalComments] = React.useState('');
             const [approvers, setApprovers] = React.useState([]);
             const [actionLoading, setActionLoading] = React.useState(false);
             const [actionError, setActionError] = React.useState('');
@@ -971,7 +1020,48 @@
             const [escalateReason, setEscalateReason] = React.useState('');
             const [escalations, setEscalations] = React.useState([]);
 
-            const filtered = TICKETS_DATA.filter(t => {
+            // Map API status IDs to display labels
+            const toStatusLabel = s => ({ open:'Open', new:'New', in_progress:'In Progress', pending_approval:'Pending Approval', resolved:'Resolved', closed:'Closed', waiting:'Waiting', assigned:'Assigned' })[s] || (s||'').replace(/_/g,' ');
+            const toPriorityLabel = p => ({ critical:'Critical', high:'High', medium:'Medium', low:'Low' })[p] || p;
+
+            // Normalise an API ticket to the display shape the rest of the component uses
+            const normalise = t => ({
+                ...t,
+                _dbId: t.id,
+                id: t.ticketNumber || `#${t.id}`,
+                title: t.title || '',
+                category: t.categoryLabel || t.category || '',
+                priority: toPriorityLabel(t.priorityLabel || t.priority || ''),
+                status: toStatusLabel(t.statusLabel || t.status || ''),
+                assigned: t.assigneeName || 'Unassigned',
+                date: t.createdAt ? new Date(t.createdAt).toLocaleDateString('en-AU', {day:'numeric',month:'short',year:'numeric'}) : '',
+                isEscalated: !!t.isEscalated,
+            });
+
+            React.useEffect(() => {
+                // Fetch real tickets and real staff in parallel
+                Promise.all([
+                    API.tickets.getAll({ all: true }).catch(() => ({ tickets: [] })),
+                    fetch(`${HRMS_API}/users?status=active`).then(r => r.ok ? r.json() : { users: [] }).catch(() => ({ users: [] }))
+                ]).then(([tickData, staffData]) => {
+                    setTickets((tickData.tickets || []).map(normalise));
+                    setStaffList(staffData.users || []);
+                }).finally(() => setTicketsLoading(false));
+            }, []);
+
+            const refreshTicket = async (dbId) => {
+                try {
+                    const data = await API.tickets.getById(dbId);
+                    if (data.ticket) {
+                        const updated = normalise(data.ticket);
+                        setTickets(prev => prev.map(t => t._dbId === dbId ? updated : t));
+                        setSelectedTicket(updated);
+                        if (data.ticket.approvers) setApprovers(data.ticket.approvers);
+                    }
+                } catch(_) {}
+            };
+
+            const filtered = tickets.filter(t => {
                 if (filter !== 'all' && t.status.toLowerCase() !== filter.toLowerCase()) return false;
                 if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
                 return true;
@@ -1040,7 +1130,9 @@
                                 ))}
                             </div>
 
-                            <div className="overflow-x-auto">
+                            {ticketsLoading && <div className="text-center py-8 text-gray-400">⏳ Loading tickets…</div>}
+                            {!ticketsLoading && filtered.length === 0 && <div className="text-center py-8 text-gray-400">No tickets found.</div>}
+                            {!ticketsLoading && filtered.length > 0 && <div className="overflow-x-auto">
                                 <table className="w-full">
                                     <thead>
                                         <tr className="border-b border-gray-200">
@@ -1055,16 +1147,16 @@
                                     </thead>
                                     <tbody>
                                         {filtered.map(t => (
-                                            <tr key={t.id} className="table-row border-b border-gray-200 cursor-pointer hover:bg-gray-50" onClick={async () => {
+                                            <tr key={t._dbId || t.id} className="table-row border-b border-gray-200 cursor-pointer hover:bg-gray-50" onClick={async () => {
                                                 setSelectedTicket(t);
                                                 setRejectMode(false); setJustification(''); setActionError('');
                                                 setEscalateMode(false); setEscalateTo(''); setEscalateReason('');
                                                 setApprovers([]); setEscalations([]);
-                                                if (t.dbId || typeof t.id === 'number') {
+                                                if (t._dbId) {
                                                     try {
                                                         const [ticketData, escData] = await Promise.all([
-                                                            API.tickets.getById(t.dbId || t.id),
-                                                            API.tickets.getEscalations(t.dbId || t.id).catch(() => ({ escalations: [] }))
+                                                            API.tickets.getById(t._dbId),
+                                                            API.tickets.getEscalations(t._dbId).catch(() => ({ escalations: [] }))
                                                         ]);
                                                         if (ticketData.ticket?.approvers) setApprovers(ticketData.ticket.approvers);
                                                         if (escData.escalations) setEscalations(escData.escalations);
@@ -1087,7 +1179,7 @@
                                         ))}
                                     </tbody>
                                 </table>
-                            </div>
+                            </div>}
                         </div>
                     </div>
 
@@ -1136,8 +1228,8 @@
                                                 onClick={async () => {
                                                     setActionLoading(true); setActionError('');
                                                     try {
-                                                        await API.tickets.complete(selectedTicket.dbId || selectedTicket.id);
-                                                        setSelectedTicket(t => ({ ...t, status: 'Pending Approval' }));
+                                                        await API.tickets.complete(selectedTicket._dbId);
+                                                        await refreshTicket(selectedTicket._dbId);
                                                     } catch(e) { setActionError(e.message); }
                                                     finally { setActionLoading(false); }
                                                 }}
@@ -1235,8 +1327,8 @@
                                                             className="w-full border border-orange-200 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-400"
                                                         >
                                                             <option value="">— Select person —</option>
-                                                            {STAFF_DATA.map((s, i) => (
-                                                                <option key={i} value={i + 1}>{s.name} ({s.role})</option>
+                                                            {staffList.map(s => (
+                                                                <option key={s.id} value={s.id}>{s.name}{s.department_name ? ` (${s.department_name})` : ''}</option>
                                                             ))}
                                                         </select>
                                                     </div>
@@ -1259,15 +1351,14 @@
                                                                 setActionLoading(true); setActionError('');
                                                                 try {
                                                                     const data = await API.tickets.escalate(
-                                                                        selectedTicket.dbId || selectedTicket.id,
+                                                                        selectedTicket._dbId,
                                                                         Number(escalateTo),
                                                                         escalateReason
                                                                     );
                                                                     if (data.ticket?.escalations) setEscalations(data.ticket.escalations);
-                                                                    setSelectedTicket(t => ({ ...t, isEscalated: true }));
                                                                     setEscalateMode(false); setEscalateTo(''); setEscalateReason('');
-                                                                    // Reload escalation trail
-                                                                    const escData = await API.tickets.getEscalations(selectedTicket.dbId || selectedTicket.id).catch(() => ({ escalations: [] }));
+                                                                    await refreshTicket(selectedTicket._dbId);
+                                                                    const escData = await API.tickets.getEscalations(selectedTicket._dbId).catch(() => ({ escalations: [] }));
                                                                     if (escData.escalations) setEscalations(escData.escalations);
                                                                 } catch(e) { setActionError(e.message); }
                                                                 finally { setActionLoading(false); }
@@ -1304,10 +1395,9 @@
                                                         onClick={async () => {
                                                             setActionLoading(true); setActionError('');
                                                             try {
-                                                                const data = await API.tickets.approve(selectedTicket.dbId || selectedTicket.id);
+                                                                const data = await API.tickets.approve(selectedTicket._dbId);
                                                                 if (data.ticket?.approvers) setApprovers(data.ticket.approvers);
-                                                                const newStatus = data.ticket?.status === 'resolved' ? 'Resolved' : 'Pending Approval';
-                                                                setSelectedTicket(t => ({ ...t, status: newStatus }));
+                                                                await refreshTicket(selectedTicket._dbId);
                                                             } catch(e) { setActionError(e.message); }
                                                             finally { setActionLoading(false); }
                                                         }}
@@ -1339,10 +1429,10 @@
                                                             onClick={async () => {
                                                                 setActionLoading(true); setActionError('');
                                                                 try {
-                                                                    const data = await API.tickets.reject(selectedTicket.dbId || selectedTicket.id, justification);
+                                                                    const data = await API.tickets.reject(selectedTicket._dbId, justification);
                                                                     if (data.ticket?.approvers) setApprovers(data.ticket.approvers);
-                                                                    setSelectedTicket(t => ({ ...t, status: 'In Progress' }));
                                                                     setRejectMode(false); setJustification('');
+                                                                    await refreshTicket(selectedTicket._dbId);
                                                                 } catch(e) { setActionError(e.message); }
                                                                 finally { setActionLoading(false); }
                                                             }}

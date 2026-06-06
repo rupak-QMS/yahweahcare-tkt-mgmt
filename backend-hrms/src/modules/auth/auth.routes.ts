@@ -123,8 +123,10 @@ router.get('/microsoft/callback', async (req, res, next) => {
     res.cookie('yc_refresh', refreshToken, cookieOpts((rememberMe ? 90 : 30) * 86_400_000));
     res.cookie('yc_session', sessionToken, cookieOpts((rememberMe ? 90 : 30) * 86_400_000));
 
-    // Embed user info in redirect so frontend can display correct name immediately
+    // Embed user info in redirect so frontend can display correct name/id immediately
+    // id is included so the frontend can pass it as actorId for ticket operations
     const userParam = Buffer.from(JSON.stringify({
+      id:    user.id,
       name:  user.name  || '',
       email: user.email || '',
       dept:  deptName,

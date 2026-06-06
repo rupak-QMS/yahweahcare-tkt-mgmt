@@ -1,14 +1,24 @@
 // ============================================================
 // Lookup routes — categories, priorities, statuses
-// These are reference/seed tables; read-only from the API.
+// These are reference/seed tables; read-only, no auth required.
 // ============================================================
 
 import { Router } from 'express';
 import { pool } from '../../db/pool';
-import { requireAuth } from '../../middleware/auth.middleware';
 
 const router = Router();
-router.use(requireAuth);
+
+// GET /lookup/all — combined endpoint for the frontend create-ticket form
+router.get('/all', async (_req, res, next) => {
+  try {
+    const [cats, pris, stats] = await Promise.all([
+      pool.query(`SELECT id, label, icon, sort_order FROM yc_tkt_mgmt.categories ORDER BY sort_order`),
+      pool.query(`SELECT id, label, sla_hours, sort_order FROM yc_tkt_mgmt.priorities ORDER BY sort_order`),
+      pool.query(`SELECT id, label, sort_order, is_closed FROM yc_tkt_mgmt.statuses ORDER BY sort_order`),
+    ]);
+    res.json({ categories: cats.rows, priorities: pris.rows, statuses: stats.rows });
+  } catch (err) { next(err); }
+});
 
 // GET /lookup/categories
 router.get('/categories', async (_req, res, next) => {

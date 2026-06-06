@@ -268,9 +268,11 @@ router.post('/', optionalAuth, async (req, res, next) => {
 
 // ── POST /tickets/:id/complete — assignee marks work done ───
 // Moves status to pending_approval; all approvers notified
-router.post('/:id/complete', async (req, res, next) => {
+// Uses optionalAuth: falls back to actorId in request body when no session cookie
+router.post('/:id/complete', optionalAuth, async (req, res, next) => {
   try {
-    const id = Number(req.params.id);
+    const id      = Number(req.params.id);
+    const actorId = req.auth?.userId ?? (req.body.actorId ? Number(req.body.actorId) : null);
     const { rows: tRows } = await pool.query(`SELECT * FROM yc_tkt_mgmt.tickets WHERE id = $1`, [id]);
     if (!tRows[0]) return res.status(404).json({ error: 'not_found' });
 
@@ -297,20 +299,21 @@ router.post('/:id/complete', async (req, res, next) => {
     await pool.query(
       `INSERT INTO yc_tkt_mgmt.activity (ticket_id, actor_id, action_type, to_value)
        VALUES ($1,$2,'status_changed','pending_approval')`,
-      [id, req.auth!.userId]
+      [id, actorId]
     );
 
-    await logAudit({ userId: req.auth!.userId, actorEmail: req.auth!.email, action: 'ticket.complete', module: 'tickets', targetType: 'ticket', targetId: id, metadata: {}, req });
+    await logAudit({ userId: actorId ?? undefined, actorEmail: req.auth?.email, action: 'ticket.complete', module: 'tickets', targetType: 'ticket', targetId: id, metadata: {}, req });
     res.json({ ticket: dbTicket(rows[0]) });
   } catch (err) { next(err); }
 });
 
 // ── POST /tickets/:id/approve — approver approves ──────────
 // If ALL approvers have approved → ticket becomes resolved
-router.post('/:id/approve', async (req, res, next) => {
+router.post('/:id/approve', optionalAuth, async (req, res, next) => {
   try {
     const id     = Number(req.params.id);
-    const userId = req.auth!.userId;
+    const userId = req.auth?.userId ?? (req.body.actorId ? Number(req.body.actorId) : null);
+    if (!userId) return res.status(400).json({ error: 'missing_actor', message: 'actorId is required' });
 
     const { rows: apRow } = await pool.query(
       `SELECT * FROM yc_tkt_mgmt.ticket_approvers WHERE ticket_id=$1 AND approver_user_id=$2`, [id, userId]
@@ -324,10 +327,11 @@ router.post('/:id/approve', async (req, res, next) => {
       [id, userId]
     );
 
+    const actorEmail = req.auth?.email ?? apRow[0].user_email ?? String(userId);
     await pool.query(
       `INSERT INTO yc_tkt_mgmt.activity (ticket_id, actor_id, action_type, to_value)
        VALUES ($1,$2,'approved', $3)`,
-      [id, userId, req.auth!.email]
+      [id, userId, actorEmail]
     );
 
     // Check if ALL approvers have now approved
@@ -363,18 +367,19 @@ router.post('/:id/approve', async (req, res, next) => {
     );
     const t = dbTicket(ticket);
     t.approvers = allAp.map(dbApprover);
-    await logAudit({ userId, actorEmail: req.auth!.email, action: 'ticket.approve', module: 'tickets', targetType: 'ticket', targetId: id, metadata: {}, req });
+    await logAudit({ userId, actorEmail: req.auth?.email, action: 'ticket.approve', module: 'tickets', targetType: 'ticket', targetId: id, metadata: {}, req });
     res.json({ ticket: t });
   } catch (err) { next(err); }
 });
 
 // ── POST /tickets/:id/reject — approver rejects (reopens) ──
 // Sets status back to in_progress, records justification
-router.post('/:id/reject', async (req, res, next) => {
+router.post('/:id/reject', optionalAuth, async (req, res, next) => {
   try {
     const id     = Number(req.params.id);
-    const userId = req.auth!.userId;
+    const userId = req.auth?.userId ?? (req.body.actorId ? Number(req.body.actorId) : null);
     const { justification } = req.body || {};
+    if (!userId) return res.status(400).json({ error: 'missing_actor', message: 'actorId is required' });
 
     if (!justification?.trim()) {
       return res.status(400).json({ error: 'justification_required', message: 'A justification is required to reject the resolution' });
@@ -392,6 +397,7 @@ router.post('/:id/reject', async (req, res, next) => {
       [id, userId, justification.trim()]
     );
 
+    const actorEmail = req.auth?.email ?? String(userId);
     // Reopen ticket — back to in_progress
     const { rows } = await pool.query(
       `UPDATE yc_tkt_mgmt.tickets
@@ -403,7 +409,7 @@ router.post('/:id/reject', async (req, res, next) => {
     await pool.query(
       `INSERT INTO yc_tkt_mgmt.activity (ticket_id, actor_id, action_type, from_value, to_value, metadata)
        VALUES ($1,$2,'rejected','pending_approval','in_progress',$3)`,
-      [id, userId, JSON.stringify({ justification: justification.trim(), rejectedBy: req.auth!.email })]
+      [id, userId, JSON.stringify({ justification: justification.trim(), rejectedBy: actorEmail })]
     );
 
     const { rows: allAp } = await pool.query(
@@ -414,15 +420,16 @@ router.post('/:id/reject', async (req, res, next) => {
     );
     const t = dbTicket(rows[0]);
     t.approvers = allAp.map(dbApprover);
-    await logAudit({ userId, actorEmail: req.auth!.email, action: 'ticket.reject', module: 'tickets', targetType: 'ticket', targetId: id, metadata: { justification }, req });
+    await logAudit({ userId, actorEmail: req.auth?.email, action: 'ticket.reject', module: 'tickets', targetType: 'ticket', targetId: id, metadata: { justification }, req });
     res.json({ ticket: t });
   } catch (err) { next(err); }
 });
 
 // ── PATCH /tickets/:id — update ─────────────────────────────
-router.patch('/:id', async (req, res, next) => {
+router.patch('/:id', optionalAuth, async (req, res, next) => {
   try {
-    const id = Number(req.params.id);
+    const id      = Number(req.params.id);
+    const actorId = req.auth?.userId ?? (req.body.actorId ? Number(req.body.actorId) : null);
     const { rows: existing } = await pool.query(`SELECT * FROM yc_tkt_mgmt.tickets WHERE id = $1`, [id]);
     if (!existing[0]) return res.status(404).json({ error: 'not_found' });
     const old = existing[0];
@@ -449,46 +456,48 @@ router.patch('/:id', async (req, res, next) => {
     if ('status' in req.body && req.body.status !== old.status_id) {
       activityInserts.push(pool.query(
         `INSERT INTO yc_tkt_mgmt.activity (ticket_id, actor_id, action_type, from_value, to_value) VALUES ($1,$2,'status_changed',$3,$4)`,
-        [id, req.auth!.userId, old.status_id, req.body.status]
+        [id, actorId, old.status_id, req.body.status]
       ));
     }
     if ('assigneeId' in req.body && req.body.assigneeId !== old.assignee_id) {
       activityInserts.push(pool.query(
         `INSERT INTO yc_tkt_mgmt.activity (ticket_id, actor_id, action_type, from_value, to_value) VALUES ($1,$2,'assigned',$3,$4)`,
-        [id, req.auth!.userId, old.assignee_id ? String(old.assignee_id) : null, req.body.assigneeId ? String(req.body.assigneeId) : null]
+        [id, actorId, old.assignee_id ? String(old.assignee_id) : null, req.body.assigneeId ? String(req.body.assigneeId) : null]
       ));
     }
     if ('priority' in req.body && req.body.priority !== old.priority_id) {
       activityInserts.push(pool.query(
         `INSERT INTO yc_tkt_mgmt.activity (ticket_id, actor_id, action_type, from_value, to_value) VALUES ($1,$2,'priority_changed',$3,$4)`,
-        [id, req.auth!.userId, old.priority_id, req.body.priority]
+        [id, actorId, old.priority_id, req.body.priority]
       ));
     }
     await Promise.all(activityInserts);
 
-    await logAudit({ userId: req.auth!.userId, actorEmail: req.auth!.email, action: 'ticket.update', module: 'tickets', targetType: 'ticket', targetId: id, metadata: req.body, req });
+    await logAudit({ userId: actorId ?? undefined, actorEmail: req.auth?.email, action: 'ticket.update', module: 'tickets', targetType: 'ticket', targetId: id, metadata: req.body, req });
     res.json({ ticket: dbTicket(rows[0]) });
   } catch (err) { next(err); }
 });
 
 // ── DELETE /tickets/:id ─────────────────────────────────────
-router.delete('/:id', async (req, res, next) => {
+router.delete('/:id', optionalAuth, async (req, res, next) => {
   try {
-    const id = Number(req.params.id);
+    const id      = Number(req.params.id);
+    const actorId = req.auth?.userId ?? (req.body?.actorId ? Number(req.body.actorId) : null);
     const { rows } = await pool.query(`SELECT id, ticket_number FROM yc_tkt_mgmt.tickets WHERE id = $1`, [id]);
     if (!rows[0]) return res.status(404).json({ error: 'not_found' });
     await pool.query(`DELETE FROM yc_tkt_mgmt.tickets WHERE id = $1`, [id]);
-    await logAudit({ userId: req.auth!.userId, actorEmail: req.auth!.email, action: 'ticket.delete', module: 'tickets', targetType: 'ticket', targetId: id, metadata: { ticketNumber: rows[0].ticket_number }, req });
+    await logAudit({ userId: actorId ?? undefined, actorEmail: req.auth?.email, action: 'ticket.delete', module: 'tickets', targetType: 'ticket', targetId: id, metadata: { ticketNumber: rows[0].ticket_number }, req });
     res.json({ ok: true });
   } catch (err) { next(err); }
 });
 
 // ── POST /tickets/:id/escalate — manager escalates to any user ─
 // Reassigns ticket + logs full escalation trail
-router.post('/:id/escalate', async (req, res, next) => {
+router.post('/:id/escalate', optionalAuth, async (req, res, next) => {
   try {
     const id     = Number(req.params.id);
-    const userId = req.auth!.userId;
+    const userId = req.auth?.userId ?? (req.body.actorId ? Number(req.body.actorId) : null);
+    if (!userId) return res.status(400).json({ error: 'missing_actor', message: 'actorId is required' });
     const { escalateToUserId, reason } = req.body || {};
 
     if (!escalateToUserId) {
@@ -535,7 +544,7 @@ router.post('/:id/escalate', async (req, res, next) => {
        JSON.stringify({ reason: reason.trim(), escalatedTo: targetRows[0].name, escalatedToEmail: targetRows[0].email })]
     );
 
-    await logAudit({ userId, actorEmail: req.auth!.email, action: 'ticket.escalate', module: 'tickets', targetType: 'ticket', targetId: id, metadata: { escalateToUserId, reason: reason.trim() }, req });
+    await logAudit({ userId, actorEmail: req.auth?.email, action: 'ticket.escalate', module: 'tickets', targetType: 'ticket', targetId: id, metadata: { escalateToUserId, reason: reason.trim() }, req });
 
     // Fetch approvers for response
     const { rows: apRows } = await pool.query(
@@ -592,20 +601,21 @@ router.get('/:id/comments', async (req, res, next) => {
 });
 
 // ── POST /tickets/:id/comments ──────────────────────────────
-router.post('/:id/comments', async (req, res, next) => {
+router.post('/:id/comments', optionalAuth, async (req, res, next) => {
   try {
     const ticketId = Number(req.params.id);
     const { body, isInternal } = req.body || {};
     if (!body?.trim()) return res.status(400).json({ error: 'missing_body' });
+    const actorId = req.auth?.userId ?? (req.body.actorId ? Number(req.body.actorId) : null);
 
     const { rows } = await pool.query(
       `INSERT INTO yc_tkt_mgmt.comments (ticket_id, author_id, body, is_internal) VALUES ($1,$2,$3,$4) RETURNING *`,
-      [ticketId, req.auth!.userId, body.trim(), !!isInternal]
+      [ticketId, actorId, body.trim(), !!isInternal]
     );
     // Activity log
     await pool.query(
       `INSERT INTO yc_tkt_mgmt.activity (ticket_id, actor_id, action_type) VALUES ($1,$2,'commented')`,
-      [ticketId, req.auth!.userId]
+      [ticketId, actorId]
     );
     res.status(201).json({ comment: dbComment(rows[0]) });
   } catch (err) { next(err); }

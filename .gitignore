@@ -48,3 +48,4 @@ backend-hrms/local_export.sql
 backend-hrms/users_export.csv
 .vercel
 .env*
+yahweahcare-tkt-mgmt/
