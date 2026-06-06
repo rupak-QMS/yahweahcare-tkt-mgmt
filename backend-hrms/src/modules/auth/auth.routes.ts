@@ -4,6 +4,7 @@
 
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
 import { getAuthCodeUrl, acquireTokenByCode, getMicrosoftLogoutUrl } from '../../config/msal';
 import { generatePkce } from '../../utils/tokens';
 import { fetchGraphProfile, fetchGraphPhoto } from './microsoft.service';
@@ -13,9 +14,6 @@ import {
   rotateTokens,
   revokeSession,
   revokeAllUserSessions,
-  pkceCookieValue,
-  decodePkceCookie,
-  PKCE_COOKIE_NAME,
 } from './auth.service';
 import { env } from '../../config/env';
 import { loginLimiter } from '../../middleware/rateLimit.middleware';
@@ -57,18 +55,19 @@ router.post('/validate-email', (req, res) => {
 // ─── GET /auth/microsoft — start the SSO flow ──────────────
 router.get('/microsoft', loginLimiter, async (req, res, next) => {
   try {
-    const state = crypto.randomBytes(24).toString('base64url');
+    const nonce      = crypto.randomBytes(24).toString('base64url');
     const { verifier, challenge } = generatePkce();
     const rememberMe = req.query.remember === '1';
-    // Stash PKCE state in a short-lived signed cookie (10 min)
-    res.cookie(PKCE_COOKIE_NAME, pkceCookieValue(state, verifier, rememberMe), {
-      httpOnly: true,
-      secure: env.COOKIE_SECURE,
-      sameSite: 'lax',
-      maxAge: 10 * 60_000,
-      path: '/',
-    });
-    const url = await getAuthCodeUrl(state, challenge);
+
+    // Encode verifier + nonce in a signed JWT passed as OAuth `state`.
+    // Stateless — no cookie needed, works reliably in serverless environments.
+    const stateJwt = jwt.sign(
+      { nonce, verifier, rememberMe },
+      env.SESSION_SECRET,
+      { expiresIn: '10m', algorithm: 'HS256' },
+    );
+
+    const url = await getAuthCodeUrl(stateJwt, challenge);
     res.redirect(url);
   } catch (err) { next(err); }
 });
@@ -79,19 +78,22 @@ router.get('/microsoft/callback', async (req, res, next) => {
     const { code, state, error, error_description } = req.query as Record<string, string>;
     if (error) {
       await logAudit({ action: 'login.failed', module: 'auth', metadata: { error, error_description }, success: false, req });
-      return res.redirect(`${env.FRONTEND_URL}/login?error=${encodeURIComponent(error_description || error)}`);
+      return res.redirect(`${env.FRONTEND_URL}?error=${encodeURIComponent(error_description || error)}`);
     }
     if (!code || !state) return res.status(400).json({ error: 'missing_code_or_state' });
 
-    const remembered = decodePkceCookie(req.cookies?.[PKCE_COOKIE_NAME]);
-    res.clearCookie(PKCE_COOKIE_NAME);   // one-shot use
-    if (!remembered || remembered.state !== state) {
-      await logAudit({ action: 'login.failed', module: 'auth', metadata: { reason: 'state_mismatch' }, success: false, req });
-      return res.status(400).json({ error: 'invalid_state' });
+    // Decode the stateless JWT — verifier + rememberMe were encoded at login time
+    let statePayload: { nonce: string; verifier: string; rememberMe: boolean };
+    try {
+      statePayload = jwt.verify(state, env.SESSION_SECRET, { algorithms: ['HS256'] }) as typeof statePayload;
+    } catch (e) {
+      await logAudit({ action: 'login.failed', module: 'auth', metadata: { reason: 'invalid_state_jwt' }, success: false, req });
+      return res.redirect(`${env.FRONTEND_URL}?error=invalid_state`);
     }
+    const { verifier, rememberMe } = statePayload;
 
     // Exchange the auth code for tokens via MSAL
-    const tokenResponse = await acquireTokenByCode(code, remembered.verifier);
+    const tokenResponse = await acquireTokenByCode(code, verifier);
     if (!tokenResponse?.accessToken) throw new Error('No access token in MSAL response');
 
     // Fetch the user's profile + photo from Microsoft Graph
@@ -103,12 +105,12 @@ router.get('/microsoft/callback', async (req, res, next) => {
     const user = await provisionFromGraph(profile, photo, tenantId, req);
 
     // Mint our own session + JWTs
-    const { accessToken, refreshToken, sessionToken } = await createSession({ user, rememberMe: remembered.rememberMe, req });
+    const { accessToken, refreshToken, sessionToken } = await createSession({ user, rememberMe: rememberMe, req });
 
     // Set HTTP-only cookies
     res.cookie('yc_access',  accessToken,  cookieOpts(15 * 60_000));                                // 15m
-    res.cookie('yc_refresh', refreshToken, cookieOpts((remembered.rememberMe ? 90 : 30) * 86_400_000));
-    res.cookie('yc_session', sessionToken, cookieOpts((remembered.rememberMe ? 90 : 30) * 86_400_000));
+    res.cookie('yc_refresh', refreshToken, cookieOpts((rememberMe ? 90 : 30) * 86_400_000));
+    res.cookie('yc_session', sessionToken, cookieOpts((rememberMe ? 90 : 30) * 86_400_000));
 
     res.redirect(`${env.FRONTEND_URL}/dashboard`);
   } catch (err) {
