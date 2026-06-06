@@ -240,8 +240,11 @@
         };
 
         // Navigation Component
-        function Navigation({ currentPage, setCurrentPage, onSignOut }) {
+        function Navigation({ currentPage, setCurrentPage, onSignOut, currentUser }) {
             const [profileOpen, setProfileOpen] = React.useState(false);
+            const displayName = currentUser?.name || 'User';
+            const initials = displayName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+            const deptLabel = currentUser?.department_name || currentUser?.employment_type || '';
 
             const pages = [
                 { id: 'dashboard', label: 'Dashboard', icon: '📊' },
@@ -335,10 +338,10 @@
                             onClick={e => { e.stopPropagation(); setProfileOpen(o => !o); }}
                             className="w-full flex items-center gap-3 p-4 rounded-lg bg-orange-50 hover:bg-orange-100 transition text-left"
                         >
-                            <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">RC</div>
+                            <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">{initials}</div>
                             <div className="text-sm flex-1 min-w-0">
-                                <p className="font-semibold text-gray-900">Ron Costa</p>
-                                <p className="text-xs text-gray-600">IT</p>
+                                <p className="font-semibold text-gray-900 truncate">{displayName}</p>
+                                <p className="text-xs text-gray-600 truncate">{deptLabel}</p>
                             </div>
                             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{flexShrink:0, transform: profileOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s'}}>
                                 <path d="M2 4l4 4 4-4" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -2996,6 +2999,19 @@
             });
             const [signedOut, setSignedOut] = React.useState(false);
             const [authError, setAuthError] = React.useState(null);
+            const [currentUser, setCurrentUser] = React.useState(null);
+
+            // Fetch logged-in user from backend on mount (uses HttpOnly session cookie)
+            React.useEffect(() => {
+                const BACKEND = window.MicrosoftAuth
+                    ? (window.location.hostname === 'localhost' ? 'http://localhost:4001' : 'https://yahweahcare-tkt-mgmt-hx48.vercel.app')
+                    : null;
+                if (!BACKEND) return;
+                fetch(BACKEND + '/auth/me', { credentials: 'include' })
+                    .then(r => r.ok ? r.json() : null)
+                    .then(data => { if (data?.user) setCurrentUser(data.user); })
+                    .catch(() => {});
+            }, []);
 
             // Show any error the backend passed back via ?error= after Microsoft login
             React.useEffect(() => {
@@ -3023,10 +3039,13 @@
                 window.location.hash = pageId;
             };
 
-            // Sign Out — clears app session only, does NOT sign out from Microsoft Entra
+            // Sign Out — revoke backend session, clear local state (does NOT sign out from Microsoft Entra)
             const handleSignOut = () => {
+                const BACKEND = window.location.hostname === 'localhost' ? 'http://localhost:4001' : 'https://yahweahcare-tkt-mgmt-hx48.vercel.app';
+                fetch(BACKEND + '/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
                 try { sessionStorage.clear(); } catch(e) {}
                 try { localStorage.removeItem('authToken'); } catch(e) {}
+                setCurrentUser(null);
                 window.location.hash = '';
                 setCurrentPage('dashboard');
                 setAuthError(null);
@@ -3069,7 +3088,7 @@
 
             return (
                 <div className="flex h-screen bg-gray-50">
-                    <Navigation currentPage={currentPage} setCurrentPage={handlePageChange} onSignOut={handleSignOut} />
+                    <Navigation currentPage={currentPage} setCurrentPage={handlePageChange} onSignOut={handleSignOut} currentUser={currentUser} />
                     {renderPage()}
                 </div>
             );

@@ -144,11 +144,15 @@ router.post('/refresh', async (req: Request, res: Response, next: NextFunction) 
 // ─── GET /auth/me — current user ───────────────────────────
 router.get('/me', requireAuth, async (req, res) => {
   const { rows } = await pool.query(
-    `SELECT u.id, u.email, u.name, u.role, u.department, u.designation,
-            u.profile_photo_url, u.bootstrap_admin, u.bootstrap_admin, u.active,
-            r.display_name AS role_label
+    `SELECT u.id, u.email, u.name,
+            u.is_active          AS active,
+            u.is_bootstrap_admin AS bootstrap_admin,
+            u.auth_provider,
+            u.department_id,
+            u.employment_type,
+            d.name               AS department_name
        FROM yc_tkt_mgmt.users u
-       LEFT JOIN yc_tkt_mgmt.roles r ON r.id = u.role_id
+       LEFT JOIN yc_tkt_mgmt.departments d ON d.id = u.department_id
       WHERE u.id = $1`,
     [req.auth!.userId]
   );
