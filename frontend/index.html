@@ -309,24 +309,18 @@
                         ))}
                     </nav>
 
-                    {/* Profile section with dropdown */}
-                    <div className="mt-8 pt-8 border-t border-gray-200" style={{position: 'relative'}}>
-                        {/* Dropdown menu — opens upward */}
+                    {/* Profile section with dropdown — inline (no absolute) to avoid overflow-y clipping */}
+                    <div className="mt-8 pt-8 border-t border-gray-200">
+                        {/* Dropdown renders above profile card in normal flow */}
                         {profileOpen && (
                             <div
-                                onClick={e => e.stopPropagation()}
                                 style={{
-                                    position: 'absolute',
-                                    bottom: '100%',
-                                    left: 0,
-                                    right: 0,
                                     background: 'white',
                                     borderRadius: 12,
                                     boxShadow: '0 4px 24px rgba(0,0,0,0.14)',
                                     border: '1px solid #E5E7EB',
                                     marginBottom: 6,
                                     overflow: 'hidden',
-                                    zIndex: 200
                                 }}
                             >
                                 <button
@@ -2978,13 +2972,19 @@
 
             // Sign Out — clears app session only, does NOT sign out from Microsoft Entra
             const handleSignOut = () => {
-                sessionStorage.clear();
-                localStorage.removeItem('authToken');
-                // Clear MSAL cache so it doesn't silently re-auth
-                var accounts = window.msalInstance.getAllAccounts();
-                accounts.forEach(function (acct) {
-                    window.msalInstance.getTokenCache().removeAccount(acct);
-                });
+                try { sessionStorage.clear(); } catch(e) {}
+                try { localStorage.removeItem('authToken'); } catch(e) {}
+                // Clear MSAL token cache if available
+                if (window.msalInstance) {
+                    try {
+                        var accounts = window.msalInstance.getAllAccounts();
+                        accounts.forEach(function (acct) {
+                            window.msalInstance.getTokenCache().removeAccount(acct);
+                        });
+                    } catch(e) {
+                        console.warn('[MSAL] Cache clear skipped:', e.message);
+                    }
+                }
                 window.location.hash = '';
                 setCurrentPage('dashboard');
                 setAuthError(null);
