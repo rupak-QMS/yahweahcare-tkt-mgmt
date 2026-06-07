@@ -26,6 +26,7 @@ import auditRoutes         from '../src/modules/audit/audit.routes';
 import scheduleRoutes      from '../src/modules/schedules/schedules.routes';
 import ticketRoutes        from '../src/modules/tickets/tickets.routes';
 import notificationRoutes  from '../src/modules/notifications/notifications.routes';
+import pushRoutes          from '../src/modules/notifications/push.routes';
 import lookupRoutes        from '../src/modules/lookup/lookup.routes';
 import orgRoutes           from '../src/modules/org/org.routes';
 
@@ -66,6 +67,7 @@ app.use('/audit-logs',    apiLimiter);
 app.use('/tickets',       apiLimiter);
 app.use('/schedules',     apiLimiter);
 app.use('/notifications', apiLimiter);
+app.use('/push',          apiLimiter);
 app.use('/lookup',        apiLimiter);
 
 app.use('/auth',          authRoutes);
@@ -75,6 +77,7 @@ app.use('/audit-logs',    auditRoutes);
 app.use('/tickets',       ticketRoutes);
 app.use('/schedules',     scheduleRoutes);
 app.use('/notifications', notificationRoutes);
+app.use('/push',          pushRoutes);
 app.use('/lookup',        lookupRoutes);
 app.use('/org',           orgRoutes);
 
