@@ -792,12 +792,13 @@
             }, [tickets]);
 
             const statCards = [
-                { label:'Total Tickets', value:total,    color:'#6366F1', bg:'#EEF2FF', icon:'📋' },
-                { label:'Open',          value:open,     color:'#0EA5E9', bg:'#E0F2FE', icon:'⏱️' },
-                { label:'In Progress',   value:inProg,   color:'#F59E0B', bg:'#FFFBEB', icon:'⚙️' },
-                { label:'Resolved',      value:resolved, color:'#10B981', bg:'#ECFDF5', icon:'✅' },
-                { label:'Overdue',       value:overdue,  color:'#EF4444', bg:'#FEF2F2', icon:'⚠️' },
-                { label:'Urgent/Critical',value:urgent,  color:'#DC2626', bg:'#FFF1F2', icon:'🔴' },
+                { label:'Total Tickets',  value:total,     color:'#6366F1', bg:'#EEF2FF', icon:'📋' },
+                { label:'Open',           value:open,      color:'#0EA5E9', bg:'#E0F2FE', icon:'⏱️' },
+                { label:'In Progress',    value:inProg,    color:'#F59E0B', bg:'#FFFBEB', icon:'⚙️' },
+                { label:'Resolved',       value:resolved,  color:'#10B981', bg:'#ECFDF5', icon:'✅' },
+                { label:'Escalated',      value:escalated, color:'#7C3AED', bg:'#F5F3FF', icon:'⬆️' },
+                { label:'Overdue',        value:overdue,   color:'#EF4444', bg:'#FEF2F2', icon:'⚠️' },
+                { label:'Urgent/Critical',value:urgent,    color:'#DC2626', bg:'#FFF1F2', icon:'🔴' },
             ];
 
             return (
@@ -811,7 +812,7 @@
                         </div>
 
                         {/* Stat cards */}
-                        <div style={{display:'grid',gridTemplateColumns:'repeat(6,1fr)',gap:'12px',marginBottom:'20px'}}>
+                        <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:'12px',marginBottom:'20px'}}>
                             {statCards.map((c,i)=>(
                                 <div key={i} style={{background:'white',borderRadius:'12px',border:'1px solid #E5E7EB',padding:'16px',boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
                                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
