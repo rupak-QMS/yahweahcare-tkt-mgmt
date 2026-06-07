@@ -2422,27 +2422,40 @@
                 })();
             }, []);
 
-            // Chart
+            // Chart — use rAF to ensure canvas has layout dimensions before Chart.js draws
             React.useEffect(() => {
-                if (!deptMetrics.length || !canvasRef.current) return;
-                if (chartInst.current) { chartInst.current.destroy(); chartInst.current = null; }
-                chartInst.current = new Chart(canvasRef.current, {
-                    type: 'bar',
-                    data: {
-                        labels: deptMetrics.map(d=>d.name),
-                        datasets: [
-                            { label:'Assigned',  data:deptMetrics.map(d=>d.assigned),  backgroundColor:'#818CF8' },
-                            { label:'Resolved',  data:deptMetrics.map(d=>d.resolved),  backgroundColor:'#34D399' },
-                            { label:'Pending',   data:deptMetrics.map(d=>d.pending),   backgroundColor:'#FCD34D' },
-                            { label:'Escalated', data:deptMetrics.map(d=>d.escalated), backgroundColor:'#F97316' },
-                            { label:'Overdue',   data:deptMetrics.map(d=>d.overdue),   backgroundColor:'#F43F5E' },
-                        ]
-                    },
-                    options: { responsive:true, maintainAspectRatio:true,
-                               plugins:{ legend:{ position:'bottom' } },
-                               scales:{ y:{ beginAtZero:true, ticks:{ stepSize:1 } } } }
+                if (!deptMetrics.length) return;
+                let rafId;
+                rafId = requestAnimationFrame(() => {
+                    if (!canvasRef.current) return;
+                    if (chartInst.current) { try { chartInst.current.destroy(); } catch(_){} chartInst.current = null; }
+                    chartInst.current = new Chart(canvasRef.current, {
+                        type: 'bar',
+                        data: {
+                            labels: deptMetrics.map(d=>d.name),
+                            datasets: [
+                                { label:'Assigned',  data:deptMetrics.map(d=>d.assigned),  backgroundColor:'rgba(99,102,241,0.8)',  borderRadius:4 },
+                                { label:'Resolved',  data:deptMetrics.map(d=>d.resolved),  backgroundColor:'rgba(52,211,153,0.8)',  borderRadius:4 },
+                                { label:'Pending',   data:deptMetrics.map(d=>d.pending),   backgroundColor:'rgba(252,211,77,0.8)',  borderRadius:4 },
+                                { label:'Escalated', data:deptMetrics.map(d=>d.escalated), backgroundColor:'rgba(249,115,22,0.8)',  borderRadius:4 },
+                                { label:'Overdue',   data:deptMetrics.map(d=>d.overdue),   backgroundColor:'rgba(244,63,94,0.8)',   borderRadius:4 },
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins:{ legend:{ position:'bottom', labels:{boxWidth:12,padding:16,font:{size:12}} } },
+                            scales:{
+                                y:{ beginAtZero:true, grid:{color:'#F3F4F6'}, ticks:{stepSize:1} },
+                                x:{ grid:{display:false} }
+                            }
+                        }
+                    });
                 });
-                return () => { if (chartInst.current) { chartInst.current.destroy(); chartInst.current = null; } };
+                return () => {
+                    cancelAnimationFrame(rafId);
+                    if (chartInst.current) { try { chartInst.current.destroy(); } catch(_){} chartInst.current = null; }
+                };
             }, [deptMetrics]);
 
             const sorted = [...deptMetrics].sort((a,b) => {
