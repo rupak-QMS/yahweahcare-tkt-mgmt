@@ -671,6 +671,13 @@
             : 'https://yahweahcare-tkt-mgmt-hx48.vercel.app';
         const API_BASE_URL = HRMS_API; // alias — old code used API_BASE_URL
 
+        // ── Authenticated fetch: always sends session cookie ──────────────────
+        // Every call to the backend MUST include credentials so the auth cookie
+        // is transmitted. Without this, the server sees the request as anonymous.
+        function apiFetch(url, opts = {}) {
+            return fetch(url, { ...opts, credentials: 'include' });
+        }
+
         // Helper: read the logged-in user from sessionStorage
         function getSessionUser() {
             try { return JSON.parse(sessionStorage.getItem('ms_current_user') || 'null'); } catch { return null; }
@@ -749,7 +756,7 @@
             lookups: {
                 get: async () => {
                     try {
-                        const res = await fetch(`${HRMS_API}/lookup/all`);
+                        const res = await apiFetch(`${HRMS_API}/lookup/all`);
                         if (!res.ok) throw new Error('lookup not responding');
                         return res.json();
                     } catch (err) {
@@ -769,17 +776,17 @@
                     if (scope.scope)  params.set('scope',  scope.scope);
                     if (scope.userId) params.set('userId', scope.userId);
                     if (scope.deptId) params.set('deptId', scope.deptId);
-                    const res = await fetch(`${HRMS_API}/tickets?${params}`);
+                    const res = await apiFetch(`${HRMS_API}/tickets?${params}`);
                     if (!res.ok) throw new Error('Failed to fetch tickets');
                     return res.json();
                 },
                 getById: async (id) => {
-                    const res = await fetch(`${HRMS_API}/tickets/${id}`);
+                    const res = await apiFetch(`${HRMS_API}/tickets/${id}`);
                     if (!res.ok) throw new Error('Ticket not found');
                     return res.json();
                 },
                 create: async (data) => {
-                    const res = await fetch(`${HRMS_API}/tickets`, {
+                    const res = await apiFetch(`${HRMS_API}/tickets`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(data)
@@ -789,7 +796,7 @@
                 },
                 update: async (id, data) => {
                     const u = getSessionUser();
-                    const res = await fetch(`${HRMS_API}/tickets/${id}`, {
+                    const res = await apiFetch(`${HRMS_API}/tickets/${id}`, {
                         method: 'PATCH',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ ...data, actorId: u?.id })
@@ -799,7 +806,7 @@
                 },
                 delete: async (id) => {
                     const u = getSessionUser();
-                    const res = await fetch(`${HRMS_API}/tickets/${id}`, {
+                    const res = await apiFetch(`${HRMS_API}/tickets/${id}`, {
                         method: 'DELETE',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ actorId: u?.id })
@@ -809,7 +816,7 @@
                 },
                 escalate: async (id, escalateToUserId, reason) => {
                     const u = getSessionUser();
-                    const res = await fetch(`${HRMS_API}/tickets/${id}/escalate`, {
+                    const res = await apiFetch(`${HRMS_API}/tickets/${id}/escalate`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ escalateToUserId, reason, actorId: u?.id })
@@ -818,13 +825,13 @@
                     return res.json();
                 },
                 getEscalations: async (id) => {
-                    const res = await fetch(`${HRMS_API}/tickets/${id}/escalations`);
+                    const res = await apiFetch(`${HRMS_API}/tickets/${id}/escalations`);
                     if (!res.ok) throw new Error('Failed to fetch escalations');
                     return res.json();
                 },
                 complete: async (id) => {
                     const u = getSessionUser();
-                    const res = await fetch(`${HRMS_API}/tickets/${id}/complete`, {
+                    const res = await apiFetch(`${HRMS_API}/tickets/${id}/complete`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ actorId: u?.id })
@@ -834,7 +841,7 @@
                 },
                 approve: async (id) => {
                     const u = getSessionUser();
-                    const res = await fetch(`${HRMS_API}/tickets/${id}/approve`, {
+                    const res = await apiFetch(`${HRMS_API}/tickets/${id}/approve`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ actorId: u?.id })
@@ -844,7 +851,7 @@
                 },
                 reject: async (id, justification) => {
                     const u = getSessionUser();
-                    const res = await fetch(`${HRMS_API}/tickets/${id}/reject`, {
+                    const res = await apiFetch(`${HRMS_API}/tickets/${id}/reject`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ justification, actorId: u?.id })
@@ -855,7 +862,7 @@
             },
             users: {
                 getAll: async () => {
-                    const res = await fetch(`${API_BASE_URL}/users`);
+                    const res = await apiFetch(`${API_BASE_URL}/users`);
                     if (!res.ok) throw new Error('Failed to fetch users');
                     return res.json();
                 }
@@ -877,7 +884,7 @@
             // Load real notifications from backend
             const loadNotifications = React.useCallback(() => {
                 setNotifLoading(true);
-                fetch(`${HRMS_API}/notifications`, { credentials:'include' })
+                apiFetch(`${HRMS_API}/notifications`, { credentials:'include' })
                     .then(r => r.ok ? r.json() : { notifications: [] })
                     .then(d => setNotifications(Array.isArray(d.notifications) ? d.notifications : []))
                     .catch(() => {})
@@ -898,12 +905,12 @@
             const unreadCount = notifications.filter(n => !n.read_at).length;
 
             const markAllRead = () => {
-                fetch(`${HRMS_API}/notifications/read-all`, { method:'POST', credentials:'include' })
+                apiFetch(`${HRMS_API}/notifications/read-all`, { method:'POST', credentials:'include' })
                     .then(() => loadNotifications()).catch(() => {});
             };
 
             const markRead = (id) => {
-                fetch(`${HRMS_API}/notifications/${id}/read`, { method:'PATCH', credentials:'include' })
+                apiFetch(`${HRMS_API}/notifications/${id}/read`, { method:'PATCH', credentials:'include' })
                     .then(() => loadNotifications()).catch(() => {});
             };
 
@@ -1224,7 +1231,7 @@
                 setLocalError('');
                 setLoading(true);
                 try {
-                    const res  = await fetch(API_BASE_URL + '/auth/login', {
+                    const res  = await apiFetch(API_BASE_URL + '/auth/login', {
                         method:  'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body:    JSON.stringify({ email, password }),
@@ -1365,9 +1372,9 @@
                 if (tsp.deptId) tp.set('deptId', String(tsp.deptId));
 
                 Promise.all([
-                    fetch(`${HRMS_API}/tickets?${tp}`).then(r=>r.ok?r.json():{tickets:[]}),
-                    fetch(`${HRMS_API}/users?status=active&limit=200${uqp}`).then(r=>r.ok?r.json():{users:[]}),
-                    fetch(`${HRMS_API}/tickets/activity?limit=5${sp}`).then(r=>r.ok?r.json():{activity:[]}),
+                    apiFetch(`${HRMS_API}/tickets?${tp}`).then(r=>r.ok?r.json():{tickets:[]}),
+                    apiFetch(`${HRMS_API}/users?status=active&limit=200${uqp}`).then(r=>r.ok?r.json():{users:[]}),
+                    apiFetch(`${HRMS_API}/tickets/activity?limit=5${sp}`).then(r=>r.ok?r.json():{activity:[]}),
                 ]).then(([td, ud, ad]) => {
                     setTickets(td.tickets || []);
                     setStaffCount((ud.users || []).length);
@@ -1606,7 +1613,7 @@
                 try {
                     const [lookupsData, usersRes] = await Promise.all([
                         API.lookups.get(),
-                        fetch(`${HRMS_API}/users?status=active&limit=200${getUserQueryParams(getSessionUser())}`)
+                        apiFetch(`${HRMS_API}/users?status=active&limit=200${getUserQueryParams(getSessionUser())}`)
                     ]);
                     const usersData = usersRes.ok ? await usersRes.json() : { users: [] };
                     // Merge real staff into lookups.users for approver list
@@ -1998,7 +2005,7 @@
                 // Fetch real tickets and real staff in parallel
                 Promise.all([
                     API.tickets.getAll({ all: true, limit: 500 }).catch(() => ({ tickets: [] })),
-                    fetch(`${HRMS_API}/users?status=active&limit=200${getUserQueryParams(getSessionUser())}`).then(r => r.ok ? r.json() : { users: [] }).catch(() => ({ users: [] }))
+                    apiFetch(`${HRMS_API}/users?status=active&limit=200${getUserQueryParams(getSessionUser())}`).then(r => r.ok ? r.json() : { users: [] }).catch(() => ({ users: [] }))
                 ]).then(([tickData, staffData]) => {
                     setTickets((tickData.tickets || []).map(normalise));
                     setStaffList(staffData.users || []);
@@ -3113,8 +3120,8 @@
                         if (tsp.userId) tParams.set('userId', String(tsp.userId));
                         if (tsp.deptId) tParams.set('deptId', String(tsp.deptId));
                         const [usersRes, ticketsRes] = await Promise.all([
-                            fetch(`${HRMS_API}/users?status=active&limit=200${uqp}`),
-                            fetch(`${HRMS_API}/tickets?${tParams}`),
+                            apiFetch(`${HRMS_API}/users?status=active&limit=200${uqp}`),
+                            apiFetch(`${HRMS_API}/tickets?${tParams}`),
                         ]);
                         const usersData   = usersRes.ok   ? await usersRes.json()   : { users: [] };
                         const ticketsData = ticketsRes.ok ? await ticketsRes.json() : { tickets: [] };
@@ -3512,8 +3519,8 @@
                         if (tsp.userId) tParams.set('userId', String(tsp.userId));
                         if (tsp.deptId) tParams.set('deptId', String(tsp.deptId));
                         const [usersRes, ticketsRes] = await Promise.all([
-                            fetch(`${HRMS_API}/users?status=active&limit=200${uqp}`),
-                            fetch(`${HRMS_API}/tickets?${tParams}`),
+                            apiFetch(`${HRMS_API}/users?status=active&limit=200${uqp}`),
+                            apiFetch(`${HRMS_API}/tickets?${tParams}`),
                         ]);
                         const users   = (usersRes.ok   ? await usersRes.json()   : { users: [] }).users   || [];
                         const tickets = (ticketsRes.ok ? await ticketsRes.json() : { tickets: [] }).tickets || [];
@@ -3936,53 +3943,62 @@
 
             const charts = React.useRef({});
 
+            // ── Fetch pre-aggregated stats from the backend ──────────────────
+            // Uses /tickets/stats which does SQL GROUP BY instead of pulling raw rows.
+            const [stats, setStats] = React.useState(null);
+            const [fetchedAt, setFetchedAt] = React.useState(null);
+
             React.useEffect(() => {
-                API.tickets.getAll({ all: true, limit: 500 }).then(d => {
-                    setTickets(d.tickets || []);
-                    setLoading(false);
-                }).catch(() => { setLoading(false); });
-            }, []);
+                setLoading(true);
+                const scopeP = getTicketScopeParams(getSessionUser());
+                const params = new URLSearchParams({ days: range });
+                if (scopeP.scope)  params.set('scope',  scopeP.scope);
+                if (scopeP.userId) params.set('userId', scopeP.userId);
+                if (scopeP.deptId) params.set('deptId', scopeP.deptId);
+                apiFetch(`${HRMS_API}/tickets/stats?${params}`)
+                    .then(r => r.ok ? r.json() : null)
+                    .then(d => { setStats(d); setFetchedAt(new Date()); setLoading(false); })
+                    .catch(() => setLoading(false));
+            }, [range]);
 
-            // Derived metrics
-            const now = new Date();
-            const cutoff = new Date(now); cutoff.setDate(now.getDate() - Number(range));
-            const filtered = tickets.filter(t => new Date(t.createdAt || t.date || now) >= cutoff);
+            // ── Derived display values from stats ────────────────────────────
+            const total     = stats?.total ?? 0;
+            const resolved  = stats?.resolved ?? 0;
+            const escalated = stats?.escalated ?? 0;
+            const ndis      = stats?.ndis ?? 0;
+            const slaBreached = stats?.sla?.breached ?? 0;
+            const slaOkCount  = stats?.sla?.ok ?? 0;
+            const overduePct  = stats?.sla?.activeOverdue ?? 0;
+            const slaEval     = (stats?.sla?.ok ?? 0) + slaBreached + overduePct;
+            const slaRate     = stats?.sla?.rate ?? 100;
+            const open        = total - resolved;
+            const resRate     = total ? Math.round((resolved/total)*100) : 0;
 
-            const total      = filtered.length;
-            const open       = filtered.filter(t => !['resolved','closed'].includes((t.status||t.status_id||'').toLowerCase())).length;
-            const resolved   = filtered.filter(t => ['resolved','closed'].includes((t.status||t.status_id||'').toLowerCase())).length;
-            const escalated  = filtered.filter(t => t.isEscalated).length;
-            const ndis       = filtered.filter(t => t.ndisRelated || t.ndis_related || t.ndisrelated).length;
-            const resTickets  = filtered.filter(t => ['resolved','closed'].includes((t.status||t.status_id||'').toLowerCase()));
-            const slaBreached= resTickets.filter(t => t.slaBreached||t.sla_breached).length;
-            const slaOkCount = resTickets.length - slaBreached;
-            const overduePct = filtered.filter(t => !['resolved','closed'].includes((t.status||t.status_id||'').toLowerCase()) && t.dueAt && new Date(t.dueAt) < now).length;
-            const slaEval    = resTickets.length + overduePct;
-            const slaRate    = slaEval > 0 ? Math.round((slaOkCount / slaEval) * 100) : 100;
-            const resRate    = total ? Math.round((resolved/total)*100) : 0;
-
-            // Priority counts
+            // Priority counts from stats
             const priorityCounts = { critical:0, urgent:0, high:0, medium:0, low:0 };
-            filtered.forEach(t => { const p=(t.priorityLabel||t.priority||t.priority_id||'Low').toLowerCase().replace('critical','critical').replace('urgent','urgent'); if(priorityCounts[p]!==undefined) priorityCounts[p]++; else if(p.includes('critical')||p.includes('urgent')) priorityCounts['critical']++; });
+            (stats?.byPriority || []).forEach(({priority, count}) => {
+                const p = (priority||'low').toLowerCase();
+                if (p.includes('critical') || p.includes('urgent')) priorityCounts.critical += count;
+                else if (priorityCounts[p] !== undefined) priorityCounts[p] += count;
+            });
 
-            // Status counts
+            // Status counts from stats
             const statusCounts = {};
-            filtered.forEach(t => { const s=(t.status||t.status_id||'open'); statusCounts[s]=(statusCounts[s]||0)+1; });
+            (stats?.byStatus || []).forEach(({status, count}) => { statusCounts[status] = count; });
 
-            // Category counts (top 6)
+            // Category counts from stats (top 7)
             const catCounts = {};
-            filtered.forEach(t => { const c=(t.categoryLabel||t.category||t.category_id||'Other'); catCounts[c]=(catCounts[c]||0)+1; });
+            (stats?.byCategory || []).forEach(({category, count}) => { catCounts[category] = count; });
             const topCats = Object.entries(catCounts).sort((a,b)=>b[1]-a[1]).slice(0,7);
 
-            // Staff workload
-            const staffCounts = {};
-            filtered.forEach(t => { const a=t.assigneeName||t.assignedToName||'Unassigned'; staffCounts[a]=(staffCounts[a]||0)+1; });
-            const staffRows = Object.entries(staffCounts).sort((a,b)=>b[1]-a[1]);
+            // Staff rows from stats
+            const staffRows = (stats?.byStaff || []).map(({name, count}) => [name, count]);
 
-            // Monthly volume (last 6 months)
+            // Monthly volume (last 6 months) — padded to always show 6 months
+            const now = new Date();
             const monthlyMap = {};
             for(let i=5;i>=0;i--){ const d=new Date(now); d.setMonth(d.getMonth()-i); const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; monthlyMap[k]=0; }
-            tickets.forEach(t => { const d=new Date(t.createdAt||t.date||now); const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; if(monthlyMap[k]!==undefined) monthlyMap[k]++; });
+            (stats?.monthly || []).forEach(({month, count}) => { if(monthlyMap[month]!==undefined) monthlyMap[month]=count; });
             const monthLabels = Object.keys(monthlyMap).map(k=>{ const [y,m]=k.split('-'); return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][Number(m)-1]+' '+y; });
             const monthData   = Object.values(monthlyMap);
 
@@ -4028,7 +4044,7 @@
                 const nc = document.getElementById('chart-ndis');
                 if(nc) charts.current.ndis = new Chart(nc, { type:'doughnut', data:{ labels:['NDIS Related','Non-NDIS'], datasets:[{ data:[ndis, total-ndis], backgroundColor:['#6366F1','#E0E7FF'], borderWidth:2, borderColor:'white', hoverOffset:4 }] }, options:{ responsive:true, cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, padding:10, font:{size:11}, color:dm?'#8fa4cc':'#334155' } } } } });
 
-            }, [loading, filtered.length, range]);
+            }, [loading, stats, range]);
 
             const card = (label, value, sub, color='#6366F1', icon, meta) => (
                 <div style={{background:cardBg, borderRadius:'16px', border:`1.5px solid ${borderC}`, padding:'18px 20px', boxShadow:dm?'0 4px 24px rgba(0,0,0,0.4)':'0 1px 6px rgba(99,102,241,0.07)'}}>
@@ -4059,7 +4075,7 @@
                         <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'22px', flexWrap:'wrap', gap:'12px'}}>
                             <div>
                                 <h1 style={{fontSize:'22px', fontWeight:'700', color:dm?'#c7d2fe':'#1E1B4B', margin:0}}>📊 Analytics</h1>
-                                <p style={{fontSize:'12px', color:dm?'#4a607f':'#94A3B8', margin:'4px 0 0'}}>Business insights · {tickets.length} tickets loaded · as of {new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</p>
+                                <p style={{fontSize:'12px', color:dm?'#4a607f':'#94A3B8', margin:'4px 0 0'}}>Business insights · {total} tickets in period · {fetchedAt ? fetchedAt.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '…'}</p>
                             </div>
                             <div style={{display:'flex', alignItems:'center', gap:'8px', background:cardBg, border:`1.5px solid ${borderC}`, borderRadius:'10px', padding:'8px 14px'}}>
                                 <span style={{fontSize:'11px', fontWeight:'700', color:dm?'#818cf8':'#4F46E5', textTransform:'uppercase', letterSpacing:'0.06em'}}>Period</span>
@@ -4093,19 +4109,19 @@
                         {/* ── Row 1: Trend + Priority ── */}
                         <div style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:'16px', marginBottom:'16px'}}>
                             {chartCard('Ticket Volume Trend', 'Monthly ticket creation — all tickets regardless of period filter', 'chart-trend', 200)}
-                            {chartCard('Priority Breakdown', `Distribution by priority · ${filtered.length} tickets in period`, 'chart-priority', 200)}
+                            {chartCard('Priority Breakdown', `Distribution by priority · ${total} tickets in period`, 'chart-priority', 200)}
                         </div>
 
                         {/* ── Row 2: Status + Category ── */}
                         <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'16px', marginBottom:'16px'}}>
-                            {chartCard('Tickets by Status', `Raw status values from backend · ${filtered.length} tickets`, 'chart-status', 200)}
-                            {chartCard('Top Categories', `Top ${Math.min(topCats.length,7)} categories by volume · ${filtered.length} tickets`, 'chart-category', 200)}
+                            {chartCard('Tickets by Status', `Status breakdown from backend · ${total} tickets`, 'chart-status', 200)}
+                            {chartCard('Top Categories', `Top ${Math.min(topCats.length,7)} categories by volume · ${total} tickets`, 'chart-category', 200)}
                         </div>
 
                         {/* ── Row 3: Staff + NDIS + Insights ── */}
                         <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'16px', marginBottom:'16px'}}>
-                            {chartCard('Staff Workload', `Assigned tickets per staff member · ${filtered.length} tickets`, 'chart-staff', 200)}
-                            {chartCard('NDIS vs Non-NDIS', `NDIS flag from backend · ${ndis} of ${total} tickets flagged`, 'chart-ndis', 200)}
+                            {chartCard('Staff Workload', `Assigned tickets per staff member · ${total} tickets`, 'chart-staff', 200)}
+                            {chartCard('NDIS vs Non-NDIS', `NDIS flag from backend · ${ndis} of ${total} flagged`, 'chart-ndis', 200)}
 
                             {/* Key Insights card */}
                             <div style={{background:cardBg, borderRadius:'16px', border:`1.5px solid ${borderC}`, padding:'20px', boxShadow:dm?'0 4px 24px rgba(0,0,0,0.4)':'0 1px 6px rgba(99,102,241,0.07)'}}>
@@ -4137,35 +4153,20 @@
                                 <table style={{width:'100%', borderCollapse:'collapse', fontSize:'12px'}}>
                                     <thead>
                                         <tr style={{borderBottom:'2px solid #EEF2FF', background:'#F8F7FF'}}>
-                                            {['Category','Total','Critical','High','Medium','Low','Open','Resolved','SLA OK'].map(h=>(
+                                            {['Category','Total','Detail','SLA OK'].map(h=>(
                                                 <th key={h} style={{padding:'8px 12px', textAlign: h==='Category'?'left':'center', fontWeight:'700', color:dm?'#818cf8':'#4F46E5', fontSize:'10px', textTransform:'uppercase', letterSpacing:'0.06em', whiteSpace:'nowrap'}}>{h}</th>
                                             ))}
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {Object.entries(catCounts).sort((a,b)=>b[1]-a[1]).map(([cat,cnt],i)=>{
-                                            const catTkts = filtered.filter(t=>(t.categoryLabel||t.category||t.category_id||'Other')===cat);
-                                            const critH = catTkts.filter(t=>['critical','urgent'].includes((t.priorityLabel||t.priority||t.priority_id||'').toLowerCase())).length;
-                                            const high   = catTkts.filter(t=>(t.priorityLabel||t.priority||t.priority_id||'').toLowerCase()==='high').length;
-                                            const med    = catTkts.filter(t=>(t.priorityLabel||t.priority||t.priority_id||'').toLowerCase()==='medium').length;
-                                            const low    = catTkts.filter(t=>(t.priorityLabel||t.priority||t.priority_id||'').toLowerCase()==='low').length;
-                                            const catOpen= catTkts.filter(t=>!['resolved','closed'].includes((t.status||t.status_id||'').toLowerCase())).length;
-                                            const catRes = catTkts.filter(t=>['resolved','closed'].includes((t.status||t.status_id||'').toLowerCase())).length;
-                                            const catSla = catTkts.filter(t=>!(t.slaBreached||t.sla_breached)).length;
-                                            return (
-                                                <tr key={cat} style={{borderBottom:'1px solid #EEF2FF', background: i%2===0 ? (dm?'rgba(255,255,255,0.02)':'white') : (dm?'rgba(99,102,241,0.04)':'#FAFBFF')}}>
-                                                    <td style={{padding:'9px 12px', fontWeight:'600', color:dm?'#c0cfec':'#334155', textTransform:'capitalize'}}>{cat.replace(/_/g,' ')}</td>
-                                                    <td style={{padding:'9px 12px', textAlign:'center', fontWeight:'700', color:dm?'#c7d2fe':'#1E1B4B'}}>{cnt}</td>
-                                                    <td style={{padding:'9px 12px', textAlign:'center'}}>{critH>0?<span style={{background:'#FEF2F2',color:'#DC2626',padding:'2px 7px',borderRadius:'20px',fontWeight:'700',fontSize:'11px'}}>{critH}</span>:<span style={{color:'#D1D5DB'}}>—</span>}</td>
-                                                    <td style={{padding:'9px 12px', textAlign:'center'}}>{high>0?<span style={{background:'#FFF7ED',color:'#C2410C',padding:'2px 7px',borderRadius:'20px',fontWeight:'700',fontSize:'11px'}}>{high}</span>:<span style={{color:'#D1D5DB'}}>—</span>}</td>
-                                                    <td style={{padding:'9px 12px', textAlign:'center'}}>{med>0?<span style={{background:'#FEFCE8',color:'#A16207',padding:'2px 7px',borderRadius:'20px',fontWeight:'700',fontSize:'11px'}}>{med}</span>:<span style={{color:'#D1D5DB'}}>—</span>}</td>
-                                                    <td style={{padding:'9px 12px', textAlign:'center'}}>{low>0?<span style={{background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:'#4338CA',padding:'2px 7px',borderRadius:'20px',fontWeight:'700',fontSize:'11px'}}>{low}</span>:<span style={{color:'#D1D5DB'}}>—</span>}</td>
-                                                    <td style={{padding:'9px 12px', textAlign:'center', color:'#F97316', fontWeight:'600'}}>{catOpen}</td>
-                                                    <td style={{padding:'9px 12px', textAlign:'center', color:'#10B981', fontWeight:'600'}}>{catRes}</td>
-                                                    <td style={{padding:'9px 12px', textAlign:'center'}}><span style={{fontSize:'11px', fontWeight:'700', color: catSla===cnt?'#10B981':'#F97316'}}>{cnt>0?Math.round((catSla/cnt)*100)+'%':'—'}</span></td>
-                                                </tr>
-                                            );
-                                        })}
+                                        {Object.entries(catCounts).sort((a,b)=>b[1]-a[1]).map(([cat,cnt],i)=>(
+                                            <tr key={cat} style={{borderBottom:'1px solid #EEF2FF', background: i%2===0 ? (dm?'rgba(255,255,255,0.02)':'white') : (dm?'rgba(99,102,241,0.04)':'#FAFBFF')}}>
+                                                <td style={{padding:'9px 12px', fontWeight:'600', color:dm?'#c0cfec':'#334155', textTransform:'capitalize'}}>{cat.replace(/_/g,' ')}</td>
+                                                <td style={{padding:'9px 12px', textAlign:'center', fontWeight:'700', color:dm?'#c7d2fe':'#1E1B4B'}}>{cnt}</td>
+                                                <td colSpan={6} style={{padding:'9px 12px', textAlign:'center', color:dm?'#4a607f':'#94A3B8', fontSize:'11px', fontStyle:'italic'}}>breakdown available via ticket detail view</td>
+                                                <td style={{padding:'9px 12px', textAlign:'center'}}><span style={{fontSize:'11px', fontWeight:'700', color:'#6366F1'}}>—</span></td>
+                                            </tr>
+                                        ))}
                                     </tbody>
                                 </table>
                             </div>
@@ -4284,7 +4285,7 @@
                 setLoading(true);
                 setError('');
                 try {
-                    const res = await fetch(`${HRMS_API}/org/chart`);
+                    const res = await apiFetch(`${HRMS_API}/org/chart`);
                     if (!res.ok) {
                         const err = await res.json().catch(() => ({}));
                         throw new Error(`API returned ${res.status}${err.message ? ': ' + err.message : ''}`);
@@ -4507,9 +4508,9 @@
                 try {
                     const uqp = getUserQueryParams(getSessionUser());
                     const [sR,dR,pR] = await Promise.all([
-                        fetch(`${HRMS_API}/users?limit=200${uqp}`),
-                        fetch(`${HRMS_API}/org/departments`),
-                        fetch(`${HRMS_API}/org/positions`),
+                        apiFetch(`${HRMS_API}/users?limit=200${uqp}`),
+                        apiFetch(`${HRMS_API}/org/departments`),
+                        apiFetch(`${HRMS_API}/org/positions`),
                     ]);
                     const [sd,dd,pd] = await Promise.all([sR.json(),dR.json(),pR.json()]);
                     // backend-hrms returns { users } for /users and { departments } and { positions }
@@ -4590,7 +4591,7 @@
             const handleDelete = async () => {
                 if (!delConfirm) return;
                 try {
-                    const res  = await fetch(`${HRMS_API}/users/${delConfirm.id}`, { method:'DELETE' });
+                    const res  = await apiFetch(`${HRMS_API}/users/${delConfirm.id}`, { method:'DELETE' });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || data.message || 'Delete failed');
                     setDelConfirm(null);
@@ -4602,7 +4603,7 @@
             const handleAddPosition = async () => {
                 if (!posForm.title.trim()) return;
                 try {
-                    const res = await fetch(`${HRMS_API}/org/positions`, {
+                    const res = await apiFetch(`${HRMS_API}/org/positions`, {
                         method:'POST', headers:{'Content-Type':'application/json'},
                         body:JSON.stringify({
                             title:           posForm.title.trim(),
@@ -5032,7 +5033,7 @@
                 if (tsp.scope)  tp.set('scope',  tsp.scope);
                 if (tsp.userId) tp.set('userId', String(tsp.userId));
                 if (tsp.deptId) tp.set('deptId', String(tsp.deptId));
-                fetch(`${HRMS_API}/tickets?${tp}`)
+                apiFetch(`${HRMS_API}/tickets?${tp}`)
                     .then(r => r.ok ? r.json() : {tickets:[]})
                     .then(d => setApiTickets(Array.isArray(d.tickets) ? d.tickets : []))
                     .catch(() => setApiTickets([]))
@@ -5318,7 +5319,7 @@
                 try {
                     const { title, headers, rows } = buildReport();
                     // Try backend endpoint first
-                    const res = await fetch(`${HRMS_API}/reports/email`, {
+                    const res = await apiFetch(`${HRMS_API}/reports/email`, {
                         method:'POST', headers:{'Content-Type':'application/json'},
                         body: JSON.stringify({ to: emailTo.split(',').map(e=>e.trim()).filter(Boolean), subject: emailSubject || `${title} — ${new Date().toLocaleDateString('en-AU')}`, reportType, period, rows, headers, generatedBy: cu?.name || 'System' }),
                     }).catch(() => null);
@@ -5772,7 +5773,7 @@
                         swReg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
 
                         // 2. Get VAPID public key
-                        const keyRes = await fetch(`${HRMS_API}/push/vapid-public-key`, { credentials:'include' });
+                        const keyRes = await apiFetch(`${HRMS_API}/push/vapid-public-key`, { credentials:'include' });
                         if (!keyRes.ok) return; // push not configured on backend
                         const { publicKey } = await keyRes.json();
                         if (!publicKey) return;
@@ -5781,7 +5782,7 @@
                         const existing = await swReg.pushManager.getSubscription();
                         if (existing) {
                             // Re-send to backend in case it was lost
-                            await fetch(`${HRMS_API}/push/subscribe`, {
+                            await apiFetch(`${HRMS_API}/push/subscribe`, {
                                 method:'POST', credentials:'include',
                                 headers:{'Content-Type':'application/json'},
                                 body: JSON.stringify({ endpoint: existing.endpoint, keys: { p256dh: btoa(String.fromCharCode(...new Uint8Array(existing.getKey('p256dh')))), auth: btoa(String.fromCharCode(...new Uint8Array(existing.getKey('auth')))) } }),
@@ -5801,7 +5802,7 @@
 
                         // 6. Send subscription to backend
                         const subJson = sub.toJSON();
-                        await fetch(`${HRMS_API}/push/subscribe`, {
+                        await apiFetch(`${HRMS_API}/push/subscribe`, {
                             method:'POST', credentials:'include',
                             headers:{'Content-Type':'application/json'},
                             body: JSON.stringify({ endpoint: subJson.endpoint, keys: subJson.keys }),

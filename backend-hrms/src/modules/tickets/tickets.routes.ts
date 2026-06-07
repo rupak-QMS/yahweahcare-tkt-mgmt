@@ -124,7 +124,7 @@ function dbActivity(row: Record<string, unknown>) {
 }
 
 // ── GET /tickets ─────────────────────────────────────────────────────────────
-router.get('/', optionalAuth, async (req, res, next) => {
+router.get('/', requireAuth, async (req, res, next) => {
   try {
     const limit    = Math.min(Number(req.query.limit) || 200, 500);
     const offset   = Number(req.query.offset) || 0;
@@ -205,8 +205,84 @@ router.get('/', optionalAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ── GET /tickets/stats — server-side aggregation for Analytics page ──────────
+// Returns pre-aggregated counts so the frontend never needs to pull 500 raw rows.
+router.get('/stats', requireAuth, async (req, res, next) => {
+  try {
+    const days   = Math.min(Math.max(Number(req.query.days) || 90, 1), 365);
+    const scope  = (req.query.scope  as string || '').trim();
+    const userId = req.query.userId ? Number(req.query.userId) : null;
+    const deptId = req.query.deptId ? Number(req.query.deptId) : null;
+    const now    = new Date();
+    const cutoff = new Date(now); cutoff.setDate(now.getDate() - days);
+
+    // Build scope WHERE clause
+    const scopeParams: unknown[] = [cutoff];
+    let scopeWhere = 't.created_at >= $1';
+    let pi = 2;
+    if (scope === 'dept' && deptId) {
+      scopeWhere += ` AND (t.assigned_to IN (SELECT id FROM yc_tkt_mgmt.users WHERE department_id=$${pi}) OR t.created_by IN (SELECT id FROM yc_tkt_mgmt.users WHERE department_id=$${pi+1}))`;
+      scopeParams.push(deptId, deptId); pi += 2;
+    } else if (scope === 'mine' && userId) {
+      scopeWhere += ` AND (t.created_by=$${pi} OR t.assigned_to=$${pi})`;
+      scopeParams.push(userId); pi++;
+    }
+
+    const [statusRes, categoryRes, priorityRes, staffRes, ndisRes, slaRes, monthlyRes] = await Promise.all([
+      // Status counts
+      pool.query(`SELECT t.status, COUNT(*) AS cnt FROM yc_tkt_mgmt.tickets t WHERE ${scopeWhere} GROUP BY t.status`, scopeParams),
+      // Category counts (with label)
+      pool.query(`SELECT c.label AS category, COUNT(*) AS cnt FROM yc_tkt_mgmt.tickets t LEFT JOIN yc_tkt_mgmt.categories c ON c.id=t.category_id WHERE ${scopeWhere} GROUP BY c.label ORDER BY cnt DESC LIMIT 10`, scopeParams),
+      // Priority counts (with label)
+      pool.query(`SELECT p.label AS priority, COUNT(*) AS cnt FROM yc_tkt_mgmt.tickets t LEFT JOIN yc_tkt_mgmt.priorities p ON p.id=t.priority_id WHERE ${scopeWhere} GROUP BY p.label ORDER BY cnt DESC`, scopeParams),
+      // Staff workload (assigned to)
+      pool.query(`SELECT u.name AS assignee, COUNT(*) AS cnt FROM yc_tkt_mgmt.tickets t LEFT JOIN yc_tkt_mgmt.users u ON u.id=t.assigned_to WHERE ${scopeWhere} GROUP BY u.name ORDER BY cnt DESC LIMIT 20`, scopeParams),
+      // NDIS count
+      pool.query(`SELECT COUNT(*) FILTER (WHERE t.ndis_related) AS ndis_count, COUNT(*) AS total FROM yc_tkt_mgmt.tickets t WHERE ${scopeWhere}`, scopeParams),
+      // SLA: resolved on time vs late + active overdue count
+      pool.query(`
+        SELECT
+          COUNT(*) FILTER (WHERE t.status IN ('resolved','closed') AND (t.due_date IS NULL OR t.closed_date IS NULL OR t.closed_date <= t.due_date)) AS sla_ok,
+          COUNT(*) FILTER (WHERE t.status IN ('resolved','closed') AND t.due_date IS NOT NULL AND t.closed_date IS NOT NULL AND t.closed_date > t.due_date) AS sla_breached,
+          COUNT(*) FILTER (WHERE t.status NOT IN ('resolved','closed') AND t.due_date IS NOT NULL AND t.due_date < NOW()) AS active_overdue,
+          COUNT(*) FILTER (WHERE t.status IN ('resolved','closed')) AS resolved_total,
+          COUNT(*) FILTER (WHERE t.is_escalated) AS escalated,
+          COUNT(*) AS total
+        FROM yc_tkt_mgmt.tickets t WHERE ${scopeWhere}`, scopeParams),
+      // Monthly trend — last 6 months regardless of period filter
+      pool.query(`
+        SELECT TO_CHAR(DATE_TRUNC('month', t.created_at), 'YYYY-MM') AS month, COUNT(*) AS cnt
+        FROM yc_tkt_mgmt.tickets t
+        WHERE t.created_at >= NOW() - INTERVAL '6 months'
+        GROUP BY month ORDER BY month ASC`)
+    ]);
+
+    const sla = slaRes.rows[0];
+    const slaEval = Number(sla.resolved_total) + Number(sla.active_overdue);
+
+    res.json({
+      period: { days, from: cutoff.toISOString(), to: now.toISOString() },
+      total:      Number(sla.total),
+      resolved:   Number(sla.resolved_total),
+      escalated:  Number(sla.escalated),
+      ndis:       Number(ndisRes.rows[0].ndis_count),
+      sla: {
+        ok:            Number(sla.sla_ok),
+        breached:      Number(sla.sla_breached),
+        activeOverdue: Number(sla.active_overdue),
+        rate:          slaEval > 0 ? Math.round((Number(sla.sla_ok) / slaEval) * 100) : 100,
+      },
+      byStatus:   statusRes.rows.map(r => ({ status: r.status, count: Number(r.cnt) })),
+      byCategory: categoryRes.rows.map(r => ({ category: r.category || 'Uncategorised', count: Number(r.cnt) })),
+      byPriority: priorityRes.rows.map(r => ({ priority: r.priority || 'Unknown', count: Number(r.cnt) })),
+      byStaff:    staffRes.rows.map(r => ({ name: r.assignee || 'Unassigned', count: Number(r.cnt) })),
+      monthly:    monthlyRes.rows.map(r => ({ month: r.month, count: Number(r.cnt) })),
+    });
+  } catch (err) { next(err); }
+});
+
 // ── GET /tickets/activity — global activity feed ─────────────────────────────
-router.get('/activity', optionalAuth, async (req, res, next) => {
+router.get('/activity', requireAuth, async (req, res, next) => {
   try {
     const limit  = Math.min(Number(req.query.limit)  || 100, 500);
     const offset = Number(req.query.offset) || 0;
@@ -275,7 +351,7 @@ router.get('/activity', optionalAuth, async (req, res, next) => {
 });
 
 // ── GET /tickets/:id ──────────────────────────────────────────────────────────
-router.get('/:id', optionalAuth, async (req, res, next) => {
+router.get('/:id', requireAuth, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     const [{ rows: tRows }, { rows: cRows }, { rows: aRows }, { rows: apRows }] = await Promise.all([
@@ -300,7 +376,7 @@ router.get('/:id', optionalAuth, async (req, res, next) => {
 });
 
 // ── POST /tickets — create ──────────────────────────────────
-router.post('/', optionalAuth, async (req, res, next) => {
+router.post('/', requireAuth, async (req, res, next) => {
   try {
     const {
       title, description, category, priority, status, site, assigneeId,
@@ -585,7 +661,7 @@ router.post('/:id/reject', optionalAuth, async (req, res, next) => {
 });
 
 // ── PATCH /tickets/:id — update ─────────────────────────────
-router.patch('/:id', optionalAuth, async (req, res, next) => {
+router.patch('/:id', requireAuth, async (req, res, next) => {
   try {
     const id      = Number(req.params.id);
     const actorId = req.auth?.userId ?? (req.body.actorId ? Number(req.body.actorId) : null);
@@ -649,7 +725,7 @@ router.patch('/:id', optionalAuth, async (req, res, next) => {
 });
 
 // ── DELETE /tickets/:id ─────────────────────────────────────
-router.delete('/:id', optionalAuth, async (req, res, next) => {
+router.delete('/:id', requireAuth, async (req, res, next) => {
   try {
     const id      = Number(req.params.id);
     const actorId = req.auth?.userId ?? (req.body?.actorId ? Number(req.body.actorId) : null);
@@ -663,7 +739,7 @@ router.delete('/:id', optionalAuth, async (req, res, next) => {
 
 // ── POST /tickets/:id/escalate — manager escalates to any user ─
 // Reassigns ticket + logs full escalation trail
-router.post('/:id/escalate', optionalAuth, async (req, res, next) => {
+router.post('/:id/escalate', requireAuth, async (req, res, next) => {
   try {
     const id     = Number(req.params.id);
     const userId = req.auth?.userId ?? (req.body.actorId ? Number(req.body.actorId) : null);
@@ -750,7 +826,7 @@ router.post('/:id/escalate', optionalAuth, async (req, res, next) => {
 });
 
 // ── GET /tickets/:id/escalations — escalation trail ─────────
-router.get('/:id/escalations', async (req, res, next) => {
+router.get('/:id/escalations', requireAuth, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     const { rows } = await pool.query(
@@ -767,7 +843,7 @@ router.get('/:id/escalations', async (req, res, next) => {
 });
 
 // ── GET /tickets/:id/comments ───────────────────────────────
-router.get('/:id/comments', async (req, res, next) => {
+router.get('/:id/comments', requireAuth, async (req, res, next) => {
   try {
     const { rows } = await pool.query(
       `SELECT * FROM yc_tkt_mgmt.comments WHERE ticket_id = $1 ORDER BY created_at ASC`,
@@ -778,7 +854,7 @@ router.get('/:id/comments', async (req, res, next) => {
 });
 
 // ── POST /tickets/:id/comments ──────────────────────────────
-router.post('/:id/comments', optionalAuth, async (req, res, next) => {
+router.post('/:id/comments', requireAuth, async (req, res, next) => {
   try {
     const ticketId = Number(req.params.id);
     const { body, isInternal } = req.body || {};
@@ -799,7 +875,7 @@ router.post('/:id/comments', optionalAuth, async (req, res, next) => {
 });
 
 // ── GET /tickets/:id/activity ───────────────────────────────
-router.get('/:id/activity', async (req, res, next) => {
+router.get('/:id/activity', requireAuth, async (req, res, next) => {
   try {
     const { rows } = await pool.query(
       `SELECT * FROM yc_tkt_mgmt.activity WHERE ticket_id = $1 ORDER BY created_at ASC`,
