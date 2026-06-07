@@ -1922,73 +1922,218 @@
 
         // Staff Performance Page
         function StaffPerformancePage() {
+            const [loading, setLoading] = React.useState(true);
+            const [staffMetrics, setStaffMetrics] = React.useState([]);
+            const [summary, setSummary] = React.useState({ resolved: 0, assigned: 0, sla: 0, avgHours: 0 });
             const [perfChart, setPerfChart] = React.useState(null);
 
             React.useEffect(() => {
+                (async () => {
+                    try {
+                        const [usersRes, ticketsRes] = await Promise.all([
+                            fetch(`${HRMS_API}/users?status=active&limit=200`),
+                            fetch(`${HRMS_API}/tickets?all=1&limit=500`),
+                        ]);
+                        const usersData   = usersRes.ok   ? await usersRes.json()   : { users: [] };
+                        const ticketsData = ticketsRes.ok ? await ticketsRes.json() : { tickets: [] };
+
+                        const tickets = ticketsData.tickets || [];
+                        const users   = usersData.users || [];
+
+                        const isResolved = t => {
+                            const s = (t.status || t.statusLabel || '').toString().toLowerCase();
+                            return t.isClosed || s === 'resolved' || s === 'closed';
+                        };
+
+                        // Per-staff metrics
+                        const metrics = users.map(u => {
+                            const mine     = tickets.filter(t => t.assigneeId === u.id);
+                            const resolved = mine.filter(isResolved);
+                            const withinSla = resolved.filter(t => !t.slaBreached);
+                            const sla = resolved.length ? Math.round((withinSla.length / resolved.length) * 100) : null;
+
+                            // Average resolution hours
+                            let avgHours = null;
+                            const durations = resolved
+                                .filter(t => t.resolvedAt && t.createdAt)
+                                .map(t => (new Date(t.resolvedAt) - new Date(t.createdAt)) / 3600000);
+                            if (durations.length) avgHours = Math.round(durations.reduce((a,b)=>a+b,0) / durations.length);
+
+                            const initials = (u.name || '?').split(/\s+/).map(w => w[0]).slice(0,2).join('').toUpperCase();
+                            return {
+                                id: u.id,
+                                name: u.name,
+                                initials,
+                                dept: u.department_name || '—',
+                                assigned: mine.length,
+                                resolved: resolved.length,
+                                sla,
+                                avgHours,
+                            };
+                        }).filter(m => m.assigned > 0 || m.resolved > 0)
+                          .sort((a, b) => b.resolved - a.resolved);
+
+                        // Summary stats
+                        const totalResolved = tickets.filter(isResolved).length;
+                        const totalAssigned = tickets.filter(t => t.assigneeId).length;
+                        const resolvedWithSla = tickets.filter(t => isResolved(t) && !t.slaBreached);
+                        const teamSla = totalResolved > 0 ? Math.round((resolvedWithSla.length / totalResolved) * 100) : 0;
+                        const allDurations = tickets
+                            .filter(t => isResolved(t) && t.resolvedAt && t.createdAt)
+                            .map(t => (new Date(t.resolvedAt) - new Date(t.createdAt)) / 3600000);
+                        const avgRes = allDurations.length ? Math.round(allDurations.reduce((a,b)=>a+b,0)/allDurations.length) : 0;
+
+                        setStaffMetrics(metrics);
+                        setSummary({ resolved: totalResolved, assigned: totalAssigned, sla: teamSla, avgHours: avgRes });
+                        setLoading(false);
+                    } catch(e) {
+                        console.error('StaffPerformancePage', e);
+                        setLoading(false);
+                    }
+                })();
+            }, []);
+
+            // Build/update chart after data loads
+            React.useEffect(() => {
+                if (loading || staffMetrics.length === 0) return;
                 const ctx = document.getElementById('perfChart');
-                if (ctx && !perfChart) {
-                    const chart = new Chart(ctx, {
-                        type: 'bar',
-                        data: {
-                            labels: STAFF_DATA.map(s => s.name.split(' ')[0]),
-                            datasets: [{
-                                label: 'Resolved',
-                                data: STAFF_DATA.map(s => s.resolved),
-                                backgroundColor: '#10B981'
-                            }]
-                        },
-                        options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: true } } }
-                    });
-                    setPerfChart(chart);
-                }
-            }, [perfChart]);
+                if (!ctx) return;
+                if (perfChart) { perfChart.destroy(); }
+                const chart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: staffMetrics.map(s => s.name.split(' ')[0]),
+                        datasets: [
+                            { label: 'Assigned', data: staffMetrics.map(s => s.assigned), backgroundColor: '#A5B4FC' },
+                            { label: 'Resolved', data: staffMetrics.map(s => s.resolved), backgroundColor: '#10B981' },
+                        ]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: true,
+                        plugins: { legend: { display: true } },
+                        scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+                    }
+                });
+                setPerfChart(chart);
+            }, [loading, staffMetrics]);
+
+            const top3 = staffMetrics.slice(0, 3);
+
+            const MEDAL = ['🥇','🥈','🥉'];
+            const SLA_COLOR = sla => sla === null ? '#9CA3AF' : sla >= 80 ? '#10B981' : sla >= 60 ? '#F59E0B' : '#EF4444';
 
             return (
                 <main className="flex-1 overflow-auto bg-gray-50">
                     <div className="p-8">
                         <h1 className="text-3xl font-bold text-gray-900 mb-2">Staff Performance</h1>
-                        <p className="text-gray-600 mb-8">Monitor team performance and metrics</p>
+                        <p className="text-gray-600 mb-8">Live metrics from the ticket database</p>
 
+                        {loading ? (
+                            <div className="flex items-center justify-center py-24">
+                                <div className="text-center">
+                                    <div className="text-4xl mb-3">⏳</div>
+                                    <p className="text-gray-400 text-sm">Loading performance data…</p>
+                                </div>
+                            </div>
+                        ) : (
+                        <>
+                        {/* Summary KPIs */}
                         <div className="grid grid-cols-4 gap-4 mb-8">
                             {[
-                                { label: 'Total Resolved', value: '1' },
-                                { label: 'Total Assigned', value: '13' },
-                                { label: 'Team SLA', value: '61%' },
-                                { label: 'Avg Resolution', value: '30h' },
+                                { label: 'Total Resolved', value: summary.resolved, icon: '✅' },
+                                { label: 'Total Assigned', value: summary.assigned, icon: '📋' },
+                                { label: 'Team SLA', value: summary.sla + '%', icon: '⏱️' },
+                                { label: 'Avg Resolution', value: summary.avgHours ? summary.avgHours + 'h' : '—', icon: '🕐' },
                             ].map((stat, i) => (
-                                <div key={i} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                                    <p className="text-gray-600 text-xs font-medium">{stat.label}</p>
-                                    <p className="text-3xl font-bold text-gray-900 mt-2">{stat.value}</p>
+                                <div key={i} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <span className="text-lg">{stat.icon}</span>
+                                        <p className="text-gray-500 text-xs font-semibold uppercase tracking-wide">{stat.label}</p>
+                                    </div>
+                                    <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
                                 </div>
                             ))}
                         </div>
 
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-                            <h2 className="text-lg font-bold text-gray-900 mb-4">⭐ Top Performers This Month</h2>
+                        {/* Top Performers */}
+                        {top3.length > 0 && (
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+                            <h2 className="text-lg font-bold text-gray-900 mb-5">⭐ Top Performers</h2>
                             <div className="grid grid-cols-3 gap-4">
-                                {STAFF_DATA.slice(0, 3).map(staff => (
-                                    <div key={staff.name} className="border border-gray-200 rounded-lg p-4 text-center">
-                                        <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-lg font-bold text-blue-600 mx-auto mb-2">
-                                            {staff.avatar}
+                                {top3.map((staff, idx) => (
+                                    <div key={staff.id} className="border border-gray-100 rounded-xl p-5 text-center" style={{background: idx===0?'#FFFBEB':idx===1?'#F8FAFC':'#FFF'}}>
+                                        <div className="text-2xl mb-2">{MEDAL[idx]}</div>
+                                        <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-base font-bold text-indigo-700 mx-auto mb-3">
+                                            {staff.initials}
                                         </div>
-                                        <p className="font-semibold text-gray-900">{staff.name}</p>
-                                        <p className="text-xs text-gray-600">{staff.resolved} tickets resolved</p>
-                                        <div className="flex justify-center gap-1 mt-2">
-                                            {[...Array(5)].map((_, i) => (
-                                                <span key={i} className={i < 4 ? '⭐' : '☆'}>⭐</span>
-                                            ))}
+                                        <p className="font-semibold text-gray-900 text-sm">{staff.name}</p>
+                                        <p className="text-xs text-gray-500 mb-3">{staff.dept}</p>
+                                        <div className="flex justify-center gap-4 text-xs">
+                                            <div><p className="font-bold text-gray-900 text-base">{staff.resolved}</p><p className="text-gray-400">Resolved</p></div>
+                                            <div><p className="font-bold text-gray-900 text-base">{staff.assigned}</p><p className="text-gray-400">Assigned</p></div>
+                                            {staff.sla !== null && <div><p className="font-bold text-base" style={{color:SLA_COLOR(staff.sla)}}>{staff.sla}%</p><p className="text-gray-400">SLA</p></div>}
                                         </div>
                                     </div>
                                 ))}
                             </div>
                         </div>
+                        )}
 
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                            <h2 className="text-lg font-bold text-gray-900 mb-4">📊 Resolution Comparison</h2>
+                        {/* Full table */}
+                        {staffMetrics.length > 0 ? (
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+                            <h2 className="text-lg font-bold text-gray-900 mb-5">📋 All Staff Metrics</h2>
+                            <div style={{overflowX:'auto'}}>
+                                <table style={{width:'100%',borderCollapse:'collapse',fontSize:'13px'}}>
+                                    <thead>
+                                        <tr style={{borderBottom:'2px solid #F3F4F6'}}>
+                                            {['Staff Member','Department','Assigned','Resolved','SLA','Avg Resolution'].map(h => (
+                                                <th key={h} style={{padding:'8px 12px',textAlign:'left',fontWeight:'600',color:'#6B7280',fontSize:'11px',textTransform:'uppercase',letterSpacing:'0.05em'}}>{h}</th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {staffMetrics.map((s,i) => (
+                                            <tr key={s.id} style={{borderBottom:'1px solid #F9FAFB',background:i%2===0?'#fff':'#FAFAFA'}}>
+                                                <td style={{padding:'10px 12px'}}>
+                                                    <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
+                                                        <div style={{width:'32px',height:'32px',borderRadius:'50%',background:'#EEF2FF',color:'#4338CA',fontWeight:'700',fontSize:'12px',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{s.initials}</div>
+                                                        <span style={{fontWeight:'500',color:'#111827'}}>{s.name}</span>
+                                                    </div>
+                                                </td>
+                                                <td style={{padding:'10px 12px',color:'#6B7280'}}>{s.dept}</td>
+                                                <td style={{padding:'10px 12px',fontWeight:'600',color:'#374151'}}>{s.assigned}</td>
+                                                <td style={{padding:'10px 12px',fontWeight:'600',color:'#10B981'}}>{s.resolved}</td>
+                                                <td style={{padding:'10px 12px'}}>
+                                                    {s.sla !== null ? (
+                                                        <span style={{fontWeight:'600',color:SLA_COLOR(s.sla)}}>{s.sla}%</span>
+                                                    ) : <span style={{color:'#D1D5DB'}}>—</span>}
+                                                </td>
+                                                <td style={{padding:'10px 12px',color:'#6B7280'}}>{s.avgHours !== null ? s.avgHours+'h' : '—'}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        ) : (
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-10 mb-8 text-center">
+                            <div className="text-4xl mb-3">📭</div>
+                            <p className="text-gray-500 text-sm">No ticket assignments yet — metrics will appear once tickets are assigned to staff.</p>
+                        </div>
+                        )}
+
+                        {/* Bar chart */}
+                        {staffMetrics.length > 0 && (
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                            <h2 className="text-lg font-bold text-gray-900 mb-5">📊 Assigned vs Resolved</h2>
                             <div className="chart-container">
                                 <canvas id="perfChart"></canvas>
                             </div>
                         </div>
+                        )}
+                        </>
+                        )}
                     </div>
                 </main>
             );
