@@ -1920,12 +1920,18 @@
             );
         }
 
-        // Staff Performance Page
+        // ─── Staff Performance Page ───────────────────────────────
+        // Metrics: assigned, resolved, pending, resolution rate,
+        //          avg resolution time, SLA compliance, escalations,
+        //          overdue, high/critical tickets + auto insights
         function StaffPerformancePage() {
-            const [loading, setLoading] = React.useState(true);
+            const [loading, setLoading]         = React.useState(true);
             const [staffMetrics, setStaffMetrics] = React.useState([]);
-            const [summary, setSummary] = React.useState({ resolved: 0, assigned: 0, sla: 0, avgHours: 0 });
-            const [perfChart, setPerfChart] = React.useState(null);
+            const [summary, setSummary]         = React.useState({});
+            const [insights, setInsights]       = React.useState([]);
+            const [sortBy, setSortBy]           = React.useState('resolved');
+            const [sortDir, setSortDir]         = React.useState('desc');
+            const [perfChart, setPerfChart]     = React.useState(null);
 
             React.useEffect(() => {
                 (async () => {
@@ -1936,55 +1942,106 @@
                         ]);
                         const usersData   = usersRes.ok   ? await usersRes.json()   : { users: [] };
                         const ticketsData = ticketsRes.ok ? await ticketsRes.json() : { tickets: [] };
-
                         const tickets = ticketsData.tickets || [];
-                        const users   = usersData.users || [];
+                        const users   = usersData.users   || [];
+                        const now = Date.now();
 
                         const isResolved = t => {
                             const s = (t.status || t.statusLabel || '').toString().toLowerCase();
                             return t.isClosed || s === 'resolved' || s === 'closed';
                         };
 
-                        // Per-staff metrics
+                        // ── Per-staff metrics ──────────────────────────────
                         const metrics = users.map(u => {
-                            const mine     = tickets.filter(t => t.assigneeId === u.id);
-                            const resolved = mine.filter(isResolved);
-                            const withinSla = resolved.filter(t => !t.slaBreached);
-                            const sla = resolved.length ? Math.round((withinSla.length / resolved.length) * 100) : null;
+                            const mine        = tickets.filter(t => t.assigneeId === u.id);
+                            const resolved    = mine.filter(isResolved);
+                            const pending     = mine.filter(t => !isResolved(t));
+                            const withinSla   = resolved.filter(t => !t.slaBreached);
+                            const sla         = resolved.length ? Math.round((withinSla.length / resolved.length) * 100) : null;
+                            const resRate     = mine.length ? Math.round((resolved.length / mine.length) * 100) : null;
 
-                            // Average resolution hours
-                            let avgHours = null;
+                            // Average resolution time (hours)
                             const durations = resolved
                                 .filter(t => t.resolvedAt && t.createdAt)
                                 .map(t => (new Date(t.resolvedAt) - new Date(t.createdAt)) / 3600000);
-                            if (durations.length) avgHours = Math.round(durations.reduce((a,b)=>a+b,0) / durations.length);
+                            const avgHours = durations.length ? Math.round(durations.reduce((a,b)=>a+b,0)/durations.length) : null;
+
+                            // Escalations: tickets in their queue that were escalated
+                            const escalated = mine.filter(t => t.isEscalated).length;
+
+                            // Overdue: open tickets past due date
+                            const overdue = pending.filter(t => t.dueAt && new Date(t.dueAt) < now).length;
+
+                            // High/Critical tickets
+                            const criticalHigh = mine.filter(t => {
+                                const p = (t.priority || t.priorityLabel || '').toString().toLowerCase();
+                                return p === 'critical' || p === 'high';
+                            }).length;
 
                             const initials = (u.name || '?').split(/\s+/).map(w => w[0]).slice(0,2).join('').toUpperCase();
                             return {
-                                id: u.id,
-                                name: u.name,
-                                initials,
+                                id: u.id, name: u.name, initials,
                                 dept: u.department_name || '—',
                                 assigned: mine.length,
                                 resolved: resolved.length,
-                                sla,
-                                avgHours,
+                                pending: pending.length,
+                                resRate, sla, avgHours,
+                                escalated, overdue, criticalHigh,
                             };
-                        }).filter(m => m.assigned > 0 || m.resolved > 0)
-                          .sort((a, b) => b.resolved - a.resolved);
+                        }).filter(m => m.assigned > 0)
+                          .sort((a,b) => b.resolved - a.resolved);
 
-                        // Summary stats
-                        const totalResolved = tickets.filter(isResolved).length;
-                        const totalAssigned = tickets.filter(t => t.assigneeId).length;
-                        const resolvedWithSla = tickets.filter(t => isResolved(t) && !t.slaBreached);
-                        const teamSla = totalResolved > 0 ? Math.round((resolvedWithSla.length / totalResolved) * 100) : 0;
-                        const allDurations = tickets
+                        // ── Team summary ──────────────────────────────────
+                        const totalTickets   = tickets.length;
+                        const totalResolved  = tickets.filter(isResolved).length;
+                        const totalAssigned  = tickets.filter(t => t.assigneeId).length;
+                        const totalEscalated = tickets.filter(t => t.isEscalated).length;
+                        const totalOverdue   = tickets.filter(t => !isResolved(t) && t.dueAt && new Date(t.dueAt) < now).length;
+                        const resolvedWithSla = tickets.filter(t => isResolved(t) && !t.slaBreached).length;
+                        const teamSla = totalResolved > 0 ? Math.round((resolvedWithSla / totalResolved) * 100) : 0;
+                        const allDurs = tickets
                             .filter(t => isResolved(t) && t.resolvedAt && t.createdAt)
                             .map(t => (new Date(t.resolvedAt) - new Date(t.createdAt)) / 3600000);
-                        const avgRes = allDurations.length ? Math.round(allDurations.reduce((a,b)=>a+b,0)/allDurations.length) : 0;
+                        const teamAvgHours = allDurs.length ? Math.round(allDurs.reduce((a,b)=>a+b,0)/allDurs.length) : null;
+
+                        // ── Auto-generate insights ─────────────────────────
+                        const ins = [];
+                        if (metrics.length > 0) {
+                            const top = metrics[0];
+                            if (top.resolved > 0) ins.push({ type:'positive', icon:'🏆', text:`${top.name} leads the team with ${top.resolved} ticket${top.resolved>1?'s':''} resolved${top.resRate!==null?' ('+top.resRate+'% resolution rate)':''}.` });
+
+                            const withAvg = metrics.filter(m => m.avgHours !== null);
+                            if (withAvg.length > 0) {
+                                const fastest = withAvg.reduce((a,b) => a.avgHours < b.avgHours ? a : b);
+                                ins.push({ type:'positive', icon:'⚡', text:`${fastest.name} resolves tickets fastest — average ${fastest.avgHours}h per ticket.` });
+                            }
+
+                            const overdueStaff = metrics.filter(m => m.overdue > 0);
+                            if (overdueStaff.length > 0) {
+                                const total = overdueStaff.reduce((a,m) => a+m.overdue, 0);
+                                ins.push({ type:'danger', icon:'🚨', text:`${total} overdue ticket${total>1?'s':''} across ${overdueStaff.length} staff member${overdueStaff.length>1?'s':''} (${overdueStaff.map(m=>m.name).join(', ')}) — immediate attention needed.` });
+                            }
+
+                            const highEsc = [...metrics].sort((a,b)=>b.escalated-a.escalated)[0];
+                            if (highEsc && highEsc.escalated > 0) ins.push({ type:'warning', icon:'🔺', text:`${highEsc.name} has ${highEsc.escalated} escalated ticket${highEsc.escalated>1?'s':''} in their queue — review workload or complexity.` });
+
+                            const slaRisk = metrics.filter(m => m.sla !== null && m.sla < 70);
+                            if (slaRisk.length > 0) ins.push({ type:'warning', icon:'⏱️', text:`${slaRisk.map(m=>m.name+' ('+m.sla+'%)').join(', ')} ${slaRisk.length===1?'is':'are'} below 70% SLA — may need process support.` });
+
+                            const perfect = metrics.filter(m => m.sla === 100 && m.resolved >= 3);
+                            if (perfect.length > 0) ins.push({ type:'positive', icon:'✨', text:`${perfect.map(m=>m.name).join(' & ')} ${perfect.length===1?'has':'have'} maintained 100% SLA compliance.` });
+
+                            const highWorkload = metrics.filter(m => m.pending > 4);
+                            if (highWorkload.length > 0) ins.push({ type:'info', icon:'📋', text:`${highWorkload.map(m=>m.name+' ('+m.pending+' open)').join(', ')} ${highWorkload.length===1?'has':'have'} high open-ticket load — consider redistributing.` });
+
+                            const lowRes = metrics.filter(m => m.assigned >= 3 && m.resRate !== null && m.resRate < 30);
+                            if (lowRes.length > 0) ins.push({ type:'warning', icon:'📉', text:`${lowRes.map(m=>m.name).join(', ')} ${lowRes.length===1?'has':'have'} a low resolution rate (under 30%) — check for blockers.` });
+                        }
+                        if (ins.length === 0) ins.push({ type:'info', icon:'📊', text:'Assign tickets to staff members to start generating performance insights.' });
 
                         setStaffMetrics(metrics);
-                        setSummary({ resolved: totalResolved, assigned: totalAssigned, sla: teamSla, avgHours: avgRes });
+                        setSummary({ totalTickets, totalResolved, totalAssigned, totalEscalated, totalOverdue, teamSla, teamAvgHours });
+                        setInsights(ins);
                         setLoading(false);
                     } catch(e) {
                         console.error('StaffPerformancePage', e);
@@ -1993,123 +2050,196 @@
                 })();
             }, []);
 
-            // Build/update chart after data loads
+            // ── Chart ─────────────────────────────────────────────
             React.useEffect(() => {
                 if (loading || staffMetrics.length === 0) return;
                 const ctx = document.getElementById('perfChart');
                 if (!ctx) return;
-                if (perfChart) { perfChart.destroy(); }
+                if (perfChart) { try { perfChart.destroy(); } catch(_){} }
+                const sorted = [...staffMetrics].sort((a,b) => b.assigned - a.assigned);
                 const chart = new Chart(ctx, {
                     type: 'bar',
                     data: {
-                        labels: staffMetrics.map(s => s.name.split(' ')[0]),
+                        labels: sorted.map(s => s.name.split(' ')[0]),
                         datasets: [
-                            { label: 'Assigned', data: staffMetrics.map(s => s.assigned), backgroundColor: '#A5B4FC' },
-                            { label: 'Resolved', data: staffMetrics.map(s => s.resolved), backgroundColor: '#10B981' },
+                            { label: 'Assigned',  data: sorted.map(s => s.assigned),  backgroundColor: 'rgba(99,102,241,0.7)',  borderRadius: 4 },
+                            { label: 'Resolved',  data: sorted.map(s => s.resolved),  backgroundColor: 'rgba(16,185,129,0.85)', borderRadius: 4 },
+                            { label: 'Escalated', data: sorted.map(s => s.escalated), backgroundColor: 'rgba(239,68,68,0.7)',   borderRadius: 4 },
                         ]
                     },
                     options: {
                         responsive: true, maintainAspectRatio: true,
-                        plugins: { legend: { display: true } },
-                        scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+                        plugins: { legend: { display: true, position: 'top' } },
+                        scales: { y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } }, x: { grid: { display: false } } }
                     }
                 });
                 setPerfChart(chart);
             }, [loading, staffMetrics]);
 
-            const top3 = staffMetrics.slice(0, 3);
+            // ── Sorted table rows ─────────────────────────────────
+            const sorted = React.useMemo(() => {
+                return [...staffMetrics].sort((a,b) => {
+                    const va = a[sortBy] ?? -1;
+                    const vb = b[sortBy] ?? -1;
+                    return sortDir === 'desc' ? vb - va : va - vb;
+                });
+            }, [staffMetrics, sortBy, sortDir]);
 
+            const toggleSort = col => {
+                if (sortBy === col) setSortDir(d => d==='desc'?'asc':'desc');
+                else { setSortBy(col); setSortDir('desc'); }
+            };
+
+            const top3 = [...staffMetrics].sort((a,b)=>b.resolved-a.resolved).slice(0,3);
             const MEDAL = ['🥇','🥈','🥉'];
-            const SLA_COLOR = sla => sla === null ? '#9CA3AF' : sla >= 80 ? '#10B981' : sla >= 60 ? '#F59E0B' : '#EF4444';
+            const slaColor = v => v===null?'#9CA3AF':v>=80?'#10B981':v>=60?'#F59E0B':'#EF4444';
+            const insightBg = {positive:'#F0FDF4',warning:'#FFFBEB',danger:'#FEF2F2',info:'#EFF6FF'};
+            const insightBorder = {positive:'#BBF7D0',warning:'#FDE68A',danger:'#FECACA',info:'#BFDBFE'};
+            const insightText = {positive:'#166534',warning:'#92400E',danger:'#991B1B',info:'#1E40AF'};
+
+            const SortTh = ({ col, label }) => (
+                <th onClick={() => toggleSort(col)} style={{padding:'10px 12px',textAlign:'left',fontWeight:'600',color: sortBy===col?'#4338CA':'#6B7280',fontSize:'11px',textTransform:'uppercase',letterSpacing:'0.05em',cursor:'pointer',whiteSpace:'nowrap',userSelect:'none'}}>
+                    {label} {sortBy===col ? (sortDir==='desc'?'↓':'↑') : ''}
+                </th>
+            );
 
             return (
                 <main className="flex-1 overflow-auto bg-gray-50">
-                    <div className="p-8">
-                        <h1 className="text-3xl font-bold text-gray-900 mb-2">Staff Performance</h1>
-                        <p className="text-gray-600 mb-8">Live metrics from the ticket database</p>
+                    <div className="p-8 max-w-7xl mx-auto">
+                        <div className="mb-7">
+                            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Staff Performance</h1>
+                            <p className="text-sm text-gray-400 mt-1">Live metrics computed from ticket data</p>
+                        </div>
 
                         {loading ? (
                             <div className="flex items-center justify-center py-24">
-                                <div className="text-center">
-                                    <div className="text-4xl mb-3">⏳</div>
-                                    <p className="text-gray-400 text-sm">Loading performance data…</p>
-                                </div>
+                                <div className="text-center"><div className="text-4xl mb-3">⏳</div><p className="text-gray-400 text-sm">Loading performance data…</p></div>
                             </div>
                         ) : (
                         <>
-                        {/* Summary KPIs */}
-                        <div className="grid grid-cols-4 gap-4 mb-8">
+                        {/* ── KPI row ── */}
+                        <div className="grid grid-cols-5 gap-4 mb-7">
                             {[
-                                { label: 'Total Resolved', value: summary.resolved, icon: '✅' },
-                                { label: 'Total Assigned', value: summary.assigned, icon: '📋' },
-                                { label: 'Team SLA', value: summary.sla + '%', icon: '⏱️' },
-                                { label: 'Avg Resolution', value: summary.avgHours ? summary.avgHours + 'h' : '—', icon: '🕐' },
-                            ].map((stat, i) => (
-                                <div key={i} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <span className="text-lg">{stat.icon}</span>
-                                        <p className="text-gray-500 text-xs font-semibold uppercase tracking-wide">{stat.label}</p>
+                                { label:'Total Tickets',   value: summary.totalTickets,              icon:'🎫', color:'#6366F1' },
+                                { label:'Resolved',        value: summary.totalResolved,             icon:'✅', color:'#10B981' },
+                                { label:'Team SLA',        value: (summary.teamSla||0)+'%',          icon:'⏱️', color: summary.teamSla>=80?'#10B981':summary.teamSla>=60?'#F59E0B':'#EF4444' },
+                                { label:'Avg Resolve Time',value: summary.teamAvgHours!=null?summary.teamAvgHours+'h':'—', icon:'🕐', color:'#6366F1' },
+                                { label:'Overdue',         value: summary.totalOverdue||0,           icon:'🚨', color: summary.totalOverdue>0?'#EF4444':'#10B981' },
+                            ].map((s,i) => (
+                                <div key={i} style={{background:'#fff',borderRadius:'12px',border:'1px solid #F0F0F0',padding:'18px 20px',boxShadow:'0 1px 3px rgba(0,0,0,0.05)'}}>
+                                    <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'8px'}}>
+                                        <span style={{fontSize:'16px'}}>{s.icon}</span>
+                                        <span style={{fontSize:'11px',fontWeight:'600',color:'#9CA3AF',textTransform:'uppercase',letterSpacing:'0.05em'}}>{s.label}</span>
                                     </div>
-                                    <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
+                                    <div style={{fontSize:'28px',fontWeight:'800',color:s.color}}>{s.value}</div>
                                 </div>
                             ))}
                         </div>
 
-                        {/* Top Performers */}
+                        {/* ── Insights ── */}
+                        <div style={{background:'#fff',borderRadius:'12px',border:'1px solid #F0F0F0',padding:'20px 24px',marginBottom:'24px',boxShadow:'0 1px 3px rgba(0,0,0,0.05)'}}>
+                            <h2 style={{fontSize:'14px',fontWeight:'700',color:'#111827',marginBottom:'14px',display:'flex',alignItems:'center',gap:'8px'}}>
+                                <span>💡</span> Performance Insights
+                            </h2>
+                            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(320px,1fr))',gap:'10px'}}>
+                                {insights.map((ins,i) => (
+                                    <div key={i} style={{display:'flex',alignItems:'flex-start',gap:'10px',padding:'12px 14px',borderRadius:'10px',background:insightBg[ins.type],border:'1px solid '+insightBorder[ins.type]}}>
+                                        <span style={{fontSize:'16px',flexShrink:0,marginTop:'1px'}}>{ins.icon}</span>
+                                        <p style={{fontSize:'12px',lineHeight:'1.6',color:insightText[ins.type],margin:0}}>{ins.text}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* ── Top performers podium ── */}
                         {top3.length > 0 && (
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
-                            <h2 className="text-lg font-bold text-gray-900 mb-5">⭐ Top Performers</h2>
-                            <div className="grid grid-cols-3 gap-4">
-                                {top3.map((staff, idx) => (
-                                    <div key={staff.id} className="border border-gray-100 rounded-xl p-5 text-center" style={{background: idx===0?'#FFFBEB':idx===1?'#F8FAFC':'#FFF'}}>
-                                        <div className="text-2xl mb-2">{MEDAL[idx]}</div>
-                                        <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-base font-bold text-indigo-700 mx-auto mb-3">
-                                            {staff.initials}
+                        <div style={{background:'#fff',borderRadius:'12px',border:'1px solid #F0F0F0',padding:'20px 24px',marginBottom:'24px',boxShadow:'0 1px 3px rgba(0,0,0,0.05)'}}>
+                            <h2 style={{fontSize:'14px',fontWeight:'700',color:'#111827',marginBottom:'16px'}}>⭐ Top Performers</h2>
+                            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'14px'}}>
+                                {top3.map((s,idx) => (
+                                    <div key={s.id} style={{border:'1px solid '+(idx===0?'#FDE68A':idx===1?'#D1D5DB':'#E5E7EB'),borderRadius:'12px',padding:'20px',textAlign:'center',background:idx===0?'linear-gradient(135deg,#FFFBEB,#FEF3C7)':idx===1?'linear-gradient(135deg,#F8FAFC,#F1F5F9)':'#FAFAFA'}}>
+                                        <div style={{fontSize:'24px',marginBottom:'8px'}}>{MEDAL[idx]}</div>
+                                        <div style={{width:'44px',height:'44px',borderRadius:'50%',background:'#EEF2FF',color:'#4338CA',fontWeight:'800',fontSize:'14px',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 10px'}}>{s.initials}</div>
+                                        <div style={{fontWeight:'700',fontSize:'13px',color:'#111827',marginBottom:'2px'}}>{s.name}</div>
+                                        <div style={{fontSize:'11px',color:'#9CA3AF',marginBottom:'12px'}}>{s.dept}</div>
+                                        <div style={{display:'flex',justifyContent:'center',gap:'16px'}}>
+                                            <div><div style={{fontWeight:'800',fontSize:'18px',color:'#10B981'}}>{s.resolved}</div><div style={{fontSize:'10px',color:'#9CA3AF'}}>Resolved</div></div>
+                                            <div><div style={{fontWeight:'800',fontSize:'18px',color:'#6366F1'}}>{s.assigned}</div><div style={{fontSize:'10px',color:'#9CA3AF'}}>Assigned</div></div>
+                                            <div><div style={{fontWeight:'800',fontSize:'18px',color:slaColor(s.sla)}}>{s.sla!==null?s.sla+'%':'—'}</div><div style={{fontSize:'10px',color:'#9CA3AF'}}>SLA</div></div>
                                         </div>
-                                        <p className="font-semibold text-gray-900 text-sm">{staff.name}</p>
-                                        <p className="text-xs text-gray-500 mb-3">{staff.dept}</p>
-                                        <div className="flex justify-center gap-4 text-xs">
-                                            <div><p className="font-bold text-gray-900 text-base">{staff.resolved}</p><p className="text-gray-400">Resolved</p></div>
-                                            <div><p className="font-bold text-gray-900 text-base">{staff.assigned}</p><p className="text-gray-400">Assigned</p></div>
-                                            {staff.sla !== null && <div><p className="font-bold text-base" style={{color:SLA_COLOR(staff.sla)}}>{staff.sla}%</p><p className="text-gray-400">SLA</p></div>}
-                                        </div>
+                                        {s.avgHours!==null && <div style={{marginTop:'10px',fontSize:'11px',color:'#6B7280'}}>⚡ Avg {s.avgHours}h resolve time</div>}
+                                        {s.escalated>0 && <div style={{marginTop:'4px',fontSize:'11px',color:'#EF4444'}}>🔺 {s.escalated} escalated</div>}
                                     </div>
                                 ))}
                             </div>
                         </div>
                         )}
 
-                        {/* Full table */}
+                        {/* ── Full metrics table ── */}
                         {staffMetrics.length > 0 ? (
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
-                            <h2 className="text-lg font-bold text-gray-900 mb-5">📋 All Staff Metrics</h2>
+                        <div style={{background:'#fff',borderRadius:'12px',border:'1px solid #F0F0F0',padding:'20px 24px',marginBottom:'24px',boxShadow:'0 1px 3px rgba(0,0,0,0.05)'}}>
+                            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'16px'}}>
+                                <h2 style={{fontSize:'14px',fontWeight:'700',color:'#111827'}}>📋 All Staff Metrics</h2>
+                                <span style={{fontSize:'11px',color:'#9CA3AF'}}>Click column headers to sort</span>
+                            </div>
                             <div style={{overflowX:'auto'}}>
                                 <table style={{width:'100%',borderCollapse:'collapse',fontSize:'13px'}}>
                                     <thead>
                                         <tr style={{borderBottom:'2px solid #F3F4F6'}}>
-                                            {['Staff Member','Department','Assigned','Resolved','SLA','Avg Resolution'].map(h => (
-                                                <th key={h} style={{padding:'8px 12px',textAlign:'left',fontWeight:'600',color:'#6B7280',fontSize:'11px',textTransform:'uppercase',letterSpacing:'0.05em'}}>{h}</th>
-                                            ))}
+                                            <th style={{padding:'10px 12px',textAlign:'left',fontWeight:'600',color:'#6B7280',fontSize:'11px',textTransform:'uppercase',letterSpacing:'0.05em'}}>Staff</th>
+                                            <th style={{padding:'10px 12px',textAlign:'left',fontWeight:'600',color:'#6B7280',fontSize:'11px',textTransform:'uppercase',letterSpacing:'0.05em'}}>Dept</th>
+                                            <SortTh col="assigned"    label="Assigned" />
+                                            <SortTh col="resolved"    label="Resolved" />
+                                            <SortTh col="pending"     label="Pending" />
+                                            <SortTh col="resRate"     label="Res. Rate" />
+                                            <SortTh col="avgHours"    label="Avg Time" />
+                                            <SortTh col="sla"         label="SLA" />
+                                            <SortTh col="escalated"   label="Escalated" />
+                                            <SortTh col="overdue"     label="Overdue" />
+                                            <SortTh col="criticalHigh" label="High/Crit" />
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {staffMetrics.map((s,i) => (
-                                            <tr key={s.id} style={{borderBottom:'1px solid #F9FAFB',background:i%2===0?'#fff':'#FAFAFA'}}>
-                                                <td style={{padding:'10px 12px'}}>
+                                        {sorted.map((s,i) => (
+                                            <tr key={s.id} style={{borderBottom:'1px solid #F9FAFB',background:i%2===0?'#fff':'#FAFAFA',transition:'background 0.15s'}}
+                                                onMouseEnter={e=>e.currentTarget.style.background='#F5F3FF'}
+                                                onMouseLeave={e=>e.currentTarget.style.background=i%2===0?'#fff':'#FAFAFA'}>
+                                                <td style={{padding:'11px 12px'}}>
                                                     <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
-                                                        <div style={{width:'32px',height:'32px',borderRadius:'50%',background:'#EEF2FF',color:'#4338CA',fontWeight:'700',fontSize:'12px',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{s.initials}</div>
-                                                        <span style={{fontWeight:'500',color:'#111827'}}>{s.name}</span>
+                                                        <div style={{width:'30px',height:'30px',borderRadius:'50%',background:'#EEF2FF',color:'#4338CA',fontWeight:'700',fontSize:'11px',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{s.initials}</div>
+                                                        <span style={{fontWeight:'600',color:'#111827'}}>{s.name}</span>
                                                     </div>
                                                 </td>
-                                                <td style={{padding:'10px 12px',color:'#6B7280'}}>{s.dept}</td>
-                                                <td style={{padding:'10px 12px',fontWeight:'600',color:'#374151'}}>{s.assigned}</td>
-                                                <td style={{padding:'10px 12px',fontWeight:'600',color:'#10B981'}}>{s.resolved}</td>
-                                                <td style={{padding:'10px 12px'}}>
-                                                    {s.sla !== null ? (
-                                                        <span style={{fontWeight:'600',color:SLA_COLOR(s.sla)}}>{s.sla}%</span>
+                                                <td style={{padding:'11px 12px',color:'#6B7280',fontSize:'12px'}}>{s.dept}</td>
+                                                <td style={{padding:'11px 12px',fontWeight:'700',color:'#374151',textAlign:'center'}}>{s.assigned}</td>
+                                                <td style={{padding:'11px 12px',fontWeight:'700',color:'#10B981',textAlign:'center'}}>{s.resolved}</td>
+                                                <td style={{padding:'11px 12px',fontWeight:'600',color:s.pending>0?'#F59E0B':'#9CA3AF',textAlign:'center'}}>{s.pending}</td>
+                                                <td style={{padding:'11px 12px',textAlign:'center'}}>
+                                                    {s.resRate!==null ? (
+                                                        <span style={{fontWeight:'700',color:s.resRate>=70?'#10B981':s.resRate>=40?'#F59E0B':'#EF4444'}}>{s.resRate}%</span>
                                                     ) : <span style={{color:'#D1D5DB'}}>—</span>}
                                                 </td>
-                                                <td style={{padding:'10px 12px',color:'#6B7280'}}>{s.avgHours !== null ? s.avgHours+'h' : '—'}</td>
+                                                <td style={{padding:'11px 12px',color:'#6B7280',textAlign:'center'}}>{s.avgHours!==null?s.avgHours+'h':'—'}</td>
+                                                <td style={{padding:'11px 12px',textAlign:'center'}}>
+                                                    {s.sla!==null ? (
+                                                        <span style={{fontWeight:'700',color:slaColor(s.sla)}}>{s.sla}%</span>
+                                                    ) : <span style={{color:'#D1D5DB'}}>—</span>}
+                                                </td>
+                                                <td style={{padding:'11px 12px',textAlign:'center'}}>
+                                                    {s.escalated>0
+                                                        ? <span style={{background:'#FEF2F2',color:'#DC2626',fontWeight:'700',padding:'2px 8px',borderRadius:'6px',fontSize:'12px'}}>{s.escalated}</span>
+                                                        : <span style={{color:'#D1D5DB'}}>0</span>}
+                                                </td>
+                                                <td style={{padding:'11px 12px',textAlign:'center'}}>
+                                                    {s.overdue>0
+                                                        ? <span style={{background:'#FFF7ED',color:'#EA580C',fontWeight:'700',padding:'2px 8px',borderRadius:'6px',fontSize:'12px'}}>{s.overdue}</span>
+                                                        : <span style={{color:'#D1D5DB'}}>0</span>}
+                                                </td>
+                                                <td style={{padding:'11px 12px',textAlign:'center'}}>
+                                                    {s.criticalHigh>0
+                                                        ? <span style={{background:'#FFF1F2',color:'#BE123C',fontWeight:'700',padding:'2px 8px',borderRadius:'6px',fontSize:'12px'}}>{s.criticalHigh}</span>
+                                                        : <span style={{color:'#D1D5DB'}}>0</span>}
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -2117,19 +2247,17 @@
                             </div>
                         </div>
                         ) : (
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-10 mb-8 text-center">
-                            <div className="text-4xl mb-3">📭</div>
-                            <p className="text-gray-500 text-sm">No ticket assignments yet — metrics will appear once tickets are assigned to staff.</p>
+                        <div style={{background:'#fff',borderRadius:'12px',border:'1px solid #F0F0F0',padding:'48px',textAlign:'center',marginBottom:'24px'}}>
+                            <div style={{fontSize:'40px',marginBottom:'12px'}}>📭</div>
+                            <p style={{color:'#9CA3AF',fontSize:'14px'}}>No tickets assigned to staff yet — metrics appear once tickets have assignees.</p>
                         </div>
                         )}
 
-                        {/* Bar chart */}
+                        {/* ── Chart ── */}
                         {staffMetrics.length > 0 && (
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                            <h2 className="text-lg font-bold text-gray-900 mb-5">📊 Assigned vs Resolved</h2>
-                            <div className="chart-container">
-                                <canvas id="perfChart"></canvas>
-                            </div>
+                        <div style={{background:'#fff',borderRadius:'12px',border:'1px solid #F0F0F0',padding:'20px 24px',boxShadow:'0 1px 3px rgba(0,0,0,0.05)'}}>
+                            <h2 style={{fontSize:'14px',fontWeight:'700',color:'#111827',marginBottom:'16px'}}>📊 Assigned / Resolved / Escalated by Staff</h2>
+                            <div className="chart-container"><canvas id="perfChart"></canvas></div>
                         </div>
                         )}
                         </>
