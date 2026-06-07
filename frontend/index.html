@@ -812,7 +812,7 @@
                         </div>
 
                         {/* Stat cards */}
-                        <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:'12px',marginBottom:'20px'}}>
+                        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(155px,1fr))',gap:'12px',marginBottom:'20px'}}>
                             {statCards.map((c,i)=>(
                                 <div key={i} style={{background:'white',borderRadius:'12px',border:'1px solid #E5E7EB',padding:'16px',boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
                                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
