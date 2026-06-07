@@ -1232,7 +1232,7 @@
 
             return (
                 <main className="flex-1 overflow-auto" style={{background:'#F8F9FB'}}>
-                    <div className="max-w-6xl mx-auto px-8 py-8">
+                    <div style={{maxWidth:'1100px', margin:'0 auto', padding:'clamp(16px,4vw,32px) clamp(12px,4vw,32px)'}}>
                         {/* Page header */}
                         <div className="mb-7">
                             <div className="flex items-center gap-2 text-sm text-gray-400 mb-2 cursor-pointer hover:text-indigo-600 transition w-fit" onClick={() => {}}>
@@ -1263,10 +1263,10 @@
                             </div>
                         ) : (
                         <form onSubmit={handleSubmit}>
-                            {/* Two-column layout */}
-                            <div className="flex gap-6 items-start">
+                            {/* Two-column layout — stacks on mobile/tablet */}
+                            <div style={{display:'flex', gap:'24px', alignItems:'flex-start', flexWrap:'wrap'}}>
                                 {/* LEFT COLUMN — main form */}
-                                <div className="flex-1 min-w-0">
+                                <div style={{flex:'1 1 420px', minWidth:0}}>
                                     {/* Ticket Details */}
                                     <div className={cardCls}>
                                         <div className={sectionHeadCls}>
@@ -1397,8 +1397,8 @@
                                     })()}
                                 </div>
 
-                                {/* RIGHT COLUMN — sidebar */}
-                                <div className="w-72 flex-shrink-0">
+                                {/* RIGHT COLUMN — sidebar (sticky on desktop, full-width on mobile) */}
+                                <div style={{flex:'0 1 280px', minWidth:'240px', width:'100%', position:'sticky', top:'16px', alignSelf:'flex-start'}}>
                                     {/* Classification */}
                                     <div className={cardCls}>
                                         <div className={sectionHeadCls}>
@@ -5386,7 +5386,7 @@
                             onSignOut={handleSignOut}
                             setCurrentPage={handlePageChange}
                         />
-                        <div style={{flex:1, overflow:'hidden'}}>
+                        <div style={{flex:1, overflow:'hidden', display:'flex', flexDirection:'column'}}>
                             {renderPage()}
                         </div>
                     </div>
