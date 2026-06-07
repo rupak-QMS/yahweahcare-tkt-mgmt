@@ -45,6 +45,104 @@
         .calendar-day:hover { background-color: #F9FAFB; }
         .calendar-day.today { background-color: #DBEAFE; border-color: #0369A1; }
         .calendar-day.event { background-color: #BFDBFE; }
+
+        /* ─── DARK MODE GLOBAL OVERRIDES ──────────────────────────────── */
+        html.dark,
+        html.dark body,
+        html.dark .bg-gray-50 { background: #0F172A !important; color: #CBD5E1; }
+
+        /* Page <main> backgrounds */
+        html.dark main { background: #0F172A !important; }
+
+        /* White / rgb(255,255,255) card surfaces */
+        html.dark [style*="background: white"],
+        html.dark [style*="background:white"],
+        html.dark [style*="background: rgb(255, 255, 255)"] {
+            background: #1E293B !important;
+        }
+
+        /* Light gray page/panel backgrounds */
+        html.dark [style*="background: rgb(249, 250, 251)"] { background: #111827 !important; }
+        html.dark [style*="background: rgb(244, 245, 247)"] { background: #0F172A !important; }
+        html.dark [style*="background: rgb(243, 244, 246)"] { background: #111827 !important; }
+        html.dark [style*="background: rgb(248, 250, 252)"] { background: #0F172A !important; }
+        html.dark [style*="background: rgb(240, 240, 240)"] { background: #111827 !important; }
+
+        /* Neutral dark text → legible light text */
+        html.dark [style*="color: rgb(17, 24, 39)"]    { color: #F1F5F9 !important; }
+        html.dark [style*="color: rgb(31, 41, 55)"]    { color: #E2E8F0 !important; }
+        html.dark [style*="color: rgb(55, 65, 81)"]    { color: #CBD5E1 !important; }
+        html.dark [style*="color: rgb(75, 85, 99)"]    { color: #94A3B8 !important; }
+        html.dark [style*="color: rgb(107, 114, 128)"] { color: #94A3B8 !important; }
+        html.dark [style*="color: rgb(156, 163, 175)"] { color: #64748B !important; }
+
+        /* Tailwind text utilities */
+        html.dark .text-gray-900, html.dark .text-gray-800,
+        html.dark .text-gray-700, html.dark .text-gray-600,
+        html.dark .text-gray-500 { color: #CBD5E1 !important; }
+
+        /* Gray card borders → dark border */
+        html.dark [style*="border: 1px solid rgb(229, 231, 235)"] { border-color: #334155 !important; }
+        html.dark [style*="border: 1px solid rgb(243, 244, 246)"] { border-color: #1E293B !important; }
+        html.dark [style*="border: 1px solid rgb(240, 240, 240)"] { border-color: #1E293B !important; }
+        html.dark [style*="border: 2px solid rgb(229, 231, 235)"] { border-color: #475569 !important; }
+        html.dark [style*="border-bottom: 1px solid rgb(229, 231, 235)"] { border-color: #334155 !important; }
+        html.dark [style*="border-bottom: 1px solid rgb(243, 244, 246)"] { border-color: #1E293B !important; }
+        html.dark [style*="border-bottom: 1px solid rgb(240, 240, 240)"] { border-color: #1E293B !important; }
+        html.dark [style*="border-top: 1px solid rgb(229, 231, 235)"]    { border-color: #334155 !important; }
+
+        /* Pale semantic badge/chip backgrounds */
+        html.dark [style*="background: rgb(238, 242, 255)"] { background: #1e1b4b !important; } /* indigo-50  */
+        html.dark [style*="background: rgb(224, 242, 254)"] { background: #0c2240 !important; } /* sky-100    */
+        html.dark [style*="background: rgb(236, 253, 245)"],
+        html.dark [style*="background: rgb(240, 253, 244)"],
+        html.dark [style*="background: rgb(220, 252, 231)"],
+        html.dark [style*="background: rgb(209, 250, 229)"] { background: #052e16 !important; } /* green-50   */
+        html.dark [style*="background: rgb(254, 242, 242)"],
+        html.dark [style*="background: rgb(255, 241, 242)"],
+        html.dark [style*="background: rgb(254, 226, 226)"] { background: #450a0a !important; } /* red-50     */
+        html.dark [style*="background: rgb(255, 251, 235)"],
+        html.dark [style*="background: rgb(255, 247, 237)"],
+        html.dark [style*="background: rgb(254, 243, 199)"] { background: #292100 !important; } /* amber/orange */
+        html.dark [style*="background: rgb(245, 243, 255)"],
+        html.dark [style*="background: rgb(243, 232, 255)"] { background: #1a0d3d !important; } /* purple-50  */
+        html.dark [style*="background: rgb(219, 234, 254)"],
+        html.dark [style*="background: rgb(219, 234, 254)"] { background: #0c1a3d !important; } /* blue-100   */
+        html.dark [style*="background: rgb(240, 253, 250)"] { background: #022c22 !important; } /* teal-50    */
+
+        /* Form inputs / selects */
+        html.dark input:not([type="radio"]):not([type="checkbox"]):not([type="range"]),
+        html.dark select,
+        html.dark textarea {
+            background: #1E293B !important;
+            color: #F1F5F9 !important;
+            border-color: #475569 !important;
+        }
+        html.dark input::placeholder,
+        html.dark textarea::placeholder { color: #64748B !important; }
+        html.dark input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); }
+        html.dark input[type="time"]::-webkit-calendar-picker-indicator { filter: invert(1); }
+
+        /* Tables */
+        html.dark th {
+            background: #111827 !important;
+            color: #94A3B8 !important;
+        }
+        html.dark td { border-color: #1E293B !important; color: #CBD5E1 !important; }
+        html.dark tr:hover > td,
+        html.dark .table-row:hover { background: #1E293B !important; }
+
+        /* Scrollbars */
+        html.dark ::-webkit-scrollbar { background: #1E293B; width: 6px; height: 6px; }
+        html.dark ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+        html.dark ::-webkit-scrollbar-track { background: #0F172A; }
+
+        /* Tailwind border utilities */
+        html.dark .border,
+        html.dark .border-gray-200 { border-color: #334155 !important; }
+
+        /* Keep modal overlays dark (rgba already works) */
+        /* Keep brand-coloured buttons as-is */
     </style>
 </head>
 <body class="bg-gray-50">
@@ -314,6 +412,10 @@
                 }
             }
         };
+
+        // ── Dark Mode Context (consumed by all page components) ────────────────
+        const DarkModeContext = React.createContext(false);
+        const useDark = () => React.useContext(DarkModeContext);
 
         // Navigation Component
         // ── Top Header Bar ──────────────────────────────────────────────────────
@@ -705,6 +807,12 @@
 
         // Dashboard Page
         function Dashboard() {
+            const dm = useDark();
+            const pageBg  = dm ? '#0F172A' : '#F4F5F7';
+            const cardBg  = dm ? '#1E293B' : 'white';
+            const borderC = dm ? '#334155' : '#E5E7EB';
+            const textP   = dm ? '#F1F5F9' : '#111827';
+            const textM   = dm ? '#94A3B8' : '#6B7280';
             const [tickets,       setTickets]       = React.useState([]);
             const [staffCount,    setStaffCount]    = React.useState(0);
             const [recentActivity,setRecentActivity]= React.useState([]);
@@ -801,23 +909,25 @@
                 { label:'Urgent/Critical',value:urgent,    color:'#DC2626', bg:'#FFF1F2', icon:'🔴' },
             ];
 
+            const card = {background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,boxShadow:'0 1px 3px rgba(0,0,0,0.06)'};
+
             return (
-                <main className="flex-1 overflow-auto" style={{background:'#F4F5F7'}}>
+                <main className="flex-1 overflow-auto" style={{background:pageBg}}>
                     <div style={{maxWidth:'1400px',margin:'0 auto',padding:'24px'}}>
 
                         {/* Header */}
                         <div style={{marginBottom:'20px'}}>
-                            <h1 style={{fontSize:'20px',fontWeight:'700',color:'#111827',margin:0}}>Dashboard</h1>
-                            <p style={{fontSize:'13px',color:'#6B7280',margin:'3px 0 0'}}>Yahweh Property Care — Ticket Management</p>
+                            <h1 style={{fontSize:'20px',fontWeight:'700',color:textP,margin:0}}>Dashboard</h1>
+                            <p style={{fontSize:'13px',color:textM,margin:'3px 0 0'}}>Yahweh Property Care — Ticket Management</p>
                         </div>
 
                         {/* Stat cards */}
                         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(155px,1fr))',gap:'12px',marginBottom:'20px'}}>
                             {statCards.map((c,i)=>(
-                                <div key={i} style={{background:'white',borderRadius:'12px',border:'1px solid #E5E7EB',padding:'16px',boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
+                                <div key={i} style={{...card,padding:'16px'}}>
                                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
                                         <div>
-                                            <p style={{fontSize:'11px',color:'#6B7280',fontWeight:'600',margin:0,textTransform:'uppercase',letterSpacing:'0.04em'}}>{c.label}</p>
+                                            <p style={{fontSize:'11px',color:textM,fontWeight:'600',margin:0,textTransform:'uppercase',letterSpacing:'0.04em'}}>{c.label}</p>
                                             <p style={{fontSize:'28px',fontWeight:'800',color:c.color,margin:'6px 0 0',lineHeight:1}}>
                                                 {loading ? '—' : c.value}
                                             </p>
@@ -830,17 +940,17 @@
 
                         {/* Charts row */}
                         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px',marginBottom:'16px'}}>
-                            <div style={{background:'white',borderRadius:'12px',border:'1px solid #E5E7EB',padding:'20px',boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
-                                <h2 style={{fontSize:'14px',fontWeight:'700',color:'#111827',marginBottom:'14px'}}>📊 Status Distribution</h2>
+                            <div style={{...card,padding:'20px'}}>
+                                <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,marginBottom:'14px'}}>📊 Status Distribution</h2>
                                 <div style={{height:'220px',position:'relative'}}>
-                                    {loading ? <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:'#9CA3AF',fontSize:'13px'}}>Loading…</div>
+                                    {loading ? <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:textM,fontSize:'13px'}}>Loading…</div>
                                              : <canvas ref={statusCanvasRef}></canvas>}
                                 </div>
                             </div>
-                            <div style={{background:'white',borderRadius:'12px',border:'1px solid #E5E7EB',padding:'20px',boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
-                                <h2 style={{fontSize:'14px',fontWeight:'700',color:'#111827',marginBottom:'14px'}}>📑 Category Breakdown</h2>
+                            <div style={{...card,padding:'20px'}}>
+                                <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,marginBottom:'14px'}}>📑 Category Breakdown</h2>
                                 <div style={{height:'220px',position:'relative'}}>
-                                    {loading ? <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:'#9CA3AF',fontSize:'13px'}}>Loading…</div>
+                                    {loading ? <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:textM,fontSize:'13px'}}>Loading…</div>
                                              : <canvas ref={categoryCanvasRef}></canvas>}
                                 </div>
                             </div>
@@ -850,18 +960,18 @@
                         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px'}}>
 
                             {/* SLA Compliance */}
-                            <div style={{background:'white',borderRadius:'12px',border:'1px solid #E5E7EB',padding:'20px',boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
-                                <h2 style={{fontSize:'14px',fontWeight:'700',color:'#111827',marginBottom:'16px'}}>⏱️ SLA Compliance</h2>
+                            <div style={{...card,padding:'20px'}}>
+                                <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,marginBottom:'16px'}}>⏱️ SLA Compliance</h2>
                                 <div style={{display:'flex',alignItems:'center',gap:'24px'}}>
                                     <div style={{position:'relative',flexShrink:0}}>
                                         <svg width="120" height="120" viewBox="0 0 120 120" style={{transform:'rotate(-90deg)'}}>
-                                            <circle cx="60" cy="60" r={r} stroke="#F3F4F6" strokeWidth="10" fill="none"/>
+                                            <circle cx="60" cy="60" r={r} stroke={dm?'#334155':'#F3F4F6'} strokeWidth="10" fill="none"/>
                                             <circle cx="60" cy="60" r={r} stroke={slaPct>=80?'#10B981':slaPct>=50?'#F59E0B':'#EF4444'} strokeWidth="10" fill="none"
                                                 strokeDasharray={`${circ*slaPct/100} ${circ}`} strokeLinecap="round"/>
                                         </svg>
                                         <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
-                                            <span style={{fontSize:'22px',fontWeight:'800',color:'#111827'}}>{loading?'—':slaPct+'%'}</span>
-                                            <span style={{fontSize:'10px',color:'#9CA3AF'}}>SLA Met</span>
+                                            <span style={{fontSize:'22px',fontWeight:'800',color:textP}}>{loading?'—':slaPct+'%'}</span>
+                                            <span style={{fontSize:'10px',color:textM}}>SLA Met</span>
                                         </div>
                                     </div>
                                     <div style={{flex:1}}>
@@ -871,8 +981,8 @@
                                             {label:'Overdue',       val:overdue,  color:'#EF4444'},
                                             {label:'Active Staff',  val:staffCount,color:'#0EA5E9'},
                                         ].map((row,i)=>(
-                                            <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'6px 0',borderBottom:i<3?'1px solid #F3F4F6':'none'}}>
-                                                <span style={{fontSize:'12px',color:'#6B7280'}}>{row.label}</span>
+                                            <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'6px 0',borderBottom:i<3?`1px solid ${borderC}`:'none'}}>
+                                                <span style={{fontSize:'12px',color:textM}}>{row.label}</span>
                                                 <span style={{fontSize:'13px',fontWeight:'700',color:row.color}}>{loading?'—':row.val}</span>
                                             </div>
                                         ))}
@@ -881,9 +991,9 @@
                             </div>
 
                             {/* Recent Activity */}
-                            <div style={{background:'white',borderRadius:'12px',border:'1px solid #E5E7EB',padding:'20px',boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
+                            <div style={{...card,padding:'20px'}}>
                                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'14px'}}>
-                                    <h2 style={{fontSize:'14px',fontWeight:'700',color:'#111827',margin:0}}>📌 Recent Activity</h2>
+                                    <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,margin:0}}>📌 Recent Activity</h2>
                                     <span style={{fontSize:'10px',background:'#ECFDF5',color:'#059669',borderRadius:'20px',padding:'2px 8px',fontWeight:'600'}}>Live</span>
                                 </div>
                                 {loading ? (
@@ -918,6 +1028,13 @@
 
         // Create Ticket Page
         function CreateTicket() {
+
+            const dm = useDark();
+            const pageBg  = dm ? '#0F172A' : '#F4F5F7';
+            const cardBg  = dm ? '#1E293B' : 'white';
+            const borderC = dm ? '#334155' : '#E5E7EB';
+            const textP   = dm ? '#F1F5F9' : '#111827';
+            const textM   = dm ? '#94A3B8' : '#6B7280';
             // Read logged-in user from sessionStorage so we can auto-fill reporter fields
             const sessionUser = React.useMemo(() => getSessionUser(), []);
 
@@ -1301,6 +1418,13 @@
                 return '';
             }, []);
 
+
+            const dm = useDark();
+            const pageBg  = dm ? '#0F172A' : '#F4F5F7';
+            const cardBg  = dm ? '#1E293B' : 'white';
+            const borderC = dm ? '#334155' : '#E5E7EB';
+            const textP   = dm ? '#F1F5F9' : '#111827';
+            const textM   = dm ? '#94A3B8' : '#6B7280';
             const [tickets, setTickets] = React.useState([]);
             const [staffList, setStaffList] = React.useState([]);
             const [ticketsLoading, setTicketsLoading] = React.useState(true);
@@ -1433,7 +1557,7 @@
             });
 
             return (
-                <main className="flex-1 overflow-auto" style={{background:'#F4F5F7'}}>
+                <main className="flex-1 overflow-auto" style={{background:pageBg}}>
                     <div style={{maxWidth:'1400px',margin:'0 auto',padding:'24px'}}>
 
                         {/* ── Header ── */}
@@ -1949,6 +2073,13 @@
         ];
 
         function CalendarPage() {
+
+            const dm = useDark();
+            const pageBg  = dm ? '#0F172A' : '#F4F5F7';
+            const cardBg  = dm ? '#1E293B' : 'white';
+            const borderC = dm ? '#334155' : '#E5E7EB';
+            const textP   = dm ? '#F1F5F9' : '#111827';
+            const textM   = dm ? '#94A3B8' : '#6B7280';
             const today = new Date();
             const [viewDate, setViewDate] = React.useState(new Date(today.getFullYear(), today.getMonth(), 1));
             const [selectedState, setSelectedState] = React.useState('NSW');
@@ -2050,7 +2181,7 @@
             const ST_LABEL = {new:'New',assigned:'Assigned',in_progress:'In Progress',waiting:'Waiting',pending_approval:'Pending Approval',resolved:'Resolved',closed:'Closed'};
 
             return (
-                <main className="flex-1 overflow-auto" style={{background:'#F4F5F7'}}>
+                <main className="flex-1 overflow-auto" style={{background:pageBg}}>
                     <style>{`
                         .gc-cell { transition: background 0.1s; }
                         .gc-cell:hover .gc-date-num { background: #E5E7EB !important; }
@@ -3244,6 +3375,27 @@
 
         // Analytics Page
         function AnalyticsPage() {
+
+            const dm = useDark();
+            const pageBg  = dm ? '#0F172A' : '#F4F5F7';
+            const cardBg  = dm ? '#1E293B' : 'white';
+            const borderC = dm ? '#334155' : '#E5E7EB';
+            const textP   = dm ? '#F1F5F9' : '#111827';
+            const textM   = dm ? '#94A3B8' : '#6B7280';
+
+            const dm = useDark();
+            const pageBg  = dm ? '#0F172A' : '#F4F5F7';
+            const cardBg  = dm ? '#1E293B' : 'white';
+            const borderC = dm ? '#334155' : '#E5E7EB';
+            const textP   = dm ? '#F1F5F9' : '#111827';
+            const textM   = dm ? '#94A3B8' : '#6B7280';
+
+            const dm = useDark();
+            const pageBg  = dm ? '#0F172A' : '#F4F5F7';
+            const cardBg  = dm ? '#1E293B' : 'white';
+            const borderC = dm ? '#334155' : '#E5E7EB';
+            const textP   = dm ? '#F1F5F9' : '#111827';
+            const textM   = dm ? '#94A3B8' : '#6B7280';
             const [tickets, setTickets] = React.useState([]);
             const [loading, setLoading] = React.useState(true);
             const [range, setRange] = React.useState('90'); // days
@@ -3567,6 +3719,13 @@
         }
 
         function OrgChartPage() {
+
+            const dm = useDark();
+            const pageBg  = dm ? '#0F172A' : '#F4F5F7';
+            const cardBg  = dm ? '#1E293B' : 'white';
+            const borderC = dm ? '#334155' : '#E5E7EB';
+            const textP   = dm ? '#F1F5F9' : '#111827';
+            const textM   = dm ? '#94A3B8' : '#6B7280';
             const [orgData, setOrgData] = React.useState(null);
             const [loading, setLoading] = React.useState(true);
             const [error,   setError]   = React.useState('');
@@ -3785,6 +3944,13 @@
                 profile_notes:'', position_ids:[], auth_provider:'azure_ad'
             };
 
+
+            const dm = useDark();
+            const pageBg  = dm ? '#0F172A' : '#F4F5F7';
+            const cardBg  = dm ? '#1E293B' : 'white';
+            const borderC = dm ? '#334155' : '#E5E7EB';
+            const textP   = dm ? '#F1F5F9' : '#111827';
+            const textM   = dm ? '#94A3B8' : '#6B7280';
             const [staff,       setStaff]       = React.useState([]);
             const [departments, setDepts]        = React.useState([]);
             const [positions,   setPositions]    = React.useState([]);
@@ -5006,6 +5172,11 @@
             React.useEffect(() => {
                 try { localStorage.setItem('yc_dark', darkMode ? '1' : '0'); } catch(e) {}
                 document.documentElement.style.colorScheme = darkMode ? 'dark' : 'light';
+                // Toggle html.dark class — drives all CSS dark-mode overrides
+                document.documentElement.classList.toggle('dark', darkMode);
+                // Also toggle body class for Tailwind bg-gray-50
+                document.body.classList.toggle('bg-gray-900', darkMode);
+                document.body.classList.toggle('bg-gray-50', !darkMode);
             }, [darkMode]);
 
             // Show any error the backend passed back via ?error= after Microsoft login
@@ -5081,9 +5252,10 @@
                 }
             };
 
-            const appBg = darkMode ? '#111827' : '#F9FAFB';
+            const appBg = darkMode ? '#0F172A' : '#F9FAFB';
 
             return (
+                <DarkModeContext.Provider value={darkMode}>
                 <div style={{display:'flex', height:'100vh', background:appBg, overflow:'hidden'}}>
                     {sidebarOpen && (
                         <Navigation
@@ -5110,6 +5282,7 @@
                         </div>
                     </div>
                 </div>
+                </DarkModeContext.Provider>
             );
         }
 
