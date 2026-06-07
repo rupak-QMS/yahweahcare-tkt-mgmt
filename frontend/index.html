@@ -3653,7 +3653,7 @@
                             <h2 style={{fontSize:'14px',fontWeight:700,color:textP,marginBottom:'16px'}}>🏆 Top Performing Departments</h2>
                             <div style={{display:'flex',gap:'16px',flexWrap:'wrap'}}>
                                 {top3.map((d,i) => (
-                                    <div key={d.name} onClick={()=>setSelectedDept(d)} style={{flex:'1 1 200px',borderRadius:'10px',border:'2px solid',borderColor:i===0?'#F59E0B':i===1?'#9CA3AF':'#CD7C3A',padding:'16px',background:i===0?'#FFFBEB':i===1?'#F9FAFB':'#FFF8F3',cursor:'pointer',transition:'box-shadow 0.15s'}}
+                                    <div key={d.name} onClick={()=>setSelectedDept(d)} style={{flex:'1 1 200px',borderRadius:'10px',border:'2px solid',borderColor:i===0?'#F59E0B':i===1?'#9CA3AF':'#CD7C3A',padding:'16px',background:dm?(i===0?'rgba(245,158,11,0.08)':i===1?'rgba(156,163,175,0.08)':'rgba(205,124,58,0.08)'):(i===0?'#FFFBEB':i===1?'#F9FAFB':'#FFF8F3'),cursor:'pointer',transition:'box-shadow 0.15s'}}
                                         onMouseEnter={e=>e.currentTarget.style.boxShadow='0 4px 16px rgba(99,102,241,0.15)'}
                                         onMouseLeave={e=>e.currentTarget.style.boxShadow='none'}>
                                         <div style={{fontSize:'24px'}}>{MEDAL[i]}</div>
@@ -3689,7 +3689,7 @@
                             <div className="yc-table-scroll">
                                 <table style={{width:'100%',borderCollapse:'collapse'}}>
                                     <thead>
-                                        <tr style={{borderBottom:'2px solid #F0F0F0'}}>
+                                        <tr style={{borderBottom:`2px solid ${borderC}`}}>
                                             <th style={{padding:'10px 12px',textAlign:'left',fontSize:'11px',fontWeight:700,color:textM,textTransform:'uppercase',background:dm?'rgba(4,8,20,0.6)':'#F8FAFF',whiteSpace:'nowrap'}}>Department</th>
                                             <SortTh col="staff"        label="Staff" />
                                             <SortTh col="assigned"     label="Assigned" />
@@ -3706,9 +3706,9 @@
                                     <tbody>
                                         {sorted.map((d,i) => (
                                             <tr key={d.name} onClick={()=>setSelectedDept(d)}
-                                                style={{borderBottom:'1px solid #F9FAFB',background:i%2===0?'white':'#FAFAFA',cursor:'pointer'}}
-                                                onMouseEnter={e=>e.currentTarget.style.background='#F0F4FF'}
-                                                onMouseLeave={e=>e.currentTarget.style.background=i%2===0?'white':'#FAFAFA'}>
+                                                style={{borderBottom:`1px solid ${borderC}`,background:i%2===0?(dm?'rgba(255,255,255,0.02)':'white'):(dm?'rgba(99,102,241,0.03)':'#FAFAFA'),cursor:'pointer'}}
+                                                onMouseEnter={e=>e.currentTarget.style.background=dm?'rgba(99,102,241,0.08)':'#F0F4FF'}
+                                                onMouseLeave={e=>e.currentTarget.style.background=i%2===0?(dm?'rgba(255,255,255,0.02)':'white'):(dm?'rgba(99,102,241,0.03)':'#FAFAFA')}>
                                                 <td style={{padding:'11px 12px',fontSize:'13px',fontWeight:600,color:textP,whiteSpace:'nowrap'}}>
                                                     <div style={{display:'flex',alignItems:'center',gap:8}}>
                                                         <div style={{width:30,height:30,borderRadius:'50%',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'11px',fontWeight:700,color:dm?'#818cf8':'#4F46E5',flexShrink:0}}>
@@ -3725,7 +3725,7 @@
                                                 <td style={{padding:'11px 12px',textAlign:'center',fontSize:'13px',color:dm?'#c0cfec':'#334155'}}>{d.pending}</td>
                                                 <td style={{padding:'11px 12px',textAlign:'center'}}>
                                                     {d.resRate!=null
-                                                        ? <span style={{fontSize:'12px',fontWeight:700,padding:'2px 8px',borderRadius:20,background:d.resRate>=80?'#D1FAE5':d.resRate>=50?'#FEF3C7':'#FEE2E2',color:d.resRate>=80?'#065F46':d.resRate>=50?'#92400E':'#991B1B'}}>{d.resRate}%</span>
+                                                        ? <span style={{fontSize:'12px',fontWeight:700,padding:'2px 8px',borderRadius:20,background:d.resRate>=80?(dm?'rgba(16,185,129,0.15)':'#D1FAE5'):d.resRate>=50?(dm?'rgba(245,158,11,0.15)':'#FEF3C7'):(dm?'rgba(239,68,68,0.15)':'#FEE2E2'),color:d.resRate>=80?(dm?'#6ee7b7':'#065F46'):d.resRate>=50?(dm?'#fcd34d':'#92400E'):(dm?'#fca5a5':'#991B1B')}}>{d.resRate}%</span>
                                                         : <span style={{color:'#D1D5DB'}}>—</span>}
                                                 </td>
                                                 <td style={{padding:'11px 12px',textAlign:'center',fontSize:'12px',color:textM}}>
@@ -3733,22 +3733,22 @@
                                                 </td>
                                                 <td style={{padding:'11px 12px',textAlign:'center'}}>
                                                     {d.sla!=null
-                                                        ? <span style={{fontSize:'12px',fontWeight:700,padding:'2px 8px',borderRadius:20,background:d.sla>=80?'#D1FAE5':d.sla>=60?'#FEF3C7':'#FEE2E2',color:d.sla>=80?'#065F46':d.sla>=60?'#92400E':'#991B1B'}}>{d.sla}%</span>
+                                                        ? <span style={{fontSize:'12px',fontWeight:700,padding:'2px 8px',borderRadius:20,background:d.sla>=80?(dm?'rgba(16,185,129,0.15)':'#D1FAE5'):d.sla>=60?(dm?'rgba(245,158,11,0.15)':'#FEF3C7'):(dm?'rgba(239,68,68,0.15)':'#FEE2E2'),color:d.sla>=80?(dm?'#6ee7b7':'#065F46'):d.sla>=60?(dm?'#fcd34d':'#92400E'):(dm?'#fca5a5':'#991B1B')}}>{d.sla}%</span>
                                                         : <span style={{color:'#D1D5DB'}}>—</span>}
                                                 </td>
                                                 <td style={{padding:'11px 12px',textAlign:'center'}}>
                                                     {d.escalated>0
-                                                        ? <span style={{background:'#FEF2F2',color:'#DC2626',fontWeight:700,padding:'2px 8px',borderRadius:6,fontSize:'12px'}}>{d.escalated}</span>
+                                                        ? <span style={{background:dm?'rgba(239,68,68,0.15)':'#FEF2F2',color:dm?'#fca5a5':'#DC2626',fontWeight:700,padding:'2px 8px',borderRadius:6,fontSize:'12px'}}>{d.escalated}</span>
                                                         : <span style={{color:'#D1D5DB'}}>0</span>}
                                                 </td>
                                                 <td style={{padding:'11px 12px',textAlign:'center'}}>
                                                     {d.overdue>0
-                                                        ? <span style={{background:'#FFF7ED',color:'#EA580C',fontWeight:700,padding:'2px 8px',borderRadius:6,fontSize:'12px'}}>{d.overdue}</span>
+                                                        ? <span style={{background:dm?'rgba(249,115,22,0.15)':'#FFF7ED',color:dm?'#fdba74':'#EA580C',fontWeight:700,padding:'2px 8px',borderRadius:6,fontSize:'12px'}}>{d.overdue}</span>
                                                         : <span style={{color:'#D1D5DB'}}>0</span>}
                                                 </td>
                                                 <td style={{padding:'11px 12px',textAlign:'center'}}>
                                                     {d.criticalHigh>0
-                                                        ? <span style={{background:'#FFF1F2',color:'#BE123C',fontWeight:700,padding:'2px 8px',borderRadius:6,fontSize:'12px'}}>{d.criticalHigh}</span>
+                                                        ? <span style={{background:dm?'rgba(190,18,60,0.15)':'#FFF1F2',color:dm?'#fda4af':'#BE123C',fontWeight:700,padding:'2px 8px',borderRadius:6,fontSize:'12px'}}>{d.criticalHigh}</span>
                                                         : <span style={{color:'#D1D5DB'}}>0</span>}
                                                 </td>
                                             </tr>
@@ -3802,7 +3802,7 @@
                                     {/* panel */}
                                     <div style={{width:'420px',maxWidth:'95vw',background:cardBg,overflowY:'auto',boxShadow:dm?'-4px 0 40px rgba(0,0,0,0.7),- 1px 0 rgba(99,102,241,0.15)':'-4px 0 24px rgba(0,0,0,0.15)',display:'flex',flexDirection:'column'}}>
                                         {/* header */}
-                                        <div style={{padding:'20px 24px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`,display:'flex',alignItems:'center',justifyContent:'space-between',position:'sticky',top:0,background:'#fff',zIndex:1}}>
+                                        <div style={{padding:'20px 24px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`,display:'flex',alignItems:'center',justifyContent:'space-between',position:'sticky',top:0,background:dm?'rgba(8,16,36,0.98)':'#fff',zIndex:1}}>
                                             <div>
                                                 <div style={{fontSize:'18px',fontWeight:700,color:textP}}>{d.name}</div>
                                                 <div style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',marginTop:'2px'}}>{d.staff} staff · {d.assigned} tickets</div>
@@ -3861,7 +3861,7 @@
                                                             </thead>
                                                             <tbody>
                                                                 {staffRows.map((sr,i)=>(
-                                                                    <tr key={i} style={{borderTop:'1px solid #F0F0F0'}}>
+                                                                    <tr key={i} style={{borderTop:`1px solid ${borderC}`}}>
                                                                         <td style={{padding:'8px 12px',color:textP,maxWidth:'140px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{sr.name}</td>
                                                                         <td style={{padding:'8px',textAlign:'center',color:'#3B82F6',fontWeight:600}}>{sr.assigned}</td>
                                                                         <td style={{padding:'8px',textAlign:'center',color:'#10B981',fontWeight:600}}>{sr.resolved}</td>
@@ -3886,7 +3886,7 @@
                                                                     <div style={{display:'flex',justifyContent:'space-between',fontSize:'12px',color:dm?'#c0cfec':'#334155',marginBottom:'3px'}}>
                                                                         <span>{cat}</span><span style={{fontWeight:600}}>{cnt}</span>
                                                                     </div>
-                                                                    <div style={{height:'6px',background:'#F0F0F0',borderRadius:'3px'}}>
+                                                                    <div style={{height:'6px',background:dm?'rgba(99,102,241,0.12)':'#F0F0F0',borderRadius:'3px'}}>
                                                                         <div style={{height:'100%',width:pct+'%',background:'#6366F1',borderRadius:'3px'}}/>
                                                                     </div>
                                                                 </div>
