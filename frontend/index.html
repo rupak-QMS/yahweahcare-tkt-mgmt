@@ -1596,12 +1596,12 @@
                                         </div>
                                         <div className="grid gap-4 mb-4 yc-grid-2-col" style={{gridTemplateColumns:"repeat(2,1fr)"}} >
                                             <div>
-                                                <label className={labelCls}>Submitted By <span className="text-red-400">*</span></label>
-                                                <input type="text" value={formData.submitted_by} className={inputCls + " bg-gray-50 text-gray-500 cursor-not-allowed"} disabled/>
+                                                <label className={labelCls}>Submitted By</label>
+                                                <input type="text" value={sessionUser?.name || ''} className={inputCls + " bg-gray-50 text-gray-500 cursor-not-allowed"} readOnly disabled tabIndex={-1}/>
                                             </div>
                                             <div>
-                                                <label className={labelCls}>Email <span className="text-red-400">*</span></label>
-                                                <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="IT@yahweahcare.com.au" className={inputCls}/>
+                                                <label className={labelCls}>Email</label>
+                                                <input type="email" value={sessionUser?.email || ''} className={inputCls + " bg-gray-50 text-gray-500 cursor-not-allowed"} readOnly disabled tabIndex={-1}/>
                                             </div>
                                         </div>
                                         <label className="flex items-center gap-3 cursor-pointer group w-fit">
