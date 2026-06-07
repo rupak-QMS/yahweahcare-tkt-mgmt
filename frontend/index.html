@@ -562,138 +562,211 @@
 
         // Dashboard Page
         function Dashboard() {
-            const [statusChart, setStatusChart] = React.useState(null);
-            const [categoryChart, setCategoryChart] = React.useState(null);
-            const [recentActivity, setRecentActivity] = React.useState([]);
+            const [tickets,       setTickets]       = React.useState([]);
+            const [staffCount,    setStaffCount]    = React.useState(0);
+            const [recentActivity,setRecentActivity]= React.useState([]);
+            const [loading,       setLoading]       = React.useState(true);
+            const statusCanvasRef   = React.useRef(null);
+            const categoryCanvasRef = React.useRef(null);
+            const statusChartRef    = React.useRef(null);
+            const categoryChartRef  = React.useRef(null);
 
+            // ── Fetch data ────────────────────────────────────────
             React.useEffect(() => {
-                const sp = getActivityScopeParams(getSessionUser());
-                fetch(`${HRMS_API}/tickets/activity?limit=4${sp}`)
-                    .then(r => r.ok ? r.json() : { activity: [] })
-                    .then(d => setRecentActivity(d.activity || []))
-                    .catch(() => {});
+                const su  = getSessionUser();
+                const tsp = getTicketScopeParams(su);
+                const uqp = getUserQueryParams(su);
+                const sp  = getActivityScopeParams(su);
+                const tp  = new URLSearchParams({ all:'1', limit:'500' });
+                if (tsp.scope)  tp.set('scope',  tsp.scope);
+                if (tsp.userId) tp.set('userId', String(tsp.userId));
+                if (tsp.deptId) tp.set('deptId', String(tsp.deptId));
+
+                Promise.all([
+                    fetch(`${HRMS_API}/tickets?${tp}`).then(r=>r.ok?r.json():{tickets:[]}),
+                    fetch(`${HRMS_API}/users?status=active&limit=200${uqp}`).then(r=>r.ok?r.json():{users:[]}),
+                    fetch(`${HRMS_API}/tickets/activity?limit=5${sp}`).then(r=>r.ok?r.json():{activity:[]}),
+                ]).then(([td, ud, ad]) => {
+                    setTickets(td.tickets || []);
+                    setStaffCount((ud.users || []).length);
+                    setRecentActivity(ad.activity || []);
+                }).catch(()=>{}).finally(()=>setLoading(false));
             }, []);
 
-            React.useEffect(() => {
-                const statusCtx = document.getElementById('statusChart');
-                if (statusCtx && !statusChart) {
-                    const chart = new Chart(statusCtx, {
-                        type: 'doughnut',
-                        data: {
-                            labels: ['Open', 'In Progress', 'Escalated', 'Resolved', 'Closed'],
-                            datasets: [{
-                                data: [13, 8, 3, 5, 1],
-                                backgroundColor: ['#0EA5E9', '#10B981', '#F59E0B', '#8B5CF6', '#EF4444'],
-                                borderColor: '#fff',
-                                borderWidth: 2
-                            }]
-                        },
-                        options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom' } } }
-                    });
-                    setStatusChart(chart);
-                }
+            // ── Compute stats ─────────────────────────────────────
+            const total    = tickets.length;
+            const open     = tickets.filter(t=>['new','assigned'].includes(t.status)).length;
+            const inProg   = tickets.filter(t=>['in_progress','waiting','pending_approval'].includes(t.status)).length;
+            const resolved = tickets.filter(t=>['resolved','closed'].includes(t.status)).length;
+            const escalated= tickets.filter(t=>t.isEscalated||t.escalated||t.status==='escalated').length;
+            const urgent   = tickets.filter(t=>['critical','urgent'].includes((t.priorityLabel||t.priority||'').toLowerCase())).length;
+            const now      = new Date();
+            const overdue  = tickets.filter(t=>!['resolved','closed'].includes(t.status)&&t.dueAt&&new Date(t.dueAt)<now).length;
 
-                const categoryCtx = document.getElementById('categoryChart');
-                if (categoryCtx && !categoryChart) {
-                    const chart = new Chart(categoryCtx, {
-                        type: 'bar',
-                        data: {
-                            labels: ['Client', 'Account', 'Service', 'System', 'Other', 'Support', 'Equipment', 'Compliance', 'Other'],
-                            datasets: [{
-                                label: 'Tickets',
-                                data: [12, 10, 9, 8, 7, 6, 5, 4, 3],
-                                backgroundColor: '#0EA5E9',
-                                borderRadius: 4
-                            }]
-                        },
-                        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } } }
+            // SLA: resolved tickets that were resolved before expected_completion / due_at
+            const resTkts = tickets.filter(t=>['resolved','closed'].includes(t.status));
+            const slaOk   = resTkts.filter(t=>{
+                const due = t.dueAt||t.expectedCompletion; if(!due) return true;
+                const fin = t.updatedAt||t.resolvedAt; if(!fin) return true;
+                return new Date(fin)<=new Date(due);
+            }).length;
+            const slaPct  = resTkts.length>0 ? Math.round(slaOk/resTkts.length*100) : 0;
+            const r = 54, circ = 2*Math.PI*r;
+
+            // ── Charts (rebuild when data changes) ────────────────
+            React.useEffect(() => {
+                if (!tickets.length) return;
+                let raf1, raf2;
+
+                // Status doughnut
+                const statusGroups = { Open:open, 'In Progress':inProg, Resolved:resolved, Urgent:urgent, Other: Math.max(0,total-open-inProg-resolved-urgent) };
+                const sLabels = Object.keys(statusGroups).filter(k=>statusGroups[k]>0);
+                const sData   = sLabels.map(k=>statusGroups[k]);
+                raf1 = requestAnimationFrame(()=>{
+                    if (!statusCanvasRef.current) return;
+                    if (statusChartRef.current) { try{statusChartRef.current.destroy();}catch(_){} }
+                    statusChartRef.current = new Chart(statusCanvasRef.current, {
+                        type: 'doughnut',
+                        data: { labels: sLabels, datasets:[{ data:sData, backgroundColor:['#0EA5E9','#F59E0B','#10B981','#EF4444','#9CA3AF'], borderColor:'#fff', borderWidth:2 }] },
+                        options: { responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{size:11} } } } }
                     });
-                    setCategoryChart(chart);
-                }
-            }, [statusChart, categoryChart]);
+                });
+
+                // Category bar
+                const catMap = {};
+                tickets.forEach(t=>{ const c=t.categoryLabel||t.category||'Other'; catMap[c]=(catMap[c]||0)+1; });
+                const catEntries = Object.entries(catMap).sort((a,b)=>b[1]-a[1]).slice(0,8);
+                raf2 = requestAnimationFrame(()=>{
+                    if (!categoryCanvasRef.current) return;
+                    if (categoryChartRef.current) { try{categoryChartRef.current.destroy();}catch(_){} }
+                    categoryChartRef.current = new Chart(categoryCanvasRef.current, {
+                        type: 'bar',
+                        data: { labels:catEntries.map(e=>e[0]), datasets:[{ label:'Tickets', data:catEntries.map(e=>e[1]), backgroundColor:'#6366F1', borderRadius:4 }] },
+                        options: { indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ x:{ ticks:{ stepSize:1, precision:0 } } } }
+                    });
+                });
+                return ()=>{ cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); };
+            }, [tickets]);
+
+            const statCards = [
+                { label:'Total Tickets', value:total,    color:'#6366F1', bg:'#EEF2FF', icon:'📋' },
+                { label:'Open',          value:open,     color:'#0EA5E9', bg:'#E0F2FE', icon:'⏱️' },
+                { label:'In Progress',   value:inProg,   color:'#F59E0B', bg:'#FFFBEB', icon:'⚙️' },
+                { label:'Resolved',      value:resolved, color:'#10B981', bg:'#ECFDF5', icon:'✅' },
+                { label:'Overdue',       value:overdue,  color:'#EF4444', bg:'#FEF2F2', icon:'⚠️' },
+                { label:'Urgent/Critical',value:urgent,  color:'#DC2626', bg:'#FFF1F2', icon:'🔴' },
+            ];
 
             return (
-                <main className="flex-1 overflow-auto bg-gray-50">
-                    <div className="p-8">
-                        <div className="mb-8">
-                            <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-                            <p className="text-gray-600 mt-2">Welcome to Yahweh Property Care Ticket Management</p>
+                <main className="flex-1 overflow-auto" style={{background:'#F4F5F7'}}>
+                    <div style={{maxWidth:'1400px',margin:'0 auto',padding:'24px'}}>
+
+                        {/* Header */}
+                        <div style={{marginBottom:'20px'}}>
+                            <h1 style={{fontSize:'20px',fontWeight:'700',color:'#111827',margin:0}}>Dashboard</h1>
+                            <p style={{fontSize:'13px',color:'#6B7280',margin:'3px 0 0'}}>Yahweh Property Care — Ticket Management</p>
                         </div>
 
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-                            {[
-                                { label: 'Total Tickets', value: '30', bg: 'bg-blue-50', border: 'border-blue-200', color: 'text-gray-900', icon: '📋' },
-                                { label: 'Open Tickets', value: '13', bg: 'bg-cyan-50', border: 'border-cyan-200', color: 'text-cyan-600', icon: '⏱️' },
-                                { label: 'In Progress', value: '8', bg: 'bg-green-50', border: 'border-green-200', color: 'text-green-600', icon: '⚙️' },
-                                { label: 'Resolved', value: '5', bg: 'bg-emerald-50', border: 'border-emerald-200', color: 'text-emerald-600', icon: '✓' },
-                                { label: 'Escalated', value: '3', bg: 'bg-orange-50', border: 'border-orange-200', color: 'text-orange-600', icon: '⚠️' },
-                                { label: 'Urgent', value: '6', bg: 'bg-red-50', border: 'border-red-200', color: 'text-red-600', icon: '🔴' },
-                            ].map((card, i) => (
-                                <div key={i} className={`stat-card ${card.bg} rounded-lg p-6 border ${card.border}`}>
-                                    <p className="text-gray-600 text-xs font-medium">{card.label}</p>
-                                    <p className={`text-3xl font-bold mt-2 ${card.color}`}>{card.value}</p>
-                                    <p className="text-xs mt-2">{card.icon}</p>
+                        {/* Stat cards */}
+                        <div style={{display:'grid',gridTemplateColumns:'repeat(6,1fr)',gap:'12px',marginBottom:'20px'}}>
+                            {statCards.map((c,i)=>(
+                                <div key={i} style={{background:'white',borderRadius:'12px',border:'1px solid #E5E7EB',padding:'16px',boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
+                                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+                                        <div>
+                                            <p style={{fontSize:'11px',color:'#6B7280',fontWeight:'600',margin:0,textTransform:'uppercase',letterSpacing:'0.04em'}}>{c.label}</p>
+                                            <p style={{fontSize:'28px',fontWeight:'800',color:c.color,margin:'6px 0 0',lineHeight:1}}>
+                                                {loading ? '—' : c.value}
+                                            </p>
+                                        </div>
+                                        <span style={{fontSize:'20px',background:c.bg,borderRadius:'8px',width:'36px',height:'36px',display:'flex',alignItems:'center',justifyContent:'center'}}>{c.icon}</span>
+                                    </div>
                                 </div>
                             ))}
                         </div>
 
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                                <h2 className="text-lg font-bold text-gray-900 mb-4">📊 Status Distribution</h2>
-                                <div className="chart-container"><canvas id="statusChart"></canvas></div>
+                        {/* Charts row */}
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px',marginBottom:'16px'}}>
+                            <div style={{background:'white',borderRadius:'12px',border:'1px solid #E5E7EB',padding:'20px',boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
+                                <h2 style={{fontSize:'14px',fontWeight:'700',color:'#111827',marginBottom:'14px'}}>📊 Status Distribution</h2>
+                                <div style={{height:'220px',position:'relative'}}>
+                                    {loading ? <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:'#9CA3AF',fontSize:'13px'}}>Loading…</div>
+                                             : <canvas ref={statusCanvasRef}></canvas>}
+                                </div>
                             </div>
-                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                                <h2 className="text-lg font-bold text-gray-900 mb-4">📑 Category Breakdown</h2>
-                                <div className="chart-container"><canvas id="categoryChart"></canvas></div>
+                            <div style={{background:'white',borderRadius:'12px',border:'1px solid #E5E7EB',padding:'20px',boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
+                                <h2 style={{fontSize:'14px',fontWeight:'700',color:'#111827',marginBottom:'14px'}}>📑 Category Breakdown</h2>
+                                <div style={{height:'220px',position:'relative'}}>
+                                    {loading ? <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:'#9CA3AF',fontSize:'13px'}}>Loading…</div>
+                                             : <canvas ref={categoryCanvasRef}></canvas>}
+                                </div>
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                                <h2 className="text-lg font-bold text-gray-900 mb-4">⏱️ SLA Compliance</h2>
-                                <div className="flex flex-col items-center justify-center py-8">
-                                    <svg className="transform -rotate-90 w-32 h-32" viewBox="0 0 120 120">
-                                        <circle cx="60" cy="60" r="54" stroke="#e5e7eb" strokeWidth="8" fill="none"/>
-                                        <circle cx="60" cy="60" r="54" stroke="#10b981" strokeWidth="8" fill="none"
-                                            strokeDasharray={`${54 * 2 * 3.14159 * 0.23} ${54 * 2 * 3.14159}`}/>
-                                    </svg>
-                                    <div className="absolute flex flex-col items-center">
-                                        <p className="text-3xl font-bold text-gray-900">23%</p>
-                                        <p className="text-xs text-gray-600">Compliance</p>
+                        {/* SLA + Activity row */}
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px'}}>
+
+                            {/* SLA Compliance */}
+                            <div style={{background:'white',borderRadius:'12px',border:'1px solid #E5E7EB',padding:'20px',boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
+                                <h2 style={{fontSize:'14px',fontWeight:'700',color:'#111827',marginBottom:'16px'}}>⏱️ SLA Compliance</h2>
+                                <div style={{display:'flex',alignItems:'center',gap:'24px'}}>
+                                    <div style={{position:'relative',flexShrink:0}}>
+                                        <svg width="120" height="120" viewBox="0 0 120 120" style={{transform:'rotate(-90deg)'}}>
+                                            <circle cx="60" cy="60" r={r} stroke="#F3F4F6" strokeWidth="10" fill="none"/>
+                                            <circle cx="60" cy="60" r={r} stroke={slaPct>=80?'#10B981':slaPct>=50?'#F59E0B':'#EF4444'} strokeWidth="10" fill="none"
+                                                strokeDasharray={`${circ*slaPct/100} ${circ}`} strokeLinecap="round"/>
+                                        </svg>
+                                        <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
+                                            <span style={{fontSize:'22px',fontWeight:'800',color:'#111827'}}>{loading?'—':slaPct+'%'}</span>
+                                            <span style={{fontSize:'10px',color:'#9CA3AF'}}>SLA Met</span>
+                                        </div>
+                                    </div>
+                                    <div style={{flex:1}}>
+                                        {[
+                                            {label:'Total Tickets', val:total,    color:'#6366F1'},
+                                            {label:'Resolved',      val:resolved, color:'#10B981'},
+                                            {label:'Overdue',       val:overdue,  color:'#EF4444'},
+                                            {label:'Active Staff',  val:staffCount,color:'#0EA5E9'},
+                                        ].map((row,i)=>(
+                                            <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'6px 0',borderBottom:i<3?'1px solid #F3F4F6':'none'}}>
+                                                <span style={{fontSize:'12px',color:'#6B7280'}}>{row.label}</span>
+                                                <span style={{fontSize:'13px',fontWeight:'700',color:row.color}}>{loading?'—':row.val}</span>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
-                                <p className="text-center text-xs text-gray-500 mt-4">10 Active Staff Members</p>
                             </div>
 
-                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h2 className="text-lg font-bold text-gray-900">📌 Recent Activity</h2>
-                                    <span className="text-xs text-gray-400">Live</span>
+                            {/* Recent Activity */}
+                            <div style={{background:'white',borderRadius:'12px',border:'1px solid #E5E7EB',padding:'20px',boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
+                                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'14px'}}>
+                                    <h2 style={{fontSize:'14px',fontWeight:'700',color:'#111827',margin:0}}>📌 Recent Activity</h2>
+                                    <span style={{fontSize:'10px',background:'#ECFDF5',color:'#059669',borderRadius:'20px',padding:'2px 8px',fontWeight:'600'}}>Live</span>
                                 </div>
-                                <div className="space-y-3">
-                                    {recentActivity.length === 0 ? (
-                                        <p className="text-sm text-gray-400 text-center py-4">No recent activity</p>
-                                    ) : recentActivity.map((log, i) => {
-                                        const am = ACTION_META[log.action] || { label: log.action, bg: '#F3F4F6', color: '#374151' };
-                                        const initials = (log.actorName||'?').split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
-                                        return (
-                                            <div key={i} className="flex items-start gap-3 pb-3 border-b border-gray-100 last:border-0">
-                                                <div style={{width:32,height:32,borderRadius:'50%',background:'#EEF2FF',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:'#6366F1',flexShrink:0}}>
-                                                    {initials}
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center gap-2 flex-wrap">
-                                                        <span style={{fontSize:11,fontWeight:600,padding:'2px 7px',borderRadius:20,background:am.bg,color:am.color}}>{am.label}</span>
-                                                        <span className="text-xs text-gray-500 truncate">{log.ticketTitle}</span>
-                                                    </div>
-                                                    <p className="text-xs text-gray-400 mt-0.5">{log.actorName} · {fmtDate(log.at)}</p>
-                                                </div>
+                                {loading ? (
+                                    <p style={{fontSize:'13px',color:'#9CA3AF',textAlign:'center',padding:'20px 0'}}>Loading…</p>
+                                ) : recentActivity.length === 0 ? (
+                                    <p style={{fontSize:'13px',color:'#9CA3AF',textAlign:'center',padding:'20px 0'}}>No recent activity</p>
+                                ) : recentActivity.map((log, i) => {
+                                    const am = ACTION_META[log.action] || { label: log.action, bg: '#F3F4F6', color: '#374151' };
+                                    const initials = (log.actorName||'?').split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+                                    return (
+                                        <div key={i} style={{display:'flex',gap:'10px',paddingBottom:'10px',borderBottom:i<recentActivity.length-1?'1px solid #F3F4F6':'none',marginBottom:i<recentActivity.length-1?'10px':0}}>
+                                            <div style={{width:32,height:32,borderRadius:'50%',background:'#EEF2FF',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:'#6366F1',flexShrink:0}}>
+                                                {initials}
                                             </div>
-                                        );
-                                    })}
-                                </div>
+                                            <div style={{flex:1,minWidth:0}}>
+                                                <div style={{display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}>
+                                                    <span style={{fontSize:11,fontWeight:600,padding:'2px 7px',borderRadius:20,background:am.bg,color:am.color}}>{am.label}</span>
+                                                    <span style={{fontSize:12,color:'#374151',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'160px'}}>{log.ticketTitle}</span>
+                                                </div>
+                                                <p style={{fontSize:11,color:'#9CA3AF',margin:'3px 0 0'}}>{log.actorName} · {fmtDate(log.at)}</p>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
+
                     </div>
                 </main>
             );
