@@ -10,26 +10,35 @@ import { logAudit } from '../audit/audit.service';
 const router = Router();
 
 // ── Mapper: DB row → frontend shape ────────────────────────
+// Actual table columns (schema yc_tkt_mgmt.tickets):
+//   status (not status_id), assigned_to (not assignee_id),
+//   created_by (not requester_id), due_date (not due_at),
+//   closed_date (not resolved_at/closed_at), no ticket_number/site/source/sla_breached/is_closed
 function dbTicket(row: Record<string, unknown>) {
+  const dueDate    = row.due_date    ? new Date(row.due_date    as string) : null;
+  const closedDate = row.closed_date ? new Date(row.closed_date as string) : null;
+  const status     = (row.status || '') as string;
+  const isClosed   = status === 'resolved' || status === 'closed' || !!closedDate;
+  const slaBreached = !!(closedDate && dueDate && closedDate > dueDate);
   return {
     id: row.id,
-    ticketNumber: row.ticket_number,
+    ticketNumber: `TKT-${String(row.id).padStart(6, '0')}`,
     title: row.title,
     description: row.description || '',
     category: row.category_id,
     priority: row.priority_id,
-    status: row.status_id,
-    requesterId: row.requester_id,
-    assigneeId: row.assignee_id || null,
-    site: row.site || '',
-    source: row.source || 'web',
-    dueAt: row.due_at,
+    status,
+    requesterId: row.created_by,
+    assigneeId: row.assigned_to || null,
+    site: '',
+    source: 'web',
+    dueAt: row.due_date,
     expectedCompletion: row.expected_completion || null,
     pendingApprovalAt: row.pending_approval_at || null,
-    resolvedAt: row.resolved_at || null,
-    closedAt: row.closed_at || null,
-    slaBreached: !!row.sla_breached,
-    isClosed: !!row.is_closed,
+    resolvedAt: row.closed_date || null,
+    closedAt: row.closed_date || null,
+    slaBreached,
+    isClosed,
     isEscalated: !!row.is_escalated,
     escalatedTo: row.escalated_to || null,
     escalatedBy: row.escalated_by || null,
@@ -204,29 +213,23 @@ router.post('/', optionalAuth, async (req, res, next) => {
       return res.status(400).json({ error: 'missing_fields', message: 'At least one approver is required' });
     }
 
-    // Generate ticket number
-    const { rows: seqRow } = await pool.query(
-      `SELECT COALESCE(MAX(CAST(SUBSTRING(ticket_number FROM 'YAH-0*([0-9]+)') AS INTEGER)), 1000) + 1 AS next FROM yc_tkt_mgmt.tickets`
-    );
-    const ticketNumber = `YAH-${String(seqRow[0].next).padStart(6, '0')}`;
-
-    // SLA-based due date (fallback)
+    // SLA-based due date (fallback if expected_completion not provided)
     const { rows: priRows } = await pool.query(`SELECT sla_hours FROM yc_tkt_mgmt.priorities WHERE id = $1`, [resolvedPriority]);
     const slaHours = priRows[0]?.sla_hours || 24;
-    const dueAt = new Date(Date.now() + slaHours * 3600000);
+    const dueDate = resolvedDueDate || new Date(Date.now() + slaHours * 3600000).toISOString().split('T')[0];
 
-    // Resolve status
+    // Validate status exists
     const { rows: statRows } = await pool.query(`SELECT id FROM yc_tkt_mgmt.statuses WHERE id = $1`, [resolvedStatus]);
-    const finalStatus = statRows[0]?.id || 'open';
+    const finalStatus = statRows[0]?.id || 'new';
 
     const { rows } = await pool.query(
       `INSERT INTO yc_tkt_mgmt.tickets
-         (ticket_number, title, description, category_id, priority_id, status_id,
-          requester_id, assignee_id, site, source, due_at, expected_completion)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'web',$10,$11)
+         (title, description, category_id, priority_id, status,
+          created_by, assigned_to, due_date, expected_completion)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
        RETURNING *`,
-      [ticketNumber, resolvedTitle, description || req.body.issue_details || '', resolvedCategory, resolvedPriority,
-       finalStatus, req.auth?.userId || req.body.created_by || null, resolvedAssignee || null, site || null, dueAt, resolvedDueDate]
+      [resolvedTitle, description || req.body.issue_details || '', resolvedCategory, resolvedPriority,
+       finalStatus, req.auth?.userId || req.body.created_by || null, resolvedAssignee || null, dueDate, resolvedDueDate]
     );
     const ticketId = rows[0].id;
 
@@ -251,7 +254,7 @@ router.post('/', optionalAuth, async (req, res, next) => {
       );
     }
 
-    if (req.auth) await logAudit({ userId: req.auth.userId, actorEmail: req.auth.email, action: 'ticket.create', module: 'tickets', targetType: 'ticket', targetId: ticketId, metadata: { ticketNumber, title: resolvedTitle }, req });
+    if (req.auth) await logAudit({ userId: req.auth.userId, actorEmail: req.auth.email, action: 'ticket.create', module: 'tickets', targetType: 'ticket', targetId: ticketId, metadata: { title: resolvedTitle }, req });
 
     // Return ticket with approvers
     const { rows: apRows } = await pool.query(
@@ -291,7 +294,7 @@ router.post('/:id/complete', optionalAuth, async (req, res, next) => {
 
     const { rows } = await pool.query(
       `UPDATE yc_tkt_mgmt.tickets
-       SET status_id='pending_approval', pending_approval_at=NOW(), updated_at=NOW()
+       SET status='pending_approval', pending_approval_at=NOW(), updated_at=NOW()
        WHERE id=$1 RETURNING *`,
       [id]
     );
@@ -344,7 +347,7 @@ router.post('/:id/approve', optionalAuth, async (req, res, next) => {
       // All approved → resolve
       const { rows } = await pool.query(
         `UPDATE yc_tkt_mgmt.tickets
-         SET status_id='resolved', resolved_at=NOW(), updated_at=NOW()
+         SET status='resolved', closed_date=NOW(), updated_at=NOW()
          WHERE id=$1 RETURNING *`,
         [id]
       );
@@ -401,7 +404,7 @@ router.post('/:id/reject', optionalAuth, async (req, res, next) => {
     // Reopen ticket — back to in_progress
     const { rows } = await pool.query(
       `UPDATE yc_tkt_mgmt.tickets
-       SET status_id='in_progress', pending_approval_at=NULL, updated_at=NOW()
+       SET status='in_progress', pending_approval_at=NULL, updated_at=NOW()
        WHERE id=$1 RETURNING *`,
       [id]
     );
@@ -436,8 +439,8 @@ router.patch('/:id', optionalAuth, async (req, res, next) => {
 
     const colMap: Record<string, string> = {
       title: 'title', description: 'description', category: 'category_id',
-      priority: 'priority_id', status: 'status_id', assigneeId: 'assignee_id',
-      site: 'site', resolvedAt: 'resolved_at', closedAt: 'closed_at', slaBreached: 'sla_breached',
+      priority: 'priority_id', status: 'status', assigneeId: 'assigned_to',
+      resolvedAt: 'closed_date', closedAt: 'closed_date',
     };
     const updates: string[] = []; const values: unknown[] = []; let i = 1;
     for (const [fKey, dbCol] of Object.entries(colMap)) {
@@ -453,16 +456,16 @@ router.patch('/:id', optionalAuth, async (req, res, next) => {
 
     // Record activity for key field changes
     const activityInserts: Promise<unknown>[] = [];
-    if ('status' in req.body && req.body.status !== old.status_id) {
+    if ('status' in req.body && req.body.status !== old.status) {
       activityInserts.push(pool.query(
         `INSERT INTO yc_tkt_mgmt.activity (ticket_id, actor_id, action_type, from_value, to_value) VALUES ($1,$2,'status_changed',$3,$4)`,
-        [id, actorId, old.status_id, req.body.status]
+        [id, actorId, old.status, req.body.status]
       ));
     }
-    if ('assigneeId' in req.body && req.body.assigneeId !== old.assignee_id) {
+    if ('assigneeId' in req.body && req.body.assigneeId !== old.assigned_to) {
       activityInserts.push(pool.query(
         `INSERT INTO yc_tkt_mgmt.activity (ticket_id, actor_id, action_type, from_value, to_value) VALUES ($1,$2,'assigned',$3,$4)`,
-        [id, actorId, old.assignee_id ? String(old.assignee_id) : null, req.body.assigneeId ? String(req.body.assigneeId) : null]
+        [id, actorId, old.assigned_to ? String(old.assigned_to) : null, req.body.assigneeId ? String(req.body.assigneeId) : null]
       ));
     }
     if ('priority' in req.body && req.body.priority !== old.priority_id) {
@@ -483,10 +486,10 @@ router.delete('/:id', optionalAuth, async (req, res, next) => {
   try {
     const id      = Number(req.params.id);
     const actorId = req.auth?.userId ?? (req.body?.actorId ? Number(req.body.actorId) : null);
-    const { rows } = await pool.query(`SELECT id, ticket_number FROM yc_tkt_mgmt.tickets WHERE id = $1`, [id]);
+    const { rows } = await pool.query(`SELECT id, title FROM yc_tkt_mgmt.tickets WHERE id = $1`, [id]);
     if (!rows[0]) return res.status(404).json({ error: 'not_found' });
     await pool.query(`DELETE FROM yc_tkt_mgmt.tickets WHERE id = $1`, [id]);
-    await logAudit({ userId: actorId ?? undefined, actorEmail: req.auth?.email, action: 'ticket.delete', module: 'tickets', targetType: 'ticket', targetId: id, metadata: { ticketNumber: rows[0].ticket_number }, req });
+    await logAudit({ userId: actorId ?? undefined, actorEmail: req.auth?.email, action: 'ticket.delete', module: 'tickets', targetType: 'ticket', targetId: id, metadata: { title: rows[0].title }, req });
     res.json({ ok: true });
   } catch (err) { next(err); }
 });
@@ -516,7 +519,7 @@ router.post('/:id/escalate', optionalAuth, async (req, res, next) => {
     // Get current ticket
     const { rows: tRows } = await pool.query(`SELECT * FROM yc_tkt_mgmt.tickets WHERE id = $1`, [id]);
     if (!tRows[0]) return res.status(404).json({ error: 'not_found' });
-    const previousAssignee = tRows[0].assignee_id;
+    const previousAssignee = tRows[0].assigned_to;
 
     // Log escalation history
     await pool.query(
@@ -528,7 +531,7 @@ router.post('/:id/escalate', optionalAuth, async (req, res, next) => {
     // Reassign + mark escalated
     const { rows } = await pool.query(
       `UPDATE yc_tkt_mgmt.tickets
-       SET assignee_id=$1, is_escalated=TRUE, escalated_to=$1,
+       SET assigned_to=$1, is_escalated=TRUE, escalated_to=$1,
            escalated_by=$2, escalated_at=NOW(), escalation_reason=$3, updated_at=NOW()
        WHERE id=$4 RETURNING *`,
       [escalateToUserId, userId, reason.trim(), id]
