@@ -1647,7 +1647,9 @@
                                         </div>
                                     )}
 
-                                    {/* ── Approve / Reject (only when pending_approval) ── */}
+                                    {selectedTicket.status === 'Pending Approval' && (
+                                        <div style={{marginTop:16,padding:16,background:'#FFF7ED',borderRadius:12,border:'1px solid #FED7AA'}}>
+                                            <p style={{fontSize:12,fontWeight:700,color:'#C2410C',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:12}}>⚖ Your Decision</p>
                                             {!rejectMode ? (
                                                 <div style={{display:'flex',gap:'10px'}}>
                                                     <button disabled={actionLoading} onClick={async()=>{
@@ -1692,12 +1694,12 @@
                                                     </div>
                                                 </div>
                                             )}
-                                        </div>{/* end Your Decision */}
-                                    )}{/* end Pending Approval */}
-                                </div>{/* end drawer body */}
-                            </div>{/* end drawer panel */}
-                        </div>{/* end backdrop */}
-                    )}{/* end selectedTicket */}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </main>
             );
         }
