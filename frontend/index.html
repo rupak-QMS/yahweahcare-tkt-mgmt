@@ -1801,7 +1801,7 @@
 
                                 {/* Month nav bar */}
                                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'16px 20px',borderBottom:'1px solid #F0F0F0'}}>
-                                    <button className="cal-nav2" onClick={prevMonth} style={{width:'32px',height:'32px',borderRadius:'8px',border:'1px solid #E5E7EB',background:'white',cursor:'pointer',fontSize:'16px',color:'#6B7280',display:'flex',alignItems:'center',justifyContent:'center'}}>‹</button>
+                                    <button className="cal-nav2" onClick={prevM} style={{width:'32px',height:'32px',borderRadius:'8px',border:'1px solid #E5E7EB',background:'white',cursor:'pointer',fontSize:'16px',color:'#6B7280',display:'flex',alignItems:'center',justifyContent:'center'}}>‹</button>
                                     <div style={{textAlign:'center'}}>
                                         <h2 style={{fontSize:'16px',fontWeight:'700',color:'#111827',margin:0}}>{MONTHS[month]} {year}</h2>
                                         <div style={{fontSize:'11px',color:'#9CA3AF',marginTop:'2px'}}>
@@ -1810,7 +1810,7 @@
                                             {mDue>0 && <span style={{color:'#6366F1',fontWeight:'600'}}>{mDue} ticket{mDue!==1?'s':''} due</span>}
                                         </div>
                                     </div>
-                                    <button className="cal-nav2" onClick={nextMonth} style={{width:'32px',height:'32px',borderRadius:'8px',border:'1px solid #E5E7EB',background:'white',cursor:'pointer',fontSize:'16px',color:'#6B7280',display:'flex',alignItems:'center',justifyContent:'center'}}>›</button>
+                                    <button className="cal-nav2" onClick={nextM} style={{width:'32px',height:'32px',borderRadius:'8px',border:'1px solid #E5E7EB',background:'white',cursor:'pointer',fontSize:'16px',color:'#6B7280',display:'flex',alignItems:'center',justifyContent:'center'}}>›</button>
                                 </div>
 
                                 {/* Day labels */}
