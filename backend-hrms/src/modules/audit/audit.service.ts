@@ -20,7 +20,8 @@ export type AuditAction =
   | 'position.create' | 'position.update' | 'position.delete'
   | 'org.move'
   | 'schedule.create' | 'schedule.update' | 'schedule.delete' | 'schedule.send_now'
-  | 'ticket.create' | 'ticket.update' | 'ticket.delete' | 'ticket.comment' | 'ticket.assign';
+  | 'ticket.create' | 'ticket.update' | 'ticket.delete' | 'ticket.comment' | 'ticket.assign'
+  | 'ticket.complete' | 'ticket.approve' | 'ticket.reject' | 'ticket.escalate';
 
 export interface AuditEntry {
   userId?: number | null;

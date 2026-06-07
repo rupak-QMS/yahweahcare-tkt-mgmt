@@ -89,14 +89,17 @@ function dbComment(row: Record<string, unknown>) {
 }
 
 function dbActivity(row: Record<string, unknown>) {
+  const details = row.details
+    ? (typeof row.details === 'string' ? JSON.parse(row.details) : row.details) as Record<string, unknown>
+    : {};
   return {
     id: String(row.id),
     ticketId: row.ticket_id,
-    userId: row.actor_id,
-    action: row.action_type,
-    fromValue: row.from_value || null,
-    toValue: row.to_value || null,
-    metadata: row.metadata || {},
+    userId: row.user_id,
+    action: row.action,
+    fromValue: details.from ?? null,
+    toValue: details.to ?? null,
+    metadata: details,
     at: row.created_at,
   };
 }
@@ -244,13 +247,13 @@ router.post('/', optionalAuth, async (req, res, next) => {
     // Activity log
     const actorId = req.auth?.userId || req.body.created_by || null;
     await pool.query(
-      `INSERT INTO yc_tkt_mgmt.activity (ticket_id, actor_id, action_type) VALUES ($1,$2,'created')`,
+      `INSERT INTO yc_tkt_mgmt.activity (ticket_id, user_id, action) VALUES ($1,$2,'created')`,
       [ticketId, actorId]
     );
     if (resolvedAssignee) {
       await pool.query(
-        `INSERT INTO yc_tkt_mgmt.activity (ticket_id, actor_id, action_type, to_value) VALUES ($1,$2,'assigned',$3)`,
-        [ticketId, actorId, String(resolvedAssignee)]
+        `INSERT INTO yc_tkt_mgmt.activity (ticket_id, user_id, action, details) VALUES ($1,$2,'assigned',$3)`,
+        [ticketId, actorId, JSON.stringify({ to: String(resolvedAssignee) })]
       );
     }
 
@@ -300,9 +303,9 @@ router.post('/:id/complete', optionalAuth, async (req, res, next) => {
     );
 
     await pool.query(
-      `INSERT INTO yc_tkt_mgmt.activity (ticket_id, actor_id, action_type, to_value)
-       VALUES ($1,$2,'status_changed','pending_approval')`,
-      [id, actorId]
+      `INSERT INTO yc_tkt_mgmt.activity (ticket_id, user_id, action, details)
+       VALUES ($1,$2,'status_changed',$3)`,
+      [id, actorId, JSON.stringify({ to: 'pending_approval' })]
     );
 
     await logAudit({ userId: actorId ?? undefined, actorEmail: req.auth?.email, action: 'ticket.complete', module: 'tickets', targetType: 'ticket', targetId: id, metadata: {}, req });
@@ -332,9 +335,9 @@ router.post('/:id/approve', optionalAuth, async (req, res, next) => {
 
     const actorEmail = req.auth?.email ?? apRow[0].user_email ?? String(userId);
     await pool.query(
-      `INSERT INTO yc_tkt_mgmt.activity (ticket_id, actor_id, action_type, to_value)
-       VALUES ($1,$2,'approved', $3)`,
-      [id, userId, actorEmail]
+      `INSERT INTO yc_tkt_mgmt.activity (ticket_id, user_id, action, details)
+       VALUES ($1,$2,'approved',$3)`,
+      [id, userId, JSON.stringify({ approvedBy: actorEmail })]
     );
 
     // Check if ALL approvers have now approved
@@ -353,9 +356,9 @@ router.post('/:id/approve', optionalAuth, async (req, res, next) => {
       );
       ticket = rows[0];
       await pool.query(
-        `INSERT INTO yc_tkt_mgmt.activity (ticket_id, actor_id, action_type, to_value)
-         VALUES ($1,$2,'status_changed','resolved')`,
-        [id, userId]
+        `INSERT INTO yc_tkt_mgmt.activity (ticket_id, user_id, action, details)
+         VALUES ($1,$2,'status_changed',$3)`,
+        [id, userId, JSON.stringify({ to: 'resolved' })]
       );
     } else {
       const { rows } = await pool.query(`SELECT * FROM yc_tkt_mgmt.tickets WHERE id=$1`, [id]);
@@ -410,9 +413,9 @@ router.post('/:id/reject', optionalAuth, async (req, res, next) => {
     );
 
     await pool.query(
-      `INSERT INTO yc_tkt_mgmt.activity (ticket_id, actor_id, action_type, from_value, to_value, metadata)
-       VALUES ($1,$2,'rejected','pending_approval','in_progress',$3)`,
-      [id, userId, JSON.stringify({ justification: justification.trim(), rejectedBy: actorEmail })]
+      `INSERT INTO yc_tkt_mgmt.activity (ticket_id, user_id, action, details)
+       VALUES ($1,$2,'rejected',$3)`,
+      [id, userId, JSON.stringify({ from: 'pending_approval', to: 'in_progress', justification: justification.trim(), rejectedBy: actorEmail })]
     );
 
     const { rows: allAp } = await pool.query(
@@ -458,20 +461,20 @@ router.patch('/:id', optionalAuth, async (req, res, next) => {
     const activityInserts: Promise<unknown>[] = [];
     if ('status' in req.body && req.body.status !== old.status) {
       activityInserts.push(pool.query(
-        `INSERT INTO yc_tkt_mgmt.activity (ticket_id, actor_id, action_type, from_value, to_value) VALUES ($1,$2,'status_changed',$3,$4)`,
-        [id, actorId, old.status, req.body.status]
+        `INSERT INTO yc_tkt_mgmt.activity (ticket_id, user_id, action, details) VALUES ($1,$2,'status_changed',$3)`,
+        [id, actorId, JSON.stringify({ from: old.status, to: req.body.status })]
       ));
     }
     if ('assigneeId' in req.body && req.body.assigneeId !== old.assigned_to) {
       activityInserts.push(pool.query(
-        `INSERT INTO yc_tkt_mgmt.activity (ticket_id, actor_id, action_type, from_value, to_value) VALUES ($1,$2,'assigned',$3,$4)`,
-        [id, actorId, old.assigned_to ? String(old.assigned_to) : null, req.body.assigneeId ? String(req.body.assigneeId) : null]
+        `INSERT INTO yc_tkt_mgmt.activity (ticket_id, user_id, action, details) VALUES ($1,$2,'assigned',$3)`,
+        [id, actorId, JSON.stringify({ from: old.assigned_to ? String(old.assigned_to) : null, to: req.body.assigneeId ? String(req.body.assigneeId) : null })]
       ));
     }
     if ('priority' in req.body && req.body.priority !== old.priority_id) {
       activityInserts.push(pool.query(
-        `INSERT INTO yc_tkt_mgmt.activity (ticket_id, actor_id, action_type, from_value, to_value) VALUES ($1,$2,'priority_changed',$3,$4)`,
-        [id, actorId, old.priority_id, req.body.priority]
+        `INSERT INTO yc_tkt_mgmt.activity (ticket_id, user_id, action, details) VALUES ($1,$2,'priority_changed',$3)`,
+        [id, actorId, JSON.stringify({ from: old.priority_id, to: req.body.priority })]
       ));
     }
     await Promise.all(activityInserts);
@@ -539,12 +542,10 @@ router.post('/:id/escalate', optionalAuth, async (req, res, next) => {
 
     // Activity log
     await pool.query(
-      `INSERT INTO yc_tkt_mgmt.activity (ticket_id, actor_id, action_type, from_value, to_value, metadata)
-       VALUES ($1,$2,'escalated',$3,$4,$5)`,
+      `INSERT INTO yc_tkt_mgmt.activity (ticket_id, user_id, action, details)
+       VALUES ($1,$2,'escalated',$3)`,
       [id, userId,
-       previousAssignee ? String(previousAssignee) : null,
-       String(escalateToUserId),
-       JSON.stringify({ reason: reason.trim(), escalatedTo: targetRows[0].name, escalatedToEmail: targetRows[0].email })]
+       JSON.stringify({ from: previousAssignee ? String(previousAssignee) : null, to: String(escalateToUserId), reason: reason.trim(), escalatedTo: targetRows[0].name, escalatedToEmail: targetRows[0].email })]
     );
 
     await logAudit({ userId, actorEmail: req.auth?.email, action: 'ticket.escalate', module: 'tickets', targetType: 'ticket', targetId: id, metadata: { escalateToUserId, reason: reason.trim() }, req });
@@ -568,7 +569,7 @@ router.post('/:id/escalate', optionalAuth, async (req, res, next) => {
        WHERE te.ticket_id=$1 ORDER BY te.created_at ASC`, [id]
     );
 
-    const t = dbTicket(rows[0]);
+    const t = dbTicket(rows[0]) as ReturnType<typeof dbTicket> & { escalations: unknown[] };
     t.approvers = apRows.map(dbApprover);
     t.escalations = escRows;
     res.json({ ticket: t });
@@ -617,7 +618,7 @@ router.post('/:id/comments', optionalAuth, async (req, res, next) => {
     );
     // Activity log
     await pool.query(
-      `INSERT INTO yc_tkt_mgmt.activity (ticket_id, actor_id, action_type) VALUES ($1,$2,'commented')`,
+      `INSERT INTO yc_tkt_mgmt.activity (ticket_id, user_id, action) VALUES ($1,$2,'commented')`,
       [ticketId, actorId]
     );
     res.status(201).json({ comment: dbComment(rows[0]) });

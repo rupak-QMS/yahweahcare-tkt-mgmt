@@ -15,12 +15,10 @@ async function main() {
     const { rows: users }      = await client.query(`SELECT id, name FROM ${S}.users WHERE is_active=TRUE ORDER BY id`);
     const { rows: categories } = await client.query(`SELECT id, label FROM ${S}.categories ORDER BY sort_order`);
     const { rows: priorities } = await client.query(`SELECT id, label, sla_hours FROM ${S}.priorities ORDER BY sort_order`);
-    const { rows: statuses }   = await client.query(`SELECT id, label, is_closed FROM ${S}.statuses ORDER BY sort_order`);
 
     console.log('Users:', users.map(u=>`[${u.id}] ${u.name}`).join(', '));
     console.log('Categories:', categories.map(c=>c.id).join(', '));
     console.log('Priorities:', priorities.map(p=>p.id).join(', '));
-    console.log('Statuses:', statuses.map(s=>s.id).join(', '));
 
     if (!users.length) { console.error('No active users!'); return; }
 
@@ -33,15 +31,15 @@ async function main() {
     const hagoStr = h => new Date(now - h*3600000).toISOString();
     const fut  = d => new Date(now + d*86400000).toISOString().split('T')[0];
 
-    // Status IDs — actual values from your DB
+    // Status values — tickets.status is a plain text column
     const ST = {
-      new:        statuses.find(s=>s.id==='new')?.id        || statuses[0].id,
-      assigned:   statuses.find(s=>s.id==='assigned')?.id   || statuses[0].id,
-      inprog:     statuses.find(s=>s.id==='in_progress')?.id|| statuses[0].id,
-      waiting:    statuses.find(s=>s.id==='waiting')?.id    || statuses[0].id,
-      pendapp:    statuses.find(s=>s.id==='pending_approval')?.id || statuses[0].id,
-      resolved:   statuses.find(s=>s.id==='resolved')?.id   || statuses[0].id,
-      closed:     statuses.find(s=>s.id==='closed')?.id     || statuses[0].id,
+      new:      'new',
+      assigned: 'assigned',
+      inprog:   'in_progress',
+      waiting:  'waiting',
+      pendapp:  'pending_approval',
+      resolved: 'resolved',
+      closed:   'closed',
     };
 
     // Spread users across positions
@@ -105,18 +103,22 @@ async function main() {
       const dueDate  = t.dueDate || fut(sla(t.pri)/24 + 1);
       const createdAt = t.created || ago(1);
 
+      const dueDateOnly = typeof dueDate === 'string' && dueDate.length > 10
+        ? dueDate.split('T')[0]
+        : dueDate;
       const { rows: [row] } = await client.query(
         `INSERT INTO ${S}.tickets
            (title, description, category_id, priority_id, status,
             created_by, assigned_to, due_date, expected_completion,
             closed_date, is_escalated, escalated_to, escalated_by, escalated_at,
             created_at, updated_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$8,$9,$10,$11,$12,$13,$14,$14)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$15)
          RETURNING id`,
         [
           t.title, t.desc, t.cat, t.pri, t.status,
           t.assignTo, t.assignTo,
-          dueDate,
+          dueDateOnly,
+          dueDateOnly,
           t.closed || null,
           !!(t.escalated),
           t.escTo   || null,
@@ -135,21 +137,21 @@ async function main() {
 
       // Activity: created
       await client.query(
-        `INSERT INTO ${S}.activity (ticket_id, actor_id, action_type, created_at) VALUES ($1,$2,'created',$3)`,
+        `INSERT INTO ${S}.activity (ticket_id, user_id, action, created_at) VALUES ($1,$2,'created',$3)`,
         [ticketId, t.assignTo, createdAt]
       );
       // Activity: resolved
       if (t.closed) {
         await client.query(
-          `INSERT INTO ${S}.activity (ticket_id, actor_id, action_type, to_value, created_at) VALUES ($1,$2,'resolved','completed',$3)`,
-          [ticketId, t.assignTo, t.closed]
+          `INSERT INTO ${S}.activity (ticket_id, user_id, action, details, created_at) VALUES ($1,$2,'resolved',$3,$4)`,
+          [ticketId, t.assignTo, JSON.stringify({ to: 'completed' }), t.closed]
         );
       }
       // Activity: escalated
       if (t.escalated) {
         await client.query(
-          `INSERT INTO ${S}.activity (ticket_id, actor_id, action_type, to_value, created_at) VALUES ($1,$2,'escalated',$3,$4)`,
-          [ticketId, t.escBy, String(t.escTo), createdAt]
+          `INSERT INTO ${S}.activity (ticket_id, user_id, action, details, created_at) VALUES ($1,$2,'escalated',$3,$4)`,
+          [ticketId, t.escBy, JSON.stringify({ to: String(t.escTo) }), createdAt]
         );
       }
 
