@@ -11,40 +11,170 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <style>
+        /* ── CSS Custom Properties ──────────────────────────────────────── */
         :root {
+            --brand:      #4F46E5;
+            --brand-soft: #6366F1;
             --brand-from: #6366F1;
-            --brand-mid: #8B5CF6;
-            --brand-to: #06B6D4;
+            --brand-mid:  #8B5CF6;
+            --brand-to:   #06B6D4;
+            --page-bg:    #F5F7FF;
+            --card-bg:    #FFFFFF;
+            --border:     #E2E8F2;
+            --text-primary:   #0F172A;
+            --text-secondary: #64748B;
+            --shadow-sm:  0 1px 2px rgba(15,23,42,0.04), 0 4px 12px rgba(15,23,42,0.06), 0 0 0 1px rgba(15,23,42,0.03);
+            --shadow-md:  0 2px 4px rgba(15,23,42,0.04), 0 8px 24px rgba(15,23,42,0.08), 0 0 0 1px rgba(15,23,42,0.03);
+            --shadow-lg:  0 4px 8px rgba(15,23,42,0.05), 0 16px 40px rgba(15,23,42,0.10), 0 0 0 1px rgba(15,23,42,0.03);
         }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-        .stat-card { transition: all 0.3s ease; }
-        .stat-card:hover { transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0,0,0,0.1); }
-        .chart-container { position: relative; height: 300px; }
-        .badge { display: inline-block; padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; }
-        .badge-open { background-color: #DBEAFE; color: #0369A1; }
-        .badge-in-progress { background-color: #DCFCE7; color: #15803D; }
-        .badge-resolved { background-color: #D1FAE5; color: #065F46; }
-        .badge-closed { background-color: #F3E8FF; color: #6B21A8; }
-        .badge-urgent { background-color: #FEE2E2; color: #991B1B; }
-        .badge-high { background-color: #FECACA; color: #7C2D12; }
-        .badge-medium { background-color: #FCD34D; color: #78350F; }
-        .badge-low { background-color: #DBEAFE; color: #0C4A6E; }
-        .table-row:hover { background-color: #F9FAFB; }
-        input[type="text"], input[type="email"], input[type="date"], select, textarea {
-            padding: 10px 12px;
-            border: 1px solid #E5E7EB;
-            border-radius: 6px;
+
+        /* ── Base reset ──────────────────────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+            font-feature-settings: 'cv11','ss01';
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            color: var(--text-primary);
+        }
+
+        /* ════════════════════════════════════════════════════════════════
+           PREMIUM LIGHT MODE  —  Professional · Accessible · Modern
+           ════════════════════════════════════════════════════════════════ */
+
+        /* ── Page shell ──────────────────────────────────────────────────── */
+        html:not(.dark) body,
+        html:not(.dark) .bg-gray-50 {
+            background: var(--page-bg) !important;
+        }
+        html:not(.dark) main {
+            background:
+                radial-gradient(ellipse 80% 50% at 100% 0%, rgba(99,102,241,0.04) 0%, transparent 60%),
+                radial-gradient(ellipse 60% 40% at 0% 100%, rgba(139,92,246,0.03) 0%, transparent 60%),
+                #F5F7FF !important;
+        }
+
+        /* ── Card / Panel surfaces ───────────────────────────────────────── */
+        html:not(.dark) .shadow-sm,
+        html:not(.dark) [style*="boxShadow"] {
+            box-shadow: var(--shadow-sm) !important;
+        }
+        html:not(.dark) .stat-card {
+            background: #FFFFFF;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            box-shadow: var(--shadow-sm);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        html:not(.dark) .stat-card:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-lg) !important;
+        }
+
+        /* ── Typography ──────────────────────────────────────────────────── */
+        html:not(.dark) .text-gray-900,
+        html:not(.dark) .text-gray-800 { color: #0F172A !important; }
+        html:not(.dark) .text-gray-700,
+        html:not(.dark) .text-gray-600 { color: #334155 !important; }
+        html:not(.dark) .text-gray-500 { color: #64748B !important; }
+        html:not(.dark) .text-gray-400 { color: #94A3B8 !important; }
+
+        /* ── Borders ─────────────────────────────────────────────────────── */
+        html:not(.dark) .border,
+        html:not(.dark) .border-gray-200 { border-color: var(--border) !important; }
+        html:not(.dark) .border-gray-100 { border-color: #EEF2F8 !important; }
+
+        /* ── Form inputs ─────────────────────────────────────────────────── */
+        html:not(.dark) input:not([type="radio"]):not([type="checkbox"]):not([type="range"]),
+        html:not(.dark) select,
+        html:not(.dark) textarea {
+            padding: 9px 12px;
+            border: 1.5px solid #E2E8F2;
+            border-radius: 8px;
             font-size: 14px;
+            background: #FFFFFF;
+            color: #0F172A;
+            transition: border-color 0.15s, box-shadow 0.15s;
+            box-shadow: 0 1px 2px rgba(15,23,42,0.04);
         }
-        input[type="text"]:focus, input[type="email"]:focus, input[type="date"]:focus, select:focus, textarea:focus {
+        html:not(.dark) input:focus,
+        html:not(.dark) select:focus,
+        html:not(.dark) textarea:focus {
             outline: none;
             border-color: #6366F1;
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+            box-shadow: 0 0 0 3px rgba(99,102,241,0.12), 0 1px 2px rgba(15,23,42,0.04);
         }
-        .calendar-day { padding: 8px; border: 1px solid #E5E7EB; text-align: center; cursor: pointer; }
-        .calendar-day:hover { background-color: #F9FAFB; }
-        .calendar-day.today { background-color: #DBEAFE; border-color: #0369A1; }
-        .calendar-day.event { background-color: #BFDBFE; }
+        html:not(.dark) input::placeholder,
+        html:not(.dark) textarea::placeholder { color: #94A3B8; }
+        html:not(.dark) input:disabled,
+        html:not(.dark) input[readonly] {
+            background: #F8FAFF !important;
+            color: #94A3B8 !important;
+            border-color: #EEF2F8 !important;
+            cursor: not-allowed;
+        }
+
+        /* ── Tables ──────────────────────────────────────────────────────── */
+        html:not(.dark) th {
+            background: #F8FAFF !important;
+            color: #64748B !important;
+            font-size: 0.7rem !important;
+            font-weight: 700 !important;
+            letter-spacing: 0.06em !important;
+            text-transform: uppercase !important;
+            border-bottom: 2px solid #E2E8F2 !important;
+        }
+        html:not(.dark) td {
+            color: #0F172A !important;
+            border-color: #F1F5FB !important;
+        }
+        html:not(.dark) .table-row:hover,
+        html:not(.dark) tr:hover > td {
+            background: #F5F7FF !important;
+        }
+
+        /* ── Scrollbars ───────────────────────────────────────────────────── */
+        html:not(.dark) ::-webkit-scrollbar { width: 5px; height: 5px; background: #F5F7FF; }
+        html:not(.dark) ::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, #C7D2FE, #A5B4FC);
+            border-radius: 4px;
+        }
+        html:not(.dark) ::-webkit-scrollbar-track { background: #F8FAFF; }
+
+        /* ── Buttons ─────────────────────────────────────────────────────── */
+        html:not(.dark) button:focus-visible {
+            outline: 2px solid rgba(99,102,241,0.6);
+            outline-offset: 2px;
+        }
+
+        /* ── Badge refinements ───────────────────────────────────────────── */
+        .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: 0.02em; }
+        .badge-open        { background: #EEF2FF; color: #4338CA; border: 1px solid rgba(99,102,241,0.2); }
+        .badge-in-progress { background: #F0FDF4; color: #15803D; border: 1px solid rgba(21,128,61,0.18); }
+        .badge-resolved    { background: #ECFDF5; color: #065F46; border: 1px solid rgba(6,95,70,0.16); }
+        .badge-closed      { background: #F5F3FF; color: #5B21B6; border: 1px solid rgba(91,33,182,0.16); }
+        .badge-urgent      { background: #FEF2F2; color: #B91C1C; border: 1px solid rgba(185,28,28,0.18); }
+        .badge-high        { background: #FFF7ED; color: #C2410C; border: 1px solid rgba(194,65,12,0.18); }
+        .badge-medium      { background: #FFFBEB; color: #B45309; border: 1px solid rgba(180,83,9,0.18); }
+        .badge-low         { background: #EFF6FF; color: #1D4ED8; border: 1px solid rgba(29,78,216,0.18); }
+
+        /* ── Calendar ────────────────────────────────────────────────────── */
+        html:not(.dark) .calendar-day {
+            padding: 8px;
+            border: 1px solid #EEF2F8;
+            text-align: center;
+            cursor: pointer;
+            transition: background 0.12s;
+        }
+        html:not(.dark) .calendar-day:hover { background: #F5F7FF; }
+        html:not(.dark) .calendar-day.today { background: #EEF2FF; border-color: #6366F1; }
+        html:not(.dark) .calendar-day.event { background: #E0E7FF; }
+
+        /* ── Dividers ─────────────────────────────────────────────────────── */
+        html:not(.dark) hr { border-color: #E2E8F2; }
+
+        /* ── Chart containers ────────────────────────────────────────────── */
+        .chart-container { position: relative; height: 300px; }
 
         /* ════════════════════════════════════════════════════════════════
            PREMIUM DARK MODE  —  Obsidian Glass · Deep Space · Executive
@@ -795,11 +925,11 @@
                 return () => document.removeEventListener('click', close);
             }, [userMenuOpen, notifOpen]);
 
-            const bg      = darkMode ? 'linear-gradient(90deg,#04080f 0%,#060d1e 100%)' : '#ffffff';
-            const border  = darkMode ? 'rgba(99,102,241,0.14)' : '#E5E7EB';
-            const textC   = darkMode ? '#f0f4ff'  : '#111827';
-            const subC    = darkMode ? '#8fa4cc'  : '#6B7280';
-            const iconBg  = darkMode ? 'rgba(99,102,241,0.12)'  : '#F9FAFB';
+            const bg      = darkMode ? 'linear-gradient(90deg,#04080f 0%,#060d1e 100%)' : '#FFFFFF';
+            const border  = darkMode ? 'rgba(99,102,241,0.14)' : '#E2E8F2';
+            const textC   = darkMode ? '#f0f4ff'  : '#0F172A';
+            const subC    = darkMode ? '#8fa4cc'  : '#64748B';
+            const iconBg  = darkMode ? 'rgba(99,102,241,0.12)'  : '#F5F7FF';
 
             const iconBtn = (extra={}) => ({
                 width:36, height:36, borderRadius:8, background:iconBg,
@@ -814,7 +944,7 @@
                 <div style={{
                     height:56, background:bg,
                     borderBottom:`1px solid ${border}`,
-                    boxShadow: darkMode ? '0 4px 32px rgba(0,0,0,0.7), 0 1px 0 rgba(99,102,241,0.14), inset 0 -1px 0 rgba(99,102,241,0.08)' : '0 1px 3px rgba(0,0,0,0.06)',
+                    boxShadow: darkMode ? '0 4px 32px rgba(0,0,0,0.7), 0 1px 0 rgba(99,102,241,0.14), inset 0 -1px 0 rgba(99,102,241,0.08)' : '0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0  0 0 1px rgba(15,23,42,0.03)',
                     display:'flex', alignItems:'center', padding:'0 20px', gap:10,
                     flexShrink:0, position:'relative', zIndex:30,
                 }}>
@@ -858,7 +988,7 @@
                                         Notifications {unreadCount > 0 && <span style={{background:'#EF4444',color:'white',borderRadius:10,fontSize:10,padding:'1px 6px',marginLeft:6}}>{unreadCount}</span>}
                                     </p>
                                     {unreadCount > 0 && (
-                                        <button onClick={markAllRead} style={{fontSize:11,color:dm?'#818cf8':'#6366F1',background:'none',border:'none',cursor:'pointer',padding:0}}>Mark all read</button>
+                                        <button onClick={markAllRead} style={{fontSize:11,color:dm?'#818cf8':'#4F46E5',background:'none',border:'none',cursor:'pointer',padding:0}}>Mark all read</button>
                                     )}
                                 </div>
                                 <div style={{overflowY:'auto', flex:1}}>
@@ -989,14 +1119,14 @@
                 onSignOut();
             };
 
-            const sidebarBg     = darkMode ? 'linear-gradient(180deg,#060d1e 0%,#030913 100%)' : '#ffffff';
-            const sidebarBorder = darkMode ? 'rgba(99,102,241,0.14)' : '#E5E7EB';
-            const sidebarText   = darkMode ? '#8fa4cc' : '#374151';
-            const logoText      = darkMode ? '#d0d9ff' : '#111827';
-            const logoSub       = darkMode ? '#4a607f' : '#6B7280';
+            const sidebarBg     = darkMode ? 'linear-gradient(180deg,#060d1e 0%,#030913 100%)' : '#FFFFFF';
+            const sidebarBorder = darkMode ? 'rgba(99,102,241,0.14)' : '#E2E8F2';
+            const sidebarText   = darkMode ? '#8fa4cc' : '#475569';
+            const logoText      = darkMode ? '#d0d9ff' : '#0F172A';
+            const logoSub       = darkMode ? '#4a607f' : '#94A3B8';
 
             return (
-                <aside style={{width:256, background:sidebarBg, borderRight:`1px solid ${sidebarBorder}`, display:'flex', flexDirection:'column', height:'100vh', flexShrink:0, boxShadow: darkMode ? '4px 0 40px rgba(0,0,0,0.75), 1px 0 0 rgba(99,102,241,0.10)' : 'none'}}>
+                <aside style={{width:256, background:sidebarBg, borderRight:`1px solid ${sidebarBorder}`, display:'flex', flexDirection:'column', height:'100vh', flexShrink:0, boxShadow: darkMode ? '4px 0 40px rgba(0,0,0,0.75), 1px 0 0 rgba(99,102,241,0.10)' : '2px 0 12px rgba(15,23,42,0.06), 1px 0 0 #E2E8F2'}}>
                     {/* Logo — fixed */}
                     <div style={{padding:'20px 16px 12px', flexShrink:0}}>
                         <h1 style={{fontWeight:900, color:logoText, fontSize:18, lineHeight:1.2, letterSpacing:'0.02em',
@@ -1021,7 +1151,7 @@
                                             : 'transparent',
                                         borderLeft: active && darkMode ? '3px solid rgba(129,140,248,0.9)' : '3px solid transparent',
                                         boxShadow: active && darkMode ? '0 2px 20px rgba(99,102,241,0.28), inset 0 1px 0 rgba(255,255,255,0.04)' : 'none',
-                                        color: active ? (darkMode ? '#d0d9ff' : '#ffffff') : sidebarText,
+                                        color: active ? (darkMode ? '#d0d9ff' : '#FFFFFF') : sidebarText,
                                         fontWeight: active ? 700 : 400,
                                         fontSize:13,
                                         transition:'all 0.18s',
@@ -1120,10 +1250,10 @@
 
                         {/* Logo / avatar */}
                         <div style={{width: 60, height: 60, borderRadius: '50%', background: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, margin: '0 auto 16px'}}>👤</div>
-                        <h2 style={{fontSize: 20, fontWeight: 800, color: '#1E1B4B', margin: '0 0 6px'}}>
+                        <h2 style={{fontSize: 20, fontWeight: 800, color: '#0F172A', margin: '0 0 6px'}}>
                             {mode === 'main' ? "You've been signed out" : 'Sign in with email'}
                         </h2>
-                        <p style={{fontSize: 13, color: '#6B7280', margin: '0 0 24px', lineHeight: 1.5}}>
+                        <p style={{fontSize: 13, color: '#64748B', margin: '0 0 24px', lineHeight: 1.5}}>
                             {mode === 'main'
                                 ? 'Your app session has ended. Your Microsoft Entra account remains active.'
                                 : 'Enter your Yahweh Care credentials.'}
@@ -1154,15 +1284,15 @@
 
                                 {/* Divider */}
                                 <div style={{display: 'flex', alignItems: 'center', gap: 10, margin: '4px 0 12px'}}>
-                                    <div style={{flex: 1, height: 1, background: '#E5E7EB'}}/>
-                                    <span style={{fontSize: 12, color: '#9CA3AF'}}>or</span>
-                                    <div style={{flex: 1, height: 1, background: '#E5E7EB'}}/>
+                                    <div style={{flex: 1, height: 1, background: '#E2E8F2'}}/>
+                                    <span style={{fontSize: 12, color: '#94A3B8'}}>or</span>
+                                    <div style={{flex: 1, height: 1, background: '#E2E8F2'}}/>
                                 </div>
 
                                 {/* Email fallback */}
                                 <button
                                     onClick={() => { setMode('email'); setLocalError(''); }}
-                                    style={{background: 'white', color: '#374151', border: '1.5px solid #E5E7EB', borderRadius: 10, padding: '11px 0', fontSize: 14, fontWeight: 600, cursor: 'pointer', width: '100%'}}
+                                    style={{background: '#FFFFFF', color: '#334155', border: '1.5px solid #E2E8F2', borderRadius: 10, padding: '11px 0', fontSize: 14, fontWeight: 600, cursor: 'pointer', width: '100%'}}
                                 >
                                     Sign in with Email & Password
                                 </button>
@@ -1175,7 +1305,7 @@
                                     value={email}
                                     onChange={e => setEmail(e.target.value)}
                                     required
-                                    style={{width: '100%', padding: '11px 13px', borderRadius: 9, border: '1.5px solid #E5E7EB', fontSize: 14, marginBottom: 10, boxSizing: 'border-box'}}
+                                    style={{width: '100%', padding: '11px 13px', borderRadius: 9, border: `1.5px solid ${dm?'rgba(99,102,241,0.16)':'#E2E8F2'}`, fontSize: 14, marginBottom: 10, boxSizing: 'border-box'}}
                                 />
                                 <input
                                     type="password"
@@ -1183,7 +1313,7 @@
                                     value={password}
                                     onChange={e => setPassword(e.target.value)}
                                     required
-                                    style={{width: '100%', padding: '11px 13px', borderRadius: 9, border: '1.5px solid #E5E7EB', fontSize: 14, marginBottom: 16, boxSizing: 'border-box'}}
+                                    style={{width: '100%', padding: '11px 13px', borderRadius: 9, border: `1.5px solid ${dm?'rgba(99,102,241,0.16)':'#E2E8F2'}`, fontSize: 14, marginBottom: 16, boxSizing: 'border-box'}}
                                 />
                                 <button
                                     type="submit"
@@ -1209,11 +1339,11 @@
         // Dashboard Page
         function Dashboard() {
             const dm = useDark();
-            const pageBg  = dm ? 'transparent' : '#F4F5F7';
+            const pageBg  = dm ? 'transparent' : '#F5F7FF';
             const cardBg  = dm ? 'linear-gradient(155deg,rgba(17,30,58,0.97) 0%,rgba(8,16,36,0.99) 100%)' : 'white';
-            const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E5E7EB';
-            const textP   = dm ? '#f0f4ff' : '#111827';
-            const textM   = dm ? '#8fa4cc' : '#6B7280';
+            const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E2E8F2';
+            const textP   = dm ? '#f0f4ff' : '#0F172A';
+            const textM   = dm ? '#8fa4cc' : '#64748B';
             const [tickets,       setTickets]       = React.useState([]);
             const [staffCount,    setStaffCount]    = React.useState(0);
             const [recentActivity,setRecentActivity]= React.useState([]);
@@ -1297,14 +1427,14 @@
                     categoryChartRef.current = new Chart(categoryCanvasRef.current, {
                         type: 'bar',
                         data: { labels:catEntries.map(e=>e[0]), datasets:[{ label:'Tickets', data:catEntries.map(e=>e[1]), backgroundColor:'#6366F1', borderRadius:4 }] },
-                        options: { indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ x:{ ticks:{ stepSize:1, precision:0, color: dm ? '#8fa4cc' : '#6B7280' }, grid:{ color: dm ? 'rgba(99,102,241,0.08)' : '#F3F4F6' } }, y:{ grid:{ color: dm ? 'rgba(99,102,241,0.08)' : '#F3F4F6' }, ticks:{ color: dm ? '#8fa4cc' : '#6B7280' } } } }
+                        options: { indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ x:{ ticks:{ stepSize:1, precision:0, color: dm ? '#8fa4cc' : '#64748B' }, grid:{ color: dm ? 'rgba(99,102,241,0.08)' : '#F3F4F6' } }, y:{ grid:{ color: dm ? 'rgba(99,102,241,0.08)' : '#F3F4F6' }, ticks:{ color: dm ? '#8fa4cc' : '#64748B' } } } }
                     });
                 });
                 return ()=>{ cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); };
             }, [tickets]);
 
             const statCards = [
-                { label:'Total Tickets',  value:total,     color:dm?'#818cf8':'#6366F1', bg:'#EEF2FF', icon:'📋' },
+                { label:'Total Tickets',  value:total,     color:dm?'#818cf8':'#4F46E5', bg:'#EEF2FF', icon:'📋' },
                 { label:'Open',           value:open,      color:'#0EA5E9', bg:'#E0F2FE', icon:'⏱️' },
                 { label:'In Progress',    value:inProg,    color:'#F59E0B', bg:'#FFFBEB', icon:'⚙️' },
                 { label:'Resolved',       value:resolved,  color:'#10B981', bg:'#ECFDF5', icon:'✅' },
@@ -1316,7 +1446,7 @@
             const card = {background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,
                 boxShadow: dm
                     ? '0 1px 0 rgba(255,255,255,0.04) inset, 0 4px 6px rgba(0,0,0,0.4), 0 16px 48px rgba(0,0,0,0.6), 0 0 80px -30px rgba(99,102,241,0.10)'
-                    : '0 1px 3px rgba(0,0,0,0.06)'};
+                    : '0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0  0 0 1px rgba(15,23,42,0.03)'};
 
             return (
                 <main className="flex-1 overflow-auto" style={{background:pageBg}}>
@@ -1383,7 +1513,7 @@
                                     </div>
                                     <div style={{flex:1}}>
                                         {[
-                                            {label:'Total Tickets', val:total,    color:dm?'#818cf8':'#6366F1'},
+                                            {label:'Total Tickets', val:total,    color:dm?'#818cf8':'#4F46E5'},
                                             {label:'Resolved',      val:resolved, color:'#10B981'},
                                             {label:'Overdue',       val:overdue,  color:'#EF4444'},
                                             {label:'Active Staff',  val:staffCount,color:'#0EA5E9'},
@@ -1404,23 +1534,23 @@
                                     <span style={{fontSize:'10px',background:'#ECFDF5',color:'#059669',borderRadius:'20px',padding:'2px 8px',fontWeight:'600'}}>Live</span>
                                 </div>
                                 {loading ? (
-                                    <p style={{fontSize:'13px',color:dm?'#4a607f':'#9CA3AF',textAlign:'center',padding:'20px 0'}}>Loading…</p>
+                                    <p style={{fontSize:'13px',color:dm?'#4a607f':'#94A3B8',textAlign:'center',padding:'20px 0'}}>Loading…</p>
                                 ) : recentActivity.length === 0 ? (
-                                    <p style={{fontSize:'13px',color:dm?'#4a607f':'#9CA3AF',textAlign:'center',padding:'20px 0'}}>No recent activity</p>
+                                    <p style={{fontSize:'13px',color:dm?'#4a607f':'#94A3B8',textAlign:'center',padding:'20px 0'}}>No recent activity</p>
                                 ) : recentActivity.map((log, i) => {
-                                    const am = ACTION_META[log.action] || { label: log.action, bg: '#F3F4F6', color: '#374151' };
+                                    const am = ACTION_META[log.action] || { label: log.action, bg: '#EEF2F8', color: '#475569' };
                                     const initials = (log.actorName||'?').split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
                                     return (
                                         <div key={i} style={{display:'flex',gap:'10px',paddingBottom:'10px',borderBottom:i<recentActivity.length-1?'1px solid #F3F4F6':'none',marginBottom:i<recentActivity.length-1?'10px':0}}>
-                                            <div style={{width:32,height:32,borderRadius:'50%',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:dm?'#818cf8':'#6366F1',flexShrink:0}}>
+                                            <div style={{width:32,height:32,borderRadius:'50%',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:dm?'#818cf8':'#4F46E5',flexShrink:0}}>
                                                 {initials}
                                             </div>
                                             <div style={{flex:1,minWidth:0}}>
                                                 <div style={{display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}>
                                                     <span style={{fontSize:11,fontWeight:600,padding:'2px 7px',borderRadius:20,background:am.bg,color:am.color}}>{am.label}</span>
-                                                    <span style={{fontSize:12,color:dm?'#c0cfec':'#374151',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'160px'}}>{log.ticketTitle}</span>
+                                                    <span style={{fontSize:12,color:dm?'#c0cfec':'#334155',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'160px'}}>{log.ticketTitle}</span>
                                                 </div>
-                                                <p style={{fontSize:11,color:dm?'#4a607f':'#9CA3AF',margin:'3px 0 0'}}>{log.actorName} · {fmtDate(log.at)}</p>
+                                                <p style={{fontSize:11,color:dm?'#4a607f':'#94A3B8',margin:'3px 0 0'}}>{log.actorName} · {fmtDate(log.at)}</p>
                                             </div>
                                         </div>
                                     );
@@ -1437,11 +1567,11 @@
         function CreateTicket() {
 
             const dm = useDark();
-            const pageBg  = dm ? 'transparent' : '#F4F5F7';
+            const pageBg  = dm ? 'transparent' : '#F5F7FF';
             const cardBg  = dm ? 'linear-gradient(155deg,rgba(17,30,58,0.97) 0%,rgba(8,16,36,0.99) 100%)' : 'white';
-            const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E5E7EB';
-            const textP   = dm ? '#f0f4ff' : '#111827';
-            const textM   = dm ? '#8fa4cc' : '#6B7280';
+            const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E2E8F2';
+            const textP   = dm ? '#f0f4ff' : '#0F172A';
+            const textM   = dm ? '#8fa4cc' : '#64748B';
             // Read logged-in user from sessionStorage so we can auto-fill reporter fields
             const sessionUser = React.useMemo(() => getSessionUser(), []);
 
@@ -1611,7 +1741,7 @@
                                     {/* Ticket Details */}
                                     <div className={cardCls}>
                                         <div className={sectionHeadCls}>
-                                            <span style={{color:dm?'#818cf8':'#6366F1', fontSize:'15px'}}>📋</span> Ticket Details
+                                            <span style={{color:dm?'#818cf8':'#4F46E5', fontSize:'15px'}}>📋</span> Ticket Details
                                         </div>
                                         <div className="grid gap-4 mb-4 yc-grid-2-col" style={{gridTemplateColumns:"repeat(2,1fr)"}} >
                                             <div>
@@ -1657,7 +1787,7 @@
                                     <div className={cardCls}>
                                         <div className="flex items-center justify-between mb-5">
                                             <div className={sectionHeadCls} style={{marginBottom:0}}>
-                                                <span style={{color:dm?'#818cf8':'#6366F1', fontSize:'15px'}}>👤</span> Reporter Information
+                                                <span style={{color:dm?'#818cf8':'#4F46E5', fontSize:'15px'}}>👤</span> Reporter Information
                                             </div>
                                             <span className="text-xs text-gray-400 flex items-center gap-1">
                                                 <span>🔒</span> Auto-filled from your account
@@ -1689,7 +1819,7 @@
                                         return (
                                         <div className={cardCls}>
                                             <div className={sectionHeadCls}>
-                                                <span style={{color:dm?'#818cf8':'#6366F1',fontSize:'15px'}}>✅</span> Approvers <span className="text-red-400 normal-case font-normal tracking-normal text-xs ml-1">*</span>
+                                                <span style={{color:dm?'#818cf8':'#4F46E5',fontSize:'15px'}}>✅</span> Approvers <span className="text-red-400 normal-case font-normal tracking-normal text-xs ml-1">*</span>
                                             </div>
                                             <p className="text-xs text-gray-400 mb-3">Select who must approve the resolution. <strong>All</strong> selected approvers must approve before the ticket closes.</p>
                                             <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
@@ -1741,7 +1871,7 @@
                                     {/* Classification */}
                                     <div className={cardCls}>
                                         <div className={sectionHeadCls}>
-                                            <span style={{color:dm?'#818cf8':'#6366F1', fontSize:'15px'}}>🏷️</span> Classification
+                                            <span style={{color:dm?'#818cf8':'#4F46E5', fontSize:'15px'}}>🏷️</span> Classification
                                         </div>
                                         <div className="mb-4">
                                             <label className={labelCls}>Priority <span className="text-red-400">*</span></label>
@@ -1772,7 +1902,7 @@
                                     {/* Assignment */}
                                     <div className={cardCls}>
                                         <div className={sectionHeadCls}>
-                                            <span style={{color:dm?'#818cf8':'#6366F1', fontSize:'15px'}}>👥</span> Assignment
+                                            <span style={{color:dm?'#818cf8':'#4F46E5', fontSize:'15px'}}>👥</span> Assignment
                                         </div>
                                         <div>
                                             <label className={labelCls}>Assign To</label>
@@ -1825,11 +1955,11 @@
 
 
             const dm = useDark();
-            const pageBg  = dm ? 'transparent' : '#F4F5F7';
+            const pageBg  = dm ? 'transparent' : '#F5F7FF';
             const cardBg  = dm ? 'linear-gradient(155deg,rgba(17,30,58,0.97) 0%,rgba(8,16,36,0.99) 100%)' : 'white';
-            const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E5E7EB';
-            const textP   = dm ? '#f0f4ff' : '#111827';
-            const textM   = dm ? '#8fa4cc' : '#6B7280';
+            const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E2E8F2';
+            const textP   = dm ? '#f0f4ff' : '#0F172A';
+            const textM   = dm ? '#8fa4cc' : '#64748B';
             const [tickets, setTickets] = React.useState([]);
             const [staffList, setStaffList] = React.useState([]);
             const [ticketsLoading, setTicketsLoading] = React.useState(true);
@@ -1922,7 +2052,7 @@
                 'Pending Approval': {bg:'#FFF7ED',color:'#C2410C',border:'#FED7AA'},
                 'Resolved':         {bg:'#ECFDF5',color:'#065F46',border:'#A7F3D0'},
                 'Closed':           {bg:'#F1F5F9',color:'#475569',border:'#CBD5E1'},
-                'Assigned':         {bg:'#DBEAFE',color:dm?'#93c5fd':'#1D4ED8',border:'#BFDBFE'},
+                'Assigned':         {bg:'#DBEAFE',color:dm?'#93c5fd':'#1E40AF',border:'#BFDBFE'},
             };
             const PRI_ST = {
                 'Critical': {bg:'#FEF2F2',color:'#991B1B',border:'#FECACA',dot:'#EF4444'},
@@ -1932,8 +2062,8 @@
                 'Low':      {bg:'#F0FDF4',color:'#166534',border:'#BBF7D0',dot:'#22C55E'},
             };
             const PRI_LEFT = {'Critical':'#EF4444','Urgent':'#EF4444','High':'#F59E0B','Medium':'#3B82F6','Low':'#22C55E'};
-            const sst = s => STATUS_ST[s] || {bg:'#F3F4F6',color:dm?'#c0cfec':'#374151',border:'#E5E7EB'};
-            const pst = p => PRI_ST[p]   || {bg:'#F3F4F6',color:dm?'#c0cfec':'#374151',border:'#E5E7EB',dot:'#9CA3AF'};
+            const sst = s => STATUS_ST[s] || {bg:'#F3F4F6',color:dm?'#c0cfec':'#334155',border:dm?'rgba(99,102,241,0.16)':'#E2E8F2'};
+            const pst = p => PRI_ST[p]   || {bg:'#F3F4F6',color:dm?'#c0cfec':'#334155',border:dm?'rgba(99,102,241,0.16)':'#E2E8F2',dot:dm?'#4a607f':'#94A3B8'};
             const Badge = ({text, st}) => (
                 <span style={{display:'inline-flex',alignItems:'center',fontSize:11,fontWeight:600,padding:'2px 9px',borderRadius:20,background:st.bg,color:st.color,border:`1px solid ${st.border}`,whiteSpace:'nowrap'}}>{text}</span>
             );
@@ -1969,7 +2099,7 @@
                         <div className='yc-toolbar' style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'20px',flexWrap:'wrap',gap:'10px'}}>
                             <div>
                                 <h1 style={{fontSize:'20px',fontWeight:'700',color:textP,margin:0}}>Tickets</h1>
-                                <p style={{fontSize:'12px',color:dm?'#4a607f':'#9CA3AF',margin:'3px 0 0'}}>{scopeLabel || 'Manage and track support tickets'}</p>
+                                <p style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',margin:'3px 0 0'}}>{scopeLabel || 'Manage and track support tickets'}</p>
                             </div>
                             <button onClick={()=>{ window.location.hash='create-ticket'; }}
                                 style={{display:'flex',alignItems:'center',gap:'6px',background:'#6366F1',color:'white',border:'none',borderRadius:'9px',padding:'9px 18px',fontSize:'13px',fontWeight:'600',cursor:'pointer',boxShadow:'0 1px 4px rgba(99,102,241,0.35)'}}>
@@ -1987,10 +2117,10 @@
                                         style={{display:'flex',alignItems:'center',gap:'6px',padding:'6px 14px',borderRadius:'8px',border:'1px solid',fontSize:'12px',fontWeight:'600',cursor:'pointer',transition:'all 0.1s',
                                             borderColor:active?'#6366F1':'#E5E7EB',
                                             background:active?'#6366F1':'white',
-                                            color:active?'white':'#6B7280',
+                                            color:active?'white':(dm?'#8fa4cc':'#64748B'),
                                         }}>
                                         {g.label}
-                                        <span style={{fontSize:'10px',fontWeight:'700',background:active?'rgba(255,255,255,0.25)':'#F3F4F6',color:active?'white':'#9CA3AF',borderRadius:'10px',padding:'1px 6px',minWidth:'18px',textAlign:'center'}}>{cnt}</span>
+                                        <span style={{fontSize:'10px',fontWeight:'700',background:active?'rgba(255,255,255,0.25)':(dm?'rgba(99,102,241,0.1)':'#EEF2F8'),color:active?'white':(dm?'#6b80a4':'#94A3B8'),borderRadius:'10px',padding:'1px 6px',minWidth:'18px',textAlign:'center'}}>{cnt}</span>
                                     </button>
                                 );
                             })}
@@ -2000,28 +2130,28 @@
                         <div style={{background:cardBg,borderRadius:'14px',border:`1px solid ${borderC}`,overflow:'hidden',boxShadow:dm?'0 4px 6px rgba(0,0,0,0.4),0 16px 48px rgba(0,0,0,0.55),0 1px 0 rgba(255,255,255,0.04) inset':'0 1px 4px rgba(0,0,0,0.05)'}}>
 
                             {/* Search bar */}
-                            <div style={{padding:'14px 16px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#F0F0F0'}`,display:'flex',alignItems:'center',gap:'10px'}}>
-                                <span style={{fontSize:'15px',color:dm?'#4a607f':'#9CA3AF'}}>🔍</span>
+                            <div style={{padding:'14px 16px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`,display:'flex',alignItems:'center',gap:'10px'}}>
+                                <span style={{fontSize:'15px',color:dm?'#4a607f':'#94A3B8'}}>🔍</span>
                                 <input type="text" placeholder="Search by title or ticket ID…" value={search} onChange={e=>setSearch(e.target.value)}
-                                    style={{flex:1,border:'none',outline:'none',fontSize:'13px',color:dm?'#c0cfec':'#374151',background:'transparent'}}/>
-                                {search && <button onClick={()=>setSearch('')} style={{border:'none',background:'none',color:dm?'#4a607f':'#9CA3AF',cursor:'pointer',fontSize:'16px',padding:'0 4px'}}>×</button>}
-                                <span style={{fontSize:'12px',color:dm?'#4a607f':'#9CA3AF',whiteSpace:'nowrap'}}>{filteredNew.length} ticket{filteredNew.length!==1?'s':''}</span>
+                                    style={{flex:1,border:'none',outline:'none',fontSize:'13px',color:dm?'#c0cfec':'#334155',background:'transparent'}}/>
+                                {search && <button onClick={()=>setSearch('')} style={{border:'none',background:'none',color:dm?'#4a607f':'#94A3B8',cursor:'pointer',fontSize:'16px',padding:'0 4px'}}>×</button>}
+                                <span style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',whiteSpace:'nowrap'}}>{filteredNew.length} ticket{filteredNew.length!==1?'s':''}</span>
                             </div>
 
                             {/* Table */}
                             {ticketsLoading ? (
-                                <div style={{padding:'60px',textAlign:'center',color:dm?'#4a607f':'#9CA3AF',fontSize:'14px'}}>⏳ Loading tickets…</div>
+                                <div style={{padding:'60px',textAlign:'center',color:dm?'#4a607f':'#94A3B8',fontSize:'14px'}}>⏳ Loading tickets…</div>
                             ) : filteredNew.length === 0 ? (
                                 <div style={{padding:'60px',textAlign:'center'}}>
                                     <div style={{fontSize:'36px',marginBottom:'12px'}}>🎫</div>
-                                    <p style={{fontSize:'14px',fontWeight:'600',color:dm?'#c0cfec':'#374151',margin:'0 0 4px'}}>No tickets found</p>
-                                    <p style={{fontSize:'12px',color:dm?'#4a607f':'#9CA3AF',margin:0}}>Try adjusting your filters or search term</p>
+                                    <p style={{fontSize:'14px',fontWeight:'600',color:dm?'#c0cfec':'#334155',margin:'0 0 4px'}}>No tickets found</p>
+                                    <p style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',margin:0}}>Try adjusting your filters or search term</p>
                                 </div>
                             ) : (
                                 <div className="yc-table-scroll">
                                     <table style={{width:'100%',borderCollapse:'collapse'}}>
                                         <thead>
-                                            <tr style={{background:dm?'rgba(2,6,16,0.4)':'#FAFAFA',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#F0F0F0'}`}}>
+                                            <tr style={{background:dm?'rgba(2,6,16,0.4)':'#F8FAFF',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
                                                 {['Ticket ID','Title','Category','Priority','Status','Assigned To','Due Date','Created'].map(h=>(
                                                     <th key={h} style={{textAlign:'left',padding:'10px 14px',fontSize:'11px',fontWeight:'700',color:textM,textTransform:'uppercase',letterSpacing:'0.05em',whiteSpace:'nowrap'}}>{h}</th>
                                                 ))}
@@ -2037,7 +2167,7 @@
                                                 const leftColor = PRI_LEFT[t.priority]||'#E5E7EB';
                                                 return (
                                                     <tr key={t._dbId||t.id}
-                                                        style={{borderBottom:`1px solid ${dm?'rgba(99,102,241,0.10)':'#F3F4F6'}`,cursor:'pointer',transition:'background 0.1s'}}
+                                                        style={{borderBottom:`1px solid ${dm?'rgba(99,102,241,0.10)':'#EEF2F8'}`,cursor:'pointer',transition:'background 0.1s'}}
                                                         onMouseEnter={e=>e.currentTarget.style.background='#F8F9FF'}
                                                         onMouseLeave={e=>e.currentTarget.style.background=''}
                                                         onClick={async()=>{
@@ -2057,14 +2187,14 @@
                                                             }
                                                         }}>
                                                         {/* Priority left-stripe via box-shadow on first cell */}
-                                                        <td style={{padding:'12px 14px',fontSize:'12px',fontWeight:'700',color:dm?'#818cf8':'#6366F1',whiteSpace:'nowrap',borderLeft:`3px solid ${leftColor}`}}>{t.id}</td>
+                                                        <td style={{padding:'12px 14px',fontSize:'12px',fontWeight:'700',color:dm?'#818cf8':'#4F46E5',whiteSpace:'nowrap',borderLeft:`3px solid ${leftColor}`}}>{t.id}</td>
                                                         <td style={{padding:'12px 14px',maxWidth:'280px'}}>
                                                             <div style={{display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}>
                                                                 <span style={{fontSize:'13px',fontWeight:'600',color:textP,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'220px'}}>{t.title}</span>
                                                                 {t.isEscalated && <span style={{fontSize:'10px',fontWeight:'700',padding:'1px 7px',borderRadius:20,background:'#FFF7ED',color:'#C2410C',border:'1px solid #FED7AA',flexShrink:0}}>⬆ Escalated</span>}
                                                                 {od && <span style={{fontSize:'10px',fontWeight:'700',padding:'1px 7px',borderRadius:20,background:'#FEF2F2',color:'#991B1B',border:'1px solid #FECACA',flexShrink:0}}>Overdue</span>}
                                                             </div>
-                                                            {t.category && <div style={{fontSize:'11px',color:dm?'#4a607f':'#9CA3AF',marginTop:'2px'}}>{t.category}</div>}
+                                                            {t.category && <div style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8',marginTop:'2px'}}>{t.category}</div>}
                                                         </td>
                                                         <td style={{padding:'12px 14px',fontSize:'12px',color:textM,whiteSpace:'nowrap'}}>{t.category}</td>
                                                         <td style={{padding:'12px 14px'}}>
@@ -2078,18 +2208,18 @@
                                                         </td>
                                                         <td style={{padding:'12px 14px'}}>
                                                             {t.assigned==='Unassigned' ? (
-                                                                <span style={{fontSize:12,color:dm?'#4a607f':'#9CA3AF',fontStyle:'italic'}}>Unassigned</span>
+                                                                <span style={{fontSize:12,color:dm?'#4a607f':'#94A3B8',fontStyle:'italic'}}>Unassigned</span>
                                                             ) : (
                                                                 <div style={{display:'flex',alignItems:'center',gap:'7px'}}>
-                                                                    <div style={{width:24,height:24,borderRadius:'50%',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:700,color:dm?'#818cf8':'#6366F1',flexShrink:0}}>{initials}</div>
-                                                                    <span style={{fontSize:12,color:dm?'#c0cfec':'#374151',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:'120px'}}>{t.assigned}</span>
+                                                                    <div style={{width:24,height:24,borderRadius:'50%',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:700,color:dm?'#818cf8':'#4F46E5',flexShrink:0}}>{initials}</div>
+                                                                    <span style={{fontSize:12,color:dm?'#c0cfec':'#334155',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:'120px'}}>{t.assigned}</span>
                                                                 </div>
                                                             )}
                                                         </td>
-                                                        <td style={{padding:'12px 14px',fontSize:12,color:od?'#EF4444':'#6B7280',fontWeight:od?700:400,whiteSpace:'nowrap'}}>
+                                                        <td style={{padding:'12px 14px',fontSize:12,color:od?'#EF4444':(dm?'#8fa4cc':'#64748B'),fontWeight:od?700:400,whiteSpace:'nowrap'}}>
                                                             {dueStr || <span style={{color:'#D1D5DB'}}>—</span>}
                                                         </td>
-                                                        <td style={{padding:'12px 14px',fontSize:12,color:dm?'#4a607f':'#9CA3AF',whiteSpace:'nowrap'}}>{t.date}</td>
+                                                        <td style={{padding:'12px 14px',fontSize:12,color:dm?'#4a607f':'#94A3B8',whiteSpace:'nowrap'}}>{t.date}</td>
                                                     </tr>
                                                 );
                                             })}
@@ -2130,22 +2260,22 @@
 
                                 <div style={{padding:'20px',flex:1}}>
                                     {/* Meta grid */}
-                                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:'20px',paddingBottom:'20px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#F0F0F0'}`}}>
+                                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:'20px',paddingBottom:'20px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
                                         {[
                                             {label:'Priority', node: <Badge text={selectedTicket.priority} st={pst(selectedTicket.priority)}/>},
                                             {label:'Status',   node: <Badge text={selectedTicket.status}   st={sst(selectedTicket.status)}/>},
                                             {label:'Assigned To', node: <span style={{fontSize:13,color:textP,fontWeight:500}}>{selectedTicket.assigned||'Unassigned'}</span>},
-                                            {label:'Created',     node: <span style={{fontSize:13,color:dm?'#c0cfec':'#374151'}}>{selectedTicket.date}</span>},
+                                            {label:'Created',     node: <span style={{fontSize:13,color:dm?'#c0cfec':'#334155'}}>{selectedTicket.date}</span>},
                                             {label:'Due Date', node: (()=>{
                                                 const raw=selectedTicket.dueAt||selectedTicket.expectedCompletion;
-                                                if(!raw) return <span style={{fontSize:13,color:dm?'#4a607f':'#9CA3AF'}}>Not set</span>;
+                                                if(!raw) return <span style={{fontSize:13,color:dm?'#4a607f':'#94A3B8'}}>Not set</span>;
                                                 const od=isOD(selectedTicket);
-                                                return <span style={{fontSize:13,fontWeight:od?700:400,color:od?'#EF4444':'#374151'}}>{new Date(raw).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'})}{od?' ⚠️':''}</span>;
+                                                return <span style={{fontSize:13,fontWeight:od?700:400,color:od?'#EF4444':(dm?'#c0cfec':'#334155')}}>{new Date(raw).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'})}{od?' ⚠️':''}</span>;
                                             })()},
-                                            {label:'NDIS', node: <span style={{fontSize:13,color:dm?'#c0cfec':'#374151'}}>{selectedTicket.ndisRelated||selectedTicket.ndis_related?'Yes':'No'}</span>},
+                                            {label:'NDIS', node: <span style={{fontSize:13,color:dm?'#c0cfec':'#334155'}}>{selectedTicket.ndisRelated||selectedTicket.ndis_related?'Yes':'No'}</span>},
                                         ].map(({label,node})=>(
                                             <div key={label}>
-                                                <p style={{fontSize:10,fontWeight:700,color:dm?'#4a607f':'#9CA3AF',textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 4px'}}>{label}</p>
+                                                <p style={{fontSize:10,fontWeight:700,color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 4px'}}>{label}</p>
                                                 {node}
                                             </div>
                                         ))}
@@ -2153,9 +2283,9 @@
 
                                     {/* Description */}
                                     {(selectedTicket.issueDetails||selectedTicket.issue_details) && (
-                                        <div style={{marginBottom:'20px',paddingBottom:'20px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#F0F0F0'}`}}>
-                                            <p style={{fontSize:10,fontWeight:700,color:dm?'#4a607f':'#9CA3AF',textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 8px'}}>Description</p>
-                                            <p style={{fontSize:13,color:dm?'#c0cfec':'#374151',lineHeight:1.6,margin:0,whiteSpace:'pre-wrap'}}>{selectedTicket.issueDetails||selectedTicket.issue_details}</p>
+                                        <div style={{marginBottom:'20px',paddingBottom:'20px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
+                                            <p style={{fontSize:10,fontWeight:700,color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 8px'}}>Description</p>
+                                            <p style={{fontSize:13,color:dm?'#c0cfec':'#334155',lineHeight:1.6,margin:0,whiteSpace:'pre-wrap'}}>{selectedTicket.issueDetails||selectedTicket.issue_details}</p>
                                         </div>
                                     )}
 
@@ -2184,7 +2314,7 @@
                                     {/* Approvers panel */}
                                     <div className="mb-6">
                                         <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                            <span style={{color:dm?'#818cf8':'#6366F1'}}>✅</span> Approvers
+                                            <span style={{color:dm?'#818cf8':'#4F46E5'}}>✅</span> Approvers
                                             {selectedTicket.status === 'Pending Approval' && (
                                                 <span className="ml-auto text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Awaiting approval</span>
                                             )}
@@ -2343,7 +2473,7 @@
                                                 </div>
                                             ) : (
                                                 <div>
-                                                    <label style={{display:'block',fontSize:12,fontWeight:600,color:dm?'#c0cfec':'#374151',marginBottom:6}}>Justification <span style={{color:'#EF4444'}}>*</span></label>
+                                                    <label style={{display:'block',fontSize:12,fontWeight:600,color:dm?'#c0cfec':'#334155',marginBottom:6}}>Justification <span style={{color:'#EF4444'}}>*</span></label>
                                                     <textarea rows="3" value={justification} onChange={e=>setJustification(e.target.value)}
                                                         placeholder="Explain why the resolution is not acceptable…"
                                                         style={{width:'100%',border:`1px solid ${borderC}`,borderRadius:8,padding:'8px 10px',fontSize:13,resize:'none',outline:'none',marginBottom:10,boxSizing:'border-box'}}/>
@@ -2361,7 +2491,7 @@
                                                             {actionLoading?'⏳…':'❌ Confirm Reject & Reopen'}
                                                         </button>
                                                         <button onClick={()=>{setRejectMode(false);setJustification('');setActionError('');}}
-                                                            style={{padding:'9px 16px',background:dm?'rgba(6,9,22,0.7)':'#F3F4F6',color:dm?'#c0cfec':'#374151',border:'none',borderRadius:10,fontSize:13,fontWeight:600,cursor:'pointer'}}>
+                                                            style={{padding:'9px 16px',background:dm?'rgba(6,9,22,0.7)':'#F5F7FF',color:dm?'#c0cfec':'#334155',border:'none',borderRadius:10,fontSize:13,fontWeight:600,cursor:'pointer'}}>
                                                             Cancel
                                                         </button>
                                                     </div>
@@ -2480,11 +2610,11 @@
         function CalendarPage() {
 
             const dm = useDark();
-            const pageBg  = dm ? 'transparent' : '#F4F5F7';
+            const pageBg  = dm ? 'transparent' : '#F5F7FF';
             const cardBg  = dm ? 'linear-gradient(155deg,rgba(17,30,58,0.97) 0%,rgba(8,16,36,0.99) 100%)' : 'white';
-            const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E5E7EB';
-            const textP   = dm ? '#f0f4ff' : '#111827';
-            const textM   = dm ? '#8fa4cc' : '#6B7280';
+            const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E2E8F2';
+            const textP   = dm ? '#f0f4ff' : '#0F172A';
+            const textM   = dm ? '#8fa4cc' : '#64748B';
             const today = new Date();
             const [viewDate, setViewDate] = React.useState(new Date(today.getFullYear(), today.getMonth(), 1));
             const [selectedState, setSelectedState] = React.useState('NSW');
@@ -2582,7 +2712,7 @@
             const nextM = () => setViewDate(new Date(year,month+1,1));
             const goNow = () => { setViewDate(new Date(today.getFullYear(),today.getMonth(),1)); setSelectedDay(todayStr); };
 
-            const ST_COLOR = {new:'#6B7280',assigned:'#3B82F6',in_progress:'#F59E0B',waiting:'#8B5CF6',pending_approval:'#8B5CF6',resolved:'#10B981',closed:'#374151'};
+            const ST_COLOR = {new:dm?'#6b80a4':'#64748B',assigned:'#3B82F6',in_progress:'#F59E0B',waiting:'#8B5CF6',pending_approval:'#8B5CF6',resolved:'#10B981',closed:dm?'#6b80a4':'#475569'};
             const ST_LABEL = {new:'New',assigned:'Assigned',in_progress:'In Progress',waiting:'Waiting',pending_approval:'Pending Approval',resolved:'Resolved',closed:'Closed'};
 
             return (
@@ -2608,12 +2738,12 @@
                         <div className='yc-toolbar' style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'16px',flexWrap:'wrap',gap:'10px'}}>
                             <div>
                                 <h1 style={{fontSize:'19px',fontWeight:'700',color:textP,margin:0,letterSpacing:'-0.3px'}}>Ticket Calendar</h1>
-                                <p style={{fontSize:'12px',color:dm?'#4a607f':'#9CA3AF',margin:'3px 0 0'}}>Due dates, overdue tracking &amp; public holidays</p>
+                                <p style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',margin:'3px 0 0'}}>Due dates, overdue tracking &amp; public holidays</p>
                             </div>
                             <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
-                                <button onClick={goNow} className="cal-btn" style={{padding:'6px 14px',borderRadius:'8px',border:`1px solid ${borderC}`,background:dm?'rgba(99,102,241,0.1)':'white',fontSize:'13px',fontWeight:'600',color:dm?'#c7d2fe':'#374151',cursor:'pointer'}}>Today</button>
+                                <button onClick={goNow} className="cal-btn" style={{padding:'6px 14px',borderRadius:'8px',border:`1px solid ${borderC}`,background:dm?'rgba(99,102,241,0.1)':'white',fontSize:'13px',fontWeight:'600',color:dm?'#c7d2fe':'#334155',cursor:'pointer'}}>Today</button>
                                 <select value={selectedState} onChange={e=>setSelectedState(e.target.value)}
-                                    style={{padding:'6px 10px',borderRadius:'8px',border:`1px solid ${borderC}`,background:dm?'rgba(2,8,23,0.9)':'white',fontSize:'12px',color:textM,cursor:'pointer'}}>
+                                    style={{padding:'6px 10px',borderRadius:'8px',border:`1px solid ${borderC}`,background:dm?'rgba(2,8,23,0.9)':'#FFFFFF',fontSize:'12px',color:textM,cursor:'pointer'}}>
                                     {AU_STATES.map(s=><option key={s.code} value={s.code}>{s.label}</option>)}
                                 </select>
                             </div>
@@ -2622,7 +2752,7 @@
                         {/* ══ STATS CHIPS ══ */}
                         <div className='yc-analytics-bar' style={{display:'flex',gap:'10px',marginBottom:'16px',flexWrap:'wrap'}}>
                             {[
-                                { label:'Due This Month', value:mDue,          color:dm?'#818cf8':'#6366F1', bg:'#EEF2FF', icon:'📅' },
+                                { label:'Due This Month', value:mDue,          color:dm?'#818cf8':'#4F46E5', bg:'#EEF2FF', icon:'📅' },
                                 { label:'Overdue',        value:mOD,           color:'#EF4444', bg:'#FEF2F2', icon:'⚠️' },
                                 { label:'Resolved',       value:mRes,          color:'#10B981', bg:'#ECFDF5', icon:'✅' },
                                 { label:'Due This Week',  value:wkTkts.length, color:'#F59E0B', bg:'#FFFBEB', icon:'🔔' },
@@ -2648,10 +2778,10 @@
                                     <button className="cal-nav2" onClick={prevM} style={{width:'32px',height:'32px',borderRadius:'8px',border:`1px solid ${borderC}`,background:dm?'rgba(99,102,241,0.08)':'white',cursor:'pointer',fontSize:'16px',color:textM,display:'flex',alignItems:'center',justifyContent:'center'}}>‹</button>
                                     <div style={{textAlign:'center'}}>
                                         <h2 style={{fontSize:'16px',fontWeight:'700',color:textP,margin:0}}>{MONTHS[month]} {year}</h2>
-                                        <div style={{fontSize:'11px',color:dm?'#4a607f':'#9CA3AF',marginTop:'2px'}}>
+                                        <div style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8',marginTop:'2px'}}>
                                             {visibleHols.length>0 && <span style={{color:'#EF4444',fontWeight:'600'}}>{visibleHols.length} holiday{visibleHols.length!==1?'s':''}</span>}
                                             {visibleHols.length>0 && mDue>0 && <span style={{color:'#D1D5DB'}}> · </span>}
-                                            {mDue>0 && <span style={{color:dm?'#818cf8':'#6366F1',fontWeight:'600'}}>{mDue} ticket{mDue!==1?'s':''} due</span>}
+                                            {mDue>0 && <span style={{color:dm?'#818cf8':'#4F46E5',fontWeight:'600'}}>{mDue} ticket{mDue!==1?'s':''} due</span>}
                                         </div>
                                     </div>
                                     <button className="cal-nav2" onClick={nextM} style={{width:'32px',height:'32px',borderRadius:'8px',border:`1px solid ${borderC}`,background:dm?'rgba(99,102,241,0.08)':'white',cursor:'pointer',fontSize:'16px',color:textM,display:'flex',alignItems:'center',justifyContent:'center'}}>›</button>
@@ -2660,7 +2790,7 @@
                                 {/* Day labels */}
                                 <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',background:dm?'rgba(6,9,20,0.6)':'#F9FAFB',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.12)':'#F0F0F0'}`}}>
                                     {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d,i)=>(
-                                        <div key={d} style={{textAlign:'center',fontSize:'11px',fontWeight:'600',letterSpacing:'0.05em',color:i>=5?(dm?'#4a607f':'#9CA3AF'):(dm?'#6b80a4':'#6B7280'),padding:'8px 0',textTransform:'uppercase'}}>{d}</div>
+                                        <div key={d} style={{textAlign:'center',fontSize:'11px',fontWeight:'600',letterSpacing:'0.05em',color:i>=5?(dm?'#4a607f':'#94A3B8'):(dm?'#6b80a4':'#64748B'),padding:'8px 0',textTransform:'uppercase'}}>{d}</div>
                                     ))}
                                 </div>
 
@@ -2683,14 +2813,14 @@
                                                     <div key={di}
                                                         className={`gc-cell${isTd?' today-cell':''}${isSel?' sel-cell':''}${isHol&&!isSel?' hol-cell':''}${isWknd&&!isHol&&!isSel?' wknd-cell':''}`}
                                                         onClick={()=>d&&setSelectedDay(isSel?null:ds)}
-                                                        style={{minHeight:'110px',padding:'4px 0',cursor:d?'pointer':'default',borderBottom:isLastWk?'none':`1px solid ${dm?'rgba(99,102,241,0.08)':'#F0F0F0'}`,borderRight:di===6?'none':`1px solid ${dm?'rgba(99,102,241,0.08)':'#F0F0F0'}`,position:'relative',overflow:'hidden',background:!d?(dm?'rgba(0,0,0,0.15)':'#FAFAFA'):undefined}}
+                                                        style={{minHeight:'110px',padding:'4px 0',cursor:d?'pointer':'default',borderBottom:isLastWk?'none':`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`,borderRight:di===6?'none':`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`,position:'relative',overflow:'hidden',background:!d?(dm?'rgba(0,0,0,0.15)':'#FAFAFA'):undefined}}
                                                     >
                                                         {d && (<>
                                                             {/* Top accent */}
                                                             {(isHol||odOnDay>0) && <div style={{position:'absolute',top:0,left:0,right:0,height:'2px',background:isHol?'#FCA5A5':'#FDBA74'}}/>}
                                                             {/* Date number row */}
                                                             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'4px 6px 3px',gap:'2px'}}>
-                                                                <div className="gc-date-num" style={{width:'22px',height:'22px',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'11px',fontWeight:isTd?'700':'500',background:isTd?'#3B82F6':'transparent',color:isTd?'white':isWknd?(dm?'#3d5070':'#9CA3AF'):(dm?'#c0cfec':'#374151'),flexShrink:0}}>{d}</div>
+                                                                <div className="gc-date-num" style={{width:'22px',height:'22px',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'11px',fontWeight:isTd?'700':'500',background:isTd?'#3B82F6':'transparent',color:isTd?'white':isWknd?(dm?'#3d5070':'#94A3B8'):(dm?'#c0cfec':'#334155'),flexShrink:0}}>{d}</div>
                                                                 {isHol && <span style={{fontSize:'9px',color:'#DC2626',fontWeight:'600',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1,minWidth:0,paddingLeft:'2px'}}>{hols[0].name}</span>}
                                                                 {tkts.length>0 && <span style={{fontSize:'9px',fontWeight:'700',color:odOnDay>0?'#EF4444':'#6366F1',background:odOnDay>0?'#FEF2F2':'#EEF2FF',borderRadius:'8px',padding:'1px 4px',flexShrink:0}}>{tkts.length}</span>}
                                                             </div>
@@ -2699,7 +2829,7 @@
                                                                 const c = ticketColor(t);
                                                                 return <div key={ti} className="ev-bar" style={{background:c.bar,color:'white',marginBottom:'1px'}}>{t.title||t.ticketNumber||'Ticket'}</div>;
                                                             })}
-                                                            {tkts.length>3 && <div style={{fontSize:'9px',color:dm?'#4a607f':'#9CA3AF',paddingLeft:'6px'}}>+{tkts.length-3} more</div>}
+                                                            {tkts.length>3 && <div style={{fontSize:'9px',color:dm?'#4a607f':'#94A3B8',paddingLeft:'6px'}}>+{tkts.length-3} more</div>}
                                                         </>)}
                                                     </div>
                                                 );
@@ -2721,7 +2851,7 @@
                                             {l.circle && <div style={{width:'16px',height:'16px',borderRadius:'50%',background:'#6366F1',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'8px',fontWeight:'700',color:'white'}}>9</div>}
                                             {l.dot && <div style={{display:'flex',alignItems:'center',gap:'3px',background:l.bg,borderRadius:'4px',padding:'1.5px 6px'}}><div style={{width:'6px',height:'6px',borderRadius:'50%',background:l.dot}}/></div>}
                                             {l.icon && <div style={{width:'18px',height:'2.5px',background:l.bar,borderRadius:'2px'}}/>}
-                                            <span style={{fontSize:'10px',color:dm?'#6b80a4':'#6B7280'}}>{l.label}</span>
+                                            <span style={{fontSize:'10px',color:dm?'#6b80a4':'#64748B'}}>{l.label}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -2752,12 +2882,12 @@
                                                         <span style={{fontSize:'14px'}}>🎉</span>
                                                         <div>
                                                             <div style={{fontSize:'12px',fontWeight:'700',color:'#DC2626'}}>{h.name}</div>
-                                                            <div style={{fontSize:'10px',color:dm?'#4a607f':'#9CA3AF',marginTop:'2px'}}>{h.states.includes('ALL')?'National':h.states.join(', ')}</div>
+                                                            <div style={{fontSize:'10px',color:dm?'#4a607f':'#94A3B8',marginTop:'2px'}}>{h.states.includes('ALL')?'National':h.states.join(', ')}</div>
                                                         </div>
                                                     </div>
                                                 ))}
                                                 {tkts.length===0 && hols.length===0 && (
-                                                    <p style={{fontSize:'12px',color:dm?'#4a607f':'#9CA3AF',margin:0,textAlign:'center',padding:'8px 0'}}>No tickets or holidays</p>
+                                                    <p style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',margin:0,textAlign:'center',padding:'8px 0'}}>No tickets or holidays</p>
                                                 )}
                                                 {tkts.length>0 && (
                                                     <>
@@ -2772,7 +2902,7 @@
                                                                     <span style={{fontSize:'10px',fontWeight:'700',color:textM}}>{t.ticketNumber||`#${t.id}`}</span>
                                                                     <span style={{fontSize:'10px',fontWeight:'600',color:sc,background:sc+'1A',borderRadius:'20px',padding:'1px 7px'}}>{ST_LABEL[t.status]||t.status}</span>
                                                                 </div>
-                                                                <div style={{fontSize:'12px',fontWeight:'600',color:dm?'#e4ecff':'#111827',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.title||'—'}</div>
+                                                                <div style={{fontSize:'12px',fontWeight:'600',color:dm?'#e4ecff':'#0F172A',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.title||'—'}</div>
                                                                 <div style={{display:'flex',gap:'6px',marginTop:'4px',flexWrap:'wrap'}}>
                                                                     {(t.priorityLabel||t.priority) && <span style={{fontSize:'10px',color:c.text,fontWeight:'600'}}>{(t.priorityLabel||t.priority).charAt(0).toUpperCase()+(t.priorityLabel||t.priority).slice(1)}</span>}
                                                                     {od && <span style={{fontSize:'10px',color:'#EF4444',fontWeight:'700'}}>⚠ Overdue</span>}
@@ -2790,7 +2920,7 @@
 
                                 {/* Overdue tickets */}
                                 {odList.length > 0 && (
-                                <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${dm?'rgba(239,68,68,0.25)':'#FECACA'}`,overflow:'hidden',boxShadow:dm?'0 4px 16px rgba(0,0,0,0.4)':'0 1px 3px rgba(0,0,0,0.04)'}}>
+                                <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${dm?'rgba(239,68,68,0.25)':'#FECACA'}`,overflow:'hidden',boxShadow:dm?'0 4px 16px rgba(0,0,0,0.4)':'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
                                     <div style={{padding:'12px 16px',borderBottom:`1px solid ${dm?'rgba(239,68,68,0.12)':'#FEF2F2'}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                                         <span style={{fontSize:'13px',fontWeight:'700',color:'#EF4444'}}>⚠ Overdue Tickets</span>
                                         <span style={{fontSize:'11px',background:'#FEF2F2',color:'#DC2626',borderRadius:'20px',padding:'2px 8px',fontWeight:'700'}}>{odList.length}</span>
@@ -2803,10 +2933,10 @@
                                                 <div key={i} className="sidebar-row" style={{padding:'8px',borderRadius:'8px'}}>
                                                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:'6px'}}>
                                                         <div style={{flex:1,minWidth:0}}>
-                                                            <div style={{fontSize:'12px',fontWeight:'600',color:dm?'#e4ecff':'#111827',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.title||'—'}</div>
+                                                            <div style={{fontSize:'12px',fontWeight:'600',color:dm?'#e4ecff':'#0F172A',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.title||'—'}</div>
                                                             <div style={{display:'flex',gap:'6px',marginTop:'2px',alignItems:'center'}}>
                                                                 <span style={{fontSize:'10px',fontWeight:'600',color:c.text}}>{(t.priorityLabel||t.priority||'').charAt(0).toUpperCase()+(t.priorityLabel||t.priority||'').slice(1)}</span>
-                                                                {t.assigneeName && <span style={{fontSize:'10px',color:dm?'#4a607f':'#9CA3AF'}}>→ {t.assigneeName.split(' ')[0]}</span>}
+                                                                {t.assigneeName && <span style={{fontSize:'10px',color:dm?'#4a607f':'#94A3B8'}}>→ {t.assigneeName.split(' ')[0]}</span>}
                                                             </div>
                                                         </div>
                                                         {daysOver!=null && <span style={{fontSize:'10px',fontWeight:'700',color:'#EF4444',flexShrink:0,background:'#FEF2F2',borderRadius:'20px',padding:'2px 7px',whiteSpace:'nowrap'}}>{daysOver}d late</span>}
@@ -2820,9 +2950,9 @@
 
                                 {/* Due this week */}
                                 {wkTkts.length > 0 && (
-                                <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,overflow:'hidden',boxShadow:dm?'0 4px 16px rgba(0,0,0,0.4)':'0 1px 3px rgba(0,0,0,0.04)'}}>
-                                    <div style={{padding:'12px 16px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.12)':'#F3F4F6'}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                                        <span style={{fontSize:'13px',fontWeight:'700',color:dm?'#c0cfec':'#374151'}}>🔔 Due This Week</span>
+                                <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,overflow:'hidden',boxShadow:dm?'0 4px 16px rgba(0,0,0,0.4)':'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
+                                    <div style={{padding:'12px 16px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.12)':'#EEF2F8'}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                                        <span style={{fontSize:'13px',fontWeight:'700',color:dm?'#c0cfec':'#334155'}}>🔔 Due This Week</span>
                                         <span style={{fontSize:'11px',background:'#FFFBEB',color:'#D97706',borderRadius:'20px',padding:'2px 8px',fontWeight:'700'}}>{wkTkts.length}</span>
                                     </div>
                                     <div style={{padding:'8px'}}>
@@ -2838,7 +2968,7 @@
                                                         <div style={{fontSize:'13px',fontWeight:'700',color:'#92400E',lineHeight:1}}>{d.getDate()}</div>
                                                     </div>
                                                     <div style={{flex:1,minWidth:0}}>
-                                                        <div style={{fontSize:'12px',fontWeight:'600',color:dm?'#e4ecff':'#111827',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.title||'—'}</div>
+                                                        <div style={{fontSize:'12px',fontWeight:'600',color:dm?'#e4ecff':'#0F172A',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.title||'—'}</div>
                                                         <div style={{fontSize:'10px',color:c.text,fontWeight:'600',marginTop:'1px'}}>{(t.priorityLabel||t.priority||'').charAt(0).toUpperCase()+(t.priorityLabel||t.priority||'').slice(1)}{t.assigneeName?` · ${t.assigneeName.split(' ')[0]}`:''}</div>
                                                     </div>
                                                     <span style={{fontSize:'10px',fontWeight:'700',color:diffD===0?'#EF4444':'#D97706',flexShrink:0}}>{dLabel}</span>
@@ -2850,14 +2980,14 @@
                                 )}
 
                                 {/* Upcoming public holidays */}
-                                <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,overflow:'hidden',boxShadow:dm?'0 4px 16px rgba(0,0,0,0.4)':'0 1px 3px rgba(0,0,0,0.04)'}}>
-                                    <div style={{padding:'12px 16px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.12)':'#F3F4F6'}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                                        <span style={{fontSize:'13px',fontWeight:'700',color:dm?'#c0cfec':'#374151'}}>🇦🇺 Public Holidays</span>
-                                        <span style={{fontSize:'10px',color:dm?'#4a607f':'#9CA3AF'}}>Next 90 days</span>
+                                <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,overflow:'hidden',boxShadow:dm?'0 4px 16px rgba(0,0,0,0.4)':'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
+                                    <div style={{padding:'12px 16px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.12)':'#EEF2F8'}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                                        <span style={{fontSize:'13px',fontWeight:'700',color:dm?'#c0cfec':'#334155'}}>🇦🇺 Public Holidays</span>
+                                        <span style={{fontSize:'10px',color:dm?'#4a607f':'#94A3B8'}}>Next 90 days</span>
                                     </div>
                                     <div style={{padding:'8px'}}>
                                         {upHols.length===0 ? (
-                                            <p style={{fontSize:'12px',color:dm?'#4a607f':'#9CA3AF',textAlign:'center',padding:'12px',margin:0}}>None in the next 90 days</p>
+                                            <p style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',textAlign:'center',padding:'12px',margin:0}}>None in the next 90 days</p>
                                         ) : upHols.map((h,i)=>{
                                             const [hy,hm2,hd2]=h.date.split('-').map(Number);
                                             const diff=Math.round((new Date(hy,hm2-1,hd2)-today)/86400000);
@@ -2865,15 +2995,15 @@
                                             const hot=diff<=7;
                                             return (
                                                 <div key={i} className="sidebar-row" style={{padding:'8px',borderRadius:'8px',display:'flex',gap:'8px',alignItems:'center'}}>
-                                                    <div style={{width:'32px',height:'32px',background:hot?(dm?'rgba(239,68,68,0.12)':'#FEF2F2'):(dm?'rgba(99,102,241,0.08)':'#F9FAFB'),borderRadius:'8px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                                                        <div style={{fontSize:'9px',fontWeight:'700',color:hot?'#DC2626':(dm?'#4a607f':'#6B7280'),textTransform:'uppercase'}}>{MS[hm2-1]}</div>
-                                                        <div style={{fontSize:'13px',fontWeight:'700',color:hot?'#991B1B':(dm?'#8fa4cc':'#374151'),lineHeight:1}}>{hd2}</div>
+                                                    <div style={{width:'32px',height:'32px',background:hot?(dm?'rgba(239,68,68,0.12)':'#FEF2F2'):(dm?'rgba(99,102,241,0.08)':'#F5F7FF'),borderRadius:'8px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                                                        <div style={{fontSize:'9px',fontWeight:'700',color:hot?'#DC2626':(dm?'#4a607f':'#64748B'),textTransform:'uppercase'}}>{MS[hm2-1]}</div>
+                                                        <div style={{fontSize:'13px',fontWeight:'700',color:hot?'#991B1B':(dm?'#8fa4cc':'#334155'),lineHeight:1}}>{hd2}</div>
                                                     </div>
                                                     <div style={{flex:1,minWidth:0}}>
-                                                        <div style={{fontSize:'12px',fontWeight:'600',color:dm?'#e4ecff':'#111827',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{h.name}</div>
-                                                        <div style={{fontSize:'10px',color:dm?'#4a607f':'#9CA3AF',marginTop:'1px'}}>{h.states.includes('ALL')?'National':h.states.join(', ')}</div>
+                                                        <div style={{fontSize:'12px',fontWeight:'600',color:dm?'#e4ecff':'#0F172A',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{h.name}</div>
+                                                        <div style={{fontSize:'10px',color:dm?'#4a607f':'#94A3B8',marginTop:'1px'}}>{h.states.includes('ALL')?'National':h.states.join(', ')}</div>
                                                     </div>
-                                                    <span style={{fontSize:'10px',fontWeight:'700',color:hot?'#DC2626':'#9CA3AF',flexShrink:0}}>{dLabel}</span>
+                                                    <span style={{fontSize:'10px',fontWeight:'700',color:hot?'#DC2626':(dm?'#4a607f':'#94A3B8'),flexShrink:0}}>{dLabel}</span>
                                                 </div>
                                             );
                                         })}
@@ -2889,17 +3019,17 @@
                                         priCounts[p] = (priCounts[p]||0)+1;
                                     });
                                     return (
-                                        <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,padding:'14px 16px',boxShadow:dm?'0 4px 16px rgba(0,0,0,0.4)':'0 1px 3px rgba(0,0,0,0.04)'}}>
-                                            <div style={{fontSize:'13px',fontWeight:'700',color:dm?'#c0cfec':'#374151',marginBottom:'12px'}}>📊 {MONTHS[month]} Breakdown</div>
+                                        <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,padding:'14px 16px',boxShadow:dm?'0 4px 16px rgba(0,0,0,0.4)':'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
+                                            <div style={{fontSize:'13px',fontWeight:'700',color:dm?'#c0cfec':'#334155',marginBottom:'12px'}}>📊 {MONTHS[month]} Breakdown</div>
                                             {['critical','high','medium','low'].map(p=>{
                                                 const cnt=priCounts[p]||0; if(!cnt) return null;
-                                                const pc=PRI_C[p]||{dot:'#6B7280',text:'#374151'};
+                                                const pc=PRI_C[p]||{dot:dm?'#4a607f':'#94A3B8',text:dm?'#c0cfec':'#334155'};
                                                 const pct=Math.round(cnt/moTkts.length*100);
                                                 return (
                                                     <div key={p} style={{marginBottom:'8px'}}>
                                                         <div style={{display:'flex',justifyContent:'space-between',fontSize:'11px',marginBottom:'3px'}}>
                                                             <span style={{fontWeight:'600',color:pc.text,textTransform:'capitalize'}}>{p}</span>
-                                                            <span style={{color:dm?'#6b80a4':'#6B7280'}}>{cnt} ({pct}%)</span>
+                                                            <span style={{color:dm?'#6b80a4':'#64748B'}}>{cnt} ({pct}%)</span>
                                                         </div>
                                                         <div style={{height:'6px',background:dm?'rgba(99,102,241,0.1)':'#F3F4F6',borderRadius:'3px'}}>
                                                             <div style={{height:'100%',width:pct+'%',background:pc.dot,borderRadius:'3px'}}/>
@@ -2926,7 +3056,7 @@
             approved:         { label: 'Approved',          bg: '#D1FAE5', color: '#065F46' },
             rejected:         { label: 'Rejected',          bg: '#FEE2E2', color: '#991B1B' },
             escalated:        { label: 'Escalated',         bg: '#FEF3C7', color: '#92400E' },
-            commented:        { label: 'Comment',           bg: '#F3F4F6', color: '#374151' },
+            commented:        { label: 'Comment',           bg: '#EEF2F8', color: '#475569' },
             priority_changed: { label: 'Priority Changed',  bg: '#FFF7ED', color: '#C2410C' },
         };
 
@@ -2959,11 +3089,11 @@
         //          overdue, high/critical tickets + auto insights
         function StaffPerformancePage() {
             const dm = useDark();
-            const pageBg  = dm ? 'transparent' : '#F4F5F7';
+            const pageBg  = dm ? 'transparent' : '#F5F7FF';
             const cardBg  = dm ? 'linear-gradient(155deg,rgba(17,30,58,0.97) 0%,rgba(8,16,36,0.99) 100%)' : 'white';
-            const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E5E7EB';
-            const textP   = dm ? '#f0f4ff' : '#111827';
-            const textM   = dm ? '#8fa4cc' : '#6B7280';
+            const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E2E8F2';
+            const textP   = dm ? '#f0f4ff' : '#0F172A';
+            const textM   = dm ? '#8fa4cc' : '#64748B';
             const [loading, setLoading]         = React.useState(true);
             const [staffMetrics, setStaffMetrics] = React.useState([]);
             const [summary, setSummary]         = React.useState({});
@@ -3144,7 +3274,7 @@
             const insightText = {positive:'#166534',warning:'#92400E',danger:'#991B1B',info:'#1E40AF'};
 
             const SortTh = ({ col, label }) => (
-                <th onClick={() => toggleSort(col)} style={{padding:'10px 12px',textAlign:'left',fontWeight:'600',color: sortBy===col?'#4338CA':'#6B7280',fontSize:'11px',textTransform:'uppercase',letterSpacing:'0.05em',cursor:'pointer',whiteSpace:'nowrap',userSelect:'none'}}>
+                <th onClick={() => toggleSort(col)} style={{padding:'10px 12px',textAlign:'left',fontWeight:'600',color: sortBy===col?'#4338CA':(dm?'#8fa4cc':'#64748B'),fontSize:'11px',textTransform:'uppercase',letterSpacing:'0.05em',cursor:'pointer',whiteSpace:'nowrap',userSelect:'none'}}>
                     {label} {sortBy===col ? (sortDir==='desc'?'↓':'↑') : ''}
                 </th>
             );
@@ -3166,16 +3296,16 @@
                         {/* ── KPI row ── */}
                         <div className="yc-stat-5 grid gap-4 mb-7" style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)"}}>
                             {[
-                                { label:'Total Tickets',   value: summary.totalTickets,              icon:'🎫', color:dm?'#818cf8':'#6366F1' },
+                                { label:'Total Tickets',   value: summary.totalTickets,              icon:'🎫', color:dm?'#818cf8':'#4F46E5' },
                                 { label:'Resolved',        value: summary.totalResolved,             icon:'✅', color:'#10B981' },
                                 { label:'Team SLA',        value: (summary.teamSla||0)+'%',          icon:'⏱️', color: summary.teamSla>=80?'#10B981':summary.teamSla>=60?'#F59E0B':'#EF4444' },
-                                { label:'Avg Resolve Time',value: summary.teamAvgHours!=null?summary.teamAvgHours+'h':'—', icon:'🕐', color:dm?'#818cf8':'#6366F1' },
+                                { label:'Avg Resolve Time',value: summary.teamAvgHours!=null?summary.teamAvgHours+'h':'—', icon:'🕐', color:dm?'#818cf8':'#4F46E5' },
                                 { label:'Overdue',         value: summary.totalOverdue||0,           icon:'🚨', color: summary.totalOverdue>0?'#EF4444':'#10B981' },
                             ].map((s,i) => (
-                                <div key={i} style={{background:'#fff',borderRadius:'12px',border:'1px solid #F0F0F0',padding:'18px 20px',boxShadow:'0 1px 3px rgba(0,0,0,0.05)'}}>
+                                <div key={i} style={{background:'#fff',borderRadius:'12px',border:'1px solid #F0F0F0',padding:'18px 20px',boxShadow:'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
                                     <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'8px'}}>
                                         <span style={{fontSize:'16px'}}>{s.icon}</span>
-                                        <span style={{fontSize:'11px',fontWeight:'600',color:dm?'#4a607f':'#9CA3AF',textTransform:'uppercase',letterSpacing:'0.05em'}}>{s.label}</span>
+                                        <span style={{fontSize:'11px',fontWeight:'600',color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.05em'}}>{s.label}</span>
                                     </div>
                                     <div style={{fontSize:'28px',fontWeight:'800',color:s.color}}>{s.value}</div>
                                 </div>
@@ -3183,7 +3313,7 @@
                         </div>
 
                         {/* ── Insights ── */}
-                        <div style={{background:'#fff',borderRadius:'12px',border:'1px solid #F0F0F0',padding:'20px 24px',marginBottom:'24px',boxShadow:'0 1px 3px rgba(0,0,0,0.05)'}}>
+                        <div style={{background:'#fff',borderRadius:'12px',border:'1px solid #F0F0F0',padding:'20px 24px',marginBottom:'24px',boxShadow:'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
                             <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,marginBottom:'14px',display:'flex',alignItems:'center',gap:'8px'}}>
                                 <span>💡</span> Performance Insights
                             </h2>
@@ -3199,7 +3329,7 @@
 
                         {/* ── Top performers podium ── */}
                         {top3.length > 0 && (
-                        <div style={{background:'#fff',borderRadius:'12px',border:'1px solid #F0F0F0',padding:'20px 24px',marginBottom:'24px',boxShadow:'0 1px 3px rgba(0,0,0,0.05)'}}>
+                        <div style={{background:'#fff',borderRadius:'12px',border:'1px solid #F0F0F0',padding:'20px 24px',marginBottom:'24px',boxShadow:'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
                             <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,marginBottom:'16px'}}>⭐ Top Performers</h2>
                             <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'14px'}}>
                                 {top3.map((s,idx) => (
@@ -3207,11 +3337,11 @@
                                         <div style={{fontSize:'24px',marginBottom:'8px'}}>{MEDAL[idx]}</div>
                                         <div style={{width:'44px',height:'44px',borderRadius:'50%',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:'#4338CA',fontWeight:'800',fontSize:'14px',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 10px'}}>{s.initials}</div>
                                         <div style={{fontWeight:'700',fontSize:'13px',color:textP,marginBottom:'2px'}}>{s.name}</div>
-                                        <div style={{fontSize:'11px',color:dm?'#4a607f':'#9CA3AF',marginBottom:'12px'}}>{s.dept}</div>
+                                        <div style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8',marginBottom:'12px'}}>{s.dept}</div>
                                         <div style={{display:'flex',justifyContent:'center',gap:'16px'}}>
-                                            <div><div style={{fontWeight:'800',fontSize:'18px',color:'#10B981'}}>{s.resolved}</div><div style={{fontSize:'10px',color:dm?'#4a607f':'#9CA3AF'}}>Resolved</div></div>
-                                            <div><div style={{fontWeight:'800',fontSize:'18px',color:dm?'#818cf8':'#6366F1'}}>{s.assigned}</div><div style={{fontSize:'10px',color:dm?'#4a607f':'#9CA3AF'}}>Assigned</div></div>
-                                            <div><div style={{fontWeight:'800',fontSize:'18px',color:slaColor(s.sla)}}>{s.sla!==null?s.sla+'%':'—'}</div><div style={{fontSize:'10px',color:dm?'#4a607f':'#9CA3AF'}}>SLA</div></div>
+                                            <div><div style={{fontWeight:'800',fontSize:'18px',color:'#10B981'}}>{s.resolved}</div><div style={{fontSize:'10px',color:dm?'#4a607f':'#94A3B8'}}>Resolved</div></div>
+                                            <div><div style={{fontWeight:'800',fontSize:'18px',color:dm?'#818cf8':'#4F46E5'}}>{s.assigned}</div><div style={{fontSize:'10px',color:dm?'#4a607f':'#94A3B8'}}>Assigned</div></div>
+                                            <div><div style={{fontWeight:'800',fontSize:'18px',color:slaColor(s.sla)}}>{s.sla!==null?s.sla+'%':'—'}</div><div style={{fontSize:'10px',color:dm?'#4a607f':'#94A3B8'}}>SLA</div></div>
                                         </div>
                                         {s.avgHours!==null && <div style={{marginTop:'10px',fontSize:'11px',color:textM}}>⚡ Avg {s.avgHours}h resolve time</div>}
                                         {s.escalated>0 && <div style={{marginTop:'4px',fontSize:'11px',color:'#EF4444'}}>🔺 {s.escalated} escalated</div>}
@@ -3223,10 +3353,10 @@
 
                         {/* ── Full metrics table ── */}
                         {staffMetrics.length > 0 ? (
-                        <div style={{background:'#fff',borderRadius:'12px',border:'1px solid #F0F0F0',padding:'20px 24px',marginBottom:'24px',boxShadow:'0 1px 3px rgba(0,0,0,0.05)'}}>
+                        <div style={{background:'#fff',borderRadius:'12px',border:'1px solid #F0F0F0',padding:'20px 24px',marginBottom:'24px',boxShadow:'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
                             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'16px'}}>
                                 <h2 style={{fontSize:'14px',fontWeight:'700',color:textP}}>📋 All Staff Metrics</h2>
-                                <span style={{fontSize:'11px',color:dm?'#4a607f':'#9CA3AF'}}>Click column headers to sort</span>
+                                <span style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8'}}>Click column headers to sort</span>
                             </div>
                             <div className="yc-table-scroll">
                                 <table style={{width:'100%',borderCollapse:'collapse',fontSize:'13px'}}>
@@ -3257,9 +3387,9 @@
                                                     </div>
                                                 </td>
                                                 <td style={{padding:'11px 12px',color:textM,fontSize:'12px'}}>{s.dept}</td>
-                                                <td style={{padding:'11px 12px',fontWeight:'700',color:dm?'#c0cfec':'#374151',textAlign:'center'}}>{s.assigned}</td>
+                                                <td style={{padding:'11px 12px',fontWeight:'700',color:dm?'#c0cfec':'#334155',textAlign:'center'}}>{s.assigned}</td>
                                                 <td style={{padding:'11px 12px',fontWeight:'700',color:'#10B981',textAlign:'center'}}>{s.resolved}</td>
-                                                <td style={{padding:'11px 12px',fontWeight:'600',color:s.pending>0?'#F59E0B':'#9CA3AF',textAlign:'center'}}>{s.pending}</td>
+                                                <td style={{padding:'11px 12px',fontWeight:'600',color:s.pending>0?'#F59E0B':(dm?'#4a607f':'#94A3B8'),textAlign:'center'}}>{s.pending}</td>
                                                 <td style={{padding:'11px 12px',textAlign:'center'}}>
                                                     {s.resRate!==null ? (
                                                         <span style={{fontWeight:'700',color:s.resRate>=70?'#10B981':s.resRate>=40?'#F59E0B':'#EF4444'}}>{s.resRate}%</span>
@@ -3295,13 +3425,13 @@
                         ) : (
                         <div style={{background:'#fff',borderRadius:'12px',border:'1px solid #F0F0F0',padding:'48px',textAlign:'center',marginBottom:'24px'}}>
                             <div style={{fontSize:'40px',marginBottom:'12px'}}>📭</div>
-                            <p style={{color:dm?'#4a607f':'#9CA3AF',fontSize:'14px'}}>No tickets assigned to staff yet — metrics appear once tickets have assignees.</p>
+                            <p style={{color:dm?'#4a607f':'#94A3B8',fontSize:'14px'}}>No tickets assigned to staff yet — metrics appear once tickets have assignees.</p>
                         </div>
                         )}
 
                         {/* ── Chart ── */}
                         {staffMetrics.length > 0 && (
-                        <div style={{background:'#fff',borderRadius:'12px',border:'1px solid #F0F0F0',padding:'20px 24px',boxShadow:'0 1px 3px rgba(0,0,0,0.05)'}}>
+                        <div style={{background:'#fff',borderRadius:'12px',border:'1px solid #F0F0F0',padding:'20px 24px',boxShadow:'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
                             <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,marginBottom:'16px'}}>📊 Assigned / Resolved / Escalated by Staff</h2>
                             <div className="chart-container"><canvas id="perfChart"></canvas></div>
                         </div>
@@ -3357,11 +3487,11 @@
         // Team Comparison Page
         function TeamComparisonPage() {
             const dm = useDark();
-            const pageBg  = dm ? 'transparent' : '#F4F5F7';
+            const pageBg  = dm ? 'transparent' : '#F5F7FF';
             const cardBg  = dm ? 'linear-gradient(155deg,rgba(17,30,58,0.97) 0%,rgba(8,16,36,0.99) 100%)' : 'white';
-            const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E5E7EB';
-            const textP   = dm ? '#f0f4ff' : '#111827';
-            const textM   = dm ? '#8fa4cc' : '#6B7280';
+            const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E2E8F2';
+            const textP   = dm ? '#f0f4ff' : '#0F172A';
+            const textM   = dm ? '#8fa4cc' : '#64748B';
             const [loading, setLoading]         = React.useState(true);
             const [deptMetrics, setDeptMetrics] = React.useState([]);
             const [summary, setSummary]         = React.useState({});
@@ -3482,7 +3612,7 @@
 
             const SortTh = ({col, label}) => (
                 <th onClick={()=>{setSortBy(col);setSortDir(d=>d==='asc'?'desc':'asc');}}
-                    style={{padding:'10px 12px',textAlign:'center',fontSize:'11px',fontWeight:700,color:textM,textTransform:'uppercase',letterSpacing:'0.05em',cursor:'pointer',whiteSpace:'nowrap',userSelect:'none',background:dm?'rgba(4,8,20,0.6)':'#F9FAFB'}}>
+                    style={{padding:'10px 12px',textAlign:'center',fontSize:'11px',fontWeight:700,color:textM,textTransform:'uppercase',letterSpacing:'0.05em',cursor:'pointer',whiteSpace:'nowrap',userSelect:'none',background:dm?'rgba(4,8,20,0.6)':'#F8FAFF'}}>
                     {label}{sortBy===col?(sortDir==='asc'?' ↑':' ↓'):''}
                 </th>
             );
@@ -3497,20 +3627,20 @@
                         <p className="text-gray-500 text-sm mb-6">Live department-level performance metrics</p>
 
                         {loading ? (
-                            <div style={{textAlign:'center',padding:'80px',color:dm?'#4a607f':'#9CA3AF',fontSize:'14px'}}>Loading department metrics…</div>
+                            <div style={{textAlign:'center',padding:'80px',color:dm?'#4a607f':'#94A3B8',fontSize:'14px'}}>Loading department metrics…</div>
                         ) : (<>
 
                         {/* Summary cards */}
                         <div className="yc-grid-6 grid gap-4 mb-6" style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)"}}>
                             {[
-                                { label:'Departments',    value:summary.totalDepts,    icon:'🏢', color:dm?'#818cf8':'#6366F1' },
+                                { label:'Departments',    value:summary.totalDepts,    icon:'🏢', color:dm?'#818cf8':'#4F46E5' },
                                 { label:'Total Staff',    value:summary.totalStaff,    icon:'👥', color:'#0EA5E9' },
                                 { label:'Total Assigned', value:summary.totalAssigned, icon:'📋', color:'#8B5CF6' },
                                 { label:'Total Resolved', value:summary.totalResolved, icon:'✅', color:'#10B981' },
                                 { label:'Escalated',      value:summary.totalEscalated,icon:'⚠️', color:'#F97316' },
                                 { label:'Avg SLA',        value:summary.avgSla!=null?`${summary.avgSla}%`:'—', icon:'🎯', color:'#EC4899' },
                             ].map((c,i) => (
-                                <div key={i} style={{background:cardBg,borderRadius:'12px',border:'1px solid #F0F0F0',padding:'16px 18px',boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
+                                <div key={i} style={{background:cardBg,borderRadius:'12px',border:'1px solid #F0F0F0',padding:'16px 18px',boxShadow:'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
                                     <div style={{fontSize:'11px',color:textM,fontWeight:600,marginBottom:4}}>{c.icon} {c.label}</div>
                                     <div style={{fontSize:'26px',fontWeight:800,color:c.color}}>{c.value??'—'}</div>
                                 </div>
@@ -3519,7 +3649,7 @@
 
                         {/* Podium */}
                         {top3.length>0 && (
-                        <div style={{background:cardBg,borderRadius:'12px',border:'1px solid #F0F0F0',padding:'20px 24px',marginBottom:'20px',boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
+                        <div style={{background:cardBg,borderRadius:'12px',border:'1px solid #F0F0F0',padding:'20px 24px',marginBottom:'20px',boxShadow:'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
                             <h2 style={{fontSize:'14px',fontWeight:700,color:textP,marginBottom:'16px'}}>🏆 Top Performing Departments</h2>
                             <div style={{display:'flex',gap:'16px',flexWrap:'wrap'}}>
                                 {top3.map((d,i) => (
@@ -3535,7 +3665,7 @@
                                             <div style={{marginTop:8,height:4,borderRadius:4,background:dm?'rgba(99,102,241,0.15)':'#E5E7EB'}}>
                                                 <div style={{height:4,borderRadius:4,width:`${d.sla}%`,background:d.sla>=80?'#10B981':d.sla>=60?'#F59E0B':'#EF4444'}}/>
                                             </div>
-                                            <div style={{fontSize:'10px',color:dm?'#4a607f':'#9CA3AF',marginTop:2}}>{d.sla}% SLA compliance</div>
+                                            <div style={{fontSize:'10px',color:dm?'#4a607f':'#94A3B8',marginTop:2}}>{d.sla}% SLA compliance</div>
                                         </>)}
                                     </div>
                                 ))}
@@ -3544,23 +3674,23 @@
                         )}
 
                         {/* Chart — canvas always mounted so ref is available when deptMetrics loads */}
-                        <div style={{background:cardBg,borderRadius:'12px',border:'1px solid #F0F0F0',padding:'20px 24px',marginBottom:'20px',boxShadow:'0 1px 3px rgba(0,0,0,0.04)',display:deptMetrics.length>0?'block':'none'}}>
+                        <div style={{background:cardBg,borderRadius:'12px',border:'1px solid #F0F0F0',padding:'20px 24px',marginBottom:'20px',boxShadow:'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)',display:deptMetrics.length>0?'block':'none'}}>
                             <h2 style={{fontSize:'14px',fontWeight:700,color:textP,marginBottom:'16px'}}>📊 Department Metrics Comparison</h2>
                             <div className="chart-container"><canvas ref={canvasRef}></canvas></div>
                         </div>
 
                         {/* Table */}
                         {deptMetrics.length>0 ? (
-                        <div style={{background:cardBg,borderRadius:'12px',border:'1px solid #F0F0F0',boxShadow:'0 1px 3px rgba(0,0,0,0.04)',overflow:'hidden'}}>
-                            <div style={{padding:'16px 20px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#F0F0F0'}`}}>
+                        <div style={{background:cardBg,borderRadius:'12px',border:'1px solid #F0F0F0',boxShadow:'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)',overflow:'hidden'}}>
+                            <div style={{padding:'16px 20px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
                                 <h2 style={{fontSize:'14px',fontWeight:700,color:textP}}>📋 Full Department Breakdown</h2>
-                                <p style={{fontSize:'11px',color:dm?'#4a607f':'#9CA3AF',marginTop:2}}>Click column headers to sort</p>
+                                <p style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8',marginTop:2}}>Click column headers to sort</p>
                             </div>
                             <div className="yc-table-scroll">
                                 <table style={{width:'100%',borderCollapse:'collapse'}}>
                                     <thead>
                                         <tr style={{borderBottom:'2px solid #F0F0F0'}}>
-                                            <th style={{padding:'10px 12px',textAlign:'left',fontSize:'11px',fontWeight:700,color:textM,textTransform:'uppercase',background:dm?'rgba(4,8,20,0.6)':'#F9FAFB',whiteSpace:'nowrap'}}>Department</th>
+                                            <th style={{padding:'10px 12px',textAlign:'left',fontSize:'11px',fontWeight:700,color:textM,textTransform:'uppercase',background:dm?'rgba(4,8,20,0.6)':'#F8FAFF',whiteSpace:'nowrap'}}>Department</th>
                                             <SortTh col="staff"        label="Staff" />
                                             <SortTh col="assigned"     label="Assigned" />
                                             <SortTh col="resolved"     label="Resolved" />
@@ -3581,18 +3711,18 @@
                                                 onMouseLeave={e=>e.currentTarget.style.background=i%2===0?'white':'#FAFAFA'}>
                                                 <td style={{padding:'11px 12px',fontSize:'13px',fontWeight:600,color:textP,whiteSpace:'nowrap'}}>
                                                     <div style={{display:'flex',alignItems:'center',gap:8}}>
-                                                        <div style={{width:30,height:30,borderRadius:'50%',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'11px',fontWeight:700,color:dm?'#818cf8':'#6366F1',flexShrink:0}}>
+                                                        <div style={{width:30,height:30,borderRadius:'50%',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'11px',fontWeight:700,color:dm?'#818cf8':'#4F46E5',flexShrink:0}}>
                                                             {(d.name||'?')[0].toUpperCase()}
                                                         </div>
                                                         {d.name}
                                                     </div>
                                                 </td>
-                                                <td style={{padding:'11px 12px',textAlign:'center',fontSize:'13px',color:dm?'#c0cfec':'#374151'}}>{d.staff}</td>
-                                                <td style={{padding:'11px 12px',textAlign:'center',fontSize:'13px',color:dm?'#c0cfec':'#374151'}}>{d.assigned}</td>
+                                                <td style={{padding:'11px 12px',textAlign:'center',fontSize:'13px',color:dm?'#c0cfec':'#334155'}}>{d.staff}</td>
+                                                <td style={{padding:'11px 12px',textAlign:'center',fontSize:'13px',color:dm?'#c0cfec':'#334155'}}>{d.assigned}</td>
                                                 <td style={{padding:'11px 12px',textAlign:'center'}}>
                                                     <span style={{fontWeight:700,fontSize:'13px',color:'#10B981'}}>{d.resolved}</span>
                                                 </td>
-                                                <td style={{padding:'11px 12px',textAlign:'center',fontSize:'13px',color:dm?'#c0cfec':'#374151'}}>{d.pending}</td>
+                                                <td style={{padding:'11px 12px',textAlign:'center',fontSize:'13px',color:dm?'#c0cfec':'#334155'}}>{d.pending}</td>
                                                 <td style={{padding:'11px 12px',textAlign:'center'}}>
                                                     {d.resRate!=null
                                                         ? <span style={{fontSize:'12px',fontWeight:700,padding:'2px 8px',borderRadius:20,background:d.resRate>=80?'#D1FAE5':d.resRate>=50?'#FEF3C7':'#FEE2E2',color:d.resRate>=80?'#065F46':d.resRate>=50?'#92400E':'#991B1B'}}>{d.resRate}%</span>
@@ -3630,7 +3760,7 @@
                         ) : (
                         <div style={{background:'#fff',borderRadius:'12px',border:'1px solid #F0F0F0',padding:'48px',textAlign:'center'}}>
                             <div style={{fontSize:'40px',marginBottom:'12px'}}>📭</div>
-                            <p style={{color:dm?'#4a607f':'#9CA3AF',fontSize:'14px'}}>No department data yet — seed tickets and assign them to staff to see metrics.</p>
+                            <p style={{color:dm?'#4a607f':'#94A3B8',fontSize:'14px'}}>No department data yet — seed tickets and assign them to staff to see metrics.</p>
                         </div>
                         )}
                         </>)}
@@ -3664,7 +3794,7 @@
                                 stMap[s] = (stMap[s]||0)+1;
                             });
                             const ST_LABEL = {new:'New',assigned:'Assigned',in_progress:'In Progress',waiting:'Waiting',pending_approval:'Pending Approval',resolved:'Resolved',closed:'Closed'};
-                            const ST_COLOR = {new:'#6B7280',assigned:'#3B82F6',in_progress:'#F59E0B',waiting:'#8B5CF6',pending_approval:'#EC4899',resolved:'#10B981',closed:'#374151'};
+                            const ST_COLOR = {new:dm?'#6b80a4':'#64748B',assigned:'#3B82F6',in_progress:'#F59E0B',waiting:'#8B5CF6',pending_approval:'#EC4899',resolved:'#10B981',closed:dm?'#6b80a4':'#475569'};
                             return (
                                 <div style={{position:'fixed',inset:0,zIndex:1000,display:'flex'}}>
                                     {/* overlay */}
@@ -3672,12 +3802,12 @@
                                     {/* panel */}
                                     <div style={{width:'420px',maxWidth:'95vw',background:'#fff',overflowY:'auto',boxShadow:'-4px 0 24px rgba(0,0,0,0.15)',display:'flex',flexDirection:'column'}}>
                                         {/* header */}
-                                        <div style={{padding:'20px 24px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#F0F0F0'}`,display:'flex',alignItems:'center',justifyContent:'space-between',position:'sticky',top:0,background:'#fff',zIndex:1}}>
+                                        <div style={{padding:'20px 24px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`,display:'flex',alignItems:'center',justifyContent:'space-between',position:'sticky',top:0,background:'#fff',zIndex:1}}>
                                             <div>
                                                 <div style={{fontSize:'18px',fontWeight:700,color:textP}}>{d.name}</div>
-                                                <div style={{fontSize:'12px',color:dm?'#4a607f':'#9CA3AF',marginTop:'2px'}}>{d.staff} staff · {d.assigned} tickets</div>
+                                                <div style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',marginTop:'2px'}}>{d.staff} staff · {d.assigned} tickets</div>
                                             </div>
-                                            <button onClick={()=>setSelectedDept(null)} style={{background:'none',border:'none',fontSize:'22px',cursor:'pointer',color:dm?'#4a607f':'#9CA3AF',lineHeight:1,padding:'4px 8px'}}>×</button>
+                                            <button onClick={()=>setSelectedDept(null)} style={{background:'none',border:'none',fontSize:'22px',cursor:'pointer',color:dm?'#4a607f':'#94A3B8',lineHeight:1,padding:'4px 8px'}}>×</button>
                                         </div>
                                         <div style={{padding:'20px 24px',flex:1}}>
                                             {/* metric chips */}
@@ -3690,7 +3820,7 @@
                                                     {label:'Avg Hours',value:d.avgHours!=null?d.avgHours:'—', color:'#8B5CF6'},
                                                     {label:'Escalated',value:d.escalated,color:'#EF4444'},
                                                 ].map(m=>(
-                                                    <div key={m.label} style={{background:dm?'rgba(4,8,20,0.6)':'#F9FAFB',borderRadius:'8px',padding:'10px 12px',textAlign:'center'}}>
+                                                    <div key={m.label} style={{background:dm?'rgba(4,8,20,0.6)':'#F8FAFF',borderRadius:'8px',padding:'10px 12px',textAlign:'center'}}>
                                                         <div style={{fontSize:'18px',fontWeight:700,color:m.color}}>{m.value}</div>
                                                         <div style={{fontSize:'11px',color:textM,marginTop:'2px'}}>{m.label}</div>
                                                     </div>
@@ -3700,7 +3830,7 @@
                                             {/* insights */}
                                             {insights.length > 0 && (
                                                 <div style={{marginBottom:'24px'}}>
-                                                    <div style={{fontSize:'13px',fontWeight:600,color:dm?'#c0cfec':'#374151',marginBottom:'8px',textTransform:'uppercase',letterSpacing:'0.05em'}}>Insights</div>
+                                                    <div style={{fontSize:'13px',fontWeight:600,color:dm?'#c0cfec':'#334155',marginBottom:'8px',textTransform:'uppercase',letterSpacing:'0.05em'}}>Insights</div>
                                                     <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
                                                         {insights.map((ins,i)=>{
                                                             const st = INSIGHT_STYLE[ins.type]||INSIGHT_STYLE.info;
@@ -3718,11 +3848,11 @@
                                             {/* Staff breakdown */}
                                             {staffRows.length > 0 && (
                                                 <div style={{marginBottom:'24px'}}>
-                                                    <div style={{fontSize:'13px',fontWeight:600,color:dm?'#c0cfec':'#374151',marginBottom:'8px',textTransform:'uppercase',letterSpacing:'0.05em'}}>Staff Breakdown</div>
+                                                    <div style={{fontSize:'13px',fontWeight:600,color:dm?'#c0cfec':'#334155',marginBottom:'8px',textTransform:'uppercase',letterSpacing:'0.05em'}}>Staff Breakdown</div>
                                                     <div style={{borderRadius:'8px',border:'1px solid #F0F0F0',overflow:'hidden'}}>
                                                         <table style={{width:'100%',borderCollapse:'collapse',fontSize:'13px'}}>
                                                             <thead>
-                                                                <tr style={{background:dm?'rgba(4,8,20,0.6)':'#F9FAFB'}}>
+                                                                <tr style={{background:dm?'rgba(4,8,20,0.6)':'#F8FAFF'}}>
                                                                     <th style={{padding:'8px 12px',textAlign:'left',color:textM,fontWeight:600}}>Name</th>
                                                                     <th style={{padding:'8px 8px',textAlign:'center',color:textM,fontWeight:600}}>Asgd</th>
                                                                     <th style={{padding:'8px 8px',textAlign:'center',color:textM,fontWeight:600}}>Res</th>
@@ -3747,13 +3877,13 @@
                                             {/* Category breakdown */}
                                             {Object.keys(catMap).length > 0 && (
                                                 <div style={{marginBottom:'24px'}}>
-                                                    <div style={{fontSize:'13px',fontWeight:600,color:dm?'#c0cfec':'#374151',marginBottom:'8px',textTransform:'uppercase',letterSpacing:'0.05em'}}>By Category</div>
+                                                    <div style={{fontSize:'13px',fontWeight:600,color:dm?'#c0cfec':'#334155',marginBottom:'8px',textTransform:'uppercase',letterSpacing:'0.05em'}}>By Category</div>
                                                     <div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
                                                         {Object.entries(catMap).sort((a,b)=>b[1]-a[1]).map(([cat,cnt])=>{
                                                             const pct = d.assigned ? Math.round(cnt/d.assigned*100) : 0;
                                                             return (
                                                                 <div key={cat}>
-                                                                    <div style={{display:'flex',justifyContent:'space-between',fontSize:'12px',color:dm?'#c0cfec':'#374151',marginBottom:'3px'}}>
+                                                                    <div style={{display:'flex',justifyContent:'space-between',fontSize:'12px',color:dm?'#c0cfec':'#334155',marginBottom:'3px'}}>
                                                                         <span>{cat}</span><span style={{fontWeight:600}}>{cnt}</span>
                                                                     </div>
                                                                     <div style={{height:'6px',background:'#F0F0F0',borderRadius:'3px'}}>
@@ -3769,12 +3899,12 @@
                                             {/* Status breakdown */}
                                             {Object.keys(stMap).length > 0 && (
                                                 <div>
-                                                    <div style={{fontSize:'13px',fontWeight:600,color:dm?'#c0cfec':'#374151',marginBottom:'8px',textTransform:'uppercase',letterSpacing:'0.05em'}}>By Status</div>
+                                                    <div style={{fontSize:'13px',fontWeight:600,color:dm?'#c0cfec':'#334155',marginBottom:'8px',textTransform:'uppercase',letterSpacing:'0.05em'}}>By Status</div>
                                                     <div style={{display:'flex',flexWrap:'wrap',gap:'6px'}}>
                                                         {Object.entries(stMap).sort((a,b)=>b[1]-a[1]).map(([st,cnt])=>(
-                                                            <div key={st} style={{display:'flex',alignItems:'center',gap:'5px',background:dm?'rgba(4,8,20,0.6)':'#F9FAFB',border:`1px solid ${borderC}`,borderRadius:'20px',padding:'4px 10px',fontSize:'12px'}}>
+                                                            <div key={st} style={{display:'flex',alignItems:'center',gap:'5px',background:dm?'rgba(4,8,20,0.6)':'#F8FAFF',border:`1px solid ${borderC}`,borderRadius:'20px',padding:'4px 10px',fontSize:'12px'}}>
                                                                 <span style={{width:'8px',height:'8px',borderRadius:'50%',background:ST_COLOR[st]||'#9CA3AF',display:'inline-block',flexShrink:0}}/>
-                                                                <span style={{color:dm?'#c0cfec':'#374151'}}>{ST_LABEL[st]||st}</span>
+                                                                <span style={{color:dm?'#c0cfec':'#334155'}}>{ST_LABEL[st]||st}</span>
                                                                 <span style={{fontWeight:700,color:textP}}>{cnt}</span>
                                                             </div>
                                                         ))}
@@ -3795,11 +3925,11 @@
         function AnalyticsPage() {
 
             const dm = useDark();
-            const pageBg  = dm ? 'transparent' : '#F4F5F7';
+            const pageBg  = dm ? 'transparent' : '#F5F7FF';
             const cardBg  = dm ? 'linear-gradient(155deg,rgba(17,30,58,0.97) 0%,rgba(8,16,36,0.99) 100%)' : 'white';
-            const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E5E7EB';
-            const textP   = dm ? '#f0f4ff' : '#111827';
-            const textM   = dm ? '#8fa4cc' : '#6B7280';
+            const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E2E8F2';
+            const textP   = dm ? '#f0f4ff' : '#0F172A';
+            const textM   = dm ? '#8fa4cc' : '#64748B';
             const [tickets, setTickets] = React.useState([]);
             const [loading, setLoading] = React.useState(true);
             const [range, setRange] = React.useState('90'); // days
@@ -3901,18 +4031,18 @@
             const card = (label, value, sub, color='#6366F1', icon) => (
                 <div style={{background:cardBg, borderRadius:'16px', border:'1.5px solid #E0E7FF', padding:'18px 20px', boxShadow:'0 1px 6px rgba(99,102,241,0.07)'}}>
                     <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'8px'}}>
-                        <p style={{fontSize:'11px', fontWeight:'700', color:dm?'#4a607f':'#9CA3AF', textTransform:'uppercase', letterSpacing:'0.07em', margin:0}}>{label}</p>
+                        <p style={{fontSize:'11px', fontWeight:'700', color:dm?'#4a607f':'#94A3B8', textTransform:'uppercase', letterSpacing:'0.07em', margin:0}}>{label}</p>
                         <span style={{fontSize:'20px'}}>{icon}</span>
                     </div>
                     <p style={{fontSize:'30px', fontWeight:'700', color, margin:'0 0 4px', lineHeight:1}}>{value}</p>
-                    <p style={{fontSize:'12px', color:dm?'#4a607f':'#9CA3AF', margin:0}}>{sub}</p>
+                    <p style={{fontSize:'12px', color:dm?'#4a607f':'#94A3B8', margin:0}}>{sub}</p>
                 </div>
             );
 
             const chartCard = (title, subtitle, id, height=220) => (
                 <div style={{background:cardBg, borderRadius:'16px', border:'1.5px solid #E0E7FF', padding:'20px', boxShadow:'0 1px 6px rgba(99,102,241,0.07)'}}>
                     <p style={{fontSize:'14px', fontWeight:'700', color:dm?'#c7d2fe':'#1E1B4B', margin:'0 0 2px'}}>{title}</p>
-                    <p style={{fontSize:'11px', color:dm?'#4a607f':'#9CA3AF', margin:'0 0 16px'}}>{subtitle}</p>
+                    <p style={{fontSize:'11px', color:dm?'#4a607f':'#94A3B8', margin:'0 0 16px'}}>{subtitle}</p>
                     <div style={{position:'relative', height:`${height}px`}}>
                         <canvas id={id}></canvas>
                     </div>
@@ -3927,10 +4057,10 @@
                         <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'22px', flexWrap:'wrap', gap:'12px'}}>
                             <div>
                                 <h1 style={{fontSize:'22px', fontWeight:'700', color:dm?'#c7d2fe':'#1E1B4B', margin:0}}>📊 Analytics</h1>
-                                <p style={{fontSize:'12px', color:dm?'#4a607f':'#9CA3AF', margin:'4px 0 0'}}>Business insights to drive better decisions</p>
+                                <p style={{fontSize:'12px', color:dm?'#4a607f':'#94A3B8', margin:'4px 0 0'}}>Business insights to drive better decisions</p>
                             </div>
                             <div style={{display:'flex', alignItems:'center', gap:'8px', background:cardBg, border:'1.5px solid #E0E7FF', borderRadius:'10px', padding:'8px 14px'}}>
-                                <span style={{fontSize:'11px', fontWeight:'700', color:dm?'#818cf8':'#6366F1', textTransform:'uppercase', letterSpacing:'0.06em'}}>Period</span>
+                                <span style={{fontSize:'11px', fontWeight:'700', color:dm?'#818cf8':'#4F46E5', textTransform:'uppercase', letterSpacing:'0.06em'}}>Period</span>
                                 <select value={range} onChange={e=>setRange(e.target.value)} style={{border:'1px solid #E0E7FF', borderRadius:'6px', padding:'4px 8px', fontSize:'12px', fontWeight:'600', color:'#4338CA', background:'#F5F3FF', cursor:'pointer', outline:'none'}}>
                                     <option value="30">Last 30 days</option>
                                     <option value="60">Last 60 days</option>
@@ -3942,7 +4072,7 @@
                         </div>
 
                         {loading ? (
-                            <div style={{textAlign:'center', padding:'60px', color:dm?'#4a607f':'#9CA3AF'}}>
+                            <div style={{textAlign:'center', padding:'60px', color:dm?'#4a607f':'#94A3B8'}}>
                                 <p style={{fontSize:'32px', marginBottom:'8px'}}>⏳</p>
                                 <p>Loading analytics…</p>
                             </div>
@@ -3978,7 +4108,7 @@
                             {/* Key Insights card */}
                             <div style={{background:cardBg, borderRadius:'16px', border:'1.5px solid #E0E7FF', padding:'20px', boxShadow:'0 1px 6px rgba(99,102,241,0.07)'}}>
                                 <p style={{fontSize:'14px', fontWeight:'700', color:dm?'#c7d2fe':'#1E1B4B', margin:'0 0 2px'}}>💡 Key Insights</p>
-                                <p style={{fontSize:'11px', color:dm?'#4a607f':'#9CA3AF', margin:'0 0 14px'}}>Auto-generated observations</p>
+                                <p style={{fontSize:'11px', color:dm?'#4a607f':'#94A3B8', margin:'0 0 14px'}}>Auto-generated observations</p>
                                 <div style={{display:'flex', flexDirection:'column', gap:'10px'}}>
                                     {[
                                         { icon:'🟢', text: resRate >= 80 ? `Strong resolution rate of ${resRate}% — team is performing well.` : `Resolution rate is ${resRate}% — consider reviewing workload distribution.`, good: resRate >= 80 },
@@ -3990,7 +4120,7 @@
                                     ].map((ins,i) => (
                                         <div key={i} style={{display:'flex', gap:'8px', alignItems:'flex-start', padding:'8px 10px', borderRadius:'8px', background: ins.good ? '#F0FDF4' : '#FFF7ED', border:`1px solid ${ins.good ? '#BBF7D0' : '#FED7AA'}`}}>
                                             <span style={{flexShrink:0, fontSize:'13px'}}>{ins.icon}</span>
-                                            <p style={{fontSize:'11px', color:dm?'#c0cfec':'#374151', margin:0, lineHeight:'1.5'}}>{ins.text}</p>
+                                            <p style={{fontSize:'11px', color:dm?'#c0cfec':'#334155', margin:0, lineHeight:'1.5'}}>{ins.text}</p>
                                         </div>
                                     ))}
                                 </div>
@@ -4000,13 +4130,13 @@
                         {/* ── Summary table: Priority × Status ── */}
                         <div style={{background:cardBg, borderRadius:'16px', border:'1.5px solid #E0E7FF', padding:'20px', boxShadow:'0 1px 6px rgba(99,102,241,0.07)', marginBottom:'16px'}}>
                             <p style={{fontSize:'14px', fontWeight:'700', color:dm?'#c7d2fe':'#1E1B4B', margin:'0 0 2px'}}>📋 Ticket Summary Table</p>
-                            <p style={{fontSize:'11px', color:dm?'#4a607f':'#9CA3AF', margin:'0 0 14px'}}>Breakdown by category, priority and status</p>
+                            <p style={{fontSize:'11px', color:dm?'#4a607f':'#94A3B8', margin:'0 0 14px'}}>Breakdown by category, priority and status</p>
                             <div className="yc-table-scroll">
                                 <table style={{width:'100%', borderCollapse:'collapse', fontSize:'12px'}}>
                                     <thead>
                                         <tr style={{borderBottom:'2px solid #EEF2FF', background:'#F8F7FF'}}>
                                             {['Category','Total','Critical','High','Medium','Low','Open','Resolved','SLA OK'].map(h=>(
-                                                <th key={h} style={{padding:'8px 12px', textAlign: h==='Category'?'left':'center', fontWeight:'700', color:dm?'#818cf8':'#6366F1', fontSize:'10px', textTransform:'uppercase', letterSpacing:'0.06em', whiteSpace:'nowrap'}}>{h}</th>
+                                                <th key={h} style={{padding:'8px 12px', textAlign: h==='Category'?'left':'center', fontWeight:'700', color:dm?'#818cf8':'#4F46E5', fontSize:'10px', textTransform:'uppercase', letterSpacing:'0.06em', whiteSpace:'nowrap'}}>{h}</th>
                                             ))}
                                         </tr>
                                     </thead>
@@ -4022,7 +4152,7 @@
                                             const catSla = catTkts.filter(t=>!(t.slaBreached||t.sla_breached)).length;
                                             return (
                                                 <tr key={cat} style={{borderBottom:'1px solid #EEF2FF', background: i%2===0 ? 'white' : '#FAFBFF'}}>
-                                                    <td style={{padding:'9px 12px', fontWeight:'600', color:dm?'#c0cfec':'#374151', textTransform:'capitalize'}}>{cat.replace(/_/g,' ')}</td>
+                                                    <td style={{padding:'9px 12px', fontWeight:'600', color:dm?'#c0cfec':'#334155', textTransform:'capitalize'}}>{cat.replace(/_/g,' ')}</td>
                                                     <td style={{padding:'9px 12px', textAlign:'center', fontWeight:'700', color:dm?'#c7d2fe':'#1E1B4B'}}>{cnt}</td>
                                                     <td style={{padding:'9px 12px', textAlign:'center'}}>{critH>0?<span style={{background:'#FEF2F2',color:'#DC2626',padding:'2px 7px',borderRadius:'20px',fontWeight:'700',fontSize:'11px'}}>{critH}</span>:<span style={{color:'#D1D5DB'}}>—</span>}</td>
                                                     <td style={{padding:'9px 12px', textAlign:'center'}}>{high>0?<span style={{background:'#FFF7ED',color:'#C2410C',padding:'2px 7px',borderRadius:'20px',fontWeight:'700',fontSize:'11px'}}>{high}</span>:<span style={{color:'#D1D5DB'}}>—</span>}</td>
@@ -4058,7 +4188,7 @@
                 finance:   { b:'#D97706', bg:'#FFFBEB', hdr:'#D97706', t:'#92400E' },
                 strategic: { b:'#7C3AED', bg:'#F5F3FF', hdr:'#7C3AED', t:'#5B21B6' },
                 staff:     { b:'#3B82F6', bg:'#EFF6FF', hdr:'#3B82F6', t:'#1D4ED8' },
-                external:  { b:'#9CA3AF', bg:'#F9FAFB', hdr:'#9CA3AF', t:'#6B7280' },
+                external:  { b:'#94A3B8', bg:dm?'rgba(99,102,241,0.06)':'#F8FAFF', hdr:'#94A3B8', t:dm?'#8fa4cc':'#64748B' },
             };
             const s = S[type] || S.ops;
             const w = deptLabel ? 155 : 115;
@@ -4075,11 +4205,11 @@
                         </div>
                     )}
                     <div style={{ padding:'7px 8px 8px' }}>
-                        <p style={{ fontSize: deptLabel?12:11, fontWeight:700, color:vacant?'#6B7280':'#111827', margin:'0 0 2px', lineHeight:1.3 }}>{name}</p>
+                        <p style={{ fontSize: deptLabel?12:11, fontWeight:700, color:vacant?(dm?'#4a607f':'#64748B'):(dm?'#f0f4ff':'#0F172A'), margin:'0 0 2px', lineHeight:1.3 }}>{name}</p>
                         {title && !vacant && <p style={{ fontSize:9, fontWeight:600, color:s.t, margin:'0 0 2px', lineHeight:1.4 }}>{title}</p>}
                         {email && !vacant && <p style={{ fontSize:8.5, color:'#2563EB', margin:'0 0 5px', wordBreak:'break-word', lineHeight:1.3 }}>Email: {email}</p>}
                         <span style={{ display:'inline-block', fontSize:8.5, fontWeight:700, background:vacant?'#FEF2F2':'#DCFCE7', color:vacant?'#DC2626':'#15803D', padding:'1px 7px', borderRadius:20, border:`1px solid ${vacant?'#FCA5A5':'#86EFAC'}` }}>{vacant?'[VACANT]':'[ACTIVE]'}</span>
-                        {extra && <p style={{fontSize:8, color:dm?'#818cf8':'#6366F1', margin:'3px 0 0', fontWeight:600}}>{extra}</p>}
+                        {extra && <p style={{fontSize:8, color:dm?'#818cf8':'#4F46E5', margin:'3px 0 0', fontWeight:600}}>{extra}</p>}
                     </div>
                 </div>
             );
@@ -4119,11 +4249,11 @@
         function OrgChartPage() {
 
             const dm = useDark();
-            const pageBg  = dm ? 'transparent' : '#F4F5F7';
+            const pageBg  = dm ? 'transparent' : '#F5F7FF';
             const cardBg  = dm ? 'linear-gradient(155deg,rgba(17,30,58,0.97) 0%,rgba(8,16,36,0.99) 100%)' : 'white';
-            const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E5E7EB';
-            const textP   = dm ? '#f0f4ff' : '#111827';
-            const textM   = dm ? '#8fa4cc' : '#6B7280';
+            const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E2E8F2';
+            const textP   = dm ? '#f0f4ff' : '#0F172A';
+            const textM   = dm ? '#8fa4cc' : '#64748B';
             const [orgData, setOrgData] = React.useState(null);
             const [loading, setLoading] = React.useState(true);
             const [error,   setError]   = React.useState('');
@@ -4212,7 +4342,7 @@
                         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'20px'}}>
                             <div>
                                 <h1 style={{fontSize:'22px', fontWeight:'700', color:dm?'#c7d2fe':'#1E1B4B', margin:0}}>🏢 Organizational Chart</h1>
-                                <p style={{fontSize:'12px', color:dm?'#4a607f':'#9CA3AF', margin:'4px 0 0'}}>Yahweh Care — live staff hierarchy. Updates instantly when staff are added or removed.</p>
+                                <p style={{fontSize:'12px', color:dm?'#4a607f':'#94A3B8', margin:'4px 0 0'}}>Yahweh Care — live staff hierarchy. Updates instantly when staff are added or removed.</p>
                             </div>
                             <button onClick={fetchOrg} style={{padding:'7px 14px',background:cardBg,border:'2px solid #E0E7FF',borderRadius:'8px',fontSize:'12px',fontWeight:'600',color:'#4338CA',cursor:'pointer'}}>
                                 🔄 Refresh
@@ -4227,7 +4357,7 @@
                                 </h2>
 
                                 <div className='yc-org-scroll'>
-                                {loading && <div style={{textAlign:'center',padding:'60px',color:dm?'#4a607f':'#9CA3AF',fontSize:'14px'}}>Loading org chart…</div>}
+                                {loading && <div style={{textAlign:'center',padding:'60px',color:dm?'#4a607f':'#94A3B8',fontSize:'14px'}}>Loading org chart…</div>}
                                 {error && <div style={{textAlign:'center',padding:'12px',fontSize:'13px',color:'#D97706',background:'#FFFBEB',borderRadius:'8px',marginBottom:'16px',border:'1px solid #FDE68A'}}>{error}</div>}
 
                                 {!loading && orgData && (
@@ -4241,7 +4371,7 @@
                                                 );
                                                 return roots.length > 0
                                                     ? roots.map(root => renderTree(root))
-                                                    : <p style={{color:dm?'#4a607f':'#9CA3AF',fontSize:'13px',padding:'20px'}}>No org chart data.</p>;
+                                                    : <p style={{color:dm?'#4a607f':'#94A3B8',fontSize:'13px',padding:'20px'}}>No org chart data.</p>;
                                             })()}
                                         </div>
                                     </div>
@@ -4251,18 +4381,18 @@
                                 {/* Legend */}
                                 <div style={{marginTop:'20px', borderTop:'1px solid #E0E7FF', paddingTop:'16px'}}>
                                     <div style={{display:'flex', flexWrap:'wrap', gap:'10px', alignItems:'center', marginBottom:'10px'}}>
-                                        <span style={{fontSize:'11px', fontWeight:'800', color:dm?'#c0cfec':'#374151', textTransform:'uppercase', letterSpacing:'0.06em', marginRight:'4px'}}>Legend</span>
+                                        <span style={{fontSize:'11px', fontWeight:'800', color:dm?'#c0cfec':'#334155', textTransform:'uppercase', letterSpacing:'0.06em', marginRight:'4px'}}>Legend</span>
                                         {[
                                             {color:'#16A34A', label:'Director Level'},
                                             {color:'#DC2626', label:'Operations (Managers / Officers)'},
                                             {color:'#D97706', label:'Finance (Managers / Officers)'},
                                             {color:'#7C3AED', label:'Strategic Development (Managers / Officers)'},
                                             {color:'#3B82F6', label:'Team / Staff'},
-                                            {color:dm?'#4a607f':'#9CA3AF', label:'Consultant / External'},
+                                            {color:dm?'#4a607f':'#94A3B8', label:'Consultant / External'},
                                         ].map((l,i)=>(
                                             <div key={i} style={{display:'flex',alignItems:'center',gap:'6px',padding:'4px 10px',borderRadius:'6px',border:`1.5px solid ${l.color}40`,background:`${l.color}0A`}}>
                                                 <div style={{width:'12px',height:'12px',borderRadius:'3px',background:`${l.color}20`,border:`2px solid ${l.color}`}}></div>
-                                                <span style={{fontSize:'11px',color:dm?'#c0cfec':'#374151',fontWeight:'500'}}>{l.label}</span>
+                                                <span style={{fontSize:'11px',color:dm?'#c0cfec':'#334155',fontWeight:'500'}}>{l.label}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -4278,7 +4408,7 @@
                                 {/* System Roles */}
                                 <div style={{background:cardBg, borderRadius:'16px', border:'2px solid #C7D2FE', padding:'16px', boxShadow:'0 2px 10px rgba(99,102,241,0.1)'}}>
                                     <p style={{fontSize:'11px',fontWeight:'800',color:'white',textTransform:'uppercase',letterSpacing:'0.07em',margin:'0 0 14px',padding:'6px 10px',background:'#4338CA',borderRadius:'8px',textAlign:'center'}}>⚙️ System Roles (Not Part of Org Hierarchy)</p>
-                                    {sysRoles.length === 0 && <p style={{fontSize:'12px',color:dm?'#4a607f':'#9CA3AF',textAlign:'center',padding:'8px'}}>Loading…</p>}
+                                    {sysRoles.length === 0 && <p style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',textAlign:'center',padding:'8px'}}>Loading…</p>}
                                     {sysRoles.map((r,i)=>(
                                         <div key={i} style={{display:'flex',gap:'12px',marginBottom:'12px',padding:'12px',background:'#F8F9FF',borderRadius:'12px',border:'1.5px solid #E0E7FF',alignItems:'flex-start'}}>
                                             <div style={{width:'40px',height:'40px',borderRadius:'50%',background: i===0 ? '#DBEAFE' : '#EDE9FE',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'20px',flexShrink:0}}>
@@ -4286,13 +4416,13 @@
                                             </div>
                                             <div style={{flex:1,minWidth:0}}>
                                                 <p style={{fontSize:'14px',fontWeight:'700',color:dm?'#c7d2fe':'#1E1B4B',margin:'0 0 2px'}}>{r.name}</p>
-                                                <p style={{fontSize:'11px',color:dm?'#818cf8':'#6366F1',fontWeight:'600',margin:'0 0 3px'}}>{i===0 ? 'Bootstrap Admin' : 'Bootstrap Super Admin'}</p>
+                                                <p style={{fontSize:'11px',color:dm?'#818cf8':'#4F46E5',fontWeight:'600',margin:'0 0 3px'}}>{i===0 ? 'Bootstrap Admin' : 'Bootstrap Super Admin'}</p>
                                                 <p style={{fontSize:'10px',color:'#2563EB',margin:'0 0 6px',wordBreak:'break-all'}}>Email: {r.email}</p>
                                                 <span style={{fontSize:'10px',fontWeight:'700',background:'#DCFCE7',color:'#15803D',padding:'2px 10px',borderRadius:'20px',border:'1px solid #86EFAC'}}>[ACTIVE]</span>
                                             </div>
                                         </div>
                                     ))}
-                                    <p style={{fontSize:'11px',color:textM,lineHeight:'1.6',margin:0,padding:'10px',background:dm?'rgba(4,8,20,0.6)':'#F9FAFB',borderRadius:'8px',border:`1px solid ${borderC}`}}>Has full system access and control at the platform level. Not included in the organizational reporting structure.</p>
+                                    <p style={{fontSize:'11px',color:textM,lineHeight:'1.6',margin:0,padding:'10px',background:dm?'rgba(4,8,20,0.6)':'#F8FAFF',borderRadius:'8px',border:`1px solid ${borderC}`}}>Has full system access and control at the platform level. Not included in the organizational reporting structure.</p>
                                 </div>
 
                                 {/* Notes */}
@@ -4305,7 +4435,7 @@
                                     ].map((n,i)=>(
                                         <div key={i} style={{display:'flex',gap:'8px',marginBottom:'10px'}}>
                                             <div style={{width:'6px',height:'6px',borderRadius:'50%',background:'#6366F1',flexShrink:0,marginTop:'5px'}}></div>
-                                            <p style={{fontSize:'12px',color:dm?'#c0cfec':'#374151',margin:0,lineHeight:'1.6'}}>{n}</p>
+                                            <p style={{fontSize:'12px',color:dm?'#c0cfec':'#334155',margin:0,lineHeight:'1.6'}}>{n}</p>
                                         </div>
                                     ))}
                                 </div>
@@ -4346,11 +4476,11 @@
 
 
             const dm = useDark();
-            const pageBg  = dm ? 'transparent' : '#F4F5F7';
+            const pageBg  = dm ? 'transparent' : '#F5F7FF';
             const cardBg  = dm ? 'linear-gradient(155deg,rgba(17,30,58,0.97) 0%,rgba(8,16,36,0.99) 100%)' : 'white';
-            const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E5E7EB';
-            const textP   = dm ? '#f0f4ff' : '#111827';
-            const textM   = dm ? '#8fa4cc' : '#6B7280';
+            const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E2E8F2';
+            const textP   = dm ? '#f0f4ff' : '#0F172A';
+            const textM   = dm ? '#8fa4cc' : '#64748B';
             const [staff,       setStaff]       = React.useState([]);
             const [departments, setDepts]        = React.useState([]);
             const [positions,   setPositions]    = React.useState([]);
@@ -4496,7 +4626,7 @@
                     : [...f.position_ids, id]
             }));
 
-            const posTypeColor = { director:'#16A34A', ops:'#DC2626', finance:'#D97706', strategic:'#7C3AED', staff:'#3B82F6', external:'#9CA3AF' };
+            const posTypeColor = { director:'#16A34A', ops:'#DC2626', finance:'#D97706', strategic:'#7C3AED', staff:'#3B82F6', external:'#94A3B8' };
 
             const Avatar = ({name, size=36}) => {
                 const ini=(name||'').split(' ').slice(0,2).map(w=>w[0]?.toUpperCase()||'').join('');
@@ -4506,7 +4636,7 @@
             };
 
             const inputStyle = { width:'100%', padding:'8px 10px', border:`1px solid ${borderC}`, borderRadius:'6px', fontSize:'13px', boxSizing:'border-box' };
-            const labelStyle = { fontSize:'12px', fontWeight:'600', color:dm?'#c0cfec':'#374151', marginBottom:'4px', display:'block' };
+            const labelStyle = { fontSize:'12px', fontWeight:'600', color:dm?'#c0cfec':'#334155', marginBottom:'4px', display:'block' };
 
             return (
                 <main className="flex-1 overflow-auto" style={{background:'#F0F2F8'}}>
@@ -4522,7 +4652,7 @@
                         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'20px'}}>
                             <div>
                                 <h1 style={{fontSize:'22px',fontWeight:'700',color:dm?'#c7d2fe':'#1E1B4B',margin:0}}>👥 Staff Management</h1>
-                                <p style={{fontSize:'12px',color:dm?'#4a607f':'#9CA3AF',margin:'4px 0 0'}}>Add, manage, and organise Yahweh Care staff — changes update the Org Chart instantly</p>
+                                <p style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',margin:'4px 0 0'}}>Add, manage, and organise Yahweh Care staff — changes update the Org Chart instantly</p>
                             </div>
                             <div style={{display:'flex',gap:'10px'}}>
                                 <button onClick={()=>setShowPosModal(true)}
@@ -4541,11 +4671,11 @@
                             <input type="text" placeholder="Search name, email or position…" value={search} onChange={e=>setSearch(e.target.value)}
                                 style={{flex:1,minWidth:'200px',padding:'8px 12px',border:'1.5px solid #E0E7FF',borderRadius:'8px',fontSize:'13px'}} />
                             <select value={deptFilter} onChange={e=>setDeptFilter(e.target.value)}
-                                style={{padding:'8px 12px',border:'1.5px solid #E0E7FF',borderRadius:'8px',fontSize:'13px',background:cardBg,color:dm?'#c0cfec':'#374151'}}>
+                                style={{padding:'8px 12px',border:'1.5px solid #E0E7FF',borderRadius:'8px',fontSize:'13px',background:cardBg,color:dm?'#c0cfec':'#334155'}}>
                                 <option value="all">All Departments</option>
                                 {departments.map(d=><option key={d.id} value={String(d.id)}>{d.name}</option>)}
                             </select>
-                            <div style={{padding:'8px 14px',background:cardBg,border:'1.5px solid #E0E7FF',borderRadius:'8px',fontSize:'13px',color:dm?'#818cf8':'#6366F1',fontWeight:'600'}}>
+                            <div style={{padding:'8px 14px',background:cardBg,border:'1.5px solid #E0E7FF',borderRadius:'8px',fontSize:'13px',color:dm?'#818cf8':'#4F46E5',fontWeight:'600'}}>
                                 {filtered.length} staff
                             </div>
                         </div>
@@ -4560,15 +4690,15 @@
                         {/* Staff Table */}
                         <div style={{background:cardBg,borderRadius:'16px',border:'2px solid #E0E7FF',overflow:'hidden',boxShadow:'0 2px 12px rgba(99,102,241,0.07)'}}>
                             {loading ? (
-                                <div style={{padding:'40px',textAlign:'center',color:dm?'#4a607f':'#9CA3AF',fontSize:'14px'}}>Loading staff…</div>
+                                <div style={{padding:'40px',textAlign:'center',color:dm?'#4a607f':'#94A3B8',fontSize:'14px'}}>Loading staff…</div>
                             ) : filtered.length === 0 ? (
-                                <div style={{padding:'40px',textAlign:'center',color:dm?'#4a607f':'#9CA3AF',fontSize:'14px'}}>No staff found</div>
+                                <div style={{padding:'40px',textAlign:'center',color:dm?'#4a607f':'#94A3B8',fontSize:'14px'}}>No staff found</div>
                             ) : (
                                 <table style={{width:'100%',borderCollapse:'collapse'}}>
                                     <thead>
                                         <tr style={{background:'#F8F9FF',borderBottom:'2px solid #E0E7FF'}}>
                                             {['Staff Member','Positions','Department','Employment','Login','Actions'].map(h=>(
-                                                <th key={h} style={{padding:'11px 14px',textAlign:'left',fontSize:'11px',fontWeight:'700',color:dm?'#818cf8':'#6366F1',textTransform:'uppercase',letterSpacing:'0.05em'}}>{h}</th>
+                                                <th key={h} style={{padding:'11px 14px',textAlign:'left',fontSize:'11px',fontWeight:'700',color:dm?'#818cf8':'#4F46E5',textTransform:'uppercase',letterSpacing:'0.05em'}}>{h}</th>
                                             ))}
                                         </tr>
                                     </thead>
@@ -4584,13 +4714,13 @@
                                                                 {m.is_bootstrap_admin && <span style={{fontSize:'9px',fontWeight:'700',background:'#FEF3C7',color:'#D97706',padding:'1px 6px',borderRadius:'10px',border:'1px solid #FDE68A'}}>⭐ Bootstrap Admin</span>}
                                                             </div>
                                                             <div style={{fontSize:'11px',color:textM}}>{m.email}</div>
-                                                            {m.phone && <div style={{fontSize:'11px',color:dm?'#4a607f':'#9CA3AF'}}>{m.phone}</div>}
+                                                            {m.phone && <div style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8'}}>{m.phone}</div>}
                                                         </div>
                                                     </div>
                                                 </td>
                                                 <td style={{padding:'12px 14px'}}>
                                                     {(m.positions||[]).length === 0 ? (
-                                                        <span style={{fontSize:'11px',color:dm?'#4a607f':'#9CA3AF',fontStyle:'italic'}}>No position assigned</span>
+                                                        <span style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8',fontStyle:'italic'}}>No position assigned</span>
                                                     ) : (
                                                         <div style={{display:'flex',flexWrap:'wrap',gap:'4px'}}>
                                                             {(m.positions||[]).map(p=>(
@@ -4601,7 +4731,7 @@
                                                         </div>
                                                     )}
                                                 </td>
-                                                <td style={{padding:'12px 14px',fontSize:'12px',color:dm?'#c0cfec':'#374151'}}>{m.department_name||'—'}</td>
+                                                <td style={{padding:'12px 14px',fontSize:'12px',color:dm?'#c0cfec':'#334155'}}>{m.department_name||'—'}</td>
                                                 <td style={{padding:'12px 14px'}}>
                                                     <span style={{fontSize:'11px',fontWeight:'600',padding:'3px 8px',borderRadius:'8px',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:'#4338CA'}}>
                                                         {EMP_TYPES[m.employment_type]||m.employment_type||'—'}
@@ -4640,10 +4770,10 @@
                         {!loading && (
                             <div style={{display:'flex',gap:'12px',marginTop:'14px',flexWrap:'wrap'}}>
                                 {[
-                                    {label:'Total Staff',   val:staff.length,                                                color:dm?'#818cf8':'#6366F1'},
+                                    {label:'Total Staff',   val:staff.length,                                                color:dm?'#818cf8':'#4F46E5'},
                                     {label:'Active',        val:staff.filter(s=>s.is_active).length,                        color:'#16A34A'},
                                     {label:'Unassigned',    val:staff.filter(s=>s.is_active&&(s.positions||[]).length===0).length, color:'#D97706'},
-                                    {label:'Entra Login',   val:staff.filter(s=>s.auth_provider==='azure_ad').length,        color:dm?'#93c5fd':'#1D4ED8'},
+                                    {label:'Entra Login',   val:staff.filter(s=>s.auth_provider==='azure_ad').length,        color:dm?'#93c5fd':'#1E40AF'},
                                     {label:'Vacant Positions', val:positions.filter(p=>p.is_vacant).length,                  color:'#DC2626'},
                                 ].map(s=>(
                                     <div key={s.label} style={{background:cardBg,border:'2px solid #E0E7FF',borderRadius:'10px',padding:'10px 16px',display:'flex',gap:'10px',alignItems:'center'}}>
@@ -4671,7 +4801,7 @@
                                     {error && <div style={{background:'#FEF2F2',border:'1px solid #FECACA',borderRadius:'8px',padding:'8px 12px',marginBottom:'14px',fontSize:'12px',color:'#DC2626'}}>⚠️ {error}</div>}
 
                                     {/* Login method notice */}
-                                    <div style={{background:'#EFF6FF',border:'1px solid #BFDBFE',borderRadius:'8px',padding:'10px 14px',marginBottom:'16px',fontSize:'12px',color:dm?'#93c5fd':'#1D4ED8'}}>
+                                    <div style={{background:'#EFF6FF',border:'1px solid #BFDBFE',borderRadius:'8px',padding:'10px 14px',marginBottom:'16px',fontSize:'12px',color:dm?'#93c5fd':'#1E40AF'}}>
                                         <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'4px'}}>
                                             <span style={{fontSize:'16px'}}>🔷</span>
                                             <strong>Microsoft Entra Login</strong>
@@ -4744,16 +4874,16 @@
                                         {/* Positions */}
                                         <div style={{gridColumn:'1/-1'}}>
                                             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'6px'}}>
-                                                <label style={{...labelStyle,margin:0}}>Org Chart Positions <span style={{fontSize:'11px',color:dm?'#4a607f':'#9CA3AF',fontWeight:'400'}}>(one staff can hold multiple)</span></label>
-                                                <button onClick={()=>setShowPosModal(true)} style={{fontSize:'11px',fontWeight:'600',color:dm?'#818cf8':'#6366F1',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',border:'none',borderRadius:'6px',padding:'3px 8px',cursor:'pointer'}}>+ New Position</button>
+                                                <label style={{...labelStyle,margin:0}}>Org Chart Positions <span style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8',fontWeight:'400'}}>(one staff can hold multiple)</span></label>
+                                                <button onClick={()=>setShowPosModal(true)} style={{fontSize:'11px',fontWeight:'600',color:dm?'#818cf8':'#4F46E5',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',border:'none',borderRadius:'6px',padding:'3px 8px',cursor:'pointer'}}>+ New Position</button>
                                             </div>
                                             <div style={{border:'1.5px solid #E0E7FF',borderRadius:'8px',maxHeight:'160px',overflow:'auto',padding:'8px'}}>
                                                 {positions.length===0 ? (
-                                                    <p style={{fontSize:'12px',color:dm?'#4a607f':'#9CA3AF',textAlign:'center',padding:'10px'}}>No positions found</p>
+                                                    <p style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',textAlign:'center',padding:'10px'}}>No positions found</p>
                                                 ) : positions.map(p=>(
                                                     <label key={p.id} style={{display:'flex',alignItems:'center',gap:'8px',padding:'5px 6px',borderRadius:'6px',cursor:'pointer',background:form.position_ids.includes(p.id)?`${posTypeColor[p.position_type]||'#6366F1'}10`:'transparent'}}>
                                                         <input type="checkbox" checked={form.position_ids.includes(p.id)} onChange={()=>togglePos(p.id)}/>
-                                                        <span style={{fontSize:'12px',color:dm?'#c0cfec':'#374151',flex:1}}>{p.title}</span>
+                                                        <span style={{fontSize:'12px',color:dm?'#c0cfec':'#334155',flex:1}}>{p.title}</span>
                                                         <span style={{fontSize:'10px',fontWeight:'600',color:posTypeColor[p.position_type]||'#6366F1',background:`${posTypeColor[p.position_type]||'#6366F1'}15`,padding:'1px 6px',borderRadius:'8px'}}>{p.position_type}</span>
                                                         {!p.is_vacant && <span style={{fontSize:'10px',color:'#15803D',background:'#DCFCE7',padding:'1px 6px',borderRadius:'8px'}}>Occupied</span>}
                                                         {p.is_vacant && <span style={{fontSize:'10px',color:'#DC2626',background:'#FEF2F2',padding:'1px 6px',borderRadius:'8px'}}>Vacant</span>}
@@ -4761,7 +4891,7 @@
                                                 ))}
                                             </div>
                                             {form.position_ids.length>0 && (
-                                                <p style={{fontSize:'11px',color:dm?'#818cf8':'#6366F1',marginTop:'4px'}}>✓ {form.position_ids.length} position(s) selected — first is primary</p>
+                                                <p style={{fontSize:'11px',color:dm?'#818cf8':'#4F46E5',marginTop:'4px'}}>✓ {form.position_ids.length} position(s) selected — first is primary</p>
                                             )}
                                         </div>
                                         {/* Notes */}
@@ -4817,7 +4947,7 @@
                                         </select>
                                     </div>
                                     <div>
-                                        <label style={labelStyle}>Department Label for Org Chart <span style={{fontSize:'10px',color:dm?'#4a607f':'#9CA3AF'}}>(optional — shows as header above box)</span></label>
+                                        <label style={labelStyle}>Department Label for Org Chart <span style={{fontSize:'10px',color:dm?'#4a607f':'#94A3B8'}}>(optional — shows as header above box)</span></label>
                                         <input style={inputStyle} value={posForm.dept_label} onChange={e=>setPosForm(f=>({...f,dept_label:e.target.value}))} placeholder="e.g. 👥 Operations Department"/>
                                     </div>
                                 </div>
@@ -4842,10 +4972,10 @@
                                     <p style={{fontSize:'12px',color:'#DC2626',background:'#FEF2F2',padding:'8px',borderRadius:'6px',margin:'0 0 4px'}}>
                                         Their positions will become <strong>VACANT</strong> in the Org Chart.
                                     </p>
-                                    <p style={{fontSize:'11px',color:dm?'#4a607f':'#9CA3AF'}}>This action can be undone by re-adding the staff member.</p>
+                                    <p style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8'}}>This action can be undone by re-adding the staff member.</p>
                                 </div>
-                                <div style={{padding:'12px 20px',borderTop:`1px solid ${dm?'rgba(99,102,241,0.10)':'#F3F4F6'}`,display:'flex',gap:'10px',justifyContent:'center',background:dm?'rgba(4,8,20,0.6)':'#F9FAFB'}}>
-                                    <button onClick={()=>setDelConfirm(null)} style={{padding:'9px 20px',background:cardBg,border:`2px solid ${borderC}`,borderRadius:'8px',fontSize:'13px',fontWeight:'600',cursor:'pointer',color:dm?'#c0cfec':'#374151'}}>Cancel</button>
+                                <div style={{padding:'12px 20px',borderTop:`1px solid ${dm?'rgba(99,102,241,0.10)':'#EEF2F8'}`,display:'flex',gap:'10px',justifyContent:'center',background:dm?'rgba(4,8,20,0.6)':'#F8FAFF'}}>
+                                    <button onClick={()=>setDelConfirm(null)} style={{padding:'9px 20px',background:cardBg,border:`2px solid ${borderC}`,borderRadius:'8px',fontSize:'13px',fontWeight:'600',cursor:'pointer',color:dm?'#c0cfec':'#334155'}}>Cancel</button>
                                     <button onClick={handleDelete} style={{padding:'9px 20px',background:'#DC2626',color:'white',border:'none',borderRadius:'8px',fontSize:'13px',fontWeight:'700',cursor:'pointer'}}>Deactivate</button>
                                 </div>
                             </div>
@@ -4858,11 +4988,11 @@
         // Scheduled Reports Page
         function ScheduledReportsPage() {
             const dm = useDark();
-            const pageBg  = dm ? 'transparent' : '#F4F5F7';
+            const pageBg  = dm ? 'transparent' : '#F5F7FF';
             const cardBg  = dm ? 'linear-gradient(155deg,rgba(17,30,58,0.97) 0%,rgba(8,16,36,0.99) 100%)' : 'white';
-            const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E5E7EB';
-            const textP   = dm ? '#f0f4ff' : '#111827';
-            const textM   = dm ? '#8fa4cc' : '#6B7280';
+            const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E2E8F2';
+            const textP   = dm ? '#f0f4ff' : '#0F172A';
+            const textM   = dm ? '#8fa4cc' : '#64748B';
             const cu = React.useMemo(() => getSessionUser(), []);
 
 
@@ -5239,17 +5369,17 @@
             const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 
             const s = {
-                card:    {background:cardBg, borderRadius:12, border:`1px solid ${borderC}`, padding:'20px', boxShadow:'0 1px 3px rgba(0,0,0,0.06)'},
+                card:    {background:cardBg, borderRadius:12, border:`1px solid ${borderC}`, padding:'20px', boxShadow:'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0  0 0 1px rgba(15,23,42,0.03)'},
                 lbl:     {display:'block', fontSize:11, fontWeight:700, color:textM, marginBottom:5, textTransform:'uppercase', letterSpacing:'0.06em'},
-                inp:     {width:'100%', border:`1px solid ${dm?'rgba(99,102,241,0.18)':'#D1D5DB'}`, borderRadius:8, padding:'8px 12px', fontSize:13, outline:'none', boxSizing:'border-box', color:textP, background:dm?'rgba(2,8,23,0.9)':'white'},
-                sel:     {width:'100%', border:`1px solid ${dm?'rgba(99,102,241,0.18)':'#D1D5DB'}`, borderRadius:8, padding:'8px 12px', fontSize:13, outline:'none', boxSizing:'border-box', color:textP, background:cardBg, cursor:'pointer'},
+                inp:     {width:'100%', border:`1px solid ${dm?'rgba(99,102,241,0.18)':'#CBD5E1'}`, borderRadius:8, padding:'8px 12px', fontSize:13, outline:'none', boxSizing:'border-box', color:textP, background:dm?'rgba(2,8,23,0.9)':'#FFFFFF'},
+                sel:     {width:'100%', border:`1px solid ${dm?'rgba(99,102,241,0.18)':'#CBD5E1'}`, borderRadius:8, padding:'8px 12px', fontSize:13, outline:'none', boxSizing:'border-box', color:textP, background:cardBg, cursor:'pointer'},
                 btnPri:  {padding:'10px 18px', background:'#4F46E5', color:'white', border:'none', borderRadius:8, fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6},
                 btnGrn:  {padding:'10px 18px', background:'#059669', color:'white', border:'none', borderRadius:8, fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6},
-                btnOut:  {padding:'10px 18px', background:cardBg, color:dm?'#c0cfec':'#374151', border:`1px solid ${dm?'rgba(99,102,241,0.18)':'#D1D5DB'}`, borderRadius:8, fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6},
+                btnOut:  {padding:'10px 18px', background:cardBg, color:dm?'#c0cfec':'#334155', border:`1px solid ${dm?'rgba(99,102,241,0.18)':'#CBD5E1'}`, borderRadius:8, fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6},
             };
 
             if (loading) return (
-                <main style={{flex:1,overflow:'auto',background:dm?'rgba(4,8,20,0.6)':'#F9FAFB',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <main style={{flex:1,overflow:'auto',background:dm?'rgba(4,8,20,0.6)':'#F8FAFF',display:'flex',alignItems:'center',justifyContent:'center'}}>
                     <div style={{textAlign:'center'}}>
                         <div style={{width:40,height:40,border:'3px solid #E5E7EB',borderTopColor:'#4F46E5',borderRadius:'50%',animation:'spin 0.8s linear infinite',margin:'0 auto 12px'}}/>
                         <p style={{color:textM,fontSize:14}}>Loading report data…</p>
@@ -5258,7 +5388,7 @@
             );
 
             return (
-                <main style={{flex:1,overflow:'auto',background:dm?'rgba(4,8,20,0.6)':'#F9FAFB'}}>
+                <main style={{flex:1,overflow:'auto',background:dm?'rgba(4,8,20,0.6)':'#F8FAFF'}}>
                     {/* Toast */}
                     {toast && (
                         <div style={{position:'fixed',top:68,right:20,zIndex:999,background:toast.type==='error'?'#FEF2F2':'#F0FDF4',border:`1px solid ${toast.type==='error'?'#FECACA':'#BBF7D0'}`,color:toast.type==='error'?'#DC2626':'#166534',padding:'11px 18px',borderRadius:10,fontSize:13,fontWeight:600,boxShadow:'0 4px 16px rgba(0,0,0,0.12)',maxWidth:400}}>
@@ -5279,7 +5409,7 @@
 
                         {/* ── Filters row ── */}
                         <div style={{...s.card, marginBottom:16}}>
-                            <p style={{fontSize:12,fontWeight:700,color:dm?'#c0cfec':'#374151',marginBottom:12}}>🔍 Filters — applied to all exports</p>
+                            <p style={{fontSize:12,fontWeight:700,color:dm?'#c0cfec':'#334155',marginBottom:12}}>🔍 Filters — applied to all exports</p>
                             <div style={{display:'grid',gridTemplateColumns:'2fr 1fr 1fr 1fr 1fr',gap:12,alignItems:'end'}}>
                                 {/* Period */}
                                 <div>
@@ -5318,7 +5448,7 @@
                                 {period!=='all_time'&&<span style={{fontSize:11,background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:'#4F46E5',padding:'3px 10px',borderRadius:20,fontWeight:600}}>📅 {PERIOD_OPTS.find(o=>o.v===period)?.l||period}</span>}
                                 {categoryFilter!=='all'&&<span style={{fontSize:11,background:'#F0FDF4',color:'#166534',padding:'3px 10px',borderRadius:20,fontWeight:600}}>📂 {categoryFilter}</span>}
                                 {priorityFilter!=='all'&&<span style={{fontSize:11,background:'#FFF7ED',color:'#C2410C',padding:'3px 10px',borderRadius:20,fontWeight:600}}>🎯 {priorityFilter}</span>}
-                                <span style={{fontSize:11,background:dm?'rgba(4,8,20,0.6)':'#F9FAFB',color:textM,padding:'3px 10px',borderRadius:20,fontWeight:600}}>{preview.rows.length} records match</span>
+                                <span style={{fontSize:11,background:dm?'rgba(4,8,20,0.6)':'#F8FAFF',color:textM,padding:'3px 10px',borderRadius:20,fontWeight:600}}>{preview.rows.length} records match</span>
                             </div>
                         </div>
 
@@ -5329,12 +5459,12 @@
                                 <div style={{display:'flex',flexDirection:'column',gap:12,maxHeight:480,overflowY:'auto',paddingRight:4}}>
                                     {REPORT_GROUPS.map(g=>(
                                         <div key={g.group}>
-                                            <p style={{fontSize:10,fontWeight:700,color:dm?'#4a607f':'#9CA3AF',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:6}}>{g.group}</p>
+                                            <p style={{fontSize:10,fontWeight:700,color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:6}}>{g.group}</p>
                                             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:5}}>
                                                 {g.types.map(r=>(
                                                     <button key={r.id} onClick={()=>setReportType(r.id)} style={{padding:'8px 10px',borderRadius:8,border:`2px solid ${reportType===r.id?'#4F46E5':'#E5E7EB'}`,background:reportType===r.id?'#EEF2FF':'white',cursor:'pointer',textAlign:'left',transition:'all 0.12s'}}>
                                                         <span style={{fontSize:13}}>{r.icon}</span>
-                                                        <span style={{display:'block',fontSize:11,fontWeight:700,color:reportType===r.id?'#4F46E5':'#111827',marginTop:2,lineHeight:1.3}}>{r.label}</span>
+                                                        <span style={{display:'block',fontSize:11,fontWeight:700,color:reportType===r.id?'#4F46E5':(dm?'#f0f4ff':'#0F172A'),marginTop:2,lineHeight:1.3}}>{r.label}</span>
                                                     </button>
                                                 ))}
                                             </div>
@@ -5395,7 +5525,7 @@
                                         <button onClick={()=>{ setSchedReportType(reportType); setShowSchedModal(true); }} style={{...s.btnPri,padding:'6px 12px',fontSize:12}}>+ Add</button>
                                     </div>
                                     {schedules.length===0?(
-                                        <p style={{fontSize:12,color:dm?'#4a607f':'#9CA3AF',textAlign:'center',padding:'12px 0'}}>No schedules yet — click + Add</p>
+                                        <p style={{fontSize:12,color:dm?'#4a607f':'#94A3B8',textAlign:'center',padding:'12px 0'}}>No schedules yet — click + Add</p>
                                     ):(
                                         <div style={{display:'flex',flexDirection:'column',gap:7,maxHeight:200,overflowY:'auto'}}>
                                             {schedules.map(sc=>(
@@ -5404,7 +5534,7 @@
                                                         <p style={{fontSize:12,fontWeight:600,color:textP,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{sc.label}</p>
                                                         <p style={{fontSize:11,color:textM}}>{sc.frequency==='daily'?`Daily`:`Every ${sc.day}`} at {sc.time} → {sc.email}</p>
                                                     </div>
-                                                    <button onClick={()=>toggleSchedule(sc.id)} style={{fontSize:10,fontWeight:700,padding:'3px 8px',borderRadius:5,border:'none',cursor:'pointer',background:sc.active?'#DCFCE7':'#F3F4F6',color:sc.active?'#166534':'#6B7280'}}>{sc.active?'Active':'Paused'}</button>
+                                                    <button onClick={()=>toggleSchedule(sc.id)} style={{fontSize:10,fontWeight:700,padding:'3px 8px',borderRadius:5,border:'none',cursor:'pointer',background:sc.active?'#DCFCE7':(dm?'rgba(99,102,241,0.08)':'#EEF2F8'),color:sc.active?'#166534':(dm?'#8fa4cc':'#64748B')}}>{sc.active?'Active':'Paused'}</button>
                                                     <button onClick={()=>deleteSchedule(sc.id)} style={{width:24,height:24,borderRadius:5,border:'none',cursor:'pointer',background:'#FEF2F2',color:'#DC2626',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center'}}>×</button>
                                                 </div>
                                             ))}
@@ -5427,7 +5557,7 @@
                                 </div>
                             </div>
                             {preview.rows.length===0?(
-                                <div style={{padding:40,textAlign:'center',color:dm?'#4a607f':'#9CA3AF'}}>
+                                <div style={{padding:40,textAlign:'center',color:dm?'#4a607f':'#94A3B8'}}>
                                     <div style={{fontSize:32,marginBottom:8}}>📭</div>
                                     <p style={{fontWeight:600,marginBottom:4}}>No records match the current filters</p>
                                     <p style={{fontSize:13}}>Try selecting "All Time" or adjust your date range and filters</p>
@@ -5436,17 +5566,17 @@
                                 <div className="yc-table-scroll">
                                     <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
                                         <thead>
-                                            <tr style={{background:dm?'rgba(4,8,20,0.6)':'#F9FAFB'}}>
+                                            <tr style={{background:dm?'rgba(4,8,20,0.6)':'#F8FAFF'}}>
                                                 {preview.headers.map((h,i)=>(
-                                                    <th key={i} style={{padding:'9px 12px',textAlign:'left',fontWeight:700,color:dm?'#c0cfec':'#374151',borderBottom:`1px solid ${borderC}`,whiteSpace:'nowrap',fontSize:11,textTransform:'uppercase',letterSpacing:'0.04em'}}>{h}</th>
+                                                    <th key={i} style={{padding:'9px 12px',textAlign:'left',fontWeight:700,color:dm?'#c0cfec':'#334155',borderBottom:`1px solid ${borderC}`,whiteSpace:'nowrap',fontSize:11,textTransform:'uppercase',letterSpacing:'0.04em'}}>{h}</th>
                                                 ))}
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {preview.rows.slice(0,25).map((row,ri)=>(
-                                                <tr key={ri} style={{borderBottom:`1px solid ${dm?'rgba(99,102,241,0.10)':'#F3F4F6'}`}} onMouseEnter={e=>e.currentTarget.style.background='#F9FAFB'} onMouseLeave={e=>e.currentTarget.style.background=''}>
+                                                <tr key={ri} style={{borderBottom:`1px solid ${dm?'rgba(99,102,241,0.10)':'#EEF2F8'}`}} onMouseEnter={e=>e.currentTarget.style.background='#F9FAFB'} onMouseLeave={e=>e.currentTarget.style.background=''}>
                                                     {row.map((cell,ci)=>(
-                                                        <td key={ci} style={{padding:'8px 12px',color:dm?'#c0cfec':'#374151',maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{String(cell??'')}</td>
+                                                        <td key={ci} style={{padding:'8px 12px',color:dm?'#c0cfec':'#334155',maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{String(cell??'')}</td>
                                                     ))}
                                                 </tr>
                                             ))}
@@ -5485,7 +5615,7 @@
                                     <span style={s.lbl}>Frequency</span>
                                     <div style={{display:'flex',gap:8}}>
                                         {FREQ_OPTS.map(f=>(
-                                            <button key={f} onClick={()=>setSchedFreq(f)} style={{flex:1,padding:'8px',borderRadius:8,border:`2px solid ${schedFreq===f?'#4F46E5':'#E5E7EB'}`,background:schedFreq===f?'#EEF2FF':'white',cursor:'pointer',fontSize:12,fontWeight:700,color:schedFreq===f?'#4F46E5':'#374151',textTransform:'capitalize'}}>
+                                            <button key={f} onClick={()=>setSchedFreq(f)} style={{flex:1,padding:'8px',borderRadius:8,border:`2px solid ${schedFreq===f?'#4F46E5':'#E5E7EB'}`,background:schedFreq===f?'#EEF2FF':(dm?'rgba(2,8,23,0.85)':'white'),cursor:'pointer',fontSize:12,fontWeight:700,color:schedFreq===f?'#4F46E5':(dm?'#c0cfec':'#334155'),textTransform:'capitalize'}}>
                                                 {f}
                                             </button>
                                         ))}
