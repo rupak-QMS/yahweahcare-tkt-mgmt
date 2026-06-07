@@ -50,6 +50,11 @@ export async function ensurePushTable() {
         created_at     TIMESTAMPTZ DEFAULT NOW()
       )
     `);
+    // Add ndis_related column if missing (safe ALTER TABLE)
+    await pool.query(`
+      ALTER TABLE yc_tkt_mgmt.tickets
+        ADD COLUMN IF NOT EXISTS ndis_related BOOLEAN NOT NULL DEFAULT FALSE
+    `);
     migrationDone = true;
   } catch (err) {
     console.error('[push] migration error', err);

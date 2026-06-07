@@ -306,40 +306,7 @@
     </script>
 
     <script type="text/babel">
-        // Sample Data
-        const TICKETS_DATA = [
-            { id: 'YPC-TKT-2026-6846', title: 'SOP creation', category: 'Other', priority: 'Medium', status: 'Open', assigned: 'Suganty P', date: '22 May 2026' },
-            { id: 'YPC-TKT-2024-813', title: 'Monthly quality audit preparation', category: 'Cleaning Quality', priority: 'Low', status: 'Resolved', assigned: 'Unassigned', date: '22 Apr 2024' },
-            { id: 'YPC-TKT-2024-888', title: 'Equipment Request - Vacuum cleaner malfunction at client site', category: 'Equipment Issue', priority: 'High', status: 'Resolved', assigned: 'Unassigned', date: '19 Apr 2024' },
-            { id: 'YPC-TKT-2024-893', title: 'Complaint - Request for additional deep cleaning service', category: 'Client Issue', priority: 'Low', status: 'Closed', assigned: 'Unassigned', date: '16 Apr 2024' },
-            { id: 'YPC-TKT-2024-889', title: 'Complaint - New NDIS participant onboarding request', category: 'NDIS Compliance', priority: 'Medium', status: 'Open', assigned: 'Unassigned', date: '19 Apr 2024' },
-            { id: 'YPC-TKT-2024-887', title: 'Safety Report - NDIS documentation not completed for participant home', category: 'NDIS Compliance', priority: 'Urgent', status: 'In Progress', assigned: 'Unassigned', date: '18 Apr 2024' },
-            { id: 'YPC-TKT-2024-822', title: 'Staff overtime request review', category: 'HR Issue', priority: 'Urgent', status: 'Open', assigned: 'Alex', date: '28 Apr 2024' },
-            { id: 'YPC-TKT-2026-6846', title: 'Budget approval for new equipment', category: 'Account Issue', priority: 'High', status: 'Open', assigned: 'Alex', date: '22 May 2026' },
-        ];
-
-        const STAFF_DATA = [
-            { name: 'Alex', role: 'Management', resolved: 1, assigned: 9, sla: 45, avatar: 'A' },
-            { name: 'Elenor Elia', role: 'Operations', resolved: 8, assigned: 7, sla: 92, avatar: 'E' },
-            { name: 'Oswald James Baskaran', role: 'Operations', resolved: 0, assigned: 0, sla: 100, avatar: 'O' },
-            { name: 'Suganty P', role: 'Support', resolved: 5, assigned: 4, sla: 88, avatar: 'S' },
-            { name: 'Venalah', role: 'Support', resolved: 3, assigned: 6, sla: 75, avatar: 'V' },
-            { name: 'Sofia', role: 'Management', resolved: 7, assigned: 10, sla: 85, avatar: 'S' },
-        ];
-
-        const TEAMS_DATA = [
-            { name: 'Management', staff: 2, resolved: 1, sla: 36 },
-            { name: 'Operations', staff: 4, resolved: 8, sla: 92 },
-            { name: 'Cleaning', staff: 2, resolved: 10, sla: 78 },
-        ];
-
-        const ACTIVITY_LOG = [
-            { timestamp: '22 May 2026, 06:15 am', ticket: 'YPC-TKT-2026-6846', action: 'Created', priority: 'Medium', description: 'SOP creation', user: 'Askia Narayakkara' },
-            { timestamp: '18 May 2026, 10:49 am', ticket: 'YPC-TKT-2026-4866', action: 'Created', priority: 'Medium', description: 'Test ticket', user: 'Yahweh gms' },
-            { timestamp: '14 May 2026, 10:47 am', ticket: 'YPC-TKT-2026-9881', action: 'Created', priority: 'Medium', description: 'Testing', user: 'Ron Costa' },
-            { timestamp: '14 May 2026, 10:46 am', ticket: 'YPC-TKT-2026-3385', action: 'Created', priority: 'Urgent', description: 'Test ticket', user: 'Yahweh gms' },
-            { timestamp: '13 May 2026, 06:41 pm', ticket: 'YPC-TKT-2026-3359', action: 'Created', priority: 'Urgent', description: 'Test ticket', user: 'Ron Costa' },
-        ];
+        // All data sourced from API — no hardcoded fallbacks
 
         // API Service Layer — all routes go to backend-hrms (HRMS_API)
         // API_BASE_URL kept for legacy references; both point to the same deployed backend.
@@ -1473,11 +1440,9 @@
                                         </label>
                                     </div>
 
-                                    {/* Approvers — always shown, uses API users or falls back to STAFF_DATA */}
+                                    {/* Approvers — loaded from API */}
                                     {(() => {
-                                        const approverList = (lookups && lookups.users && lookups.users.length > 0)
-                                            ? lookups.users
-                                            : STAFF_DATA.map((s, i) => ({ id: i + 1, name: s.name, role: s.role, email: '' }));
+                                        const approverList = (lookups && lookups.users) ? lookups.users : [];
                                         return (
                                         <div className={cardCls}>
                                             <div className={sectionHeadCls}>
@@ -3589,15 +3554,7 @@
                 API.tickets.getAll({ all: true, limit: 500 }).then(d => {
                     setTickets(d.tickets || []);
                     setLoading(false);
-                }).catch(() => {
-                    // Use sample data spread across last 90 days
-                    const base = TICKETS_DATA.map((t,i) => {
-                        const d = new Date(); d.setDate(d.getDate() - (i*9));
-                        return { ...t, createdAt: d.toISOString(), status_id: t.status.toLowerCase().replace(' ','_'), priority_id: t.priority.toLowerCase(), category_id: t.category.toLowerCase().replace(/ /g,'_'), ndisRelated: i%3===0, slaBreached: i%4===0 };
-                    });
-                    setTickets(base);
-                    setLoading(false);
-                });
+                }).catch(() => { setLoading(false); });
             }, []);
 
             // Derived metrics
@@ -3609,10 +3566,12 @@
             const open       = filtered.filter(t => !['resolved','closed'].includes((t.status||t.status_id||'').toLowerCase())).length;
             const resolved   = filtered.filter(t => ['resolved','closed'].includes((t.status||t.status_id||'').toLowerCase())).length;
             const escalated  = filtered.filter(t => t.isEscalated).length;
-            const ndis       = filtered.filter(t => t.ndisRelated||t.ndis_related).length;
+            const ndis       = filtered.filter(t => t.ndisRelated || t.ndis_related || t.ndisrelated).length;
             const slaBreached= filtered.filter(t => t.slaBreached||t.sla_breached).length;
             const resRate    = total ? Math.round((resolved/total)*100) : 0;
-            const slaRate    = total ? Math.round(((total-slaBreached)/total)*100) : 0;
+            const overduePct  = filtered.filter(t => !['resolved','closed'].includes((t.status||t.status_id||'').toLowerCase()) && t.dueAt && new Date(t.dueAt) < now).length;
+            const slaTotal   = total + overduePct;
+            const slaRate    = slaTotal ? Math.round(((total - slaBreached - overduePct) / slaTotal) * 100) : 0;
 
             // Priority counts
             const priorityCounts = { critical:0, urgent:0, high:0, medium:0, low:0 };
@@ -4644,29 +4603,6 @@
         function ScheduledReportsPage() {
             const cu = React.useMemo(() => getSessionUser(), []);
 
-            // ── Dummy seed tickets (always present for validation) ──────────────
-            const DUMMY_TICKETS = [
-                { id:'DEMO-001', ticketNumber:'YPC-2024-001', title:'NDIS documentation not completed for participant', category:'NDIS Compliance', priority:'Urgent', status:'Open', assigneeName:'Sarah Johnson', departmentName:'Support Services', createdAt:'2024-03-01T09:00:00Z', dueAt:'2024-03-08T17:00:00Z', resolvedAt:null, isEscalated:false, createdByName:'Admin' },
-                { id:'DEMO-002', ticketNumber:'YPC-2024-002', title:'Client complaint - additional cleaning required', category:'Client Issue', priority:'High', status:'Resolved', assigneeName:'Mike Chen', departmentName:'Cleaning', createdAt:'2024-03-05T10:00:00Z', dueAt:'2024-03-10T17:00:00Z', resolvedAt:'2024-03-09T14:00:00Z', isEscalated:false, createdByName:'Ron Costa' },
-                { id:'DEMO-003', ticketNumber:'YPC-2024-003', title:'Staff overtime request - weekend shift', category:'HR Issue', priority:'Medium', status:'Pending Approval', assigneeName:'Lisa Park', departmentName:'HR', createdAt:'2024-03-10T08:30:00Z', dueAt:'2024-03-15T17:00:00Z', resolvedAt:null, isEscalated:false, createdByName:'Team Lead' },
-                { id:'DEMO-004', ticketNumber:'YPC-2024-004', title:'Vacuum cleaner malfunction at client site', category:'Equipment Issue', priority:'High', status:'In Progress', assigneeName:'Tom Baker', departmentName:'Maintenance', createdAt:'2024-03-12T11:00:00Z', dueAt:'2024-03-14T17:00:00Z', resolvedAt:null, isEscalated:true, createdByName:'Site Manager' },
-                { id:'DEMO-005', ticketNumber:'YPC-2024-005', title:'Safety hazard report - wet floor near entrance', category:'Safety Concern', priority:'Critical', status:'Resolved', assigneeName:'Sarah Johnson', departmentName:'Support Services', createdAt:'2024-03-15T07:00:00Z', dueAt:'2024-03-15T12:00:00Z', resolvedAt:'2024-03-15T10:30:00Z', isEscalated:false, createdByName:'Staff Member' },
-                { id:'DEMO-006', ticketNumber:'YPC-2024-006', title:'Budget approval for new cleaning equipment', category:'Account Issue', priority:'Medium', status:'Open', assigneeName:'', departmentName:'Finance', createdAt:'2024-03-18T09:00:00Z', dueAt:'2024-03-25T17:00:00Z', resolvedAt:null, isEscalated:false, createdByName:'Department Head' },
-                { id:'DEMO-007', ticketNumber:'YPC-2024-007', title:'Monthly quality audit preparation', category:'Cleaning Quality', priority:'Low', status:'Closed', assigneeName:'Mike Chen', departmentName:'Cleaning', createdAt:'2024-03-20T08:00:00Z', dueAt:'2024-03-31T17:00:00Z', resolvedAt:'2024-03-28T15:00:00Z', isEscalated:false, createdByName:'Quality Manager' },
-                { id:'DEMO-008', ticketNumber:'YPC-2024-008', title:'New NDIS participant onboarding documentation', category:'NDIS Compliance', priority:'High', status:'In Progress', assigneeName:'Lisa Park', departmentName:'Compliance', createdAt:'2024-04-01T09:00:00Z', dueAt:'2024-04-07T17:00:00Z', resolvedAt:null, isEscalated:false, createdByName:'Coordinator' },
-                { id:'DEMO-009', ticketNumber:'YPC-2024-009', title:'Client feedback - service quality concern', category:'Client Issue', priority:'Medium', status:'Resolved', assigneeName:'Tom Baker', departmentName:'Support Services', createdAt:'2024-04-05T10:00:00Z', dueAt:'2024-04-10T17:00:00Z', resolvedAt:'2024-04-12T11:00:00Z', isEscalated:false, createdByName:'Admin' },
-                { id:'DEMO-010', ticketNumber:'YPC-2024-010', title:'HR policy update required for casual staff', category:'HR Issue', priority:'Low', status:'Open', assigneeName:'', departmentName:'HR', createdAt:'2024-04-08T14:00:00Z', dueAt:'2024-04-30T17:00:00Z', resolvedAt:null, isEscalated:false, createdByName:'HR Manager' },
-                { id:'DEMO-011', ticketNumber:'YPC-2024-011', title:'Fire extinguisher inspection overdue', category:'Safety Concern', priority:'High', status:'Open', assigneeName:'Tom Baker', departmentName:'Maintenance', createdAt:'2024-04-10T09:00:00Z', dueAt:'2024-04-15T17:00:00Z', resolvedAt:null, isEscalated:true, createdByName:'Safety Officer' },
-                { id:'DEMO-012', ticketNumber:'YPC-2024-012', title:'Invoice discrepancy - supplier payment', category:'Account Issue', priority:'High', status:'Resolved', assigneeName:'Sarah Johnson', departmentName:'Finance', createdAt:'2024-04-12T10:00:00Z', dueAt:'2024-04-16T17:00:00Z', resolvedAt:'2024-04-15T14:00:00Z', isEscalated:false, createdByName:'Finance Team' },
-                { id:'DEMO-013', ticketNumber:'YPC-2025-013', title:'NDIS plan review documentation missing', category:'NDIS Compliance', priority:'Critical', status:'Escalated', assigneeName:'Lisa Park', departmentName:'Compliance', createdAt:'2025-01-10T08:00:00Z', dueAt:'2025-01-14T17:00:00Z', resolvedAt:null, isEscalated:true, createdByName:'Coordinator' },
-                { id:'DEMO-014', ticketNumber:'YPC-2025-014', title:'Cleaning equipment replacement request', category:'Equipment Issue', priority:'Medium', status:'Resolved', assigneeName:'Mike Chen', departmentName:'Cleaning', createdAt:'2025-01-15T09:00:00Z', dueAt:'2025-01-22T17:00:00Z', resolvedAt:'2025-01-20T11:00:00Z', isEscalated:false, createdByName:'Team Lead' },
-                { id:'DEMO-015', ticketNumber:'YPC-2025-015', title:'Staff performance review scheduling', category:'HR Issue', priority:'Medium', status:'In Progress', assigneeName:'Sarah Johnson', departmentName:'HR', createdAt:'2025-02-01T09:00:00Z', dueAt:'2025-02-28T17:00:00Z', resolvedAt:null, isEscalated:false, createdByName:'HR Manager' },
-                { id:'DEMO-016', ticketNumber:'YPC-2025-016', title:'Deep clean service complaint', category:'Cleaning Quality', priority:'High', status:'Resolved', assigneeName:'Mike Chen', departmentName:'Cleaning', createdAt:'2025-02-10T10:00:00Z', dueAt:'2025-02-14T17:00:00Z', resolvedAt:'2025-02-13T15:00:00Z', isEscalated:false, createdByName:'Client Services' },
-                { id:'DEMO-017', ticketNumber:'YPC-2026-017', title:'Participant incident report - minor fall', category:'Safety Concern', priority:'Critical', status:'Open', assigneeName:'Tom Baker', departmentName:'Support Services', createdAt:'2026-05-01T08:00:00Z', dueAt:'2026-05-02T17:00:00Z', resolvedAt:null, isEscalated:true, createdByName:'Support Worker' },
-                { id:'DEMO-018', ticketNumber:'YPC-2026-018', title:'NDIS SIL funding documentation', category:'NDIS Compliance', priority:'High', status:'In Progress', assigneeName:'Lisa Park', departmentName:'Compliance', createdAt:'2026-05-05T09:00:00Z', dueAt:'2026-05-12T17:00:00Z', resolvedAt:null, isEscalated:false, createdByName:'Plan Manager' },
-                { id:'DEMO-019', ticketNumber:'YPC-2026-019', title:'Client billing query resolution', category:'Account Issue', priority:'Medium', status:'Resolved', assigneeName:'Sarah Johnson', departmentName:'Finance', createdAt:'2026-05-08T10:00:00Z', dueAt:'2026-05-12T17:00:00Z', resolvedAt:'2026-05-10T14:00:00Z', isEscalated:false, createdByName:'Finance Team' },
-                { id:'DEMO-020', ticketNumber:'YPC-2026-020', title:'SOP creation for new client intake', category:'Other', priority:'Medium', status:'Open', assigneeName:'', departmentName:'Administration', createdAt:'2026-06-01T09:00:00Z', dueAt:'2026-06-15T17:00:00Z', resolvedAt:null, isEscalated:false, createdByName:'Admin Manager' },
-            ];
 
             // ── state ──────────────────────────────────────────────────────────
             const [apiTickets,  setApiTickets]  = React.useState([]);
@@ -4684,8 +4620,6 @@
             const [priorityFilter, setPriorityFilter] = React.useState('all');
             const [emailTo,        setEmailTo]        = React.useState('');
             const [emailSubject,   setEmailSubject]   = React.useState('');
-            const [useDummy,       setUseDummy]       = React.useState(false);
-
             // schedule modal
             const [schedules,         setSchedules]         = React.useState(() => { try { return JSON.parse(localStorage.getItem('yc_schedules')||'[]'); } catch(e){return[];} });
             const [showSchedModal,    setShowSchedModal]    = React.useState(false);
@@ -4711,13 +4645,10 @@
                     .finally(() => setLoading(false));
             }, []);
 
-            // ── merge API + dummy ──────────────────────────────────────────────
+            // ── All tickets from API only ─────────────────────────────────────
             const allTickets = React.useMemo(() => {
-                const api = apiTickets.map(t => ({...t, _source:'api'}));
-                const dummy = useDummy ? DUMMY_TICKETS.map(t => ({...t, _source:'demo'})) : [];
-                // deduplicate: prefer API tickets; dummy only fills if API returns < 5
-                return api.length > 0 ? [...api, ...(useDummy ? dummy : [])] : dummy;
-            }, [apiTickets, useDummy]);
+                return apiTickets.map(t => ({...t, _source:'api'}));
+            }, [apiTickets]);
 
             // ── dynamic categories from actual data ────────────────────────────
             const dynamicCategories = React.useMemo(() => {
@@ -5079,14 +5010,9 @@
                             <div>
                                 <h1 style={{fontSize:22,fontWeight:800,color:'#111827',marginBottom:2}}>📊 Reports</h1>
                                 <p style={{fontSize:13,color:'#6B7280'}}>
-                                    {allTickets.length} tickets loaded
-                                    {apiTickets.length === 0 && ' (no API data — showing demo tickets)'}
+                                    {loading ? 'Loading...' : `${allTickets.length} tickets from live data`}
                                 </p>
                             </div>
-                            <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:13,color:'#6B7280',background:'white',border:'1px solid #E5E7EB',borderRadius:8,padding:'7px 14px'}}>
-                                <input type="checkbox" checked={useDummy} onChange={e=>setUseDummy(e.target.checked)} style={{width:14,height:14}}/>
-                                Include 20 demo tickets
-                            </label>
                         </div>
 
                         {/* ── Filters row ── */}
@@ -5163,7 +5089,7 @@
                                         {REPORT_TYPES.find(r=>r.id===reportType)?.icon} {REPORT_TYPES.find(r=>r.id===reportType)?.label}
                                     </p>
                                     <p style={{fontSize:22,fontWeight:800,color:'#111827',marginTop:4}}>{preview.rows.length} <span style={{fontSize:13,fontWeight:500,color:'#6B7280'}}>records ready to export</span></p>
-                                    {preview.rows.length===0&&<p style={{fontSize:12,color:'#DC2626',marginTop:4}}>⚠ No records match — try "All Time" or enable demo tickets</p>}
+                                    {preview.rows.length===0&&<p style={{fontSize:12,color:'#DC2626',marginTop:4}}>⚠ No records match — try "All Time" or adjust your filters</p>}
                                 </div>
 
                                 {/* Export Only */}
@@ -5242,7 +5168,7 @@
                                 <div style={{padding:40,textAlign:'center',color:'#9CA3AF'}}>
                                     <div style={{fontSize:32,marginBottom:8}}>📭</div>
                                     <p style={{fontWeight:600,marginBottom:4}}>No records match the current filters</p>
-                                    <p style={{fontSize:13}}>Try selecting "All Time" or enable the demo tickets toggle above</p>
+                                    <p style={{fontSize:13}}>Try selecting "All Time" or adjust your date range and filters</p>
                                 </div>
                             ):(
                                 <div className="yc-table-scroll">

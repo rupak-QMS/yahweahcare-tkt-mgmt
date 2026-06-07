@@ -57,6 +57,7 @@ function dbTicket(row: Record<string, unknown>) {
     closedAt: row.closed_date || null,
     slaBreached,
     isClosed,
+    ndisRelated: !!row.ndis_related,
     isEscalated: !!row.is_escalated,
     escalatedTo: row.escalated_to || null,
     escalatedBy: row.escalated_by || null,
@@ -341,11 +342,12 @@ router.post('/', optionalAuth, async (req, res, next) => {
     const { rows } = await pool.query(
       `INSERT INTO yc_tkt_mgmt.tickets
          (title, description, category_id, priority_id, status,
-          created_by, assigned_to, due_date, expected_completion)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+          created_by, assigned_to, due_date, expected_completion, ndis_related)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
        RETURNING *`,
       [resolvedTitle, description || req.body.issue_details || '', resolvedCategory, resolvedPriority,
-       finalStatus, req.auth?.userId || req.body.created_by || null, resolvedAssignee || null, dueDate, resolvedDueDate]
+       finalStatus, req.auth?.userId || req.body.created_by || null, resolvedAssignee || null, dueDate, resolvedDueDate,
+       !!(req.body.ndis_related || req.body.ndisRelated)]
     );
     const ticketId = rows[0].id;
 
