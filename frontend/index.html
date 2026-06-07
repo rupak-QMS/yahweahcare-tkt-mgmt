@@ -1240,138 +1240,251 @@
                 return badges[priority] || 'badge-medium';
             };
 
+            // ── Inline badge style helpers ────────────────────────
+            const STATUS_ST = {
+                'New':              {bg:'#EEF2FF',color:'#4338CA',border:'#C7D2FE'},
+                'Open':             {bg:'#E0F2FE',color:'#0369A1',border:'#BAE6FD'},
+                'In Progress':      {bg:'#FFFBEB',color:'#B45309',border:'#FDE68A'},
+                'Waiting':          {bg:'#F5F3FF',color:'#7C3AED',border:'#DDD6FE'},
+                'Pending Approval': {bg:'#FFF7ED',color:'#C2410C',border:'#FED7AA'},
+                'Resolved':         {bg:'#ECFDF5',color:'#065F46',border:'#A7F3D0'},
+                'Closed':           {bg:'#F1F5F9',color:'#475569',border:'#CBD5E1'},
+                'Assigned':         {bg:'#DBEAFE',color:'#1D4ED8',border:'#BFDBFE'},
+            };
+            const PRI_ST = {
+                'Critical': {bg:'#FEF2F2',color:'#991B1B',border:'#FECACA',dot:'#EF4444'},
+                'Urgent':   {bg:'#FEF2F2',color:'#991B1B',border:'#FECACA',dot:'#EF4444'},
+                'High':     {bg:'#FFFBEB',color:'#92400E',border:'#FDE68A',dot:'#F59E0B'},
+                'Medium':   {bg:'#EFF6FF',color:'#1E40AF',border:'#BFDBFE',dot:'#3B82F6'},
+                'Low':      {bg:'#F0FDF4',color:'#166534',border:'#BBF7D0',dot:'#22C55E'},
+            };
+            const PRI_LEFT = {'Critical':'#EF4444','Urgent':'#EF4444','High':'#F59E0B','Medium':'#3B82F6','Low':'#22C55E'};
+            const sst = s => STATUS_ST[s] || {bg:'#F3F4F6',color:'#374151',border:'#E5E7EB'};
+            const pst = p => PRI_ST[p]   || {bg:'#F3F4F6',color:'#374151',border:'#E5E7EB',dot:'#9CA3AF'};
+            const Badge = ({text, st}) => (
+                <span style={{display:'inline-flex',alignItems:'center',fontSize:11,fontWeight:600,padding:'2px 9px',borderRadius:20,background:st.bg,color:st.color,border:`1px solid ${st.border}`,whiteSpace:'nowrap'}}>{text}</span>
+            );
+            const now2 = new Date();
+            const isOD = t => !['Resolved','Closed'].includes(t.status) && (t.dueAt||t.expectedCompletion) && new Date(t.dueAt||t.expectedCompletion)<now2;
+            const fmtDue = t => {
+                const raw = t.dueAt||t.expectedCompletion; if(!raw) return null;
+                return new Date(raw).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'});
+            };
+
+            // Status filter counts
+            const STATUS_GROUPS = [
+                {key:'all',          label:'All',             match: ()=>true},
+                {key:'open',         label:'New / Open',      match: t=>['New','Open','Assigned'].includes(t.status)},
+                {key:'in_progress',  label:'In Progress',     match: t=>['In Progress','Waiting'].includes(t.status)},
+                {key:'pending',      label:'Pending Approval',match: t=>t.status==='Pending Approval'},
+                {key:'resolved',     label:'Resolved',        match: t=>t.status==='Resolved'},
+                {key:'closed',       label:'Closed',          match: t=>t.status==='Closed'},
+                {key:'overdue',      label:'Overdue',         match: t=>isOD(t)},
+            ];
+            const filteredNew = tickets.filter(t => {
+                const grp = STATUS_GROUPS.find(g=>g.key===filter);
+                if (grp && !grp.match(t)) return false;
+                if (search && !t.title.toLowerCase().includes(search.toLowerCase()) && !t.id.toLowerCase().includes(search.toLowerCase())) return false;
+                return true;
+            });
+
             return (
-                <main className="flex-1 overflow-auto bg-gray-50">
-                    <div className="p-8">
-                        <div className="flex justify-between items-center mb-8">
+                <main className="flex-1 overflow-auto" style={{background:'#F4F5F7'}}>
+                    <div style={{maxWidth:'1400px',margin:'0 auto',padding:'24px'}}>
+
+                        {/* ── Header ── */}
+                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'20px'}}>
                             <div>
-                                <h1 className="text-3xl font-bold text-gray-900">Tickets</h1>
-                                <p className="text-gray-600">
-                                    {scopeLabel || 'Manage and track support tickets'}
-                                </p>
+                                <h1 style={{fontSize:'20px',fontWeight:'700',color:'#111827',margin:0}}>Tickets</h1>
+                                <p style={{fontSize:'12px',color:'#9CA3AF',margin:'3px 0 0'}}>{scopeLabel || 'Manage and track support tickets'}</p>
                             </div>
-                            <button
-                                className="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-blue-700"
-                                onClick={() => { window.location.hash = 'create-ticket'; }}
-                            >
-                                ➕ Create Ticket
+                            <button onClick={()=>{ window.location.hash='create-ticket'; }}
+                                style={{display:'flex',alignItems:'center',gap:'6px',background:'#6366F1',color:'white',border:'none',borderRadius:'9px',padding:'9px 18px',fontSize:'13px',fontWeight:'600',cursor:'pointer',boxShadow:'0 1px 4px rgba(99,102,241,0.35)'}}>
+                                + New Ticket
                             </button>
                         </div>
 
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-                            <div className="flex gap-4 mb-6">
-                                <input
-                                    type="text"
-                                    placeholder="Search tickets..."
-                                    className="flex-1"
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                />
-                            </div>
-
-                            <div className="flex gap-2 mb-6">
-                                {['all', 'Open', 'In Progress', 'Resolved', 'Closed'].map(s => (
-                                    <button
-                                        key={s}
-                                        onClick={() => setFilter(s)}
-                                        className={`px-4 py-2 rounded-lg font-medium ${
-                                            filter === s
-                                                ? 'bg-blue-600 text-white'
-                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                        }`}
-                                    >
-                                        {s === 'all' ? 'All Tickets' : s}
+                        {/* ── Status filter tabs ── */}
+                        <div style={{display:'flex',gap:'6px',marginBottom:'16px',flexWrap:'wrap'}}>
+                            {STATUS_GROUPS.map(g=>{
+                                const cnt = g.key==='all' ? tickets.length : tickets.filter(g.match).length;
+                                const active = filter===g.key;
+                                return (
+                                    <button key={g.key} onClick={()=>setFilter(g.key)}
+                                        style={{display:'flex',alignItems:'center',gap:'6px',padding:'6px 14px',borderRadius:'8px',border:'1px solid',fontSize:'12px',fontWeight:'600',cursor:'pointer',transition:'all 0.1s',
+                                            borderColor:active?'#6366F1':'#E5E7EB',
+                                            background:active?'#6366F1':'white',
+                                            color:active?'white':'#6B7280',
+                                        }}>
+                                        {g.label}
+                                        <span style={{fontSize:'10px',fontWeight:'700',background:active?'rgba(255,255,255,0.25)':'#F3F4F6',color:active?'white':'#9CA3AF',borderRadius:'10px',padding:'1px 6px',minWidth:'18px',textAlign:'center'}}>{cnt}</span>
                                     </button>
-                                ))}
+                                );
+                            })}
+                        </div>
+
+                        {/* ── Search + table card ── */}
+                        <div style={{background:'white',borderRadius:'14px',border:'1px solid #E5E7EB',overflow:'hidden',boxShadow:'0 1px 4px rgba(0,0,0,0.05)'}}>
+
+                            {/* Search bar */}
+                            <div style={{padding:'14px 16px',borderBottom:'1px solid #F0F0F0',display:'flex',alignItems:'center',gap:'10px'}}>
+                                <span style={{fontSize:'15px',color:'#9CA3AF'}}>🔍</span>
+                                <input type="text" placeholder="Search by title or ticket ID…" value={search} onChange={e=>setSearch(e.target.value)}
+                                    style={{flex:1,border:'none',outline:'none',fontSize:'13px',color:'#374151',background:'transparent'}}/>
+                                {search && <button onClick={()=>setSearch('')} style={{border:'none',background:'none',color:'#9CA3AF',cursor:'pointer',fontSize:'16px',padding:'0 4px'}}>×</button>}
+                                <span style={{fontSize:'12px',color:'#9CA3AF',whiteSpace:'nowrap'}}>{filteredNew.length} ticket{filteredNew.length!==1?'s':''}</span>
                             </div>
 
-                            {ticketsLoading && <div className="text-center py-8 text-gray-400">⏳ Loading tickets…</div>}
-                            {!ticketsLoading && filtered.length === 0 && <div className="text-center py-8 text-gray-400">No tickets found.</div>}
-                            {!ticketsLoading && filtered.length > 0 && <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className="border-b border-gray-200">
-                                            <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900">ID</th>
-                                            <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900">Title</th>
-                                            <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900">Category</th>
-                                            <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900">Priority</th>
-                                            <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900">Status</th>
-                                            <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900">Assigned To</th>
-                                            <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900">Date</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {filtered.map(t => (
-                                            <tr key={t._dbId || t.id} className="table-row border-b border-gray-200 cursor-pointer hover:bg-gray-50" onClick={async () => {
-                                                setSelectedTicket(t);
-                                                setRejectMode(false); setJustification(''); setActionError('');
-                                                setEscalateMode(false); setEscalateTo(''); setEscalateReason('');
-                                                setApprovers([]); setEscalations([]);
-                                                if (t._dbId) {
-                                                    try {
-                                                        const [ticketData, escData] = await Promise.all([
-                                                            API.tickets.getById(t._dbId),
-                                                            API.tickets.getEscalations(t._dbId).catch(() => ({ escalations: [] }))
-                                                        ]);
-                                                        if (ticketData.ticket?.approvers) setApprovers(ticketData.ticket.approvers);
-                                                        if (escData.escalations) setEscalations(escData.escalations);
-                                                    } catch(_) {}
-                                                }
-                                            }}>
-                                                <td className="py-3 px-4 text-sm text-blue-600 font-medium">{t.id}</td>
-                                                <td className="py-3 px-4 text-sm text-gray-900">
-                                                    <div className="flex items-center gap-2">
-                                                        {t.title}
-                                                        {t.isEscalated && <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 flex-shrink-0">⬆ Escalated</span>}
-                                                    </div>
-                                                </td>
-                                                <td className="py-3 px-4 text-sm text-gray-600">{t.category}</td>
-                                                <td className="py-3 px-4"><span className={`badge ${getPriorityBadge(t.priority)}`}>{t.priority}</span></td>
-                                                <td className="py-3 px-4"><span className={`badge ${getStatusBadge(t.status)}`}>{t.status}</span></td>
-                                                <td className="py-3 px-4 text-sm text-gray-600">{t.assigned}</td>
-                                                <td className="py-3 px-4 text-sm text-gray-600">{t.date}</td>
+                            {/* Table */}
+                            {ticketsLoading ? (
+                                <div style={{padding:'60px',textAlign:'center',color:'#9CA3AF',fontSize:'14px'}}>⏳ Loading tickets…</div>
+                            ) : filteredNew.length === 0 ? (
+                                <div style={{padding:'60px',textAlign:'center'}}>
+                                    <div style={{fontSize:'36px',marginBottom:'12px'}}>🎫</div>
+                                    <p style={{fontSize:'14px',fontWeight:'600',color:'#374151',margin:'0 0 4px'}}>No tickets found</p>
+                                    <p style={{fontSize:'12px',color:'#9CA3AF',margin:0}}>Try adjusting your filters or search term</p>
+                                </div>
+                            ) : (
+                                <div style={{overflowX:'auto'}}>
+                                    <table style={{width:'100%',borderCollapse:'collapse'}}>
+                                        <thead>
+                                            <tr style={{background:'#FAFAFA',borderBottom:'1px solid #F0F0F0'}}>
+                                                {['Ticket ID','Title','Category','Priority','Status','Assigned To','Due Date','Created'].map(h=>(
+                                                    <th key={h} style={{textAlign:'left',padding:'10px 14px',fontSize:'11px',fontWeight:'700',color:'#6B7280',textTransform:'uppercase',letterSpacing:'0.05em',whiteSpace:'nowrap'}}>{h}</th>
+                                                ))}
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>}
+                                        </thead>
+                                        <tbody>
+                                            {filteredNew.map((t,i)=>{
+                                                const ps = pst(t.priority);
+                                                const ss = sst(t.status);
+                                                const od = isOD(t);
+                                                const dueStr = fmtDue(t);
+                                                const initials = (t.assigned||'?').split(/\s+/).map(w=>w[0]||'').slice(0,2).join('').toUpperCase();
+                                                const leftColor = PRI_LEFT[t.priority]||'#E5E7EB';
+                                                return (
+                                                    <tr key={t._dbId||t.id}
+                                                        style={{borderBottom:'1px solid #F3F4F6',cursor:'pointer',transition:'background 0.1s'}}
+                                                        onMouseEnter={e=>e.currentTarget.style.background='#F8F9FF'}
+                                                        onMouseLeave={e=>e.currentTarget.style.background=''}
+                                                        onClick={async()=>{
+                                                            setSelectedTicket(t);
+                                                            setRejectMode(false); setJustification(''); setActionError('');
+                                                            setEscalateMode(false); setEscalateTo(''); setEscalateReason('');
+                                                            setApprovers([]); setEscalations([]);
+                                                            if(t._dbId){
+                                                                try {
+                                                                    const [ticketData,escData] = await Promise.all([
+                                                                        API.tickets.getById(t._dbId),
+                                                                        API.tickets.getEscalations(t._dbId).catch(()=>({escalations:[]}))
+                                                                    ]);
+                                                                    if(ticketData.ticket?.approvers) setApprovers(ticketData.ticket.approvers);
+                                                                    if(escData.escalations) setEscalations(escData.escalations);
+                                                                } catch(_){}
+                                                            }
+                                                        }}>
+                                                        {/* Priority left-stripe via box-shadow on first cell */}
+                                                        <td style={{padding:'12px 14px',fontSize:'12px',fontWeight:'700',color:'#6366F1',whiteSpace:'nowrap',borderLeft:`3px solid ${leftColor}`}}>{t.id}</td>
+                                                        <td style={{padding:'12px 14px',maxWidth:'280px'}}>
+                                                            <div style={{display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}>
+                                                                <span style={{fontSize:'13px',fontWeight:'600',color:'#111827',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'220px'}}>{t.title}</span>
+                                                                {t.isEscalated && <span style={{fontSize:'10px',fontWeight:'700',padding:'1px 7px',borderRadius:20,background:'#FFF7ED',color:'#C2410C',border:'1px solid #FED7AA',flexShrink:0}}>⬆ Escalated</span>}
+                                                                {od && <span style={{fontSize:'10px',fontWeight:'700',padding:'1px 7px',borderRadius:20,background:'#FEF2F2',color:'#991B1B',border:'1px solid #FECACA',flexShrink:0}}>Overdue</span>}
+                                                            </div>
+                                                            {t.category && <div style={{fontSize:'11px',color:'#9CA3AF',marginTop:'2px'}}>{t.category}</div>}
+                                                        </td>
+                                                        <td style={{padding:'12px 14px',fontSize:'12px',color:'#6B7280',whiteSpace:'nowrap'}}>{t.category}</td>
+                                                        <td style={{padding:'12px 14px'}}>
+                                                            <span style={{display:'inline-flex',alignItems:'center',gap:'5px',fontSize:11,fontWeight:600,padding:'3px 9px',borderRadius:20,background:ps.bg,color:ps.color,border:`1px solid ${ps.border}`}}>
+                                                                <span style={{width:6,height:6,borderRadius:'50%',background:ps.dot,flexShrink:0}}/>
+                                                                {t.priority}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{padding:'12px 14px'}}>
+                                                            <Badge text={t.status} st={ss}/>
+                                                        </td>
+                                                        <td style={{padding:'12px 14px'}}>
+                                                            {t.assigned==='Unassigned' ? (
+                                                                <span style={{fontSize:12,color:'#9CA3AF',fontStyle:'italic'}}>Unassigned</span>
+                                                            ) : (
+                                                                <div style={{display:'flex',alignItems:'center',gap:'7px'}}>
+                                                                    <div style={{width:24,height:24,borderRadius:'50%',background:'#EEF2FF',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:700,color:'#6366F1',flexShrink:0}}>{initials}</div>
+                                                                    <span style={{fontSize:12,color:'#374151',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:'120px'}}>{t.assigned}</span>
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                        <td style={{padding:'12px 14px',fontSize:12,color:od?'#EF4444':'#6B7280',fontWeight:od?700:400,whiteSpace:'nowrap'}}>
+                                                            {dueStr || <span style={{color:'#D1D5DB'}}>—</span>}
+                                                        </td>
+                                                        <td style={{padding:'12px 14px',fontSize:12,color:'#9CA3AF',whiteSpace:'nowrap'}}>{t.date}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
                         </div>
                     </div>
 
-                    {/* Ticket Detail Modal with Approval Workflow */}
+                    {/* ── Ticket Detail Drawer ── */}
                     {selectedTicket && (
-                        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                            <div className="bg-white rounded-2xl max-w-2xl w-full max-h-screen overflow-y-auto shadow-2xl">
-                                {/* Header */}
-                                <div className="flex justify-between items-start p-6 border-b border-gray-100">
-                                    <div>
-                                        <p className="text-xs font-semibold text-indigo-500 uppercase tracking-widest mb-1">{selectedTicket.id}</p>
-                                        <h2 className="text-lg font-bold text-gray-900">{selectedTicket.title}</h2>
-                                        <p className="text-sm text-gray-400 mt-0.5">{selectedTicket.category}</p>
-                                    </div>
-                                    <button onClick={() => { setSelectedTicket(null); setRejectMode(false); setJustification(''); setActionError(''); setEscalateMode(false); setEscalateTo(''); setEscalateReason(''); setEscalations([]); }} className="text-gray-300 hover:text-gray-500 text-2xl leading-none mt-1">×</button>
-                                </div>
+                        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',display:'flex',alignItems:'flex-start',justifyContent:'flex-end',zIndex:50}}
+                            onClick={e=>{if(e.target===e.currentTarget){setSelectedTicket(null);setRejectMode(false);setJustification('');setActionError('');setEscalateMode(false);setEscalateTo('');setEscalateReason('');setEscalations([]);}}}>
+                            <div style={{background:'white',width:'100%',maxWidth:'520px',height:'100vh',overflowY:'auto',display:'flex',flexDirection:'column',boxShadow:'-4px 0 24px rgba(0,0,0,0.12)'}}>
 
-                                <div className="p-6">
+                                {/* Header band */}
+                                {(()=>{
+                                    const ps = pst(selectedTicket.priority);
+                                    return (
+                                        <div style={{background:ps.bg,borderBottom:`3px solid ${ps.dot}`,padding:'20px 20px 16px',position:'sticky',top:0,zIndex:1}}>
+                                            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+                                                <div style={{flex:1,minWidth:0,paddingRight:'12px'}}>
+                                                    <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'6px',flexWrap:'wrap'}}>
+                                                        <span style={{fontSize:11,fontWeight:700,color:ps.color,background:'white',borderRadius:6,padding:'2px 8px',border:`1px solid ${ps.border}`}}>{selectedTicket.id}</span>
+                                                        <Badge text={selectedTicket.status} st={sst(selectedTicket.status)}/>
+                                                        {selectedTicket.isEscalated && <span style={{fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:20,background:'#FFF7ED',color:'#C2410C',border:'1px solid #FED7AA'}}>⬆ Escalated</span>}
+                                                    </div>
+                                                    <h2 style={{fontSize:'15px',fontWeight:'700',color:'#111827',margin:0,lineHeight:1.3}}>{selectedTicket.title}</h2>
+                                                    {selectedTicket.category && <p style={{fontSize:'12px',color:'#6B7280',margin:'4px 0 0'}}>{selectedTicket.category}</p>}
+                                                </div>
+                                                <button onClick={()=>{setSelectedTicket(null);setRejectMode(false);setJustification('');setActionError('');setEscalateMode(false);setEscalateTo('');setEscalateReason('');setEscalations([]);}}
+                                                    style={{background:'white',border:'1px solid #E5E7EB',borderRadius:'8px',width:32,height:32,fontSize:18,cursor:'pointer',color:'#6B7280',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>×</button>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+
+                                <div style={{padding:'20px',flex:1}}>
                                     {/* Meta grid */}
-                                    <div className="grid grid-cols-2 gap-4 mb-6 pb-6 border-b border-gray-100">
-                                        <div>
-                                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Priority</p>
-                                            <span className={`badge ${getPriorityBadge(selectedTicket.priority)}`}>{selectedTicket.priority}</span>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Status</p>
-                                            <span className={`badge ${getStatusBadge(selectedTicket.status)}`}>{selectedTicket.status}</span>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Assigned To</p>
-                                            <p className="text-sm text-gray-900">{selectedTicket.assigned || 'Unassigned'}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Date</p>
-                                            <p className="text-sm text-gray-900">{selectedTicket.date}</p>
-                                        </div>
+                                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:'20px',paddingBottom:'20px',borderBottom:'1px solid #F0F0F0'}}>
+                                        {[
+                                            {label:'Priority', node: <Badge text={selectedTicket.priority} st={pst(selectedTicket.priority)}/>},
+                                            {label:'Status',   node: <Badge text={selectedTicket.status}   st={sst(selectedTicket.status)}/>},
+                                            {label:'Assigned To', node: <span style={{fontSize:13,color:'#111827',fontWeight:500}}>{selectedTicket.assigned||'Unassigned'}</span>},
+                                            {label:'Created',     node: <span style={{fontSize:13,color:'#374151'}}>{selectedTicket.date}</span>},
+                                            {label:'Due Date', node: (()=>{
+                                                const raw=selectedTicket.dueAt||selectedTicket.expectedCompletion;
+                                                if(!raw) return <span style={{fontSize:13,color:'#9CA3AF'}}>Not set</span>;
+                                                const od=isOD(selectedTicket);
+                                                return <span style={{fontSize:13,fontWeight:od?700:400,color:od?'#EF4444':'#374151'}}>{new Date(raw).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'})}{od?' ⚠️':''}</span>;
+                                            })()},
+                                            {label:'NDIS', node: <span style={{fontSize:13,color:'#374151'}}>{selectedTicket.ndisRelated||selectedTicket.ndis_related?'Yes':'No'}</span>},
+                                        ].map(({label,node})=>(
+                                            <div key={label}>
+                                                <p style={{fontSize:10,fontWeight:700,color:'#9CA3AF',textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 4px'}}>{label}</p>
+                                                {node}
+                                            </div>
+                                        ))}
                                     </div>
+
+                                    {/* Description */}
+                                    {(selectedTicket.issueDetails||selectedTicket.issue_details) && (
+                                        <div style={{marginBottom:'20px',paddingBottom:'20px',borderBottom:'1px solid #F0F0F0'}}>
+                                            <p style={{fontSize:10,fontWeight:700,color:'#9CA3AF',textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 8px'}}>Description</p>
+                                            <p style={{fontSize:13,color:'#374151',lineHeight:1.6,margin:0,whiteSpace:'pre-wrap'}}>{selectedTicket.issueDetails||selectedTicket.issue_details}</p>
+                                        </div>
+                                    )}
 
                                     {/* Assignee action: Mark Complete */}
                                     {selectedTicket.status !== 'Resolved' && selectedTicket.status !== 'Closed' && selectedTicket.status !== 'Pending Approval' && (
@@ -1534,84 +1647,61 @@
                                         </div>
                                     )}
 
-                                    {/* Approver actions — only shown when pending_approval */}
-                                    {selectedTicket.status === 'Pending Approval' && (
-                                        <div className="border-t border-gray-100 pt-5">
-                                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Your Decision</p>
-
-                                            {actionError && (
-                                                <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-3">{actionError}</div>
-                                            )}
-
+                                    {/* ── Approve / Reject (only when pending_approval) ── */}
                                             {!rejectMode ? (
-                                                <div className="flex gap-3">
-                                                    <button
-                                                        disabled={actionLoading}
-                                                        onClick={async () => {
-                                                            setActionLoading(true); setActionError('');
-                                                            try {
-                                                                const data = await API.tickets.approve(selectedTicket._dbId);
-                                                                if (data.ticket?.approvers) setApprovers(data.ticket.approvers);
-                                                                await refreshTicket(selectedTicket._dbId);
-                                                            } catch(e) { setActionError(e.message); }
-                                                            finally { setActionLoading(false); }
-                                                        }}
-                                                        className="flex-1 py-2.5 bg-emerald-600 text-white text-sm font-semibold rounded-xl hover:bg-emerald-700 transition disabled:opacity-50"
-                                                    >
-                                                        {actionLoading ? '⏳…' : '✅ Approve Resolution'}
+                                                <div style={{display:'flex',gap:'10px'}}>
+                                                    <button disabled={actionLoading} onClick={async()=>{
+                                                        setActionLoading(true); setActionError('');
+                                                        try {
+                                                            const data = await API.tickets.approve(selectedTicket._dbId);
+                                                            if(data.ticket?.approvers) setApprovers(data.ticket.approvers);
+                                                            await refreshTicket(selectedTicket._dbId);
+                                                        } catch(e){ setActionError(e.message); }
+                                                        finally{ setActionLoading(false); }
+                                                    }} style={{flex:1,padding:'10px',background:'#059669',color:'white',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer',opacity:actionLoading?0.5:1}}>
+                                                        {actionLoading?'⏳…':'✅ Approve Resolution'}
                                                     </button>
-                                                    <button
-                                                        disabled={actionLoading}
-                                                        onClick={() => { setRejectMode(true); setActionError(''); }}
-                                                        className="flex-1 py-2.5 bg-red-600 text-white text-sm font-semibold rounded-xl hover:bg-red-700 transition disabled:opacity-50"
-                                                    >
+                                                    <button disabled={actionLoading} onClick={()=>{setRejectMode(true);setActionError('');}}
+                                                        style={{flex:1,padding:'10px',background:'#DC2626',color:'white',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer',opacity:actionLoading?0.5:1}}>
                                                         ❌ Reject &amp; Reopen
                                                     </button>
                                                 </div>
                                             ) : (
                                                 <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Justification <span className="text-red-400">*</span></label>
-                                                    <textarea
-                                                        rows="3"
-                                                        value={justification}
-                                                        onChange={e => setJustification(e.target.value)}
+                                                    <label style={{display:'block',fontSize:12,fontWeight:600,color:'#374151',marginBottom:6}}>Justification <span style={{color:'#EF4444'}}>*</span></label>
+                                                    <textarea rows="3" value={justification} onChange={e=>setJustification(e.target.value)}
                                                         placeholder="Explain why the resolution is not acceptable…"
-                                                        className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 resize-none mb-3"
-                                                    />
-                                                    <div className="flex gap-3">
-                                                        <button
-                                                            disabled={actionLoading || !justification.trim()}
-                                                            onClick={async () => {
-                                                                setActionLoading(true); setActionError('');
-                                                                try {
-                                                                    const data = await API.tickets.reject(selectedTicket._dbId, justification);
-                                                                    if (data.ticket?.approvers) setApprovers(data.ticket.approvers);
-                                                                    setRejectMode(false); setJustification('');
-                                                                    await refreshTicket(selectedTicket._dbId);
-                                                                } catch(e) { setActionError(e.message); }
-                                                                finally { setActionLoading(false); }
-                                                            }}
-                                                            className="flex-1 py-2.5 bg-red-600 text-white text-sm font-semibold rounded-xl hover:bg-red-700 transition disabled:opacity-50"
-                                                        >
-                                                            {actionLoading ? '⏳…' : '❌ Confirm Reject & Reopen'}
+                                                        style={{width:'100%',border:'1px solid #E5E7EB',borderRadius:8,padding:'8px 10px',fontSize:13,resize:'none',outline:'none',marginBottom:10,boxSizing:'border-box'}}/>
+                                                    <div style={{display:'flex',gap:'8px'}}>
+                                                        <button disabled={actionLoading||!justification.trim()} onClick={async()=>{
+                                                            setActionLoading(true); setActionError('');
+                                                            try {
+                                                                const data = await API.tickets.reject(selectedTicket._dbId,justification);
+                                                                if(data.ticket?.approvers) setApprovers(data.ticket.approvers);
+                                                                setRejectMode(false); setJustification('');
+                                                                await refreshTicket(selectedTicket._dbId);
+                                                            } catch(e){ setActionError(e.message); }
+                                                            finally{ setActionLoading(false); }
+                                                        }} style={{flex:1,padding:'9px',background:'#DC2626',color:'white',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer',opacity:(actionLoading||!justification.trim())?0.5:1}}>
+                                                            {actionLoading?'⏳…':'❌ Confirm Reject & Reopen'}
                                                         </button>
-                                                        <button
-                                                            onClick={() => { setRejectMode(false); setJustification(''); setActionError(''); }}
-                                                            className="px-4 py-2.5 bg-gray-100 text-gray-700 text-sm font-semibold rounded-xl hover:bg-gray-200 transition"
-                                                        >
+                                                        <button onClick={()=>{setRejectMode(false);setJustification('');setActionError('');}}
+                                                            style={{padding:'9px 16px',background:'#F3F4F6',color:'#374151',border:'none',borderRadius:10,fontSize:13,fontWeight:600,cursor:'pointer'}}>
                                                             Cancel
                                                         </button>
                                                     </div>
                                                 </div>
                                             )}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    )}
+                                        </div>{/* end Your Decision */}
+                                    )}{/* end Pending Approval */}
+                                </div>{/* end drawer body */}
+                            </div>{/* end drawer panel */}
+                        </div>{/* end backdrop */}
+                    )}{/* end selectedTicket */}
                 </main>
             );
+        }
+
         }
 
         // Calendar Page
