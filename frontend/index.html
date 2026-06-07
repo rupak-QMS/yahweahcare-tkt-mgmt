@@ -4298,459 +4298,323 @@
                 try { return JSON.parse(sessionStorage.getItem('ms_current_user') || 'null'); } catch(e) { return null; }
             }, []);
 
+            // ── Dummy seed tickets (always present for validation) ──────────────
+            const DUMMY_TICKETS = [
+                { id:'DEMO-001', ticketNumber:'YPC-2024-001', title:'NDIS documentation not completed for participant', category:'NDIS Compliance', priority:'Urgent', status:'Open', assigneeName:'Sarah Johnson', departmentName:'Support Services', createdAt:'2024-03-01T09:00:00Z', dueAt:'2024-03-08T17:00:00Z', resolvedAt:null, isEscalated:false, createdByName:'Admin' },
+                { id:'DEMO-002', ticketNumber:'YPC-2024-002', title:'Client complaint - additional cleaning required', category:'Client Issue', priority:'High', status:'Resolved', assigneeName:'Mike Chen', departmentName:'Cleaning', createdAt:'2024-03-05T10:00:00Z', dueAt:'2024-03-10T17:00:00Z', resolvedAt:'2024-03-09T14:00:00Z', isEscalated:false, createdByName:'Ron Costa' },
+                { id:'DEMO-003', ticketNumber:'YPC-2024-003', title:'Staff overtime request - weekend shift', category:'HR Issue', priority:'Medium', status:'Pending Approval', assigneeName:'Lisa Park', departmentName:'HR', createdAt:'2024-03-10T08:30:00Z', dueAt:'2024-03-15T17:00:00Z', resolvedAt:null, isEscalated:false, createdByName:'Team Lead' },
+                { id:'DEMO-004', ticketNumber:'YPC-2024-004', title:'Vacuum cleaner malfunction at client site', category:'Equipment Issue', priority:'High', status:'In Progress', assigneeName:'Tom Baker', departmentName:'Maintenance', createdAt:'2024-03-12T11:00:00Z', dueAt:'2024-03-14T17:00:00Z', resolvedAt:null, isEscalated:true, createdByName:'Site Manager' },
+                { id:'DEMO-005', ticketNumber:'YPC-2024-005', title:'Safety hazard report - wet floor near entrance', category:'Safety Concern', priority:'Critical', status:'Resolved', assigneeName:'Sarah Johnson', departmentName:'Support Services', createdAt:'2024-03-15T07:00:00Z', dueAt:'2024-03-15T12:00:00Z', resolvedAt:'2024-03-15T10:30:00Z', isEscalated:false, createdByName:'Staff Member' },
+                { id:'DEMO-006', ticketNumber:'YPC-2024-006', title:'Budget approval for new cleaning equipment', category:'Account Issue', priority:'Medium', status:'Open', assigneeName:'', departmentName:'Finance', createdAt:'2024-03-18T09:00:00Z', dueAt:'2024-03-25T17:00:00Z', resolvedAt:null, isEscalated:false, createdByName:'Department Head' },
+                { id:'DEMO-007', ticketNumber:'YPC-2024-007', title:'Monthly quality audit preparation', category:'Cleaning Quality', priority:'Low', status:'Closed', assigneeName:'Mike Chen', departmentName:'Cleaning', createdAt:'2024-03-20T08:00:00Z', dueAt:'2024-03-31T17:00:00Z', resolvedAt:'2024-03-28T15:00:00Z', isEscalated:false, createdByName:'Quality Manager' },
+                { id:'DEMO-008', ticketNumber:'YPC-2024-008', title:'New NDIS participant onboarding documentation', category:'NDIS Compliance', priority:'High', status:'In Progress', assigneeName:'Lisa Park', departmentName:'Compliance', createdAt:'2024-04-01T09:00:00Z', dueAt:'2024-04-07T17:00:00Z', resolvedAt:null, isEscalated:false, createdByName:'Coordinator' },
+                { id:'DEMO-009', ticketNumber:'YPC-2024-009', title:'Client feedback - service quality concern', category:'Client Issue', priority:'Medium', status:'Resolved', assigneeName:'Tom Baker', departmentName:'Support Services', createdAt:'2024-04-05T10:00:00Z', dueAt:'2024-04-10T17:00:00Z', resolvedAt:'2024-04-12T11:00:00Z', isEscalated:false, createdByName:'Admin' },
+                { id:'DEMO-010', ticketNumber:'YPC-2024-010', title:'HR policy update required for casual staff', category:'HR Issue', priority:'Low', status:'Open', assigneeName:'', departmentName:'HR', createdAt:'2024-04-08T14:00:00Z', dueAt:'2024-04-30T17:00:00Z', resolvedAt:null, isEscalated:false, createdByName:'HR Manager' },
+                { id:'DEMO-011', ticketNumber:'YPC-2024-011', title:'Fire extinguisher inspection overdue', category:'Safety Concern', priority:'High', status:'Open', assigneeName:'Tom Baker', departmentName:'Maintenance', createdAt:'2024-04-10T09:00:00Z', dueAt:'2024-04-15T17:00:00Z', resolvedAt:null, isEscalated:true, createdByName:'Safety Officer' },
+                { id:'DEMO-012', ticketNumber:'YPC-2024-012', title:'Invoice discrepancy - supplier payment', category:'Account Issue', priority:'High', status:'Resolved', assigneeName:'Sarah Johnson', departmentName:'Finance', createdAt:'2024-04-12T10:00:00Z', dueAt:'2024-04-16T17:00:00Z', resolvedAt:'2024-04-15T14:00:00Z', isEscalated:false, createdByName:'Finance Team' },
+                { id:'DEMO-013', ticketNumber:'YPC-2025-013', title:'NDIS plan review documentation missing', category:'NDIS Compliance', priority:'Critical', status:'Escalated', assigneeName:'Lisa Park', departmentName:'Compliance', createdAt:'2025-01-10T08:00:00Z', dueAt:'2025-01-14T17:00:00Z', resolvedAt:null, isEscalated:true, createdByName:'Coordinator' },
+                { id:'DEMO-014', ticketNumber:'YPC-2025-014', title:'Cleaning equipment replacement request', category:'Equipment Issue', priority:'Medium', status:'Resolved', assigneeName:'Mike Chen', departmentName:'Cleaning', createdAt:'2025-01-15T09:00:00Z', dueAt:'2025-01-22T17:00:00Z', resolvedAt:'2025-01-20T11:00:00Z', isEscalated:false, createdByName:'Team Lead' },
+                { id:'DEMO-015', ticketNumber:'YPC-2025-015', title:'Staff performance review scheduling', category:'HR Issue', priority:'Medium', status:'In Progress', assigneeName:'Sarah Johnson', departmentName:'HR', createdAt:'2025-02-01T09:00:00Z', dueAt:'2025-02-28T17:00:00Z', resolvedAt:null, isEscalated:false, createdByName:'HR Manager' },
+                { id:'DEMO-016', ticketNumber:'YPC-2025-016', title:'Deep clean service complaint', category:'Cleaning Quality', priority:'High', status:'Resolved', assigneeName:'Mike Chen', departmentName:'Cleaning', createdAt:'2025-02-10T10:00:00Z', dueAt:'2025-02-14T17:00:00Z', resolvedAt:'2025-02-13T15:00:00Z', isEscalated:false, createdByName:'Client Services' },
+                { id:'DEMO-017', ticketNumber:'YPC-2026-017', title:'Participant incident report - minor fall', category:'Safety Concern', priority:'Critical', status:'Open', assigneeName:'Tom Baker', departmentName:'Support Services', createdAt:'2026-05-01T08:00:00Z', dueAt:'2026-05-02T17:00:00Z', resolvedAt:null, isEscalated:true, createdByName:'Support Worker' },
+                { id:'DEMO-018', ticketNumber:'YPC-2026-018', title:'NDIS SIL funding documentation', category:'NDIS Compliance', priority:'High', status:'In Progress', assigneeName:'Lisa Park', departmentName:'Compliance', createdAt:'2026-05-05T09:00:00Z', dueAt:'2026-05-12T17:00:00Z', resolvedAt:null, isEscalated:false, createdByName:'Plan Manager' },
+                { id:'DEMO-019', ticketNumber:'YPC-2026-019', title:'Client billing query resolution', category:'Account Issue', priority:'Medium', status:'Resolved', assigneeName:'Sarah Johnson', departmentName:'Finance', createdAt:'2026-05-08T10:00:00Z', dueAt:'2026-05-12T17:00:00Z', resolvedAt:'2026-05-10T14:00:00Z', isEscalated:false, createdByName:'Finance Team' },
+                { id:'DEMO-020', ticketNumber:'YPC-2026-020', title:'SOP creation for new client intake', category:'Other', priority:'Medium', status:'Open', assigneeName:'', departmentName:'Administration', createdAt:'2026-06-01T09:00:00Z', dueAt:'2026-06-15T17:00:00Z', resolvedAt:null, isEscalated:false, createdByName:'Admin Manager' },
+            ];
+
             // ── state ──────────────────────────────────────────────────────────
-            const [tickets,    setTickets]    = React.useState([]);
-            const [users,      setUsers]      = React.useState([]);
-            const [loading,    setLoading]    = React.useState(true);
-            const [exporting,  setExporting]  = React.useState(false);
-            const [sending,    setSending]    = React.useState(false);
-            const [toast,      setToast]      = React.useState(null);
+            const [apiTickets,  setApiTickets]  = React.useState([]);
+            const [loading,     setLoading]     = React.useState(true);
+            const [exporting,   setExporting]   = React.useState(false);
+            const [sending,     setSending]     = React.useState(false);
+            const [toast,       setToast]       = React.useState(null);
 
-            // form state
-            const [reportType,    setReportType]    = React.useState('ticket_summary');
-            const [period,        setPeriod]        = React.useState('all_time');
-            const [dateFrom,      setDateFrom]      = React.useState('');
-            const [dateTo,        setDateTo]        = React.useState('');
-            const [categoryFilter,setCategoryFilter]= React.useState('all');
-            const [priorityFilter,setPriorityFilter]= React.useState('all');
-            const [emailTo,       setEmailTo]       = React.useState('');
-            const [emailSubject,  setEmailSubject]  = React.useState('');
+            // filters
+            const [reportType,     setReportType]     = React.useState('ticket_summary');
+            const [period,         setPeriod]         = React.useState('all_time');
+            const [dateFrom,       setDateFrom]       = React.useState('');
+            const [dateTo,         setDateTo]         = React.useState('');
+            const [categoryFilter, setCategoryFilter] = React.useState('all');
+            const [priorityFilter, setPriorityFilter] = React.useState('all');
+            const [emailTo,        setEmailTo]        = React.useState('');
+            const [emailSubject,   setEmailSubject]   = React.useState('');
+            const [useDummy,       setUseDummy]       = React.useState(false);
 
-            // scheduled jobs list (stored in localStorage for demo)
-            const [schedules, setSchedules] = React.useState(() => {
-                try { return JSON.parse(localStorage.getItem('yc_schedules') || '[]'); } catch(e) { return []; }
-            });
-            const [showScheduleModal, setShowScheduleModal] = React.useState(false);
-            const [schedFreq,  setSchedFreq]  = React.useState('weekly');
-            const [schedDay,   setSchedDay]   = React.useState('Monday');
-            const [schedTime,  setSchedTime]  = React.useState('08:00');
-            const [schedEmail, setSchedEmail] = React.useState('');
+            // schedule modal
+            const [schedules,         setSchedules]         = React.useState(() => { try { return JSON.parse(localStorage.getItem('yc_schedules')||'[]'); } catch(e){return[];} });
+            const [showSchedModal,    setShowSchedModal]    = React.useState(false);
+            const [schedReportType,   setSchedReportType]   = React.useState('ticket_summary');
+            const [schedFreq,         setSchedFreq]         = React.useState('weekly');
+            const [schedDay,          setSchedDay]          = React.useState('Monday');
+            const [schedTime,         setSchedTime]         = React.useState('08:00');
+            const [schedEmail,        setSchedEmail]        = React.useState('');
+            const [schedPeriod,       setSchedPeriod]       = React.useState('last_30');
 
-            // ── fetch data ─────────────────────────────────────────────────────
+            // ── fetch tickets ──────────────────────────────────────────────────
             React.useEffect(() => {
-                const scopeP = cu ? (cu.positionType === 'bootstrap_admin' || cu.positionType === 'admin'
-                    ? '' : `&dept_id=${cu.deptId || ''}&user_id=${cu.id || ''}`) : '';
-                Promise.all([
-                    fetch(`${BACKEND}/tickets?limit=1000${scopeP}`).then(r=>r.json()).catch(()=>({tickets:[]})),
-                    fetch(`${BACKEND}/users?limit=500${scopeP}`).then(r=>r.json()).catch(()=>({users:[]})),
-                ]).then(([td, ud]) => {
-                    setTickets(Array.isArray(td.tickets) ? td.tickets : []);
-                    setUsers(Array.isArray(ud.users) ? ud.users : []);
-                }).finally(() => setLoading(false));
+                const scopeP = (cu && cu.positionType !== 'bootstrap_admin' && cu.positionType !== 'admin')
+                    ? `&dept_id=${cu.deptId||''}&user_id=${cu.id||''}` : '';
+                fetch(`${BACKEND}/tickets?limit=2000${scopeP}`)
+                    .then(r => r.ok ? r.json() : {tickets:[]})
+                    .then(d => setApiTickets(Array.isArray(d.tickets) ? d.tickets : []))
+                    .catch(() => setApiTickets([]))
+                    .finally(() => setLoading(false));
             }, []);
+
+            // ── merge API + dummy ──────────────────────────────────────────────
+            const allTickets = React.useMemo(() => {
+                const api = apiTickets.map(t => ({...t, _source:'api'}));
+                const dummy = useDummy ? DUMMY_TICKETS.map(t => ({...t, _source:'demo'})) : [];
+                // deduplicate: prefer API tickets; dummy only fills if API returns < 5
+                return api.length > 0 ? [...api, ...(useDummy ? dummy : [])] : dummy;
+            }, [apiTickets, useDummy]);
+
+            // ── dynamic categories from actual data ────────────────────────────
+            const dynamicCategories = React.useMemo(() => {
+                const cats = new Set();
+                allTickets.forEach(t => { if (t.category) cats.add(t.category); });
+                return ['all', ...Array.from(cats).sort()];
+            }, [allTickets]);
 
             const showToast = (msg, type='success') => {
                 setToast({msg, type});
-                setTimeout(() => setToast(null), 3500);
+                setTimeout(() => setToast(null), 4000);
             };
 
-            // ── date filter helper ─────────────────────────────────────────────
+            // ── date filter ────────────────────────────────────────────────────
             const getDateRange = () => {
+                if (period === 'all_time') return { from: null, to: null };
+                if (period === 'custom')   return { from: dateFrom ? new Date(dateFrom+'T00:00:00') : null, to: dateTo ? new Date(dateTo+'T23:59:59') : null };
                 const now = new Date();
-                const to = new Date(now); to.setHours(23,59,59,999);
-                let from = new Date(now);
-                if (period === 'all_time') { return { from: null, to: null }; }
-                else if (period === 'today')    { from.setHours(0,0,0,0); }
-                else if (period === 'last_7')   { from.setDate(from.getDate()-7); }
-                else if (period === 'last_30')  { from.setDate(from.getDate()-30); }
-                else if (period === 'last_90')  { from.setDate(from.getDate()-90); }
-                else if (period === 'last_year'){ from.setFullYear(from.getFullYear()-1); }
-                else if (period === 'custom')   { return { from: dateFrom ? new Date(dateFrom) : null, to: dateTo ? new Date(dateTo) : null }; }
+                const to  = new Date(now); to.setHours(23,59,59,999);
+                const from = new Date(now);
+                if (period === 'today')     from.setHours(0,0,0,0);
+                else if (period === 'last_7')   from.setDate(from.getDate()-7);
+                else if (period === 'last_30')  from.setDate(from.getDate()-30);
+                else if (period === 'last_90')  from.setDate(from.getDate()-90);
+                else if (period === 'last_6m')  from.setMonth(from.getMonth()-6);
+                else if (period === 'last_year')from.setFullYear(from.getFullYear()-1);
                 return { from, to };
             };
 
-            const filterByDate = (items, field='createdAt') => {
+            const applyFilters = (tickets) => {
                 const { from, to } = getDateRange();
-                if (!from && !to) return items;
-                return items.filter(t => {
-                    const d = new Date(t[field] || t.created_at || t.createdAt);
-                    if (from && d < from) return false;
-                    if (to   && d > to)   return false;
-                    return true;
-                });
+                let result = tickets;
+                // date filter
+                if (from || to) {
+                    result = result.filter(t => {
+                        const d = new Date(t.createdAt || t.created_at || 0);
+                        if (isNaN(d)) return true;
+                        if (from && d < from) return false;
+                        if (to   && d > to)   return false;
+                        return true;
+                    });
+                }
+                // category filter
+                if (categoryFilter !== 'all') {
+                    result = result.filter(t => (t.category||'').toLowerCase() === categoryFilter.toLowerCase());
+                }
+                // priority filter
+                if (priorityFilter !== 'all') {
+                    result = result.filter(t => (t.priority||'').toLowerCase() === priorityFilter.toLowerCase());
+                }
+                return result;
             };
 
-            // ── report builders ────────────────────────────────────────────────
+            // ── report type definitions ────────────────────────────────────────
             const REPORT_GROUPS = [
-                {
-                    group: 'General',
-                    types: [
-                        { id:'ticket_summary',     label:'Ticket Summary',         icon:'📊', desc:'Full ticket list — status, priority, category, assignee' },
-                        { id:'activity_log',       label:'Activity Log',           icon:'📋', desc:'All ticket events and status changes in the period' },
-                        { id:'open_aging',         label:'Open Tickets Aging',     icon:'🕐', desc:'How long open tickets have been waiting (by age bracket)' },
-                        { id:'monthly_trend',      label:'Monthly Trend',          icon:'📈', desc:'Month-by-month ticket volume and resolution counts' },
-                    ]
-                },
-                {
-                    group: 'Status & Priority',
-                    types: [
-                        { id:'overdue_tickets',    label:'Overdue Tickets',        icon:'⚠️',  desc:'All tickets past due date, with days overdue' },
-                        { id:'critical_urgent',    label:'Critical & Urgent',      icon:'🚨', desc:'Only Critical or Urgent priority tickets' },
-                        { id:'unassigned',         label:'Unassigned Tickets',     icon:'👤', desc:'Open tickets with no staff member assigned' },
-                        { id:'pending_approval',   label:'Pending Approval',       icon:'⏳', desc:'Tickets waiting for approval decision' },
-                        { id:'escalated',          label:'Escalation Report',      icon:'⬆️',  desc:'All escalated tickets with escalation details' },
-                        { id:'resolved_period',    label:'Resolved This Period',   icon:'✔️',  desc:'Tickets resolved within the selected time window' },
-                    ]
-                },
-                {
-                    group: 'Performance & SLA',
-                    types: [
-                        { id:'staff_performance',  label:'Staff Performance',      icon:'⭐', desc:'Assigned/resolved/overdue counts per staff member' },
-                        { id:'sla_compliance',     label:'SLA Compliance',         icon:'✅', desc:'On-time vs breached resolution analysis' },
-                        { id:'resolution_time',    label:'Resolution Time',        icon:'⏱️',  desc:'Average resolution time grouped by category and priority' },
-                        { id:'team_comparison',    label:'Team Comparison',        icon:'🔄', desc:'Department-level ticket metrics' },
-                        { id:'priority_analysis',  label:'Priority Analysis',      icon:'🎯', desc:'Breakdown by priority with aging and resolution rates' },
-                    ]
-                },
-                {
-                    group: 'Category Reports',
-                    types: [
-                        { id:'category_breakdown', label:'Category Breakdown',     icon:'📂', desc:'Ticket counts across all categories' },
-                        { id:'ndis_compliance',    label:'NDIS Compliance',        icon:'🏥', desc:'NDIS-related tickets — compliance and documentation issues' },
-                        { id:'client_issues',      label:'Client Issues',          icon:'👥', desc:'All client complaint and service request tickets' },
-                        { id:'hr_issues',          label:'HR Issues',              icon:'👔', desc:'Staff HR-related tickets (leave, overtime, disputes)' },
-                        { id:'safety_incidents',   label:'Safety & Incidents',     icon:'🦺', desc:'Safety concern and incident report tickets' },
-                        { id:'equipment_issues',   label:'Equipment Issues',       icon:'🔧', desc:'Equipment fault, request and maintenance tickets' },
-                        { id:'cleaning_quality',   label:'Cleaning Quality',       icon:'🧹', desc:'Cleaning quality audit and complaint tickets' },
-                        { id:'account_finance',    label:'Account & Finance',      icon:'💰', desc:'Account, billing and financial tickets' },
-                    ]
-                },
+                { group:'General', types:[
+                    { id:'ticket_summary',    label:'Ticket Summary',       icon:'📊' },
+                    { id:'activity_log',      label:'Activity Log',         icon:'📋' },
+                    { id:'open_aging',        label:'Open Tickets Aging',   icon:'🕐' },
+                    { id:'monthly_trend',     label:'Monthly Trend',        icon:'📈' },
+                ]},
+                { group:'Status & Priority', types:[
+                    { id:'overdue_tickets',   label:'Overdue Tickets',      icon:'⚠️'  },
+                    { id:'critical_urgent',   label:'Critical & Urgent',    icon:'🚨' },
+                    { id:'unassigned',        label:'Unassigned Tickets',   icon:'👤' },
+                    { id:'pending_approval',  label:'Pending Approval',     icon:'⏳' },
+                    { id:'escalated',         label:'Escalation Report',    icon:'⬆️'  },
+                    { id:'resolved_period',   label:'Resolved This Period', icon:'✔️'  },
+                ]},
+                { group:'Performance & SLA', types:[
+                    { id:'staff_performance', label:'Staff Performance',    icon:'⭐' },
+                    { id:'sla_compliance',    label:'SLA Compliance',       icon:'✅' },
+                    { id:'resolution_time',   label:'Resolution Time',      icon:'⏱️'  },
+                    { id:'team_comparison',   label:'Team Comparison',      icon:'🔄' },
+                    { id:'priority_analysis', label:'Priority Analysis',    icon:'🎯' },
+                ]},
+                { group:'Category Reports', types:[
+                    { id:'category_breakdown',label:'Category Breakdown',   icon:'📂' },
+                    { id:'ndis_compliance',   label:'NDIS Compliance',      icon:'🏥' },
+                    { id:'client_issues',     label:'Client Issues',        icon:'👥' },
+                    { id:'hr_issues',         label:'HR Issues',            icon:'👔' },
+                    { id:'safety_incidents',  label:'Safety & Incidents',   icon:'🦺' },
+                    { id:'equipment_issues',  label:'Equipment Issues',     icon:'🔧' },
+                    { id:'cleaning_quality',  label:'Cleaning Quality',     icon:'🧹' },
+                    { id:'account_finance',   label:'Account & Finance',    icon:'💰' },
+                ]},
             ];
             const REPORT_TYPES = REPORT_GROUPS.flatMap(g => g.types);
 
-            const buildSheetData = () => {
+            // ── build report rows ──────────────────────────────────────────────
+            const buildReport = (overrideType) => {
+                const rType = overrideType || reportType;
+                const filtered = applyFilters(allTickets);
                 const now = new Date();
-                // apply date + category + priority filters
-                let filtered = filterByDate(tickets);
-                if (categoryFilter !== 'all') {
-                    filtered = filtered.filter(t => (t.category||'').toLowerCase() === categoryFilter.toLowerCase());
-                }
-                if (priorityFilter !== 'all') {
-                    filtered = filtered.filter(t => (t.priority||'').toLowerCase() === priorityFilter.toLowerCase());
-                }
 
-                const isOD = t => !['Resolved','Closed'].includes(t.status) && t.dueAt && new Date(t.dueAt) < now;
-                const ageDays = t => Math.ceil((now - new Date(t.createdAt || t.created_at || now)) / 86400000);
-                const resDays = t => (t.resolvedAt && t.createdAt)
-                    ? Math.ceil((new Date(t.resolvedAt) - new Date(t.createdAt)) / 86400000) : null;
-                const catFilter = (cat) => filtered.filter(t => (t.category||'').toLowerCase().includes(cat.toLowerCase()));
-                const baseRow = t => [
-                    t.ticketNumber || t.id || '',
-                    t.title || '',
-                    t.status || '',
-                    t.priority || '',
-                    t.category || '',
-                    t.assigneeName || t.assigned_to_name || '',
-                    t.departmentName || t.department_name || '',
-                    t.createdAt ? new Date(t.createdAt).toLocaleDateString() : '',
-                    t.dueAt ? new Date(t.dueAt).toLocaleDateString() : '',
-                    t.resolvedAt ? new Date(t.resolvedAt).toLocaleDateString() : '',
+                const isOD  = t => !['Resolved','Closed'].includes(t.status) && t.dueAt && new Date(t.dueAt) < now;
+                const ageDays = t => { const d = new Date(t.createdAt||t.created_at||now); return isNaN(d)?0:Math.ceil((now-d)/86400000); };
+                const resDays = t => (t.resolvedAt && (t.createdAt||t.created_at))
+                    ? Math.ceil((new Date(t.resolvedAt)-new Date(t.createdAt||t.created_at))/86400000) : null;
+
+                const baseH = ['Ticket ID','Title','Status','Priority','Category','Assignee','Department','Created Date','Due Date','Resolved Date'];
+                const baseR = t => [
+                    t.ticketNumber||t.id||'',
+                    t.title||'',
+                    t.status||'',
+                    t.priority||'',
+                    t.category||'',
+                    t.assigneeName||t.assigned_to_name||'',
+                    t.departmentName||t.department_name||'',
+                    t.createdAt ? new Date(t.createdAt).toLocaleDateString('en-AU') : '',
+                    t.dueAt    ? new Date(t.dueAt).toLocaleDateString('en-AU')    : '',
+                    t.resolvedAt ? new Date(t.resolvedAt).toLocaleDateString('en-AU') : '',
                 ];
-                const baseHeaders = ['Ticket ID','Title','Status','Priority','Category','Assignee','Department','Created','Due Date','Resolved'];
 
-                // ── General ───────────────────────────────────────────────────
-                if (reportType === 'ticket_summary') {
-                    return { title:'Ticket Summary', headers: [...baseHeaders, 'Created By', 'NDIS Related', 'Escalated'],
-                        rows: filtered.map(t => [...baseRow(t),
-                            t.createdByName || t.created_by_name || '',
-                            (t.ndisRelated || t.ndis_related) ? 'Yes' : 'No',
-                            t.isEscalated ? 'Yes' : 'No',
-                        ])};
+                if (rType === 'ticket_summary') {
+                    return { title:'Ticket Summary', headers:[...baseH,'Created By','NDIS Related','Escalated','Age (days)'],
+                        rows: filtered.map(t=>[...baseR(t), t.createdByName||t.created_by_name||'', (t.ndisRelated||t.ndis_related)?'Yes':'No', t.isEscalated?'Yes':'No', ageDays(t)]) };
                 }
-
-                if (reportType === 'activity_log') {
-                    return { title:'Activity Log', headers: [...baseHeaders, 'Created By', 'Last Updated', 'Age (days)'],
-                        rows: filtered.map(t => [...baseRow(t),
-                            t.createdByName || t.created_by_name || '',
-                            t.updatedAt ? new Date(t.updatedAt).toLocaleDateString() : '',
-                            ageDays(t),
-                        ])};
+                if (rType === 'activity_log') {
+                    return { title:'Activity Log', headers:[...baseH,'Created By','Last Updated','Age (days)'],
+                        rows: filtered.map(t=>[...baseR(t), t.createdByName||t.created_by_name||'', t.updatedAt?new Date(t.updatedAt).toLocaleDateString('en-AU'):'', ageDays(t)]) };
                 }
-
-                if (reportType === 'open_aging') {
-                    const open = filtered.filter(t => !['Resolved','Closed'].includes(t.status));
-                    const bracket = d => d <= 3 ? '0-3 days' : d <= 7 ? '4-7 days' : d <= 14 ? '8-14 days' : d <= 30 ? '15-30 days' : '30+ days';
-                    return { title:'Open Tickets Aging',
-                        headers: ['Ticket ID','Title','Status','Priority','Category','Assignee','Department','Created','Due Date','Age (days)','Age Bracket'],
-                        rows: open.map(t => { const d = ageDays(t); return [
-                            t.ticketNumber||t.id||'', t.title||'', t.status||'', t.priority||'',
-                            t.category||'', t.assigneeName||t.assigned_to_name||'', t.departmentName||t.department_name||'',
-                            t.createdAt ? new Date(t.createdAt).toLocaleDateString() : '',
-                            t.dueAt ? new Date(t.dueAt).toLocaleDateString() : '',
-                            d, bracket(d),
-                        ]; }).sort((a,b) => b[9]-a[9])};
+                if (rType === 'open_aging') {
+                    const open = filtered.filter(t=>!['Resolved','Closed'].includes(t.status));
+                    const bracket = d => d<=3?'0–3 days':d<=7?'4–7 days':d<=14?'8–14 days':d<=30?'15–30 days':'30+ days';
+                    return { title:'Open Tickets Aging', headers:['Ticket ID','Title','Status','Priority','Category','Assignee','Department','Created Date','Due Date','Age (days)','Age Bracket','Overdue'],
+                        rows: open.map(t=>{ const d=ageDays(t); return [t.ticketNumber||t.id||'',t.title||'',t.status||'',t.priority||'',t.category||'',t.assigneeName||t.assigned_to_name||'',t.departmentName||t.department_name||'',t.createdAt?new Date(t.createdAt).toLocaleDateString('en-AU'):'',t.dueAt?new Date(t.dueAt).toLocaleDateString('en-AU'):'',d,bracket(d),isOD(t)?'Yes':'No']; }).sort((a,b)=>b[9]-a[9]) };
                 }
-
-                if (reportType === 'monthly_trend') {
+                if (rType === 'monthly_trend') {
                     const map = {};
-                    filtered.forEach(t => {
-                        const d = new Date(t.createdAt || t.created_at);
-                        if (isNaN(d)) return;
-                        const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-                        if (!map[key]) map[key] = { created:0, resolved:0, escalated:0, overdue:0 };
-                        map[key].created++;
-                        if (['Resolved','Closed'].includes(t.status)) map[key].resolved++;
-                        if (t.isEscalated) map[key].escalated++;
-                        if (isOD(t)) map[key].overdue++;
-                    });
-                    return { title:'Monthly Trend',
-                        headers: ['Month','Created','Resolved','Escalated','Overdue','Resolution Rate %'],
-                        rows: Object.entries(map).sort().map(([m,v]) => [
-                            m, v.created, v.resolved, v.escalated, v.overdue,
-                            v.created > 0 ? ((v.resolved/v.created)*100).toFixed(1) : '0.0',
-                        ])};
+                    allTickets.forEach(t=>{ const d=new Date(t.createdAt||t.created_at); if(isNaN(d))return; const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; if(!map[k])map[k]={created:0,resolved:0,escalated:0,overdue:0}; map[k].created++; if(['Resolved','Closed'].includes(t.status))map[k].resolved++; if(t.isEscalated)map[k].escalated++; if(isOD(t))map[k].overdue++; });
+                    return { title:'Monthly Trend', headers:['Month','Total Created','Resolved','Escalated','Overdue','Resolution Rate %'],
+                        rows: Object.entries(map).sort().map(([m,v])=>[m,v.created,v.resolved,v.escalated,v.overdue,v.created>0?((v.resolved/v.created)*100).toFixed(1):'0.0']) };
                 }
-
-                // ── Status & Priority ─────────────────────────────────────────
-                if (reportType === 'overdue_tickets') {
+                if (rType === 'overdue_tickets') {
                     const od = filtered.filter(isOD);
-                    return { title:'Overdue Tickets',
-                        headers: ['Ticket ID','Title','Status','Priority','Category','Assignee','Department','Due Date','Days Overdue','Escalated'],
-                        rows: od.map(t => {
-                            const days = Math.ceil((now - new Date(t.dueAt)) / 86400000);
-                            return [t.ticketNumber||t.id||'', t.title||'', t.status||'', t.priority||'',
-                                t.category||'', t.assigneeName||t.assigned_to_name||'', t.departmentName||t.department_name||'',
-                                new Date(t.dueAt).toLocaleDateString(), days, t.isEscalated ? 'Yes' : 'No'];
-                        }).sort((a,b) => b[8]-a[8])};
+                    return { title:'Overdue Tickets', headers:['Ticket ID','Title','Status','Priority','Category','Assignee','Department','Due Date','Days Overdue','Escalated'],
+                        rows: od.map(t=>{ const days=Math.ceil((now-new Date(t.dueAt))/86400000); return [t.ticketNumber||t.id||'',t.title||'',t.status||'',t.priority||'',t.category||'',t.assigneeName||t.assigned_to_name||'',t.departmentName||t.department_name||'',new Date(t.dueAt).toLocaleDateString('en-AU'),days,t.isEscalated?'Yes':'No']; }).sort((a,b)=>b[8]-a[8]) };
                 }
-
-                if (reportType === 'critical_urgent') {
-                    const hi = filtered.filter(t => ['Critical','Urgent'].includes(t.priority));
-                    return { title:'Critical & Urgent Tickets',
-                        headers: [...baseHeaders, 'Age (days)', 'Overdue', 'Escalated'],
-                        rows: hi.map(t => [...baseRow(t), ageDays(t), isOD(t)?'Yes':'No', t.isEscalated?'Yes':'No'])
-                            .sort((a,b) => (b[11]==='Yes') - (a[11]==='Yes'))};
+                if (rType === 'critical_urgent') {
+                    const hi = filtered.filter(t=>['Critical','Urgent'].includes(t.priority));
+                    return { title:'Critical & Urgent Tickets', headers:[...baseH,'Age (days)','Overdue','Escalated'],
+                        rows: hi.map(t=>[...baseR(t),ageDays(t),isOD(t)?'Yes':'No',t.isEscalated?'Yes':'No']) };
                 }
-
-                if (reportType === 'unassigned') {
-                    const ua = filtered.filter(t => !t.assigneeName && !t.assigned_to_name && !['Resolved','Closed'].includes(t.status));
-                    return { title:'Unassigned Tickets',
-                        headers: ['Ticket ID','Title','Status','Priority','Category','Department','Created','Due Date','Age (days)'],
-                        rows: ua.map(t => [t.ticketNumber||t.id||'', t.title||'', t.status||'', t.priority||'',
-                            t.category||'', t.departmentName||t.department_name||'',
-                            t.createdAt ? new Date(t.createdAt).toLocaleDateString() : '',
-                            t.dueAt ? new Date(t.dueAt).toLocaleDateString() : '', ageDays(t)])
-                            .sort((a,b) => b[8]-a[8])};
+                if (rType === 'unassigned') {
+                    const ua = filtered.filter(t=>!t.assigneeName&&!t.assigned_to_name&&!['Resolved','Closed'].includes(t.status));
+                    return { title:'Unassigned Tickets', headers:['Ticket ID','Title','Status','Priority','Category','Department','Created Date','Due Date','Age (days)','Overdue'],
+                        rows: ua.map(t=>[t.ticketNumber||t.id||'',t.title||'',t.status||'',t.priority||'',t.category||'',t.departmentName||t.department_name||'',t.createdAt?new Date(t.createdAt).toLocaleDateString('en-AU'):'',t.dueAt?new Date(t.dueAt).toLocaleDateString('en-AU'):'',ageDays(t),isOD(t)?'Yes':'No']).sort((a,b)=>b[8]-a[8]) };
                 }
-
-                if (reportType === 'pending_approval') {
-                    const pa = filtered.filter(t => t.status === 'Pending Approval');
-                    return { title:'Pending Approval',
-                        headers: [...baseHeaders, 'Created By', 'Age (days)', 'Waiting Since'],
-                        rows: pa.map(t => [...baseRow(t),
-                            t.createdByName||t.created_by_name||'', ageDays(t),
-                            t.updatedAt ? new Date(t.updatedAt).toLocaleDateString() : ''])};
+                if (rType === 'pending_approval') {
+                    const pa = filtered.filter(t=>t.status==='Pending Approval');
+                    return { title:'Pending Approval', headers:[...baseH,'Created By','Age (days)'],
+                        rows: pa.map(t=>[...baseR(t),t.createdByName||t.created_by_name||'',ageDays(t)]) };
                 }
-
-                if (reportType === 'escalated') {
-                    const esc = filtered.filter(t => t.isEscalated || t.status === 'Escalated');
-                    return { title:'Escalation Report',
-                        headers: [...baseHeaders, 'Escalated By', 'Escalated To', 'Escalation Reason', 'Age (days)'],
-                        rows: esc.map(t => [...baseRow(t),
-                            t.escalatedByName || '', t.escalatedToName || '',
-                            t.escalationReason || t.escalate_reason || '', ageDays(t)])};
+                if (rType === 'escalated') {
+                    const esc = filtered.filter(t=>t.isEscalated||t.status==='Escalated');
+                    return { title:'Escalation Report', headers:[...baseH,'Escalated By','Escalation Reason','Age (days)'],
+                        rows: esc.map(t=>[...baseR(t),t.escalatedByName||'',t.escalationReason||t.escalate_reason||'',ageDays(t)]) };
                 }
-
-                if (reportType === 'resolved_period') {
-                    const res = filtered.filter(t => ['Resolved','Closed'].includes(t.status));
-                    return { title:'Resolved This Period',
-                        headers: [...baseHeaders, 'Created By', 'Resolution Days', 'SLA Met'],
-                        rows: res.map(t => {
-                            const rd = resDays(t);
-                            const due = t.dueAt ? new Date(t.dueAt) : null;
-                            const resDate = t.resolvedAt ? new Date(t.resolvedAt) : null;
-                            return [...baseRow(t),
-                                t.createdByName||t.created_by_name||'',
-                                rd !== null ? rd : '',
-                                due && resDate ? (resDate <= due ? 'Yes' : 'No') : 'N/A'];
-                        })};
+                if (rType === 'resolved_period') {
+                    const res = filtered.filter(t=>['Resolved','Closed'].includes(t.status));
+                    return { title:'Resolved This Period', headers:[...baseH,'Created By','Resolution Days','SLA Met'],
+                        rows: res.map(t=>{ const rd=resDays(t); const due=t.dueAt?new Date(t.dueAt):null; const resDate=t.resolvedAt?new Date(t.resolvedAt):null; return [...baseR(t),t.createdByName||t.created_by_name||'',rd!==null?rd:'N/A',due&&resDate?(resDate<=due?'Yes':'No'):'N/A']; }) };
                 }
-
-                // ── Performance & SLA ─────────────────────────────────────────
-                if (reportType === 'staff_performance') {
+                if (rType === 'staff_performance') {
                     const map = {};
-                    filtered.forEach(t => {
-                        const name = t.assigneeName || t.assigned_to_name || 'Unassigned';
-                        if (!map[name]) map[name] = { assigned:0, resolved:0, inprog:0, pending:0, overdue:0, totalDays:0, resCnt:0 };
-                        map[name].assigned++;
-                        if (['Resolved','Closed'].includes(t.status)) { map[name].resolved++; const rd = resDays(t); if(rd!==null){map[name].totalDays+=rd; map[name].resCnt++;} }
-                        if (t.status === 'In Progress') map[name].inprog++;
-                        if (t.status === 'Pending Approval') map[name].pending++;
-                        if (isOD(t)) map[name].overdue++;
-                    });
-                    return { title:'Staff Performance',
-                        headers: ['Staff Member','Total Assigned','Resolved','In Progress','Pending Approval','Overdue','Resolution Rate %','Avg Resolution Days'],
-                        rows: Object.entries(map).sort((a,b)=>b[1].assigned-a[1].assigned).map(([name,v]) => [
-                            name, v.assigned, v.resolved, v.inprog, v.pending, v.overdue,
-                            v.assigned > 0 ? ((v.resolved/v.assigned)*100).toFixed(1) : '0.0',
-                            v.resCnt > 0 ? (v.totalDays/v.resCnt).toFixed(1) : 'N/A',
-                        ])};
+                    filtered.forEach(t=>{ const n=t.assigneeName||t.assigned_to_name||'Unassigned'; if(!map[n])map[n]={dept:t.departmentName||t.department_name||'',total:0,resolved:0,inprog:0,pending:0,overdue:0,totalDays:0,resCnt:0}; map[n].total++; if(['Resolved','Closed'].includes(t.status)){map[n].resolved++;const rd=resDays(t);if(rd!==null){map[n].totalDays+=rd;map[n].resCnt++;}} if(t.status==='In Progress')map[n].inprog++; if(t.status==='Pending Approval')map[n].pending++; if(isOD(t))map[n].overdue++; });
+                    return { title:'Staff Performance', headers:['Staff Member','Department','Total Assigned','Resolved','In Progress','Pending','Overdue','Resolution Rate %','Avg Resolution Days'],
+                        rows: Object.entries(map).sort((a,b)=>b[1].total-a[1].total).map(([n,v])=>[n,v.dept,v.total,v.resolved,v.inprog,v.pending,v.overdue,v.total>0?((v.resolved/v.total)*100).toFixed(1):'0.0',v.resCnt>0?(v.totalDays/v.resCnt).toFixed(1):'N/A']) };
                 }
-
-                if (reportType === 'sla_compliance') {
-                    const res = filtered.filter(t => ['Resolved','Closed'].includes(t.status));
-                    const onTime = res.filter(t => t.resolvedAt && t.dueAt && new Date(t.resolvedAt) <= new Date(t.dueAt)).length;
-                    return { title:'SLA Compliance',
-                        headers: ['Ticket ID','Title','Category','Priority','Due Date','Resolved Date','SLA Status','Days Difference','Assignee'],
-                        rows: res.map(t => {
-                            const due = t.dueAt ? new Date(t.dueAt) : null;
-                            const resDate = t.resolvedAt ? new Date(t.resolvedAt) : null;
-                            const diff = due && resDate ? Math.ceil((resDate-due)/86400000) : null;
-                            return [t.ticketNumber||t.id||'', t.title||'', t.category||'', t.priority||'',
-                                due ? due.toLocaleDateString() : '',
-                                resDate ? resDate.toLocaleDateString() : '',
-                                due && resDate ? (resDate <= due ? 'On Time' : 'Breached') : 'N/A',
-                                diff !== null ? diff : '',
-                                t.assigneeName||t.assigned_to_name||''];
-                        })};
+                if (rType === 'sla_compliance') {
+                    const res = filtered.filter(t=>['Resolved','Closed'].includes(t.status));
+                    return { title:'SLA Compliance', headers:['Ticket ID','Title','Category','Priority','Due Date','Resolved Date','SLA Status','Days Difference','Assignee','Department'],
+                        rows: res.map(t=>{ const due=t.dueAt?new Date(t.dueAt):null; const resDate=t.resolvedAt?new Date(t.resolvedAt):null; const diff=due&&resDate?Math.ceil((resDate-due)/86400000):null; return [t.ticketNumber||t.id||'',t.title||'',t.category||'',t.priority||'',due?due.toLocaleDateString('en-AU'):'',resDate?resDate.toLocaleDateString('en-AU'):'',due&&resDate?(resDate<=due?'On Time':'Breached'):'N/A',diff!==null?diff:'N/A',t.assigneeName||t.assigned_to_name||'',t.departmentName||t.department_name||'']; }) };
                 }
-
-                if (reportType === 'resolution_time') {
+                if (rType === 'resolution_time') {
                     const map = {};
-                    filtered.filter(t => ['Resolved','Closed'].includes(t.status) && resDays(t) !== null).forEach(t => {
-                        const key = `${t.category||'Unknown'} | ${t.priority||'Unknown'}`;
-                        if (!map[key]) map[key] = { count:0, total:0, min:9999, max:0 };
-                        const d = resDays(t);
-                        map[key].count++; map[key].total+=d;
-                        if(d < map[key].min) map[key].min = d;
-                        if(d > map[key].max) map[key].max = d;
-                    });
-                    return { title:'Resolution Time Analysis',
-                        headers: ['Category','Priority','Tickets Resolved','Avg Days','Min Days','Max Days'],
-                        rows: Object.entries(map).sort((a,b)=>b[1].total/b[1].count - a[1].total/a[1].count).map(([key,v]) => {
-                            const [cat, pri] = key.split(' | ');
-                            return [cat, pri, v.count, (v.total/v.count).toFixed(1), v.min, v.max];
-                        })};
+                    filtered.filter(t=>['Resolved','Closed'].includes(t.status)&&resDays(t)!==null).forEach(t=>{ const k=`${t.category||'Unknown'}|||${t.priority||'Unknown'}`; if(!map[k])map[k]={cat:t.category||'Unknown',pri:t.priority||'Unknown',count:0,total:0,min:9999,max:0}; const d=resDays(t); map[k].count++;map[k].total+=d;if(d<map[k].min)map[k].min=d;if(d>map[k].max)map[k].max=d; });
+                    return { title:'Resolution Time Analysis', headers:['Category','Priority','Resolved Count','Avg Days','Min Days','Max Days'],
+                        rows: Object.values(map).sort((a,b)=>(b.total/b.count)-(a.total/a.count)).map(v=>[v.cat,v.pri,v.count,(v.total/v.count).toFixed(1),v.min,v.max]) };
                 }
-
-                if (reportType === 'team_comparison') {
+                if (rType === 'team_comparison') {
                     const map = {};
-                    filtered.forEach(t => {
-                        const dept = t.departmentName || t.department_name || 'Unknown';
-                        if (!map[dept]) map[dept] = { total:0, open:0, resolved:0, escalated:0, overdue:0, pending:0, totalDays:0, resCnt:0 };
-                        map[dept].total++;
-                        if (['New','Open','Assigned','In Progress'].includes(t.status)) map[dept].open++;
-                        if (['Resolved','Closed'].includes(t.status)) { map[dept].resolved++; const rd=resDays(t); if(rd!==null){map[dept].totalDays+=rd;map[dept].resCnt++;} }
-                        if (t.isEscalated) map[dept].escalated++;
-                        if (isOD(t)) map[dept].overdue++;
-                        if (t.status === 'Pending Approval') map[dept].pending++;
-                    });
-                    return { title:'Team Comparison',
-                        headers: ['Department','Total','Open','Resolved','Escalated','Overdue','Pending Approval','Avg Resolution Days'],
-                        rows: Object.entries(map).sort((a,b)=>b[1].total-a[1].total).map(([dept,v]) => [
-                            dept, v.total, v.open, v.resolved, v.escalated, v.overdue, v.pending,
-                            v.resCnt > 0 ? (v.totalDays/v.resCnt).toFixed(1) : 'N/A',
-                        ])};
+                    filtered.forEach(t=>{ const d=t.departmentName||t.department_name||'Unknown'; if(!map[d])map[d]={total:0,open:0,resolved:0,escalated:0,overdue:0,pending:0,totalDays:0,resCnt:0}; map[d].total++; if(['New','Open','Assigned','In Progress'].includes(t.status))map[d].open++; if(['Resolved','Closed'].includes(t.status)){map[d].resolved++;const rd=resDays(t);if(rd!==null){map[d].totalDays+=rd;map[d].resCnt++;}} if(t.isEscalated)map[d].escalated++; if(isOD(t))map[d].overdue++; if(t.status==='Pending Approval')map[d].pending++; });
+                    return { title:'Team Comparison', headers:['Department','Total','Open','Resolved','Escalated','Overdue','Pending Approval','Resolution Rate %','Avg Resolution Days'],
+                        rows: Object.entries(map).sort((a,b)=>b[1].total-a[1].total).map(([d,v])=>[d,v.total,v.open,v.resolved,v.escalated,v.overdue,v.pending,v.total>0?((v.resolved/v.total)*100).toFixed(1):'0.0',v.resCnt>0?(v.totalDays/v.resCnt).toFixed(1):'N/A']) };
                 }
-
-                if (reportType === 'priority_analysis') {
+                if (rType === 'priority_analysis') {
                     const map = {};
-                    filtered.forEach(t => {
-                        const p = t.priority || 'Unknown';
-                        if (!map[p]) map[p] = { total:0, open:0, resolved:0, overdue:0, escalated:0, totalDays:0, resCnt:0 };
-                        map[p].total++;
-                        if (!['Resolved','Closed'].includes(t.status)) map[p].open++;
-                        if (['Resolved','Closed'].includes(t.status)) { map[p].resolved++; const rd=resDays(t); if(rd!==null){map[p].totalDays+=rd;map[p].resCnt++;} }
-                        if (isOD(t)) map[p].overdue++;
-                        if (t.isEscalated) map[p].escalated++;
-                    });
-                    const order = ['Critical','Urgent','High','Medium','Low','Unknown'];
-                    return { title:'Priority Analysis',
-                        headers: ['Priority','Total','Open','Resolved','Overdue','Escalated','Resolution Rate %','Avg Resolution Days'],
-                        rows: order.filter(p => map[p]).map(p => { const v = map[p]; return [
-                            p, v.total, v.open, v.resolved, v.overdue, v.escalated,
-                            v.total > 0 ? ((v.resolved/v.total)*100).toFixed(1) : '0.0',
-                            v.resCnt > 0 ? (v.totalDays/v.resCnt).toFixed(1) : 'N/A',
-                        ]; })};
+                    filtered.forEach(t=>{ const p=t.priority||'Unknown'; if(!map[p])map[p]={total:0,open:0,resolved:0,overdue:0,escalated:0,totalDays:0,resCnt:0}; map[p].total++; if(!['Resolved','Closed'].includes(t.status))map[p].open++; if(['Resolved','Closed'].includes(t.status)){map[p].resolved++;const rd=resDays(t);if(rd!==null){map[p].totalDays+=rd;map[p].resCnt++;}} if(isOD(t))map[p].overdue++; if(t.isEscalated)map[p].escalated++; });
+                    return { title:'Priority Analysis', headers:['Priority','Total','Open','Resolved','Overdue','Escalated','Resolution Rate %','Avg Resolution Days'],
+                        rows: ['Critical','Urgent','High','Medium','Low','Unknown'].filter(p=>map[p]).map(p=>{ const v=map[p]; return [p,v.total,v.open,v.resolved,v.overdue,v.escalated,v.total>0?((v.resolved/v.total)*100).toFixed(1):'0.0',v.resCnt>0?(v.totalDays/v.resCnt).toFixed(1):'N/A']; }) };
                 }
-
-                // ── Category Reports ──────────────────────────────────────────
-                if (reportType === 'category_breakdown') {
+                if (rType === 'category_breakdown') {
                     const map = {};
-                    filtered.forEach(t => {
-                        const cat = t.category || 'Uncategorised';
-                        if (!map[cat]) map[cat] = { total:0, open:0, resolved:0, overdue:0, escalated:0, critical:0, pending:0 };
-                        map[cat].total++;
-                        if (['New','Open','Assigned','In Progress'].includes(t.status)) map[cat].open++;
-                        if (['Resolved','Closed'].includes(t.status)) map[cat].resolved++;
-                        if (isOD(t)) map[cat].overdue++;
-                        if (t.isEscalated) map[cat].escalated++;
-                        if (['Critical','Urgent'].includes(t.priority)) map[cat].critical++;
-                        if (t.status === 'Pending Approval') map[cat].pending++;
-                    });
-                    return { title:'Category Breakdown',
-                        headers: ['Category','Total','Open','Resolved','Overdue','Escalated','Critical/Urgent','Pending Approval','Resolution Rate %'],
-                        rows: Object.entries(map).sort((a,b)=>b[1].total-a[1].total).map(([cat,v]) => [
-                            cat, v.total, v.open, v.resolved, v.overdue, v.escalated, v.critical, v.pending,
-                            v.total > 0 ? ((v.resolved/v.total)*100).toFixed(1) : '0.0',
-                        ])};
+                    filtered.forEach(t=>{ const c=t.category||'Uncategorised'; if(!map[c])map[c]={total:0,open:0,resolved:0,overdue:0,escalated:0,critical:0,pending:0}; map[c].total++; if(['New','Open','Assigned','In Progress'].includes(t.status))map[c].open++; if(['Resolved','Closed'].includes(t.status))map[c].resolved++; if(isOD(t))map[c].overdue++; if(t.isEscalated)map[c].escalated++; if(['Critical','Urgent'].includes(t.priority))map[c].critical++; if(t.status==='Pending Approval')map[c].pending++; });
+                    return { title:'Category Breakdown', headers:['Category','Total','Open','Resolved','Overdue','Escalated','Critical/Urgent','Pending Approval','Resolution Rate %'],
+                        rows: Object.entries(map).sort((a,b)=>b[1].total-a[1].total).map(([c,v])=>[c,v.total,v.open,v.resolved,v.overdue,v.escalated,v.critical,v.pending,v.total>0?((v.resolved/v.total)*100).toFixed(1):'0.0']) };
                 }
-
-                // Category-specific reports all share the same structure
-                const CAT_MAP = {
-                    ndis_compliance:  { label:'NDIS Compliance',    match: t => (t.category||'').toLowerCase().includes('ndis') },
-                    client_issues:    { label:'Client Issues',      match: t => (t.category||'').toLowerCase().includes('client') },
-                    hr_issues:        { label:'HR Issues',          match: t => (t.category||'').toLowerCase().includes('hr') },
-                    safety_incidents: { label:'Safety & Incidents', match: t => (t.category||'').toLowerCase().includes('safety') || (t.category||'').toLowerCase().includes('incident') },
-                    equipment_issues: { label:'Equipment Issues',   match: t => (t.category||'').toLowerCase().includes('equipment') },
-                    cleaning_quality: { label:'Cleaning Quality',   match: t => (t.category||'').toLowerCase().includes('cleaning') },
-                    account_finance:  { label:'Account & Finance',  match: t => (t.category||'').toLowerCase().includes('account') || (t.category||'').toLowerCase().includes('finance') || (t.category||'').toLowerCase().includes('billing') },
+                // Category-specific reports
+                const CAT_MATCH = {
+                    ndis_compliance:  { label:'NDIS Compliance',    fn: t=>(t.category||'').toLowerCase().includes('ndis') },
+                    client_issues:    { label:'Client Issues',      fn: t=>(t.category||'').toLowerCase().includes('client') },
+                    hr_issues:        { label:'HR Issues',          fn: t=>(t.category||'').toLowerCase().includes('hr') },
+                    safety_incidents: { label:'Safety & Incidents', fn: t=>(t.category||'').toLowerCase().includes('safety')||(t.category||'').toLowerCase().includes('incident') },
+                    equipment_issues: { label:'Equipment Issues',   fn: t=>(t.category||'').toLowerCase().includes('equipment') },
+                    cleaning_quality: { label:'Cleaning Quality',   fn: t=>(t.category||'').toLowerCase().includes('cleaning') },
+                    account_finance:  { label:'Account & Finance',  fn: t=>(t.category||'').toLowerCase().includes('account')||(t.category||'').toLowerCase().includes('financ')||(t.category||'').toLowerCase().includes('billing') },
                 };
-                if (CAT_MAP[reportType]) {
-                    const { label, match } = CAT_MAP[reportType];
-                    const subset = filtered.filter(match);
-                    return { title: label,
-                        headers: [...baseHeaders, 'Created By', 'Age (days)', 'Overdue', 'SLA Met'],
-                        rows: subset.map(t => {
-                            const due = t.dueAt ? new Date(t.dueAt) : null;
-                            const resDate = t.resolvedAt ? new Date(t.resolvedAt) : null;
-                            return [...baseRow(t),
-                                t.createdByName||t.created_by_name||'', ageDays(t),
-                                isOD(t) ? 'Yes' : 'No',
-                                due && resDate ? (resDate <= due ? 'Yes' : 'No') : 'N/A'];
-                        })};
+                if (CAT_MATCH[rType]) {
+                    const { label, fn } = CAT_MATCH[rType];
+                    const subset = filtered.filter(fn);
+                    return { title: label, headers:[...baseH,'Created By','Age (days)','Overdue','SLA Met'],
+                        rows: subset.map(t=>{ const due=t.dueAt?new Date(t.dueAt):null; const resDate=t.resolvedAt?new Date(t.resolvedAt):null; return [...baseR(t),t.createdByName||t.created_by_name||'',ageDays(t),isOD(t)?'Yes':'No',due&&resDate?(resDate<=due?'Yes':'No'):'N/A']; }) };
                 }
-
-                return { headers: [], rows: [], title: 'Report' };
+                return { title:'Report', headers:[], rows:[] };
             };
 
-            // ── export to Excel ────────────────────────────────────────────────
-            const getXLSX = () => {
-                // SheetJS registers as XLSX global; try both spellings
-                return (typeof XLSX !== 'undefined' ? XLSX : null) || window.XLSX || null;
-            };
+            // ── live preview ───────────────────────────────────────────────────
+            const preview = React.useMemo(() => buildReport(), [allTickets, reportType, period, dateFrom, dateTo, categoryFilter, priorityFilter]);
 
-            const handleExport = () => {
-                const XL = getXLSX();
-                if (!XL) { showToast('Excel library still loading — please try again in a second.', 'error'); return; }
+            // ── XLSX export ────────────────────────────────────────────────────
+            const handleExportXLSX = () => {
+                const XL = (typeof XLSX !== 'undefined' ? XLSX : null) || window.XLSX || null;
+                if (!XL) { showToast('SheetJS library not ready — please wait a moment and try again.', 'error'); return; }
                 setExporting(true);
                 try {
-                    const { headers, rows, title } = buildSheetData();
-                    if (rows.length === 0) { showToast('No records match the current filters — adjust the time period or filters.', 'error'); setExporting(false); return; }
-
-                    const ws = XL.utils.aoa_to_sheet([headers, ...rows]);
-                    ws['!cols'] = headers.map(h => ({ wch: Math.max(h.length + 4, 18) }));
-
+                    const { title, headers, rows } = buildReport();
+                    if (!rows.length) { showToast('No records found — try "All Time" or a wider date range.', 'error'); setExporting(false); return; }
                     const wb = XL.utils.book_new();
-                    XL.utils.book_append_sheet(wb, ws, title.substring(0, 31));
-
-                    // Summary sheet
-                    const summaryData = [
-                        ['Report:',       title],
-                        ['Period:',       period === 'custom' ? `${dateFrom} to ${dateTo}` : period.replace(/_/g,' ')],
-                        ['Category:',     categoryFilter === 'all' ? 'All' : categoryFilter],
-                        ['Priority:',     priorityFilter === 'all' ? 'All' : priorityFilter],
-                        ['Generated:',    new Date().toLocaleString()],
-                        ['Generated By:', cu?.name || 'Unknown'],
+                    const ws = XL.utils.aoa_to_sheet([headers, ...rows]);
+                    ws['!cols'] = headers.map(h => ({ wch: Math.max(String(h).length + 4, 14) }));
+                    XL.utils.book_append_sheet(wb, ws, title.substring(0,31));
+                    const sumWs = XL.utils.aoa_to_sheet([
+                        ['Report:',        title],
+                        ['Period:',        period === 'custom' ? `${dateFrom} to ${dateTo}` : period.replace(/_/g,' ')],
+                        ['Category:',      categoryFilter === 'all' ? 'All Categories' : categoryFilter],
+                        ['Priority:',      priorityFilter === 'all' ? 'All Priorities' : priorityFilter],
+                        ['Generated:',     new Date().toLocaleString('en-AU')],
+                        ['Generated By:',  cu ? cu.name : 'System'],
                         ['Total Records:', rows.length],
-                    ];
-                    const sumWs = XL.utils.aoa_to_sheet(summaryData);
+                    ]);
                     sumWs['!cols'] = [{wch:18},{wch:40}];
                     XL.utils.book_append_sheet(wb, sumWs, 'Summary');
-
-                    const fileName = `${title.replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.xlsx`;
+                    const fileName = `${title.replace(/[\s/]+/g,'_')}_${new Date().toISOString().slice(0,10)}.xlsx`;
                     XL.writeFile(wb, fileName);
-                    showToast(`✅ ${fileName} downloaded (${rows.length} records)`);
+                    showToast(`✅ ${fileName} downloaded — ${rows.length} records`);
                 } catch(e) {
                     showToast('Export failed: ' + e.message, 'error');
                 } finally {
@@ -4758,360 +4622,252 @@
                 }
             };
 
+            // ── CSV export ─────────────────────────────────────────────────────
             const handleExportCSV = () => {
-                const { headers, rows, title } = buildSheetData();
-                if (rows.length === 0) { showToast('No records match the current filters — adjust the time period or filters.', 'error'); return; }
-                const csv = [headers, ...rows].map(r =>
-                    r.map(v => { const s = String(v ?? ''); return (s.includes(',') || s.includes('"') || s.includes('\n')) ? `"${s.replace(/"/g,'""')}"` : s; }).join(',')
-                ).join('\n');
+                const { title, headers, rows } = buildReport();
+                if (!rows.length) { showToast('No records found — try "All Time" or a wider date range.', 'error'); return; }
+                const esc = v => { const s = String(v ?? ''); return (s.includes(',') || s.includes('"') || s.includes('\n')) ? `"${s.replace(/"/g,'""')}"` : s; };
+                const csv = [headers, ...rows].map(r => r.map(esc).join(',')).join('\r\n');
                 const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
                 const url  = URL.createObjectURL(blob);
-                const a    = document.createElement('a');
-                a.href     = url;
-                a.download = `${title.replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.csv`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
+                const a    = Object.assign(document.createElement('a'), { href: url, download: `${title.replace(/[\s/]+/g,'_')}_${new Date().toISOString().slice(0,10)}.csv` });
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
                 URL.revokeObjectURL(url);
-                showToast(`✅ ${a.download} downloaded (${rows.length} records)`);
+                showToast(`✅ CSV downloaded — ${rows.length} records`);
             };
 
-            // ── send email (calls backend /reports/email or mailto fallback) ──
+            // ── Send via email (mailto fallback) ───────────────────────────────
             const handleSendEmail = async () => {
-                if (!emailTo.trim()) { showToast('Please enter a recipient email address.', 'error'); return; }
+                if (!emailTo.trim()) { showToast('Enter at least one recipient email.', 'error'); return; }
                 setSending(true);
                 try {
-                    const { headers, rows, title } = buildSheetData();
-                    // Build CSV attachment content
-                    const csvRows = [headers, ...rows].map(r =>
-                        r.map(v => (typeof v === 'string' && v.includes(',')) ? `"${v}"` : v).join(',')
-                    ).join('\n');
-
-                    // Try backend email endpoint first
+                    const { title, headers, rows } = buildReport();
+                    // Try backend endpoint first
                     const res = await fetch(`${BACKEND}/reports/email`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            to: emailTo.split(',').map(e=>e.trim()).filter(Boolean),
-                            subject: emailSubject || `${title} — ${new Date().toLocaleDateString()}`,
-                            reportType,
-                            period,
-                            rows,
-                            headers,
-                            generatedBy: cu?.name || 'System',
-                        }),
+                        method:'POST', headers:{'Content-Type':'application/json'},
+                        body: JSON.stringify({ to: emailTo.split(',').map(e=>e.trim()).filter(Boolean), subject: emailSubject || `${title} — ${new Date().toLocaleDateString('en-AU')}`, reportType, period, rows, headers, generatedBy: cu?.name || 'System' }),
                     }).catch(() => null);
-
                     if (res && res.ok) {
                         showToast(`📧 Report sent to ${emailTo}`);
                     } else {
-                        // Fallback: open mailto with summary
-                        const subject  = encodeURIComponent(emailSubject || `${title} — ${new Date().toLocaleDateString()}`);
-                        const body     = encodeURIComponent(
-                            `Please find attached the ${title} report.\n\nGenerated: ${new Date().toLocaleString()}\nGenerated by: ${cu?.name||'System'}\nPeriod: ${period}\nTotal records: ${rows.length}\n\n` +
-                            `Note: Export the Excel file from the Scheduled Reports page for the full dataset.`
-                        );
-                        window.open(`mailto:${emailTo}?subject=${subject}&body=${body}`, '_blank');
+                        const subj = encodeURIComponent(emailSubject || `${title} — ${new Date().toLocaleDateString('en-AU')}`);
+                        const body = encodeURIComponent(`Hi,\n\nPlease find below the ${title} report.\n\nGenerated: ${new Date().toLocaleString('en-AU')}\nGenerated By: ${cu?.name||'System'}\nPeriod: ${period.replace(/_/g,' ')}\nTotal Records: ${rows.length}\n\nNote: Download the Excel/CSV file from the Reports page for the full dataset.`);
+                        window.open(`mailto:${encodeURIComponent(emailTo)}?subject=${subj}&body=${body}`, '_blank');
                         showToast(`📧 Email client opened for ${emailTo}`);
                     }
-                } catch(e) {
-                    showToast('Failed to send: ' + e.message, 'error');
-                } finally {
-                    setSending(false);
-                }
+                } catch(e) { showToast('Send failed: ' + e.message, 'error'); }
+                finally { setSending(false); }
             };
 
-            // ── save schedule ──────────────────────────────────────────────────
+            // ── Export & Send ──────────────────────────────────────────────────
+            const handleExportAndSend = async () => {
+                handleExportXLSX();
+                await handleSendEmail();
+            };
+
+            // ── Save schedule ──────────────────────────────────────────────────
             const handleSaveSchedule = () => {
-                if (!schedEmail.trim()) { showToast('Enter a recipient email.', 'error'); return; }
-                const newSched = {
-                    id: Date.now(),
-                    reportType,
-                    period,
-                    frequency: schedFreq,
-                    day: schedDay,
-                    time: schedTime,
-                    email: schedEmail,
-                    label: REPORT_TYPES.find(r=>r.id===reportType)?.label || reportType,
-                    createdAt: new Date().toISOString(),
-                    active: true,
-                };
+                if (!schedEmail.trim()) { showToast('Enter a recipient email for the schedule.', 'error'); return; }
+                const label = REPORT_TYPES.find(r=>r.id===schedReportType)?.label || schedReportType;
+                const newSched = { id:Date.now(), reportType:schedReportType, label, period:schedPeriod, frequency:schedFreq, day:schedDay, time:schedTime, email:schedEmail, createdAt:new Date().toISOString(), active:true };
                 const updated = [newSched, ...schedules];
                 setSchedules(updated);
                 try { localStorage.setItem('yc_schedules', JSON.stringify(updated)); } catch(e) {}
-                setShowScheduleModal(false);
-                setSchedEmail('');
-                showToast('✅ Schedule saved');
+                setShowSchedModal(false); setSchedEmail('');
+                showToast(`✅ Schedule saved — ${label} ${schedFreq}`);
             };
 
-            const deleteSchedule = id => {
-                const updated = schedules.filter(s=>s.id!==id);
-                setSchedules(updated);
-                try { localStorage.setItem('yc_schedules', JSON.stringify(updated)); } catch(e) {}
-            };
+            const deleteSchedule = id => { const u=schedules.filter(s=>s.id!==id); setSchedules(u); try{localStorage.setItem('yc_schedules',JSON.stringify(u));}catch(e){} };
+            const toggleSchedule = id => { const u=schedules.map(s=>s.id===id?{...s,active:!s.active}:s); setSchedules(u); try{localStorage.setItem('yc_schedules',JSON.stringify(u));}catch(e){} };
 
-            const toggleSchedule = id => {
-                const updated = schedules.map(s => s.id===id ? {...s, active:!s.active} : s);
-                setSchedules(updated);
-                try { localStorage.setItem('yc_schedules', JSON.stringify(updated)); } catch(e) {}
-            };
-
-            // ── preview stats ──────────────────────────────────────────────────
-            const { rows: previewRows } = React.useMemo(() => buildSheetData(), [tickets, reportType, period, dateFrom, dateTo, categoryFilter, priorityFilter]);
-
+            // ── UI helpers ─────────────────────────────────────────────────────
             const PERIOD_OPTS = [
-                {v:'all_time',  l:'All Time'},
+                {v:'all_time',  l:'All Time (no filter)'},
                 {v:'today',     l:'Today'},
                 {v:'last_7',    l:'Last 7 days'},
                 {v:'last_30',   l:'Last 30 days'},
                 {v:'last_90',   l:'Last 90 days'},
-                {v:'last_year', l:'Last year'},
-                {v:'custom',    l:'Custom range'},
+                {v:'last_6m',   l:'Last 6 months'},
+                {v:'last_year', l:'Last 12 months'},
+                {v:'custom',    l:'Custom date range'},
             ];
-
-            const CATEGORY_OPTS = [
-                'all','Client Issue','Account Issue','HR Issue','Cleaning Quality',
-                'Safety Concern','Equipment Issue','NDIS Compliance','Other',
-            ];
-
             const PRIORITY_OPTS = ['all','Critical','Urgent','High','Medium','Low'];
+            const FREQ_OPTS = ['daily','weekly','fortnightly','monthly'];
+            const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 
-            const FREQ_OPTS = ['daily','weekly','monthly'];
-            const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday'];
-
-            // ── styles ─────────────────────────────────────────────────────────
-            const card = {background:'white', borderRadius:12, border:'1px solid #E5E7EB', padding:'24px'};
-            const label = {display:'block', fontSize:12, fontWeight:600, color:'#6B7280', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em'};
-            const input = {width:'100%', border:'1px solid #E5E7EB', borderRadius:8, padding:'9px 12px', fontSize:13, outline:'none', boxSizing:'border-box', color:'#111827'};
-            const select = {...input, cursor:'pointer', appearance:'none', background:`white url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236B7280' strokeWidth='1.5' fill='none' strokeLinecap='round'/%3E%3C/svg%3E") no-repeat right 12px center`};
-            const btnPrimary = {padding:'10px 20px', background:'#4F46E5', color:'white', border:'none', borderRadius:8, fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:6};
-            const btnGreen   = {padding:'10px 20px', background:'#059669', color:'white', border:'none', borderRadius:8, fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:6};
-            const btnOutline = {padding:'10px 20px', background:'white', color:'#374151', border:'1px solid #E5E7EB', borderRadius:8, fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:6};
+            const s = {
+                card:    {background:'white', borderRadius:12, border:'1px solid #E5E7EB', padding:'20px', boxShadow:'0 1px 3px rgba(0,0,0,0.06)'},
+                lbl:     {display:'block', fontSize:11, fontWeight:700, color:'#6B7280', marginBottom:5, textTransform:'uppercase', letterSpacing:'0.06em'},
+                inp:     {width:'100%', border:'1px solid #D1D5DB', borderRadius:8, padding:'8px 12px', fontSize:13, outline:'none', boxSizing:'border-box', color:'#111827', background:'white'},
+                sel:     {width:'100%', border:'1px solid #D1D5DB', borderRadius:8, padding:'8px 12px', fontSize:13, outline:'none', boxSizing:'border-box', color:'#111827', background:'white', cursor:'pointer'},
+                btnPri:  {padding:'10px 18px', background:'#4F46E5', color:'white', border:'none', borderRadius:8, fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6},
+                btnGrn:  {padding:'10px 18px', background:'#059669', color:'white', border:'none', borderRadius:8, fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6},
+                btnOut:  {padding:'10px 18px', background:'white', color:'#374151', border:'1px solid #D1D5DB', borderRadius:8, fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6},
+            };
 
             if (loading) return (
-                <main style={{flex:1, overflow:'auto', background:'#F9FAFB', display:'flex', alignItems:'center', justifyContent:'center'}}>
+                <main style={{flex:1,overflow:'auto',background:'#F9FAFB',display:'flex',alignItems:'center',justifyContent:'center'}}>
                     <div style={{textAlign:'center'}}>
-                        <div style={{width:40, height:40, border:'3px solid #E5E7EB', borderTopColor:'#4F46E5', borderRadius:'50%', animation:'spin 0.8s linear infinite', margin:'0 auto 12px'}}/>
-                        <p style={{color:'#6B7280', fontSize:14}}>Loading report data…</p>
+                        <div style={{width:40,height:40,border:'3px solid #E5E7EB',borderTopColor:'#4F46E5',borderRadius:'50%',animation:'spin 0.8s linear infinite',margin:'0 auto 12px'}}/>
+                        <p style={{color:'#6B7280',fontSize:14}}>Loading report data…</p>
                     </div>
                 </main>
             );
 
             return (
-                <main style={{flex:1, overflow:'auto', background:'#F9FAFB'}}>
+                <main style={{flex:1,overflow:'auto',background:'#F9FAFB'}}>
                     {/* Toast */}
                     {toast && (
-                        <div style={{
-                            position:'fixed', top:72, right:20, zIndex:999,
-                            background: toast.type==='error' ? '#FEF2F2' : '#F0FDF4',
-                            border: `1px solid ${toast.type==='error' ? '#FECACA' : '#BBF7D0'}`,
-                            color: toast.type==='error' ? '#DC2626' : '#166534',
-                            padding:'12px 18px', borderRadius:10, fontSize:13, fontWeight:600,
-                            boxShadow:'0 4px 16px rgba(0,0,0,0.1)', maxWidth:380,
-                        }}>
+                        <div style={{position:'fixed',top:68,right:20,zIndex:999,background:toast.type==='error'?'#FEF2F2':'#F0FDF4',border:`1px solid ${toast.type==='error'?'#FECACA':'#BBF7D0'}`,color:toast.type==='error'?'#DC2626':'#166534',padding:'11px 18px',borderRadius:10,fontSize:13,fontWeight:600,boxShadow:'0 4px 16px rgba(0,0,0,0.12)',maxWidth:400}}>
                             {toast.msg}
                         </div>
                     )}
 
-                    <div style={{maxWidth:1100, margin:'0 auto', padding:'28px 24px'}}>
-                        {/* Header */}
-                        <div style={{marginBottom:24}}>
-                            <h1 style={{fontSize:24, fontWeight:800, color:'#111827', marginBottom:4}}>📊 Reports</h1>
-                            <p style={{fontSize:14, color:'#6B7280'}}>Export, email, and schedule reports from your ticket data</p>
+                    <div style={{maxWidth:1200,margin:'0 auto',padding:'24px 20px'}}>
+                        {/* Page header */}
+                        <div style={{marginBottom:20,display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:12}}>
+                            <div>
+                                <h1 style={{fontSize:22,fontWeight:800,color:'#111827',marginBottom:2}}>📊 Reports</h1>
+                                <p style={{fontSize:13,color:'#6B7280'}}>
+                                    {allTickets.length} tickets loaded
+                                    {apiTickets.length === 0 && ' (no API data — showing demo tickets)'}
+                                </p>
+                            </div>
+                            <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:13,color:'#6B7280',background:'white',border:'1px solid #E5E7EB',borderRadius:8,padding:'7px 14px'}}>
+                                <input type="checkbox" checked={useDummy} onChange={e=>setUseDummy(e.target.checked)} style={{width:14,height:14}}/>
+                                Include 20 demo tickets
+                            </label>
                         </div>
 
-                        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:20}}>
-                            {/* ── LEFT: Report Builder ── */}
-                            <div style={card}>
-                                <h2 style={{fontSize:15, fontWeight:700, color:'#111827', marginBottom:18}}>⚙️ Report Builder</h2>
-
-                                {/* Report Type — grouped */}
-                                <div style={{marginBottom:16}}>
-                                    <span style={label}>Report Type</span>
-                                    <div style={{display:'flex', flexDirection:'column', gap:12}}>
-                                        {REPORT_GROUPS.map(g => (
-                                            <div key={g.group}>
-                                                <p style={{fontSize:10, fontWeight:700, color:'#9CA3AF', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:6}}>{g.group}</p>
-                                                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:6}}>
-                                                    {g.types.map(r => (
-                                                        <button key={r.id} onClick={() => setReportType(r.id)}
-                                                            style={{
-                                                                padding:'8px 10px', borderRadius:8,
-                                                                border:`2px solid ${reportType===r.id ? '#4F46E5' : '#E5E7EB'}`,
-                                                                background: reportType===r.id ? '#EEF2FF' : 'white',
-                                                                cursor:'pointer', textAlign:'left', transition:'all 0.15s',
-                                                            }}>
-                                                            <div style={{fontSize:14, marginBottom:1}}>{r.icon}</div>
-                                                            <div style={{fontSize:11, fontWeight:700, color: reportType===r.id ? '#4F46E5' : '#111827', lineHeight:1.3}}>{r.label}</div>
-                                                            <div style={{fontSize:10, color:'#9CA3AF', marginTop:1, lineHeight:1.3}}>{r.desc}</div>
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Filters row */}
-                                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:12}}>
-                                    <div>
-                                        <span style={label}>Category Filter</span>
-                                        <select value={categoryFilter} onChange={e=>setCategoryFilter(e.target.value)} style={select}>
-                                            {CATEGORY_OPTS.map(c => <option key={c} value={c}>{c === 'all' ? 'All Categories' : c}</option>)}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <span style={label}>Priority Filter</span>
-                                        <select value={priorityFilter} onChange={e=>setPriorityFilter(e.target.value)} style={select}>
-                                            {PRIORITY_OPTS.map(p => <option key={p} value={p}>{p === 'all' ? 'All Priorities' : p}</option>)}
-                                        </select>
-                                    </div>
-                                </div>
-
+                        {/* ── Filters row ── */}
+                        <div style={{...s.card, marginBottom:16}}>
+                            <p style={{fontSize:12,fontWeight:700,color:'#374151',marginBottom:12}}>🔍 Filters — applied to all exports</p>
+                            <div style={{display:'grid',gridTemplateColumns:'2fr 1fr 1fr 1fr 1fr',gap:12,alignItems:'end'}}>
                                 {/* Period */}
-                                <div style={{marginBottom:10}}>
-                                    <span style={label}>Time Period</span>
-                                    <select value={period} onChange={e=>setPeriod(e.target.value)} style={select}>
-                                        {PERIOD_OPTS.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+                                <div>
+                                    <span style={s.lbl}>Time Period</span>
+                                    <select value={period} onChange={e=>setPeriod(e.target.value)} style={s.sel}>
+                                        {PERIOD_OPTS.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
                                     </select>
                                 </div>
-
-                                {period === 'custom' && (
-                                    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10}}>
-                                        <div>
-                                            <span style={label}>From</span>
-                                            <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)} style={input}/>
-                                        </div>
-                                        <div>
-                                            <span style={label}>To</span>
-                                            <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)} style={input}/>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Preview stats */}
-                                <div style={{background:'#F9FAFB', borderRadius:8, padding:'10px 14px', marginBottom:12, border:'1px solid #E5E7EB', display:'flex', alignItems:'center', justifyContent:'space-between'}}>
-                                    <div>
-                                        <p style={{fontSize:11, color:'#6B7280', marginBottom:1}}>Matching records</p>
-                                        <p style={{fontSize:22, fontWeight:800, color:'#111827', lineHeight:1}}>{previewRows.length}</p>
-                                    </div>
-                                    <div style={{textAlign:'right'}}>
-                                        <p style={{fontSize:11, color:'#6B7280', marginBottom:1}}>Selected report</p>
-                                        <p style={{fontSize:12, fontWeight:600, color:'#4F46E5'}}>{REPORT_TYPES.find(r=>r.id===reportType)?.label}</p>
-                                    </div>
+                                {/* Date From */}
+                                <div>
+                                    <span style={s.lbl}>From Date</span>
+                                    <input type="date" value={dateFrom} onChange={e=>{setDateFrom(e.target.value);setPeriod('custom');}} style={s.inp}/>
                                 </div>
+                                {/* Date To */}
+                                <div>
+                                    <span style={s.lbl}>To Date</span>
+                                    <input type="date" value={dateTo} onChange={e=>{setDateTo(e.target.value);setPeriod('custom');}} style={s.inp}/>
+                                </div>
+                                {/* Category */}
+                                <div>
+                                    <span style={s.lbl}>Category</span>
+                                    <select value={categoryFilter} onChange={e=>setCategoryFilter(e.target.value)} style={s.sel}>
+                                        {dynamicCategories.map(c=><option key={c} value={c}>{c==='all'?'All Categories':c}</option>)}
+                                    </select>
+                                </div>
+                                {/* Priority */}
+                                <div>
+                                    <span style={s.lbl}>Priority</span>
+                                    <select value={priorityFilter} onChange={e=>setPriorityFilter(e.target.value)} style={s.sel}>
+                                        {PRIORITY_OPTS.map(p=><option key={p} value={p}>{p==='all'?'All Priorities':p}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                            {/* Active filter chips */}
+                            <div style={{marginTop:10,display:'flex',gap:6,flexWrap:'wrap'}}>
+                                {period!=='all_time'&&<span style={{fontSize:11,background:'#EEF2FF',color:'#4F46E5',padding:'3px 10px',borderRadius:20,fontWeight:600}}>📅 {PERIOD_OPTS.find(o=>o.v===period)?.l||period}</span>}
+                                {categoryFilter!=='all'&&<span style={{fontSize:11,background:'#F0FDF4',color:'#166534',padding:'3px 10px',borderRadius:20,fontWeight:600}}>📂 {categoryFilter}</span>}
+                                {priorityFilter!=='all'&&<span style={{fontSize:11,background:'#FFF7ED',color:'#C2410C',padding:'3px 10px',borderRadius:20,fontWeight:600}}>🎯 {priorityFilter}</span>}
+                                <span style={{fontSize:11,background:'#F9FAFB',color:'#6B7280',padding:'3px 10px',borderRadius:20,fontWeight:600}}>{preview.rows.length} records match</span>
+                            </div>
+                        </div>
 
-                                {/* Export button */}
-                                <button onClick={handleExport} disabled={exporting}
-                                    style={{...btnPrimary, width:'100%', justifyContent:'center', opacity:exporting?0.6:1}}>
-                                    <span style={{fontSize:16}}>📥</span>
-                                    {exporting ? 'Exporting…' : 'Export to Excel (.xlsx)'}
-                                </button>
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}>
+                            {/* ── LEFT: Report type selector ── */}
+                            <div style={s.card}>
+                                <p style={{fontSize:13,fontWeight:700,color:'#111827',marginBottom:14}}>📋 Report Type</p>
+                                <div style={{display:'flex',flexDirection:'column',gap:12,maxHeight:480,overflowY:'auto',paddingRight:4}}>
+                                    {REPORT_GROUPS.map(g=>(
+                                        <div key={g.group}>
+                                            <p style={{fontSize:10,fontWeight:700,color:'#9CA3AF',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:6}}>{g.group}</p>
+                                            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:5}}>
+                                                {g.types.map(r=>(
+                                                    <button key={r.id} onClick={()=>setReportType(r.id)} style={{padding:'8px 10px',borderRadius:8,border:`2px solid ${reportType===r.id?'#4F46E5':'#E5E7EB'}`,background:reportType===r.id?'#EEF2FF':'white',cursor:'pointer',textAlign:'left',transition:'all 0.12s'}}>
+                                                        <span style={{fontSize:13}}>{r.icon}</span>
+                                                        <span style={{display:'block',fontSize:11,fontWeight:700,color:reportType===r.id?'#4F46E5':'#111827',marginTop:2,lineHeight:1.3}}>{r.label}</span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
 
-                            {/* ── RIGHT: Export + Email + Schedule ── */}
-                            <div style={{display:'flex', flexDirection:'column', gap:20}}>
-                                {/* ── Export Only panel ── */}
-                                <div style={card}>
-                                    <h2 style={{fontSize:15, fontWeight:700, color:'#111827', marginBottom:4}}>📥 Export Report</h2>
-                                    <p style={{fontSize:12, color:'#6B7280', marginBottom:16}}>Download the report directly to your device</p>
-                                    <div style={{display:'flex', gap:10}}>
-                                        <button onClick={handleExport} disabled={exporting}
-                                            style={{...btnPrimary, flex:1, justifyContent:'center', opacity:exporting?0.6:1}}>
-                                            <span style={{fontSize:16}}>📊</span>
-                                            {exporting ? 'Exporting…' : 'Export as Excel (.xlsx)'}
+                            {/* ── RIGHT: Export + Email ── */}
+                            <div style={{display:'flex',flexDirection:'column',gap:14}}>
+                                {/* Selected report info */}
+                                <div style={{...s.card,background:'#EEF2FF',border:'2px solid #C7D2FE'}}>
+                                    <p style={{fontSize:13,fontWeight:700,color:'#4338CA'}}>
+                                        {REPORT_TYPES.find(r=>r.id===reportType)?.icon} {REPORT_TYPES.find(r=>r.id===reportType)?.label}
+                                    </p>
+                                    <p style={{fontSize:22,fontWeight:800,color:'#111827',marginTop:4}}>{preview.rows.length} <span style={{fontSize:13,fontWeight:500,color:'#6B7280'}}>records ready to export</span></p>
+                                    {preview.rows.length===0&&<p style={{fontSize:12,color:'#DC2626',marginTop:4}}>⚠ No records match — try "All Time" or enable demo tickets</p>}
+                                </div>
+
+                                {/* Export Only */}
+                                <div style={s.card}>
+                                    <p style={{fontSize:13,fontWeight:700,color:'#111827',marginBottom:12}}>📥 Export</p>
+                                    <div style={{display:'flex',gap:10}}>
+                                        <button onClick={handleExportXLSX} disabled={exporting} style={{...s.btnPri,flex:1,opacity:exporting?0.6:1}}>
+                                            <span>📊</span>{exporting?'Exporting…':'Excel (.xlsx)'}
                                         </button>
-                                        <button onClick={handleExportCSV}
-                                            style={{...btnOutline, flex:1, justifyContent:'center'}}>
-                                            <span style={{fontSize:16}}>📄</span>
-                                            Export as CSV
+                                        <button onClick={handleExportCSV} style={{...s.btnOut,flex:1}}>
+                                            <span>📄</span>CSV (.csv)
                                         </button>
                                     </div>
                                 </div>
 
-                                {/* Email panel */}
-                                <div style={card}>
-                                    <h2 style={{fontSize:15, fontWeight:700, color:'#111827', marginBottom:16}}>📧 Email Report</h2>
-
+                                {/* Email */}
+                                <div style={s.card}>
+                                    <p style={{fontSize:13,fontWeight:700,color:'#111827',marginBottom:12}}>📧 Email Report</p>
+                                    <div style={{marginBottom:10}}>
+                                        <span style={s.lbl}>Recipient(s)</span>
+                                        <input type="text" value={emailTo} onChange={e=>setEmailTo(e.target.value)} placeholder="email@company.com, another@co.com" style={s.inp}/>
+                                    </div>
                                     <div style={{marginBottom:12}}>
-                                        <span style={label}>Recipient Email(s)</span>
-                                        <input
-                                            type="text" value={emailTo}
-                                            onChange={e=>setEmailTo(e.target.value)}
-                                            placeholder="name@company.com, another@company.com"
-                                            style={input}
-                                        />
-                                        <p style={{fontSize:11, color:'#9CA3AF', marginTop:4}}>Separate multiple addresses with commas</p>
+                                        <span style={s.lbl}>Subject (optional)</span>
+                                        <input type="text" value={emailSubject} onChange={e=>setEmailSubject(e.target.value)} placeholder={`${REPORT_TYPES.find(r=>r.id===reportType)?.label} — ${new Date().toLocaleDateString('en-AU')}`} style={s.inp}/>
                                     </div>
-
-                                    <div style={{marginBottom:14}}>
-                                        <span style={label}>Email Subject (optional)</span>
-                                        <input
-                                            type="text" value={emailSubject}
-                                            onChange={e=>setEmailSubject(e.target.value)}
-                                            placeholder={`${REPORT_TYPES.find(r=>r.id===reportType)?.label} — ${new Date().toLocaleDateString()}`}
-                                            style={input}
-                                        />
-                                    </div>
-
-                                    <div style={{display:'flex', gap:10}}>
-                                        <button onClick={handleSendEmail} disabled={sending || !emailTo.trim()}
-                                            style={{...btnGreen, flex:1, justifyContent:'center', opacity:(sending||!emailTo.trim())?0.6:1}}>
-                                            <span style={{fontSize:16}}>📤</span>
-                                            {sending ? 'Sending…' : 'Send Report'}
+                                    <div style={{display:'flex',gap:8}}>
+                                        <button onClick={handleSendEmail} disabled={sending||!emailTo.trim()} style={{...s.btnGrn,flex:1,opacity:(sending||!emailTo.trim())?0.6:1}}>
+                                            <span>📤</span>{sending?'Sending…':'Send Report'}
                                         </button>
-                                        <button onClick={() => { handleExport(); if(emailTo.trim()) handleSendEmail(); }}
-                                            disabled={exporting || sending || !emailTo.trim()}
-                                            style={{...btnOutline, flex:1, justifyContent:'center', opacity:(exporting||sending||!emailTo.trim())?0.6:1}}>
-                                            <span style={{fontSize:16}}>⚡</span>
-                                            Export & Send
+                                        <button onClick={handleExportAndSend} disabled={exporting||sending||!emailTo.trim()} style={{...s.btnOut,flex:1,opacity:(exporting||sending||!emailTo.trim())?0.6:1}}>
+                                            <span>⚡</span>Export & Send
                                         </button>
                                     </div>
                                 </div>
 
-                                {/* Schedule panel */}
-                                <div style={card}>
-                                    <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14}}>
-                                        <h2 style={{fontSize:15, fontWeight:700, color:'#111827'}}>🕐 Schedule Report</h2>
-                                        <button onClick={() => setShowScheduleModal(true)}
-                                            style={{...btnPrimary, padding:'7px 14px', fontSize:12}}>
-                                            + Add Schedule
-                                        </button>
+                                {/* Schedule */}
+                                <div style={s.card}>
+                                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+                                        <p style={{fontSize:13,fontWeight:700,color:'#111827'}}>🕐 Schedules</p>
+                                        <button onClick={()=>{ setSchedReportType(reportType); setShowSchedModal(true); }} style={{...s.btnPri,padding:'6px 12px',fontSize:12}}>+ Add</button>
                                     </div>
-
-                                    {schedules.length === 0 ? (
-                                        <div style={{textAlign:'center', padding:'20px 0', color:'#9CA3AF'}}>
-                                            <div style={{fontSize:28, marginBottom:8}}>📅</div>
-                                            <p style={{fontSize:13}}>No schedules set up yet</p>
-                                            <p style={{fontSize:12, marginTop:4}}>Add a schedule to auto-send reports</p>
-                                        </div>
-                                    ) : (
-                                        <div style={{display:'flex', flexDirection:'column', gap:8}}>
-                                            {schedules.map(s => (
-                                                <div key={s.id} style={{
-                                                    display:'flex', alignItems:'center', gap:10,
-                                                    padding:'10px 12px', borderRadius:8,
-                                                    background: s.active ? '#F0FDF4' : '#F9FAFB',
-                                                    border:`1px solid ${s.active ? '#BBF7D0' : '#E5E7EB'}`,
-                                                }}>
-                                                    <div style={{flex:1, minWidth:0}}>
-                                                        <p style={{fontSize:13, fontWeight:600, color:'#111827'}}>{s.label}</p>
-                                                        <p style={{fontSize:11, color:'#6B7280'}}>
-                                                            {s.frequency === 'daily' ? `Daily at ${s.time}` :
-                                                             s.frequency === 'weekly' ? `Every ${s.day} at ${s.time}` :
-                                                             `Monthly at ${s.time}`} → {s.email}
-                                                        </p>
+                                    {schedules.length===0?(
+                                        <p style={{fontSize:12,color:'#9CA3AF',textAlign:'center',padding:'12px 0'}}>No schedules yet — click + Add</p>
+                                    ):(
+                                        <div style={{display:'flex',flexDirection:'column',gap:7,maxHeight:200,overflowY:'auto'}}>
+                                            {schedules.map(sc=>(
+                                                <div key={sc.id} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 10px',borderRadius:8,background:sc.active?'#F0FDF4':'#F9FAFB',border:`1px solid ${sc.active?'#BBF7D0':'#E5E7EB'}`}}>
+                                                    <div style={{flex:1,minWidth:0}}>
+                                                        <p style={{fontSize:12,fontWeight:600,color:'#111827',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{sc.label}</p>
+                                                        <p style={{fontSize:11,color:'#6B7280'}}>{sc.frequency==='daily'?`Daily`:`Every ${sc.day}`} at {sc.time} → {sc.email}</p>
                                                     </div>
-                                                    <button onClick={() => toggleSchedule(s.id)}
-                                                        style={{padding:'4px 10px', borderRadius:6, border:'none', cursor:'pointer', fontSize:11, fontWeight:600,
-                                                            background: s.active ? '#DCFCE7' : '#F3F4F6',
-                                                            color: s.active ? '#166534' : '#6B7280'}}>
-                                                        {s.active ? 'Active' : 'Paused'}
-                                                    </button>
-                                                    <button onClick={() => deleteSchedule(s.id)}
-                                                        style={{width:28, height:28, borderRadius:6, border:'none', cursor:'pointer', background:'#FEF2F2', color:'#DC2626', fontSize:14, display:'flex', alignItems:'center', justifyContent:'center'}}>
-                                                        ×
-                                                    </button>
+                                                    <button onClick={()=>toggleSchedule(sc.id)} style={{fontSize:10,fontWeight:700,padding:'3px 8px',borderRadius:5,border:'none',cursor:'pointer',background:sc.active?'#DCFCE7':'#F3F4F6',color:sc.active?'#166534':'#6B7280'}}>{sc.active?'Active':'Paused'}</button>
+                                                    <button onClick={()=>deleteSchedule(sc.id)} style={{width:24,height:24,borderRadius:5,border:'none',cursor:'pointer',background:'#FEF2F2',color:'#DC2626',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center'}}>×</button>
                                                 </div>
                                             ))}
                                         </div>
@@ -5120,46 +4876,39 @@
                             </div>
                         </div>
 
-                        {/* ── Data Preview Table ── */}
-                        <div style={{...card, padding:0, overflow:'hidden'}}>
-                            <div style={{padding:'16px 20px', borderBottom:'1px solid #E5E7EB', display:'flex', alignItems:'center', justifyContent:'space-between'}}>
+                        {/* ── Preview Table ── */}
+                        <div style={{...s.card,padding:0,overflow:'hidden'}}>
+                            <div style={{padding:'14px 18px',borderBottom:'1px solid #E5E7EB',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                                 <div>
-                                    <h2 style={{fontSize:15, fontWeight:700, color:'#111827'}}>
-                                        {REPORT_TYPES.find(r=>r.id===reportType)?.icon} {REPORT_TYPES.find(r=>r.id===reportType)?.label} — Preview
-                                    </h2>
-                                    <p style={{fontSize:12, color:'#6B7280', marginTop:2}}>Showing first 20 of {previewRows.length} records</p>
+                                    <p style={{fontSize:14,fontWeight:700,color:'#111827'}}>{REPORT_TYPES.find(r=>r.id===reportType)?.icon} {REPORT_TYPES.find(r=>r.id===reportType)?.label} — Preview</p>
+                                    <p style={{fontSize:12,color:'#6B7280',marginTop:1}}>First 25 of {preview.rows.length} records</p>
                                 </div>
-                                <button onClick={handleExport} disabled={exporting}
-                                    style={{...btnPrimary, padding:'8px 14px', fontSize:12, opacity:exporting?0.6:1}}>
-                                    📥 Export All
-                                </button>
+                                <div style={{display:'flex',gap:8}}>
+                                    <button onClick={handleExportCSV} style={{...s.btnOut,padding:'7px 14px',fontSize:12}}>📄 CSV</button>
+                                    <button onClick={handleExportXLSX} disabled={exporting} style={{...s.btnPri,padding:'7px 14px',fontSize:12,opacity:exporting?0.6:1}}>📊 Excel</button>
+                                </div>
                             </div>
-                            {previewRows.length === 0 ? (
-                                <div style={{padding:40, textAlign:'center', color:'#9CA3AF'}}>
-                                    <div style={{fontSize:32, marginBottom:8}}>📭</div>
-                                    <p>No data for the selected period</p>
+                            {preview.rows.length===0?(
+                                <div style={{padding:40,textAlign:'center',color:'#9CA3AF'}}>
+                                    <div style={{fontSize:32,marginBottom:8}}>📭</div>
+                                    <p style={{fontWeight:600,marginBottom:4}}>No records match the current filters</p>
+                                    <p style={{fontSize:13}}>Try selecting "All Time" or enable the demo tickets toggle above</p>
                                 </div>
-                            ) : (
+                            ):(
                                 <div style={{overflowX:'auto'}}>
-                                    <table style={{width:'100%', borderCollapse:'collapse', fontSize:12}}>
+                                    <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
                                         <thead>
                                             <tr style={{background:'#F9FAFB'}}>
-                                                {buildSheetData().headers.map((h,i) => (
-                                                    <th key={i} style={{padding:'10px 14px', textAlign:'left', fontWeight:600, color:'#374151', borderBottom:'1px solid #E5E7EB', whiteSpace:'nowrap', fontSize:11, textTransform:'uppercase', letterSpacing:'0.04em'}}>
-                                                        {h}
-                                                    </th>
+                                                {preview.headers.map((h,i)=>(
+                                                    <th key={i} style={{padding:'9px 12px',textAlign:'left',fontWeight:700,color:'#374151',borderBottom:'1px solid #E5E7EB',whiteSpace:'nowrap',fontSize:11,textTransform:'uppercase',letterSpacing:'0.04em'}}>{h}</th>
                                                 ))}
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {previewRows.slice(0,20).map((row,ri) => (
-                                                <tr key={ri} style={{borderBottom:'1px solid #F3F4F6'}}
-                                                    onMouseEnter={e=>e.currentTarget.style.background='#F9FAFB'}
-                                                    onMouseLeave={e=>e.currentTarget.style.background='white'}>
-                                                    {row.map((cell,ci) => (
-                                                        <td key={ci} style={{padding:'9px 14px', color:'#374151', maxWidth:200, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
-                                                            {String(cell)}
-                                                        </td>
+                                            {preview.rows.slice(0,25).map((row,ri)=>(
+                                                <tr key={ri} style={{borderBottom:'1px solid #F3F4F6'}} onMouseEnter={e=>e.currentTarget.style.background='#F9FAFB'} onMouseLeave={e=>e.currentTarget.style.background=''}>
+                                                    {row.map((cell,ci)=>(
+                                                        <td key={ci} style={{padding:'8px 12px',color:'#374151',maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{String(cell??'')}</td>
                                                     ))}
                                                 </tr>
                                             ))}
@@ -5171,61 +4920,62 @@
                     </div>
 
                     {/* ── Schedule Modal ── */}
-                    {showScheduleModal && (
-                        <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', zIndex:200, display:'flex', alignItems:'center', justifyContent:'center'}}
-                            onClick={() => setShowScheduleModal(false)}>
-                            <div style={{background:'white', borderRadius:16, padding:28, width:440, maxWidth:'90vw', boxShadow:'0 20px 60px rgba(0,0,0,0.2)'}}
-                                onClick={e => e.stopPropagation()}>
-                                <h3 style={{fontSize:16, fontWeight:700, color:'#111827', marginBottom:20}}>🕐 New Scheduled Report</h3>
+                    {showSchedModal&&(
+                        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={()=>setShowSchedModal(false)}>
+                            <div style={{background:'white',borderRadius:16,padding:28,width:480,maxWidth:'92vw',boxShadow:'0 20px 60px rgba(0,0,0,0.2)',maxHeight:'90vh',overflowY:'auto'}} onClick={e=>e.stopPropagation()}>
+                                <h3 style={{fontSize:16,fontWeight:700,color:'#111827',marginBottom:20}}>🕐 Schedule a Report</h3>
 
                                 <div style={{marginBottom:14}}>
-                                    <span style={label}>Report</span>
-                                    <p style={{fontSize:13, fontWeight:600, color:'#4F46E5'}}>
-                                        {REPORT_TYPES.find(r=>r.id===reportType)?.icon} {REPORT_TYPES.find(r=>r.id===reportType)?.label}
-                                    </p>
+                                    <span style={s.lbl}>Report Type</span>
+                                    <select value={schedReportType} onChange={e=>setSchedReportType(e.target.value)} style={s.sel}>
+                                        {REPORT_GROUPS.map(g=>(
+                                            <optgroup key={g.group} label={g.group}>
+                                                {g.types.map(r=><option key={r.id} value={r.id}>{r.icon} {r.label}</option>)}
+                                            </optgroup>
+                                        ))}
+                                    </select>
                                 </div>
 
                                 <div style={{marginBottom:14}}>
-                                    <span style={label}>Frequency</span>
-                                    <div style={{display:'flex', gap:8}}>
-                                        {FREQ_OPTS.map(f => (
-                                            <button key={f} onClick={() => setSchedFreq(f)}
-                                                style={{flex:1, padding:'8px', borderRadius:8, border:`2px solid ${schedFreq===f?'#4F46E5':'#E5E7EB'}`,
-                                                    background:schedFreq===f?'#EEF2FF':'white', cursor:'pointer',
-                                                    fontSize:12, fontWeight:600, color:schedFreq===f?'#4F46E5':'#374151', textTransform:'capitalize'}}>
+                                    <span style={s.lbl}>Report Period</span>
+                                    <select value={schedPeriod} onChange={e=>setSchedPeriod(e.target.value)} style={s.sel}>
+                                        {PERIOD_OPTS.filter(o=>o.v!=='custom').map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
+                                    </select>
+                                </div>
+
+                                <div style={{marginBottom:14}}>
+                                    <span style={s.lbl}>Frequency</span>
+                                    <div style={{display:'flex',gap:8}}>
+                                        {FREQ_OPTS.map(f=>(
+                                            <button key={f} onClick={()=>setSchedFreq(f)} style={{flex:1,padding:'8px',borderRadius:8,border:`2px solid ${schedFreq===f?'#4F46E5':'#E5E7EB'}`,background:schedFreq===f?'#EEF2FF':'white',cursor:'pointer',fontSize:12,fontWeight:700,color:schedFreq===f?'#4F46E5':'#374151',textTransform:'capitalize'}}>
                                                 {f}
                                             </button>
                                         ))}
                                     </div>
                                 </div>
 
-                                {schedFreq === 'weekly' && (
+                                {(schedFreq==='weekly'||schedFreq==='fortnightly')&&(
                                     <div style={{marginBottom:14}}>
-                                        <span style={label}>Day of Week</span>
-                                        <select value={schedDay} onChange={e=>setSchedDay(e.target.value)} style={select}>
-                                            {DAYS.map(d => <option key={d} value={d}>{d}</option>)}
+                                        <span style={s.lbl}>Day of Week</span>
+                                        <select value={schedDay} onChange={e=>setSchedDay(e.target.value)} style={s.sel}>
+                                            {DAYS.map(d=><option key={d} value={d}>{d}</option>)}
                                         </select>
                                     </div>
                                 )}
 
                                 <div style={{marginBottom:14}}>
-                                    <span style={label}>Send Time</span>
-                                    <input type="time" value={schedTime} onChange={e=>setSchedTime(e.target.value)} style={input}/>
+                                    <span style={s.lbl}>Send Time</span>
+                                    <input type="time" value={schedTime} onChange={e=>setSchedTime(e.target.value)} style={s.inp}/>
                                 </div>
 
                                 <div style={{marginBottom:20}}>
-                                    <span style={label}>Send To</span>
-                                    <input type="email" value={schedEmail} onChange={e=>setSchedEmail(e.target.value)}
-                                        placeholder="recipient@company.com" style={input}/>
+                                    <span style={s.lbl}>Send To (email)</span>
+                                    <input type="email" value={schedEmail} onChange={e=>setSchedEmail(e.target.value)} placeholder="recipient@company.com" style={s.inp}/>
                                 </div>
 
-                                <div style={{display:'flex', gap:10}}>
-                                    <button onClick={handleSaveSchedule} style={{...btnPrimary, flex:1, justifyContent:'center'}}>
-                                        ✅ Save Schedule
-                                    </button>
-                                    <button onClick={() => setShowScheduleModal(false)} style={{...btnOutline, flex:1, justifyContent:'center'}}>
-                                        Cancel
-                                    </button>
+                                <div style={{display:'flex',gap:10}}>
+                                    <button onClick={handleSaveSchedule} style={{...s.btnPri,flex:1}}>✅ Save Schedule</button>
+                                    <button onClick={()=>setShowSchedModal(false)} style={{...s.btnOut,flex:1}}>Cancel</button>
                                 </div>
                             </div>
                         </div>
@@ -5233,7 +4983,6 @@
                 </main>
             );
         }
-
         // Main App
         function App() {
             const [currentPage, setCurrentPage] = React.useState(() => {
