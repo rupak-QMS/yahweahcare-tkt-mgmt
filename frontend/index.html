@@ -128,6 +128,75 @@
         html.dark .border, html.dark .border-gray-200 {
             border-color: rgba(99,102,241,0.15) !important;
         }
+        /* ── Tailwind bg-white cards & panels ────────────────────────────── */
+        html.dark div.bg-white,
+        html.dark section.bg-white,
+        html.dark article.bg-white,
+        html.dark .rounded-xl.bg-white,
+        html.dark .rounded-lg.bg-white {
+            background: linear-gradient(155deg, rgba(17,30,58,0.97) 0%, rgba(8,16,36,0.99) 100%) !important;
+            border-color: rgba(99,102,241,0.16) !important;
+            box-shadow:
+                0 1px 0 rgba(255,255,255,0.04) inset,
+                0 4px 6px rgba(0,0,0,0.4),
+                0 16px 48px rgba(0,0,0,0.6),
+                0 0 80px -30px rgba(99,102,241,0.10) !important;
+        }
+
+        /* ── Tailwind bg-white on form inputs ─────────────────────────────── */
+        html.dark input.bg-white,
+        html.dark select.bg-white,
+        html.dark textarea.bg-white {
+            background: rgba(2, 8, 23, 0.9) !important;
+            color: #e2eaf8 !important;
+            border-color: rgba(99,102,241,0.22) !important;
+            box-shadow: inset 0 2px 6px rgba(0,0,0,0.5) !important;
+        }
+        html.dark input.bg-white:focus,
+        html.dark select.bg-white:focus,
+        html.dark textarea.bg-white:focus {
+            border-color: rgba(99,102,241,0.55) !important;
+            box-shadow: inset 0 2px 6px rgba(0,0,0,0.5), 0 0 0 3px rgba(99,102,241,0.15) !important;
+        }
+
+        /* ── Tailwind bg-gray-50 read-only / disabled inputs ──────────────── */
+        html.dark input.bg-gray-50,
+        html.dark select.bg-gray-50,
+        html.dark textarea.bg-gray-50 {
+            background: rgba(8, 16, 32, 0.85) !important;
+            color: #5a7099 !important;
+            border-color: rgba(99,102,241,0.12) !important;
+        }
+
+        /* ── Tailwind text colors inside forms ────────────────────────────── */
+        html.dark .text-gray-800 { color: #e4ecff !important; }
+        html.dark .text-gray-700 { color: #c0cfec !important; }
+        html.dark .text-gray-600 { color: #8fa4cc !important; }
+        html.dark .text-gray-500 { color: #6b80a4 !important; }
+        html.dark .text-gray-400 { color: #4a607f !important; }
+
+        /* ── Tailwind border colors ────────────────────────────────────────── */
+        html.dark .border-gray-100 { border-color: rgba(99,102,241,0.14) !important; }
+        html.dark .border-gray-200 { border-color: rgba(99,102,241,0.16) !important; }
+        html.dark .border-gray-300 { border-color: rgba(99,102,241,0.22) !important; }
+
+        /* ── Focus ring for Tailwind ring utilities ────────────────────────── */
+        html.dark .focus\:ring-indigo-500:focus,
+        html.dark .focus\:ring-2:focus {
+            --tw-ring-color: rgba(99,102,241,0.4) !important;
+            box-shadow: 0 0 0 3px rgba(99,102,241,0.15) !important;
+        }
+
+        /* ── Section heading text in forms ────────────────────────────────── */
+        html.dark .uppercase.tracking-widest { color: #6b80a4 !important; }
+
+        /* ── shadow-sm card shadow override ───────────────────────────────── */
+        html.dark .shadow-sm {
+            box-shadow:
+                0 1px 0 rgba(255,255,255,0.04) inset,
+                0 4px 6px rgba(0,0,0,0.4),
+                0 16px 48px rgba(0,0,0,0.55) !important;
+        }
 
         /* ── Semantic badge / chip backgrounds ───────────────────────────── */
         html.dark [style*="background: rgb(238, 242, 255)"],
