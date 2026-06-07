@@ -1055,7 +1055,10 @@
                 const fin = t.updatedAt||t.resolvedAt; if(!fin) return true;
                 return new Date(fin)<=new Date(due);
             }).length;
-            const slaPct  = resTkts.length>0 ? Math.round(slaOk/resTkts.length*100) : 0;
+            const slaFailed = resTkts.length - slaOk;
+            // Include active overdue tickets as SLA breaches (they missed their deadline)
+            const slaTotalEval = resTkts.length + overdue;
+            const slaPct  = slaTotalEval>0 ? Math.round(slaOk/slaTotalEval*100) : 100;
             const r = 54, circ = 2*Math.PI*r;
 
             // ── Charts (rebuild when data changes) ────────────────

@@ -23,6 +23,7 @@ let migrationDone = false;
 export async function ensurePushTable() {
   if (migrationDone) return;
   try {
+    // push_subscriptions table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS yc_tkt_mgmt.push_subscriptions (
         id         SERIAL PRIMARY KEY,
@@ -32,6 +33,21 @@ export async function ensurePushTable() {
         auth       TEXT    NOT NULL,
         created_at TIMESTAMPTZ DEFAULT NOW(),
         UNIQUE(user_id, endpoint)
+      )
+    `);
+    // in-app notifications table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS yc_tkt_mgmt.notifications (
+        id             SERIAL PRIMARY KEY,
+        recipient_id   INTEGER,
+        recipient_email TEXT,
+        ticket_id      INTEGER,
+        channel        TEXT    NOT NULL DEFAULT 'push',
+        subject        TEXT    NOT NULL,
+        body           TEXT    NOT NULL,
+        status         TEXT    NOT NULL DEFAULT 'pending',
+        read_at        TIMESTAMPTZ,
+        created_at     TIMESTAMPTZ DEFAULT NOW()
       )
     `);
     migrationDone = true;
