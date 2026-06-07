@@ -192,6 +192,7 @@
                     const params = new URLSearchParams();
                     if (opts.all)    params.set('all', '1');
                     if (opts.status) params.set('status', opts.status);
+                    if (opts.limit)  params.set('limit', String(opts.limit));
                     // Role-based scope
                     const scope = opts.scope || getTicketScopeParams(getSessionUser());
                     if (scope.scope)  params.set('scope',  scope.scope);
@@ -1622,62 +1623,56 @@
             const [selectedState, setSelectedState] = React.useState('NSW');
             const [selectedDay, setSelectedDay] = React.useState(null);
             const [tickets, setTickets] = React.useState([]);
+            const [loading, setLoading] = React.useState(true);
+            const [view, setView] = React.useState('month'); // 'month' | 'week'
 
             // Load all tickets once
             React.useEffect(() => {
-                API.tickets.getAll().then(data => {
+                setLoading(true);
+                API.tickets.getAll({ all: '1', limit: 500 }).then(data => {
                     setTickets(data.tickets || []);
                 }).catch(() => {
-                    // Fall back to static sample data
-                    setTickets(TICKETS_DATA.map((t, i) => ({
-                        ...t,
-                        dueAt: null,
-                        expectedCompletion: null,
-                        // Spread some sample tickets across recent dates for demo
-                        _calDate: (() => {
-                            const d = new Date();
-                            d.setDate(d.getDate() + (i * 3 - 4));
-                            return d.toISOString().slice(0,10);
-                        })()
-                    })));
-                });
+                    setTickets([]);
+                }).finally(() => setLoading(false));
             }, []);
+
+            // ── Helpers ──────────────────────────────────────────
+            const pad = n => String(n).padStart(2,'0');
+            const year  = viewDate.getFullYear();
+            const month = viewDate.getMonth();
+            const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+            const mnShort = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            const dateStr = d => `${year}-${pad(month+1)}-${pad(d)}`;
+            const isToday = d => today.getFullYear()===year && today.getMonth()===month && today.getDate()===d;
+            const todayStr = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
+
+            const PRI = {
+                critical: { dot:'#EF4444', bg:'#FEF2F2', text:'#991B1B', border:'#FECACA' },
+                urgent:   { dot:'#EF4444', bg:'#FEF2F2', text:'#991B1B', border:'#FECACA' },
+                high:     { dot:'#F97316', bg:'#FFF7ED', text:'#9A3412', border:'#FED7AA' },
+                medium:   { dot:'#EAB308', bg:'#FEFCE8', text:'#854D0E', border:'#FDE68A' },
+                low:      { dot:'#6366F1', bg:'#EEF2FF', text:'#3730A3', border:'#C7D2FE' },
+            };
+            const getPri = t => PRI[(t.priorityLabel||t.priority||'').toLowerCase()] || PRI.low;
+            const isDone = t => ['resolved','closed'].includes((t.status||'').toLowerCase());
+            const isOverdue = t => !isDone(t) && t.dueAt && new Date(t.dueAt) < today;
 
             // Build ticket map: date string → tickets[]
             const ticketDateMap = {};
             tickets.forEach(t => {
-                // Use expectedCompletion, then dueAt, then _calDate fallback
-                const raw = t.expectedCompletion || t.dueAt || t._calDate;
+                const raw = t.dueAt || t.expectedCompletion;
                 if (!raw) return;
-                const ds = raw.slice(0, 10);
+                const ds = raw.slice(0,10);
                 if (!ticketDateMap[ds]) ticketDateMap[ds] = [];
                 ticketDateMap[ds].push(t);
             });
 
-            const priorityColor = p => {
-                const s = (p || '').toLowerCase();
-                if (s === 'critical' || s === 'urgent') return 'bg-red-500';
-                if (s === 'high')   return 'bg-orange-400';
-                if (s === 'medium') return 'bg-yellow-400';
-                return 'bg-blue-400';
-            };
-
-            const year  = viewDate.getFullYear();
-            const month = viewDate.getMonth();
-
-            const prevMonth = () => setViewDate(new Date(year, month - 1, 1));
-            const nextMonth = () => setViewDate(new Date(year, month + 1, 1));
-
-            const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-
-            // Get holidays visible for selected state
+            // Holiday maps
             const visibleHolidays = AU_HOLIDAYS.filter(h => {
                 const applies = h.states.includes('ALL') || h.states.includes(selectedState);
                 const [hy, hm] = h.date.split('-').map(Number);
-                return applies && hy === year && (hm - 1) === month;
+                return applies && hy === year && (hm-1) === month;
             });
-
-            // Build lookup: date string → holiday list
             const holidayMap = {};
             AU_HOLIDAYS.forEach(h => {
                 if (h.states.includes('ALL') || h.states.includes(selectedState)) {
@@ -1686,136 +1681,378 @@
                 }
             });
 
-            // Calendar grid
-            const firstDow = new Date(year, month, 1).getDay(); // 0=Sun
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
-            const cells = [];
-            for (let i = 0; i < firstDow; i++) cells.push(null);
-            for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+            // Month ticket stats
+            const monthPrefix = `${year}-${pad(month+1)}`;
+            const monthTickets = tickets.filter(t => {
+                const raw = t.dueAt || t.expectedCompletion;
+                return raw && raw.startsWith(monthPrefix);
+            });
+            const mDue = monthTickets.length;
+            const mOverdue = monthTickets.filter(isOverdue).length;
+            const mResolved = monthTickets.filter(isDone).length;
+            const mCritHigh = monthTickets.filter(t => ['critical','high'].includes((t.priorityLabel||t.priority||'').toLowerCase())).length;
 
-            const pad = n => String(n).padStart(2,'0');
-            const dateStr = d => `${year}-${pad(month+1)}-${pad(d)}`;
-            const isToday = d => today.getFullYear()===year && today.getMonth()===month && today.getDate()===d;
-            const isWeekend = d => { const dow = new Date(year,month,d).getDay(); return dow===0||dow===6; };
+            // Week stats (next 7 days)
+            const weekEnd = new Date(today); weekEnd.setDate(weekEnd.getDate()+7);
+            const weekTickets = tickets.filter(t => {
+                const raw = t.dueAt || t.expectedCompletion;
+                if (!raw) return false;
+                const d = new Date(raw);
+                return d >= today && d <= weekEnd && !isDone(t);
+            });
 
-            // Upcoming holidays (next 90 days from today) for sidebar
+            // Overdue tickets (open, past due)
+            const overdueList = tickets.filter(isOverdue)
+                .sort((a,b) => new Date(a.dueAt)-new Date(b.dueAt))
+                .slice(0,8);
+
+            // Upcoming holidays (next 90 days)
             const upcoming = AU_HOLIDAYS.filter(h => {
                 if (!h.states.includes('ALL') && !h.states.includes(selectedState)) return false;
-                const hd = new Date(h.date); const diff = (hd - today) / 86400000;
+                const hd = new Date(h.date); const diff = (hd-today)/86400000;
                 return diff >= 0 && diff <= 90;
-            }).sort((a,b) => a.date.localeCompare(b.date)).slice(0, 10);
+            }).sort((a,b) => a.date.localeCompare(b.date)).slice(0,8);
 
-            const PRIORITY_STYLE = {
-                critical: { bar:'#EF4444', bg:'#FEF2F2', text:'#991B1B' },
-                urgent:   { bar:'#EF4444', bg:'#FEF2F2', text:'#991B1B' },
-                high:     { bar:'#F97316', bg:'#FFF7ED', text:'#9A3412' },
-                medium:   { bar:'#EAB308', bg:'#FEFCE8', text:'#854D0E' },
-                low:      { bar:'#6366F1', bg:'#EEF2FF', text:'#3730A3' },
-            };
-            const getPriStyle = p => PRIORITY_STYLE[(p||'').toLowerCase()] || PRIORITY_STYLE.low;
+            // Calendar grid (Mon-first)
+            const firstDow = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month+1, 0).getDate();
+            const monFirst = (firstDow+6)%7;
+            const monCells = [];
+            for (let i=0;i<monFirst;i++) monCells.push(null);
+            for (let d=1;d<=daysInMonth;d++) monCells.push(d);
+            while (monCells.length%7!==0) monCells.push(null);
+
+            const prevMonth = () => setViewDate(new Date(year, month-1, 1));
+            const nextMonth = () => setViewDate(new Date(year, month+1, 1));
+            const goToday   = () => { setViewDate(new Date(today.getFullYear(),today.getMonth(),1)); setSelectedDay(todayStr); };
+
+            const STATUS_COLOR = {new:'#6B7280',assigned:'#3B82F6',in_progress:'#F59E0B',waiting:'#8B5CF6',pending_approval:'#EC4899',resolved:'#10B981',closed:'#374151'};
+            const STATUS_LABEL = {new:'New',assigned:'Assigned',in_progress:'In Progress',waiting:'Waiting',pending_approval:'Pending Approval',resolved:'Resolved',closed:'Closed'};
 
             return (
-                <main className="flex-1 overflow-auto" style={{background:'#F0F2F8'}}>
+                <main className="flex-1 overflow-auto" style={{background:'#F5F6FA'}}>
                     <style>{`
-                        .cal-cell { transition: background 0.12s; }
-                        .cal-cell:hover { background: #EEF2FF !important; }
-                        .cal-cell.selected { background: #E0E7FF !important; outline: 2px solid #6366F1; outline-offset: -2px; }
-                        .cal-cell.holiday { background: #FFF1F2 !important; }
-                        .cal-cell.holiday:hover { background: #FFE4E6 !important; }
-                        .cal-cell.weekend { background: #F8F9FE; }
-                        .ticket-bar { cursor: default; }
-                        .sc { background:white; border-radius:16px; border:1.5px solid #E0E7FF; padding:18px; margin-bottom:14px; }
-                        .upcoming-row:hover { background:#F5F3FF; border-radius:10px; }
-                        .cal-nav-btn:hover { background:#EEF2FF !important; }
-                        select.state-select { appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236366F1' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 12px center; padding-right:32px !important; }
+                        .cal2-cell { transition: background 0.1s; cursor: pointer; }
+                        .cal2-cell:hover { background: #F0F4FF !important; }
+                        .cal2-cell.sel { background: #EEF2FF !important; box-shadow: inset 0 0 0 2px #6366F1; }
+                        .cal2-cell.hol { background: #FFF5F5 !important; }
+                        .cal2-cell.hol:hover { background: #FFE9E9 !important; }
+                        .cal2-cell.wknd { background: #FAFAFA; }
+                        .cal-nav2:hover { background: #F3F4F6 !important; }
+                        .tkt-pill { cursor: pointer; transition: opacity 0.1s; }
+                        .tkt-pill:hover { opacity: 0.8; }
+                        .sidebar-row:hover { background: #F9FAFB; border-radius: 8px; }
                     `}</style>
 
-                    <div style={{maxWidth:'1440px', margin:'0 auto', padding:'24px 28px'}}>
+                    <div style={{maxWidth:'1600px', margin:'0 auto', padding:'24px 28px'}}>
 
-                        {/* ══ Top bar: title + state dropdown ══ */}
-                        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'18px', flexWrap:'wrap', gap:'12px'}}>
+                        {/* ══ PAGE HEADER ══ */}
+                        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'20px',flexWrap:'wrap',gap:'12px'}}>
                             <div>
-                                <h1 style={{fontSize:'21px', fontWeight:'700', color:'#1E1B4B', margin:0, letterSpacing:'-0.3px'}}>🇦🇺 Australian Calendar</h1>
-                                <p style={{fontSize:'12px', color:'#9CA3AF', margin:'3px 0 0'}}>Public holidays &amp; ticket due dates · {year}</p>
+                                <h1 style={{fontSize:'20px',fontWeight:'700',color:'#111827',margin:0,letterSpacing:'-0.4px'}}>Ticket Calendar</h1>
+                                <p style={{fontSize:'12px',color:'#6B7280',margin:'3px 0 0'}}>Due dates, overdue tracking & public holidays · {AU_STATES.find(s=>s.code===selectedState)?.label}</p>
                             </div>
-                            {/* ── State dropdown ── */}
-                            <div style={{display:'flex', alignItems:'center', gap:'10px', background:'white', border:'2px solid #C7D2FE', borderRadius:'12px', padding:'10px 16px', boxShadow:'0 1px 6px rgba(99,102,241,0.08)'}}>
-                                <span style={{fontSize:'11px', fontWeight:'700', color:'#6366F1', textTransform:'uppercase', letterSpacing:'0.07em', flexShrink:0}}>📍 State / Territory</span>
-                                <select
-                                    className="state-select"
-                                    value={selectedState}
-                                    onChange={e => setSelectedState(e.target.value)}
-                                    style={{border:'1.5px solid #E0E7FF', borderRadius:'8px', padding:'6px 32px 6px 10px', fontSize:'13px', fontWeight:'600', color:'#4338CA', background:'#F5F3FF', cursor:'pointer', outline:'none', minWidth:'170px'}}
-                                >
-                                    {AU_STATES.map(s => (
-                                        <option key={s.code} value={s.code}>{s.label}</option>
-                                    ))}
+                            <div style={{display:'flex',gap:'8px',alignItems:'center',flexWrap:'wrap'}}>
+                                <button onClick={goToday} style={{padding:'7px 16px',borderRadius:'8px',border:'1.5px solid #E5E7EB',background:'white',fontSize:'13px',fontWeight:'600',color:'#374151',cursor:'pointer'}}>Today</button>
+                                <select value={selectedState} onChange={e=>setSelectedState(e.target.value)}
+                                    style={{padding:'7px 12px',borderRadius:'8px',border:'1.5px solid #E5E7EB',background:'white',fontSize:'13px',color:'#374151',cursor:'pointer',fontWeight:'500'}}>
+                                    {AU_STATES.map(s=><option key={s.code} value={s.code}>{s.label}</option>)}
                                 </select>
-                                <div style={{fontSize:'12px', color:'#9CA3AF', borderLeft:'1px solid #E5E7EB', paddingLeft:'10px', flexShrink:0}}>
-                                    <strong style={{color:'#4338CA'}}>{visibleHolidays.length}</strong> holiday{visibleHolidays.length!==1?'s':''} this month
-                                </div>
                             </div>
                         </div>
 
-                        {/* ══ Main 3-column layout ══ */}
-                        <div style={{display:'grid', gridTemplateColumns:'1fr 300px', gap:'18px', alignItems:'start'}}>
-
-                            {/* ── Calendar card ── */}
-                            <div style={{background:'white', borderRadius:'20px', border:'2.5px solid #C7D2FE', overflow:'hidden', boxShadow:'0 4px 20px rgba(99,102,241,0.10)'}}>
-
-                                {/* Month nav */}
-                                <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 22px', background:'linear-gradient(135deg,#6366F1,#818CF8)', color:'white'}}>
-                                    <button className="cal-nav-btn" onClick={prevMonth} style={{width:'34px',height:'34px',borderRadius:'10px',border:'1.5px solid rgba(255,255,255,0.3)',background:'rgba(255,255,255,0.12)',cursor:'pointer',fontSize:'18px',color:'white',fontWeight:'700',display:'flex',alignItems:'center',justifyContent:'center'}}>‹</button>
-                                    <div style={{textAlign:'center'}}>
-                                        <h2 style={{fontSize:'18px',fontWeight:'700',margin:0,color:'white'}}>{monthNames[month]} {year}</h2>
-                                        <p style={{fontSize:'11px',margin:'2px 0 0',opacity:0.8}}>{visibleHolidays.length} holiday{visibleHolidays.length!==1?'s':''} · {AU_STATES.find(s=>s.code===selectedState)?.label}</p>
+                        {/* ══ STATS BAR ══ */}
+                        {!loading && (
+                        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'12px',marginBottom:'20px'}}>
+                            {[
+                                { label:'Due This Month', value:mDue,      sub:'tickets with due dates',   color:'#6366F1', bg:'#EEF2FF', icon:'📅' },
+                                { label:'Overdue',        value:mOverdue,  sub:'past due, still open',     color:'#EF4444', bg:'#FEF2F2', icon:'⚠️' },
+                                { label:'Resolved',       value:mResolved, sub:'closed this month',        color:'#10B981', bg:'#ECFDF5', icon:'✅' },
+                                { label:'Due This Week',  value:weekTickets.length, sub:'next 7 days open', color:'#F59E0B', bg:'#FFFBEB', icon:'🔔' },
+                            ].map(s=>(
+                                <div key={s.label} style={{background:'white',borderRadius:'12px',border:'1px solid #E5E7EB',padding:'16px 20px',display:'flex',alignItems:'center',gap:'14px',boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
+                                    <div style={{width:'44px',height:'44px',borderRadius:'10px',background:s.bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'20px',flexShrink:0}}>{s.icon}</div>
+                                    <div>
+                                        <div style={{fontSize:'22px',fontWeight:'700',color:s.color,lineHeight:1}}>{s.value}</div>
+                                        <div style={{fontSize:'12px',fontWeight:'600',color:'#374151',marginTop:'2px'}}>{s.label}</div>
+                                        <div style={{fontSize:'11px',color:'#9CA3AF'}}>{s.sub}</div>
                                     </div>
-                                    <button className="cal-nav-btn" onClick={nextMonth} style={{width:'34px',height:'34px',borderRadius:'10px',border:'1.5px solid rgba(255,255,255,0.3)',background:'rgba(255,255,255,0.12)',cursor:'pointer',fontSize:'18px',color:'white',fontWeight:'700',display:'flex',alignItems:'center',justifyContent:'center'}}>›</button>
+                                </div>
+                            ))}
+                        </div>
+                        )}
+
+                        {/* ══ MAIN LAYOUT: Calendar + Sidebar ══ */}
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 320px',gap:'16px',alignItems:'start'}}>
+
+                            {/* ── CALENDAR ── */}
+                            <div style={{background:'white',borderRadius:'14px',border:'1px solid #E5E7EB',overflow:'hidden',boxShadow:'0 1px 4px rgba(0,0,0,0.05)'}}>
+
+                                {/* Month nav bar */}
+                                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'16px 20px',borderBottom:'1px solid #F0F0F0'}}>
+                                    <button className="cal-nav2" onClick={prevMonth} style={{width:'32px',height:'32px',borderRadius:'8px',border:'1px solid #E5E7EB',background:'white',cursor:'pointer',fontSize:'16px',color:'#6B7280',display:'flex',alignItems:'center',justifyContent:'center'}}>‹</button>
+                                    <div style={{textAlign:'center'}}>
+                                        <h2 style={{fontSize:'16px',fontWeight:'700',color:'#111827',margin:0}}>{monthNames[month]} {year}</h2>
+                                        <div style={{fontSize:'11px',color:'#9CA3AF',marginTop:'2px'}}>
+                                            {visibleHolidays.length>0 && <span style={{color:'#EF4444',fontWeight:'600'}}>{visibleHolidays.length} holiday{visibleHolidays.length!==1?'s':''}</span>}
+                                            {visibleHolidays.length>0 && mDue>0 && <span style={{color:'#D1D5DB'}}> · </span>}
+                                            {mDue>0 && <span style={{color:'#6366F1',fontWeight:'600'}}>{mDue} ticket{mDue!==1?'s':''} due</span>}
+                                        </div>
+                                    </div>
+                                    <button className="cal-nav2" onClick={nextMonth} style={{width:'32px',height:'32px',borderRadius:'8px',border:'1px solid #E5E7EB',background:'white',cursor:'pointer',fontSize:'16px',color:'#6B7280',display:'flex',alignItems:'center',justifyContent:'center'}}>›</button>
                                 </div>
 
-                                {/* Day headers */}
-                                <div style={{display:'grid', gridTemplateColumns:'repeat(7,1fr)', borderBottom:'2px solid #EEF2FF', background:'#F5F3FF'}}>
-                                    {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d,i) => (
-                                        <div key={d} style={{textAlign:'center', fontSize:'11px', fontWeight:'700', letterSpacing:'0.06em', color: i>=5?'#A5B4FC':'#6366F1', padding:'10px 0', textTransform:'uppercase', borderRight: i<6?'1px solid #EEF2FF':'none'}}>{d}</div>
+                                {/* Day labels */}
+                                <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',background:'#F9FAFB',borderBottom:'1px solid #F0F0F0'}}>
+                                    {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d,i)=>(
+                                        <div key={d} style={{textAlign:'center',fontSize:'11px',fontWeight:'600',letterSpacing:'0.05em',color:i>=5?'#9CA3AF':'#6B7280',padding:'8px 0',textTransform:'uppercase'}}>{d}</div>
                                     ))}
                                 </div>
 
-                                {/* Cells */}
-                                {(() => {
-                                    const monFirst = (firstDow + 6) % 7;
-                                    const monCells = [];
-                                    for (let i=0;i<monFirst;i++) monCells.push(null);
-                                    for (let d=1;d<=daysInMonth;d++) monCells.push(d);
-                                    while (monCells.length%7!==0) monCells.push(null);
+                                {/* Grid cells */}
+                                <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)'}}>
+                                    {monCells.map((d,i)=>{
+                                        const ds = d ? dateStr(d) : null;
+                                        const hols = ds?(holidayMap[ds]||[]):[];
+                                        const tkts = ds?(ticketDateMap[ds]||[]):[];
+                                        const dow = d?new Date(year,month,d).getDay():null;
+                                        const isWknd = dow===0||dow===6;
+                                        const isTd = d&&isToday(d);
+                                        const isHol = hols.length>0;
+                                        const isSel = selectedDay===ds;
+                                        const isLast = i>=monCells.length-7;
+                                        const overdueOnDay = tkts.filter(isOverdue).length;
+                                        return (
+                                            <div key={i}
+                                                className={`cal2-cell${isSel?' sel':''}${isHol&&!isSel?' hol':''}${isWknd&&!isHol&&!isSel?' wknd':''}`}
+                                                onClick={()=>d&&setSelectedDay(isSel?null:ds)}
+                                                style={{minHeight:'90px',padding:'6px',cursor:d?'pointer':'default',borderBottom:isLast?'none':'1px solid #F3F4F6',borderRight:(i+1)%7===0?'none':'1px solid #F3F4F6',background:!d?'#FAFAFA':undefined,position:'relative'}}
+                                            >
+                                                {d && (<>
+                                                    {/* Top accent: holiday = red, overdue = orange */}
+                                                    {(isHol||overdueOnDay>0) && <div style={{position:'absolute',top:0,left:0,right:0,height:'2.5px',background:isHol?'#FCA5A5':'#FDBA74',borderRadius:'0'}}/>}
+                                                    {/* Date number */}
+                                                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'3px'}}>
+                                                        <div style={{width:'24px',height:'24px',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px',fontWeight:isTd?'700':'500',background:isTd?'#6366F1':'transparent',color:isTd?'white':isWknd?'#9CA3AF':'#374151',flexShrink:0}}>{d}</div>
+                                                        {tkts.length>0 && <div style={{fontSize:'10px',fontWeight:'700',color:overdueOnDay>0?'#EF4444':'#6366F1',background:overdueOnDay>0?'#FEF2F2':'#EEF2FF',borderRadius:'10px',padding:'1px 5px',minWidth:'16px',textAlign:'center'}}>{tkts.length}</div>}
+                                                    </div>
+                                                    {/* Holiday label */}
+                                                    {isHol && <div style={{fontSize:'9px',color:'#DC2626',fontWeight:'600',marginBottom:'2px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',lineHeight:'1.3'}}>{hols[0].name}</div>}
+                                                    {/* Ticket pills */}
+                                                    {tkts.slice(0,2).map((t,ti)=>{
+                                                        const done=isDone(t); const od=isOverdue(t);
+                                                        const ps=getPri(t);
+                                                        const dotColor=done?'#10B981':od?'#EF4444':ps.dot;
+                                                        const bgColor=done?'#ECFDF5':od?'#FEF2F2':ps.bg;
+                                                        const txColor=done?'#065F46':od?'#991B1B':ps.text;
+                                                        return (
+                                                            <div key={ti} className="tkt-pill" style={{display:'flex',alignItems:'center',gap:'4px',background:bgColor,borderRadius:'4px',padding:'2px 5px',marginBottom:'2px'}}>
+                                                                <div style={{width:'6px',height:'6px',borderRadius:'50%',background:dotColor,flexShrink:0}}/>
+                                                                <span style={{fontSize:'9.5px',fontWeight:'600',color:txColor,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.title||t.ticketNumber||'Ticket'}</span>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                    {tkts.length>2 && <div style={{fontSize:'9px',color:'#9CA3AF',paddingLeft:'2px'}}>+{tkts.length-2} more</div>}
+                                                </>)}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Legend */}
+                                <div style={{display:'flex',flexWrap:'wrap',gap:'12px',padding:'10px 16px',borderTop:'1px solid #F0F0F0',background:'#FAFAFA',alignItems:'center'}}>
+                                    {[
+                                        {dot:'#6366F1',bg:'#EEF2FF',label:'Open'},
+                                        {dot:'#EF4444',bg:'#FEF2F2',label:'Overdue'},
+                                        {dot:'#10B981',bg:'#ECFDF5',label:'Resolved'},
+                                        {icon:true,bar:'#FCA5A5',label:'Holiday'},
+                                        {circle:true,label:'Today'},
+                                    ].map((l,i)=>(
+                                        <div key={i} style={{display:'flex',alignItems:'center',gap:'5px'}}>
+                                            {l.circle && <div style={{width:'16px',height:'16px',borderRadius:'50%',background:'#6366F1',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'8px',fontWeight:'700',color:'white'}}>9</div>}
+                                            {l.dot && <div style={{display:'flex',alignItems:'center',gap:'3px',background:l.bg,borderRadius:'4px',padding:'1.5px 6px'}}><div style={{width:'6px',height:'6px',borderRadius:'50%',background:l.dot}}/></div>}
+                                            {l.icon && <div style={{width:'18px',height:'2.5px',background:l.bar,borderRadius:'2px'}}/>}
+                                            <span style={{fontSize:'10px',color:'#6B7280'}}>{l.label}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* ── RIGHT SIDEBAR ── */}
+                            <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
+
+                                {/* Selected day */}
+                                {selectedDay && (()=>{
+                                    const hols = holidayMap[selectedDay]||[];
+                                    const tkts = ticketDateMap[selectedDay]||[];
+                                    const [sy,sm2,sd2] = selectedDay.split('-').map(Number);
+                                    const dl = new Date(sy,sm2-1,sd2).toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+                                    const isPast = new Date(sy,sm2-1,sd2) < today && selectedDay!==todayStr;
                                     return (
-                                        <div style={{display:'grid', gridTemplateColumns:'repeat(7,1fr)'}}>
-                                            {monCells.map((d,i) => {
-                                                const ds = d ? dateStr(d) : null;
-                                                const hols = ds?(holidayMap[ds]||[]):[];
-                                                const tkts = ds?(ticketDateMap[ds]||[]):[];
-                                                const dow = d?new Date(year,month,d).getDay():null;
-                                                const isWknd = dow===0||dow===6;
-                                                const isTd = d&&isToday(d);
-                                                const isHol = hols.length>0;
-                                                const isSel = selectedDay===ds;
-                                                const isLast = i>=monCells.length-7;
+                                        <div style={{background:'white',borderRadius:'12px',border:'2px solid #6366F1',overflow:'hidden',boxShadow:'0 2px 8px rgba(99,102,241,0.12)'}}>
+                                            <div style={{background:'#6366F1',padding:'12px 16px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                                                <div>
+                                                    <div style={{fontSize:'11px',color:'rgba(255,255,255,0.75)',fontWeight:'600',textTransform:'uppercase',letterSpacing:'0.05em'}}>Selected</div>
+                                                    <div style={{fontSize:'13px',fontWeight:'700',color:'white',marginTop:'1px'}}>{dl}</div>
+                                                </div>
+                                                <button onClick={()=>setSelectedDay(null)} style={{background:'rgba(255,255,255,0.15)',border:'none',borderRadius:'6px',width:'26px',height:'26px',color:'white',fontSize:'16px',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>×</button>
+                                            </div>
+                                            <div style={{padding:'14px 16px'}}>
+                                                {hols.map((h,i)=>(
+                                                    <div key={i} style={{display:'flex',alignItems:'flex-start',gap:'8px',background:'#FFF5F5',borderRadius:'8px',padding:'8px 10px',marginBottom:'8px'}}>
+                                                        <span style={{fontSize:'14px'}}>🎉</span>
+                                                        <div>
+                                                            <div style={{fontSize:'12px',fontWeight:'700',color:'#DC2626'}}>{h.name}</div>
+                                                            <div style={{fontSize:'10px',color:'#9CA3AF',marginTop:'2px'}}>{h.states.includes('ALL')?'National':h.states.join(', ')}</div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                {tkts.length===0 && hols.length===0 && (
+                                                    <p style={{fontSize:'12px',color:'#9CA3AF',margin:0,textAlign:'center',padding:'8px 0'}}>No tickets or holidays</p>
+                                                )}
+                                                {tkts.length>0 && (
+                                                    <>
+                                                    <div style={{fontSize:'11px',fontWeight:'700',color:'#6B7280',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:'8px'}}>{tkts.length} ticket{tkts.length!==1?'s':''} due</div>
+                                                    {tkts.map((t,i)=>{
+                                                        const done=isDone(t); const od=isOverdue(t);
+                                                        const ps=getPri(t);
+                                                        const sc=STATUS_COLOR[t.status]||'#9CA3AF';
+                                                        return (
+                                                            <div key={i} style={{borderLeft:`3px solid ${done?'#10B981':od?'#EF4444':ps.dot}`,background:done?'#ECFDF5':od?'#FEF2F2':ps.bg,borderRadius:'0 8px 8px 0',padding:'8px 10px',marginBottom:'6px'}}>
+                                                                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'3px'}}>
+                                                                    <span style={{fontSize:'10px',fontWeight:'700',color:'#6B7280'}}>{t.ticketNumber||`#${t.id}`}</span>
+                                                                    <span style={{fontSize:'10px',fontWeight:'600',color:sc,background:sc+'1A',borderRadius:'20px',padding:'1px 7px'}}>{STATUS_LABEL[t.status]||t.status}</span>
+                                                                </div>
+                                                                <div style={{fontSize:'12px',fontWeight:'600',color:'#111827',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.title||'—'}</div>
+                                                                <div style={{display:'flex',gap:'6px',marginTop:'4px',flexWrap:'wrap'}}>
+                                                                    {(t.priorityLabel||t.priority) && <span style={{fontSize:'10px',color:ps.text,fontWeight:'600'}}>{(t.priorityLabel||t.priority).charAt(0).toUpperCase()+(t.priorityLabel||t.priority).slice(1)}</span>}
+                                                                    {od && <span style={{fontSize:'10px',color:'#EF4444',fontWeight:'700'}}>⚠ Overdue</span>}
+                                                                    {done && <span style={{fontSize:'10px',color:'#10B981',fontWeight:'700'}}>✓ Resolved</span>}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+
+                                {/* Overdue tickets */}
+                                {overdueList.length > 0 && (
+                                <div style={{background:'white',borderRadius:'12px',border:'1px solid #FECACA',overflow:'hidden',boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
+                                    <div style={{padding:'12px 16px',borderBottom:'1px solid #FEF2F2',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                                        <span style={{fontSize:'13px',fontWeight:'700',color:'#DC2626'}}>⚠ Overdue Tickets</span>
+                                        <span style={{fontSize:'11px',background:'#FEF2F2',color:'#DC2626',borderRadius:'20px',padding:'2px 8px',fontWeight:'700'}}>{overdueList.length}</span>
+                                    </div>
+                                    <div style={{padding:'8px'}}>
+                                        {overdueList.map((t,i)=>{
+                                            const ps=getPri(t);
+                                            const daysOver = t.dueAt ? Math.floor((today-new Date(t.dueAt))/86400000) : null;
+                                            return (
+                                                <div key={i} className="sidebar-row" style={{padding:'8px',borderRadius:'8px'}}>
+                                                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:'6px'}}>
+                                                        <div style={{flex:1,minWidth:0}}>
+                                                            <div style={{fontSize:'12px',fontWeight:'600',color:'#111827',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.title||'—'}</div>
+                                                            <div style={{display:'flex',gap:'6px',marginTop:'2px',alignItems:'center'}}>
+                                                                <span style={{fontSize:'10px',fontWeight:'600',color:ps.text}}>{(t.priorityLabel||t.priority||'').charAt(0).toUpperCase()+(t.priorityLabel||t.priority||'').slice(1)}</span>
+                                                                {t.assigneeName && <span style={{fontSize:'10px',color:'#9CA3AF'}}>→ {t.assigneeName.split(' ')[0]}</span>}
+                                                            </div>
+                                                        </div>
+                                                        {daysOver!=null && <span style={{fontSize:'10px',fontWeight:'700',color:'#EF4444',flexShrink:0,background:'#FEF2F2',borderRadius:'20px',padding:'2px 7px',whiteSpace:'nowrap'}}>{daysOver}d late</span>}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                                )}
+
+                                {/* Due this week */}
+                                {weekTickets.length > 0 && (
+                                <div style={{background:'white',borderRadius:'12px',border:'1px solid #E5E7EB',overflow:'hidden',boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
+                                    <div style={{padding:'12px 16px',borderBottom:'1px solid #F3F4F6',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                                        <span style={{fontSize:'13px',fontWeight:'700',color:'#374151'}}>🔔 Due This Week</span>
+                                        <span style={{fontSize:'11px',background:'#FFFBEB',color:'#D97706',borderRadius:'20px',padding:'2px 8px',fontWeight:'700'}}>{weekTickets.length}</span>
+                                    </div>
+                                    <div style={{padding:'8px'}}>
+                                        {weekTickets.slice(0,6).map((t,i)=>{
+                                            const ps=getPri(t);
+                                            const d=new Date(t.dueAt);
+                                            const diffD=Math.round((d-today)/86400000);
+                                            const dLabel=diffD===0?'Today':diffD===1?'Tomorrow':`${diffD}d`;
+                                            return (
+                                                <div key={i} className="sidebar-row" style={{padding:'8px',borderRadius:'8px',display:'flex',gap:'8px',alignItems:'center'}}>
+                                                    <div style={{width:'32px',height:'32px',background:'#FFFBEB',borderRadius:'8px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                                                        <div style={{fontSize:'9px',fontWeight:'700',color:'#D97706',textTransform:'uppercase'}}>{mnShort[d.getMonth()]}</div>
+                                                        <div style={{fontSize:'13px',fontWeight:'700',color:'#92400E',lineHeight:1}}>{d.getDate()}</div>
+                                                    </div>
+                                                    <div style={{flex:1,minWidth:0}}>
+                                                        <div style={{fontSize:'12px',fontWeight:'600',color:'#111827',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.title||'—'}</div>
+                                                        <div style={{fontSize:'10px',color:ps.text,fontWeight:'600',marginTop:'1px'}}>{(t.priorityLabel||t.priority||'').charAt(0).toUpperCase()+(t.priorityLabel||t.priority||'').slice(1)}{t.assigneeName?` · ${t.assigneeName.split(' ')[0]}`:''}</div>
+                                                    </div>
+                                                    <span style={{fontSize:'10px',fontWeight:'700',color:diffD===0?'#DC2626':'#D97706',flexShrink:0}}>{dLabel}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                                )}
+
+                                {/* Upcoming public holidays */}
+                                <div style={{background:'white',borderRadius:'12px',border:'1px solid #E5E7EB',overflow:'hidden',boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
+                                    <div style={{padding:'12px 16px',borderBottom:'1px solid #F3F4F6',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                                        <span style={{fontSize:'13px',fontWeight:'700',color:'#374151'}}>🇦🇺 Public Holidays</span>
+                                        <span style={{fontSize:'10px',color:'#9CA3AF'}}>Next 90 days</span>
+                                    </div>
+                                    <div style={{padding:'8px'}}>
+                                        {upcoming.length===0 ? (
+                                            <p style={{fontSize:'12px',color:'#9CA3AF',textAlign:'center',padding:'12px',margin:0}}>None in the next 90 days</p>
+                                        ) : upcoming.map((h,i)=>{
+                                            const [hy,hm2,hd2]=h.date.split('-').map(Number);
+                                            const diff=Math.round((new Date(hy,hm2-1,hd2)-today)/86400000);
+                                            const dLabel=diff===0?'Today 🎉':diff===1?'Tomorrow':`${diff}d`;
+                                            const hot=diff<=7;
+                                            return (
+                                                <div key={i} className="sidebar-row" style={{padding:'8px',borderRadius:'8px',display:'flex',gap:'8px',alignItems:'center'}}>
+                                                    <div style={{width:'32px',height:'32px',background:hot?'#FEF2F2':'#F9FAFB',borderRadius:'8px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                                                        <div style={{fontSize:'9px',fontWeight:'700',color:hot?'#DC2626':'#6B7280',textTransform:'uppercase'}}>{mnShort[hm2-1]}</div>
+                                                        <div style={{fontSize:'13px',fontWeight:'700',color:hot?'#991B1B':'#374151',lineHeight:1}}>{hd2}</div>
+                                                    </div>
+                                                    <div style={{flex:1,minWidth:0}}>
+                                                        <div style={{fontSize:'12px',fontWeight:'600',color:'#111827',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{h.name}</div>
+                                                        <div style={{fontSize:'10px',color:'#9CA3AF',marginTop:'1px'}}>{h.states.includes('ALL')?'National':h.states.join(', ')}</div>
+                                                    </div>
+                                                    <span style={{fontSize:'10px',fontWeight:'700',color:hot?'#DC2626':'#9CA3AF',flexShrink:0}}>{dLabel}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Monthly ticket breakdown by priority */}
+                                {monthTickets.length>0 && (()=>{
+                                    const priCounts = {};
+                                    monthTickets.forEach(t => {
+                                        const p = (t.priorityLabel||t.priority||'low').toLowerCase();
+                                        priCounts[p] = (priCounts[p]||0)+1;
+                                    });
+                                    return (
+                                        <div style={{background:'white',borderRadius:'12px',border:'1px solid #E5E7EB',padding:'14px 16px',boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
+                                            <div style={{fontSize:'13px',fontWeight:'700',color:'#374151',marginBottom:'12px'}}>📊 {monthNames[month]} Breakdown</div>
+                                            {['critical','high','medium','low'].map(p=>{
+                                                const cnt=priCounts[p]||0; if(!cnt) return null;
+                                                const ps=PRI[p]; const pct=Math.round(cnt/monthTickets.length*100);
                                                 return (
-                                                    <div key={i}
-                                                        className={`cal-cell${isSel?' selected':''}${isHol&&!isSel?' holiday':''}${isWknd&&!isHol&&!isSel?' weekend':''}`}
-                                                        onClick={()=>d&&setSelectedDay(isSel?null:ds)}
-                                                        style={{minHeight:'100px', padding:'7px 6px', cursor:d?'pointer':'default', borderBottom:isLast?'none':'1px solid #EEF2FF', borderRight:(i+1)%7===0?'none':'1px solid #EEF2FF', background:!d?'#F8F7FF':undefined, position:'relative'}}
-                                                    >
-                                                        {d && (<>
-                                                            {isHol && <div style={{position:'absolute',top:0,left:0,right:0,height:'3px',background:'#FDA4AF'}}/>}
-                                                            <div style={{width:'26px',height:'26px',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px',fontWeight:isTd?'700':'500',marginBottom:'3px',background:isTd?'#6366F1':'transparent',color:isTd?'white':isHol?'#BE123C':isWknd?'#C4B5FD':'#374151'}}>{d}</div>
-                                                            {isHol && <div style={{fontSize:'9.5px',color:'#BE123C',fontWeight:'700',lineHeight:'1.3',marginBottom:'3px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{hols[0].name}</div>}
-                                                            {tkts.slice(0,3).map((t,ti) => {
-                                                                const ps=getPriStyle(t.priority||t.priority_id);
-                                                                const done=['resolved','closed'].includes((t.status||t.status_id||'').toLowerCase());
-                                                                return <div key={ti} className="ticket-bar" style={{display:'flex',alignItems:'center',borderLeft:`3px solid ${done?'#22C55E':ps.bar}`,background:done?'#F0FDF4':ps.bg,borderRadius:'0 4px 4px 0',padding:'1.5px 5px',marginBottom:'2px'}}><span style={{fontSize:'9.5px',fontWeight:'700',color:done?'#15803D':ps.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'100%'}}>{t.ticketNumber||t.id}</span></div>;
-                                                            })}
-                                                            {tkts.length>3 && <div style={{fontSize:'9px',color:'#6366F1',fontWeight:'700'}}>+{tkts.length-3} more</div>}
-                                                        </>)}
+                                                    <div key={p} style={{marginBottom:'8px'}}>
+                                                        <div style={{display:'flex',justifyContent:'space-between',fontSize:'11px',marginBottom:'3px'}}>
+                                                            <span style={{fontWeight:'600',color:ps.text,textTransform:'capitalize'}}>{p}</span>
+                                                            <span style={{color:'#6B7280'}}>{cnt} ({pct}%)</span>
+                                                        </div>
+                                                        <div style={{height:'6px',background:'#F3F4F6',borderRadius:'3px'}}>
+                                                            <div style={{height:'100%',width:pct+'%',background:ps.dot,borderRadius:'3px'}}/>
+                                                        </div>
                                                     </div>
                                                 );
                                             })}
@@ -1823,105 +2060,7 @@
                                     );
                                 })()}
 
-                                {/* Legend */}
-                                <div style={{display:'flex',flexWrap:'wrap',gap:'14px',padding:'12px 20px',borderTop:'2px solid #EEF2FF',background:'#F8F7FF',alignItems:'center'}}>
-                                    <span style={{fontSize:'10px',fontWeight:'700',color:'#6366F1',textTransform:'uppercase',letterSpacing:'0.07em'}}>Legend</span>
-                                    {[
-                                        {s:<div style={{width:'18px',height:'18px',borderRadius:'50%',background:'#6366F1',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:'9px',fontWeight:'700'}}>7</div>,l:'Today'},
-                                        {s:<div style={{width:'18px',height:'4px',borderRadius:'2px',background:'#FDA4AF'}}></div>,l:'Holiday'},
-                                        {s:<div style={{width:'18px',height:'12px',borderRadius:'2px',borderLeft:'3px solid #EF4444',background:'#FEF2F2'}}></div>,l:'Critical'},
-                                        {s:<div style={{width:'18px',height:'12px',borderRadius:'2px',borderLeft:'3px solid #F97316',background:'#FFF7ED'}}></div>,l:'High'},
-                                        {s:<div style={{width:'18px',height:'12px',borderRadius:'2px',borderLeft:'3px solid #EAB308',background:'#FEFCE8'}}></div>,l:'Medium'},
-                                        {s:<div style={{width:'18px',height:'12px',borderRadius:'2px',borderLeft:'3px solid #6366F1',background:'#EEF2FF'}}></div>,l:'Low'},
-                                        {s:<div style={{width:'18px',height:'12px',borderRadius:'2px',borderLeft:'3px solid #22C55E',background:'#F0FDF4'}}></div>,l:'Resolved'},
-                                    ].map((l,i)=><div key={i} style={{display:'flex',alignItems:'center',gap:'5px'}}>{l.s}<span style={{fontSize:'10px',color:'#6B7280'}}>{l.l}</span></div>)}
-                                </div>
-                            </div>
-
-                            {/* ── RIGHT SIDEBAR ── */}
-                            <div>
-
-                                {/* Selected day card */}
-                                {selectedDay && (()=>{
-                                    const hols=holidayMap[selectedDay]||[];
-                                    const tkts=ticketDateMap[selectedDay]||[];
-                                    const [sy,sm2,sd2]=selectedDay.split('-').map(Number);
-                                    const dl=new Date(sy,sm2-1,sd2).toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'});
-                                    return (
-                                        <div className="sc" style={{borderLeft:'4px solid #6366F1',marginBottom:'14px'}}>
-                                            <p style={{fontSize:'10px',fontWeight:'700',color:'#6366F1',textTransform:'uppercase',letterSpacing:'0.08em',margin:'0 0 8px'}}>{dl}</p>
-                                            {hols.map((h,i)=>(
-                                                <div key={i} style={{background:'#FFF1F2',borderRadius:'8px',padding:'8px 10px',marginBottom:'6px'}}>
-                                                    <p style={{fontSize:'12px',fontWeight:'700',color:'#BE123C',margin:0}}>🎉 {h.name}</p>
-                                                    <div style={{display:'flex',gap:'4px',flexWrap:'wrap',marginTop:'5px'}}>
-                                                        {h.states.includes('ALL')?<span style={{fontSize:'10px',background:'#EEF2FF',color:'#4338CA',padding:'2px 8px',borderRadius:'20px',fontWeight:'600'}}>National</span>:h.states.map(s=><span key={s} style={{fontSize:'10px',background:'#F3F4F6',color:'#6B7280',padding:'2px 7px',borderRadius:'20px'}}>{s}</span>)}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                            {tkts.length>0&&(<>
-                                                <p style={{fontSize:'10px',fontWeight:'700',color:'#6366F1',textTransform:'uppercase',letterSpacing:'0.07em',margin:'10px 0 6px'}}>Tickets due · {tkts.length}</p>
-                                                {tkts.map((t,i)=>{
-                                                    const ps=getPriStyle(t.priority||t.priority_id);
-                                                    const status=t.status||t.status_id||'Open';
-                                                    const done=['resolved','closed'].includes(status.toLowerCase());
-                                                    return <div key={i} style={{borderLeft:`4px solid ${done?'#22C55E':ps.bar}`,background:done?'#F0FDF4':ps.bg,borderRadius:'0 8px 8px 0',padding:'7px 10px',marginBottom:'5px'}}><div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}><span style={{fontSize:'11px',fontWeight:'700',color:done?'#15803D':ps.text}}>{t.ticketNumber||t.id}</span><span style={{fontSize:'10px',color:'#9CA3AF'}}>{status}</span></div><p style={{fontSize:'11px',color:'#374151',margin:'2px 0 0',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.title||t.subtitle||'—'}</p></div>;
-                                                })}
-                                            </>)}
-                                            {hols.length===0&&tkts.length===0&&<p style={{fontSize:'12px',color:'#9CA3AF',fontStyle:'italic',margin:0}}>No events on this day</p>}
-                                        </div>
-                                    );
-                                })()}
-
-                                {/* Monthly summary chip */}
-                                <div style={{background:'linear-gradient(135deg,#6366F1,#818CF8)',borderRadius:'16px',padding:'18px',marginBottom:'14px',color:'white',border:'2px solid #C7D2FE'}}>
-                                    <p style={{fontSize:'10px',fontWeight:'700',textTransform:'uppercase',letterSpacing:'0.08em',opacity:0.8,margin:'0 0 3px'}}>{monthNames[month]} · {AU_STATES.find(s=>s.code===selectedState)?.label}</p>
-                                    <p style={{fontSize:'30px',fontWeight:'700',margin:'0 0 2px',lineHeight:1}}>{visibleHolidays.length}</p>
-                                    <p style={{fontSize:'11px',opacity:0.8,margin:'0 0 10px'}}>public holiday{visibleHolidays.length!==1?'s':''} this month</p>
-                                    {visibleHolidays.map((h,i)=>(
-                                        <div key={i} style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'3px'}}>
-                                            <div style={{width:'4px',height:'4px',borderRadius:'50%',background:'rgba(255,255,255,0.65)',flexShrink:0}}></div>
-                                            <p style={{fontSize:'11px',opacity:0.92,margin:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{h.name}</p>
-                                        </div>
-                                    ))}
-                                    {visibleHolidays.length===0&&<p style={{fontSize:'11px',opacity:0.55,fontStyle:'italic',margin:0}}>No holidays this month</p>}
-                                </div>
-
-                                {/* ── Upcoming holidays (next 90 days) ── */}
-                                <div className="sc">
-                                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'12px'}}>
-                                        <p style={{fontSize:'11px',fontWeight:'700',color:'#6366F1',textTransform:'uppercase',letterSpacing:'0.08em',margin:0}}>📅 Upcoming Holidays</p>
-                                        <span style={{fontSize:'10px',background:'#EEF2FF',color:'#4338CA',padding:'2px 8px',borderRadius:'20px',fontWeight:'700'}}>Next 90 days</span>
-                                    </div>
-                                    <p style={{fontSize:'11px',color:'#9CA3AF',margin:'0 0 12px'}}>{AU_STATES.find(s=>s.code===selectedState)?.label}</p>
-                                    {upcoming.length===0?(
-                                        <div style={{textAlign:'center',padding:'20px 0'}}>
-                                            <p style={{fontSize:'24px',margin:'0 0 6px'}}>🎊</p>
-                                            <p style={{fontSize:'12px',color:'#9CA3AF',fontStyle:'italic',margin:0}}>No holidays in the next 90 days</p>
-                                        </div>
-                                    ):upcoming.map((h,i)=>{
-                                        const [hy,hm2,hd2]=h.date.split('-').map(Number);
-                                        const diff=Math.round((new Date(hy,hm2-1,hd2)-today)/86400000);
-                                        const dLabel=diff===0?'Today 🎉':diff===1?'Tomorrow':`${diff} days away`;
-                                        const urgency=diff<=7?'#FEF2F2':diff<=30?'#FFF7ED':'#F5F3FF';
-                                        const urgencyText=diff<=7?'#DC2626':diff<=30?'#C2410C':'#4338CA';
-                                        const mnShort=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-                                        return (
-                                            <div key={i} className="upcoming-row" style={{display:'flex',alignItems:'center',gap:'10px',padding:'6px 8px',marginBottom:'4px',borderRadius:'10px',cursor:'default'}}>
-                                                <div style={{width:'42px',flexShrink:0,textAlign:'center',background:urgency,borderRadius:'10px',padding:'5px 0',border:`1px solid ${urgency==='#F5F3FF'?'#DDD6FE':urgency==='#FFF7ED'?'#FED7AA':'#FECACA'}`}}>
-                                                    <p style={{fontSize:'9px',fontWeight:'700',color:urgencyText,margin:0,textTransform:'uppercase'}}>{mnShort[hm2-1]}</p>
-                                                    <p style={{fontSize:'18px',fontWeight:'700',color:urgencyText,margin:0,lineHeight:1.15}}>{hd2}</p>
-                                                </div>
-                                                <div style={{flex:1,minWidth:0}}>
-                                                    <p style={{fontSize:'12px',fontWeight:'600',color:'#1E1B4B',margin:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{h.name}</p>
-                                                    <p style={{fontSize:'10px',color:urgencyText,margin:'2px 0 0',fontWeight:'600'}}>{dLabel}</p>
-                                                </div>
-                                                {h.states.includes('ALL')&&<span style={{fontSize:'9px',background:'#EEF2FF',color:'#4338CA',padding:'2px 6px',borderRadius:'20px',fontWeight:'700',flexShrink:0}}>NAT</span>}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-
-                            </div>
+                            </div>{/* end sidebar */}
                         </div>
                     </div>
                 </main>
