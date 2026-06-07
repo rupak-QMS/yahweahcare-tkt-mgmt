@@ -1646,39 +1646,40 @@
             const [viewDate, setViewDate] = React.useState(new Date(today.getFullYear(), today.getMonth(), 1));
             const [selectedState, setSelectedState] = React.useState('NSW');
             const [selectedDay, setSelectedDay] = React.useState(null);
-            const [tickets, setTickets] = React.useState([]);
-            const [loading, setLoading] = React.useState(true);
-            const [view, setView] = React.useState('month'); // 'month' | 'week'
+            const [tickets, setTickets]   = React.useState([]);
+            const [loading, setLoading]   = React.useState(true);
 
-            // Load all tickets once
             React.useEffect(() => {
                 setLoading(true);
                 API.tickets.getAll({ all: '1', limit: 500 }).then(data => {
                     setTickets(data.tickets || []);
-                }).catch(() => {
-                    setTickets([]);
-                }).finally(() => setLoading(false));
+                }).catch(() => setTickets([])).finally(() => setLoading(false));
             }, []);
 
             // ── Helpers ──────────────────────────────────────────
-            const pad = n => String(n).padStart(2,'0');
-            const year  = viewDate.getFullYear();
-            const month = viewDate.getMonth();
-            const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-            const mnShort = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            const pad     = n => String(n).padStart(2,'0');
+            const year    = viewDate.getFullYear();
+            const month   = viewDate.getMonth();
+            const MONTHS  = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+            const MS      = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
             const dateStr = d => `${year}-${pad(month+1)}-${pad(d)}`;
             const isToday = d => today.getFullYear()===year && today.getMonth()===month && today.getDate()===d;
-            const todayStr = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
+            const todayStr= `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
 
-            const PRI = {
-                critical: { dot:'#EF4444', bg:'#FEF2F2', text:'#991B1B', border:'#FECACA' },
-                urgent:   { dot:'#EF4444', bg:'#FEF2F2', text:'#991B1B', border:'#FECACA' },
-                high:     { dot:'#F97316', bg:'#FFF7ED', text:'#9A3412', border:'#FED7AA' },
-                medium:   { dot:'#EAB308', bg:'#FEFCE8', text:'#854D0E', border:'#FDE68A' },
-                low:      { dot:'#6366F1', bg:'#EEF2FF', text:'#3730A3', border:'#C7D2FE' },
+            // Ticket colour by status (event-bar style)
+            const ticketColor = t => {
+                const s = (t.status||'').toLowerCase();
+                const p = (t.priorityLabel||t.priority||'').toLowerCase();
+                const od = !['resolved','closed'].includes(s) && t.dueAt && new Date(t.dueAt) < today;
+                if (od) return { bar:'#EF4444', bg:'#FEF2F2', text:'#991B1B', label:'Overdue' };
+                if (s==='resolved'||s==='closed') return { bar:'#10B981', bg:'#ECFDF5', text:'#065F46', label:'Resolved' };
+                if (s==='pending_approval')        return { bar:'#8B5CF6', bg:'#F5F3FF', text:'#5B21B6', label:'Approval' };
+                if (s==='in_progress')             return { bar:'#3B82F6', bg:'#EFF6FF', text:'#1D4ED8', label:'In Progress' };
+                if (p==='critical'||p==='urgent')  return { bar:'#F97316', bg:'#FFF7ED', text:'#9A3412', label:'Critical' };
+                if (p==='high')                    return { bar:'#F59E0B', bg:'#FFFBEB', text:'#92400E', label:'High' };
+                return { bar:'#6366F1', bg:'#EEF2FF', text:'#3730A3', label:'Open' };
             };
-            const getPri = t => PRI[(t.priorityLabel||t.priority||'').toLowerCase()] || PRI.low;
-            const isDone = t => ['resolved','closed'].includes((t.status||'').toLowerCase());
+            const isDone    = t => ['resolved','closed'].includes((t.status||'').toLowerCase());
             const isOverdue = t => !isDone(t) && t.dueAt && new Date(t.dueAt) < today;
 
             // Build ticket map: date string → tickets[]
@@ -1692,119 +1693,105 @@
             });
 
             // Holiday maps
-            const visibleHolidays = AU_HOLIDAYS.filter(h => {
-                const applies = h.states.includes('ALL') || h.states.includes(selectedState);
-                const [hy, hm] = h.date.split('-').map(Number);
-                return applies && hy === year && (hm-1) === month;
+            const visibleHols = AU_HOLIDAYS.filter(h => {
+                const ok = h.states.includes('ALL') || h.states.includes(selectedState);
+                const [hy,hm] = h.date.split('-').map(Number);
+                return ok && hy===year && (hm-1)===month;
             });
-            const holidayMap = {};
+            const holMap = {};
             AU_HOLIDAYS.forEach(h => {
                 if (h.states.includes('ALL') || h.states.includes(selectedState)) {
-                    if (!holidayMap[h.date]) holidayMap[h.date] = [];
-                    holidayMap[h.date].push(h);
+                    if (!holMap[h.date]) holMap[h.date] = [];
+                    holMap[h.date].push(h);
                 }
             });
 
-            // Month ticket stats
-            const monthPrefix = `${year}-${pad(month+1)}`;
-            const monthTickets = tickets.filter(t => {
+            // Ticket date map
+            const tktMap = {};
+            tickets.forEach(t => {
                 const raw = t.dueAt || t.expectedCompletion;
-                return raw && raw.startsWith(monthPrefix);
-            });
-            const mDue = monthTickets.length;
-            const mOverdue = monthTickets.filter(isOverdue).length;
-            const mResolved = monthTickets.filter(isDone).length;
-            const mCritHigh = monthTickets.filter(t => ['critical','high'].includes((t.priorityLabel||t.priority||'').toLowerCase())).length;
-
-            // Week stats (next 7 days)
-            const weekEnd = new Date(today); weekEnd.setDate(weekEnd.getDate()+7);
-            const weekTickets = tickets.filter(t => {
-                const raw = t.dueAt || t.expectedCompletion;
-                if (!raw) return false;
-                const d = new Date(raw);
-                return d >= today && d <= weekEnd && !isDone(t);
+                if (!raw) return;
+                const ds = raw.slice(0,10);
+                if (!tktMap[ds]) tktMap[ds] = [];
+                tktMap[ds].push(t);
             });
 
-            // Overdue tickets (open, past due)
-            const overdueList = tickets.filter(isOverdue)
-                .sort((a,b) => new Date(a.dueAt)-new Date(b.dueAt))
-                .slice(0,8);
+            // Stats
+            const moPfx = `${year}-${pad(month+1)}`;
+            const moTkts = tickets.filter(t => (t.dueAt||t.expectedCompletion||'').startsWith(moPfx));
+            const mDue = moTkts.length, mOD = moTkts.filter(isOverdue).length, mRes = moTkts.filter(isDone).length;
+            const wkEnd = new Date(today); wkEnd.setDate(wkEnd.getDate()+7);
+            const wkTkts = tickets.filter(t=>{const r=t.dueAt||t.expectedCompletion; if(!r)return false; const d=new Date(r); return d>=today&&d<=wkEnd&&!isDone(t);});
+            const odList = tickets.filter(isOverdue).sort((a,b)=>new Date(a.dueAt)-new Date(b.dueAt)).slice(0,10);
+            const upHols = AU_HOLIDAYS.filter(h=>{if(!h.states.includes('ALL')&&!h.states.includes(selectedState))return false; const d=new Date(h.date),diff=(d-today)/86400000; return diff>=0&&diff<=90;}).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,6);
 
-            // Upcoming holidays (next 90 days)
-            const upcoming = AU_HOLIDAYS.filter(h => {
-                if (!h.states.includes('ALL') && !h.states.includes(selectedState)) return false;
-                const hd = new Date(h.date); const diff = (hd-today)/86400000;
-                return diff >= 0 && diff <= 90;
-            }).sort((a,b) => a.date.localeCompare(b.date)).slice(0,8);
+            // Grid
+            const daysInMonth = new Date(year,month+1,0).getDate();
+            const monFirst    = (new Date(year,month,1).getDay()+6)%7;
+            const cells = [];
+            for(let i=0;i<monFirst;i++) cells.push(null);
+            for(let d=1;d<=daysInMonth;d++) cells.push(d);
+            while(cells.length%7!==0) cells.push(null);
+            const weeks = [];
+            for(let i=0;i<cells.length;i+=7) weeks.push(cells.slice(i,i+7));
 
-            // Calendar grid (Mon-first)
-            const firstDow = new Date(year, month, 1).getDay();
-            const daysInMonth = new Date(year, month+1, 0).getDate();
-            const monFirst = (firstDow+6)%7;
-            const monCells = [];
-            for (let i=0;i<monFirst;i++) monCells.push(null);
-            for (let d=1;d<=daysInMonth;d++) monCells.push(d);
-            while (monCells.length%7!==0) monCells.push(null);
+            const prevM = () => setViewDate(new Date(year,month-1,1));
+            const nextM = () => setViewDate(new Date(year,month+1,1));
+            const goNow = () => { setViewDate(new Date(today.getFullYear(),today.getMonth(),1)); setSelectedDay(todayStr); };
 
-            const prevMonth = () => setViewDate(new Date(year, month-1, 1));
-            const nextMonth = () => setViewDate(new Date(year, month+1, 1));
-            const goToday   = () => { setViewDate(new Date(today.getFullYear(),today.getMonth(),1)); setSelectedDay(todayStr); };
-
-            const STATUS_COLOR = {new:'#6B7280',assigned:'#3B82F6',in_progress:'#F59E0B',waiting:'#8B5CF6',pending_approval:'#EC4899',resolved:'#10B981',closed:'#374151'};
-            const STATUS_LABEL = {new:'New',assigned:'Assigned',in_progress:'In Progress',waiting:'Waiting',pending_approval:'Pending Approval',resolved:'Resolved',closed:'Closed'};
+            const ST_COLOR = {new:'#6B7280',assigned:'#3B82F6',in_progress:'#F59E0B',waiting:'#8B5CF6',pending_approval:'#8B5CF6',resolved:'#10B981',closed:'#374151'};
+            const ST_LABEL = {new:'New',assigned:'Assigned',in_progress:'In Progress',waiting:'Waiting',pending_approval:'Pending Approval',resolved:'Resolved',closed:'Closed'};
 
             return (
-                <main className="flex-1 overflow-auto" style={{background:'#F5F6FA'}}>
+                <main className="flex-1 overflow-auto" style={{background:'#F4F5F7'}}>
                     <style>{`
-                        .cal2-cell { transition: background 0.1s; cursor: pointer; }
-                        .cal2-cell:hover { background: #F0F4FF !important; }
-                        .cal2-cell.sel { background: #EEF2FF !important; box-shadow: inset 0 0 0 2px #6366F1; }
-                        .cal2-cell.hol { background: #FFF5F5 !important; }
-                        .cal2-cell.hol:hover { background: #FFE9E9 !important; }
-                        .cal2-cell.wknd { background: #FAFAFA; }
-                        .cal-nav2:hover { background: #F3F4F6 !important; }
-                        .tkt-pill { cursor: pointer; transition: opacity 0.1s; }
-                        .tkt-pill:hover { opacity: 0.8; }
-                        .sidebar-row:hover { background: #F9FAFB; border-radius: 8px; }
+                        .gc-cell { transition: background 0.1s; }
+                        .gc-cell:hover .gc-date-num { background: #E5E7EB !important; }
+                        .gc-cell:hover { background: #FAFAFA !important; }
+                        .gc-cell.today-cell { background: white !important; }
+                        .gc-cell.sel-cell { background: #EFF6FF !important; outline: 2px solid #3B82F6; outline-offset: -2px; }
+                        .gc-cell.hol-cell { background: #FFF8F8 !important; }
+                        .gc-cell.wknd-cell { background: #FAFAFA; }
+                        .ev-bar { border-radius: 4px; padding: 1px 6px; margin: 0 4px 2px; font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; transition: filter 0.1s; }
+                        .ev-bar:hover { filter: brightness(0.93); }
+                        .cal-btn:hover { background: #F3F4F6 !important; }
+                        .panel-row:hover { background: #F9FAFB; border-radius: 8px; }
                     `}</style>
 
-                    <div style={{maxWidth:'1600px', margin:'0 auto', padding:'24px 28px'}}>
+                    <div style={{maxWidth:'1560px', margin:'0 auto', padding:'20px 24px'}}>
 
                         {/* ══ PAGE HEADER ══ */}
-                        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'20px',flexWrap:'wrap',gap:'12px'}}>
+                        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'16px',flexWrap:'wrap',gap:'10px'}}>
                             <div>
-                                <h1 style={{fontSize:'20px',fontWeight:'700',color:'#111827',margin:0,letterSpacing:'-0.4px'}}>Ticket Calendar</h1>
-                                <p style={{fontSize:'12px',color:'#6B7280',margin:'3px 0 0'}}>Due dates, overdue tracking & public holidays · {AU_STATES.find(s=>s.code===selectedState)?.label}</p>
+                                <h1 style={{fontSize:'19px',fontWeight:'700',color:'#111827',margin:0,letterSpacing:'-0.3px'}}>Ticket Calendar</h1>
+                                <p style={{fontSize:'12px',color:'#9CA3AF',margin:'3px 0 0'}}>Due dates, overdue tracking &amp; public holidays</p>
                             </div>
-                            <div style={{display:'flex',gap:'8px',alignItems:'center',flexWrap:'wrap'}}>
-                                <button onClick={goToday} style={{padding:'7px 16px',borderRadius:'8px',border:'1.5px solid #E5E7EB',background:'white',fontSize:'13px',fontWeight:'600',color:'#374151',cursor:'pointer'}}>Today</button>
+                            <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
+                                <button onClick={goNow} className="cal-btn" style={{padding:'6px 14px',borderRadius:'8px',border:'1px solid #E5E7EB',background:'white',fontSize:'13px',fontWeight:'600',color:'#374151',cursor:'pointer'}}>Today</button>
                                 <select value={selectedState} onChange={e=>setSelectedState(e.target.value)}
-                                    style={{padding:'7px 12px',borderRadius:'8px',border:'1.5px solid #E5E7EB',background:'white',fontSize:'13px',color:'#374151',cursor:'pointer',fontWeight:'500'}}>
+                                    style={{padding:'6px 10px',borderRadius:'8px',border:'1px solid #E5E7EB',background:'white',fontSize:'12px',color:'#374151',cursor:'pointer'}}>
                                     {AU_STATES.map(s=><option key={s.code} value={s.code}>{s.label}</option>)}
                                 </select>
                             </div>
                         </div>
 
-                        {/* ══ STATS BAR ══ */}
-                        {!loading && (
-                        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'12px',marginBottom:'20px'}}>
+                        {/* ══ STATS CHIPS ══ */}
+                        <div style={{display:'flex',gap:'10px',marginBottom:'16px',flexWrap:'wrap'}}>
                             {[
-                                { label:'Due This Month', value:mDue,      sub:'tickets with due dates',   color:'#6366F1', bg:'#EEF2FF', icon:'📅' },
-                                { label:'Overdue',        value:mOverdue,  sub:'past due, still open',     color:'#EF4444', bg:'#FEF2F2', icon:'⚠️' },
-                                { label:'Resolved',       value:mResolved, sub:'closed this month',        color:'#10B981', bg:'#ECFDF5', icon:'✅' },
-                                { label:'Due This Week',  value:weekTickets.length, sub:'next 7 days open', color:'#F59E0B', bg:'#FFFBEB', icon:'🔔' },
+                                { label:'Due This Month', value:mDue,          color:'#6366F1', bg:'#EEF2FF', icon:'📅' },
+                                { label:'Overdue',        value:mOD,           color:'#EF4444', bg:'#FEF2F2', icon:'⚠️' },
+                                { label:'Resolved',       value:mRes,          color:'#10B981', bg:'#ECFDF5', icon:'✅' },
+                                { label:'Due This Week',  value:wkTkts.length, color:'#F59E0B', bg:'#FFFBEB', icon:'🔔' },
                             ].map(s=>(
-                                <div key={s.label} style={{background:'white',borderRadius:'12px',border:'1px solid #E5E7EB',padding:'16px 20px',display:'flex',alignItems:'center',gap:'14px',boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
-                                    <div style={{width:'44px',height:'44px',borderRadius:'10px',background:s.bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'20px',flexShrink:0}}>{s.icon}</div>
+                                <div key={s.label} style={{display:'flex',alignItems:'center',gap:'8px',background:'white',borderRadius:'10px',border:'1px solid #E5E7EB',padding:'8px 14px',boxShadow:'0 1px 2px rgba(0,0,0,0.04)'}}>
+                                    <span style={{fontSize:'15px',background:s.bg,borderRadius:'6px',width:'28px',height:'28px',display:'flex',alignItems:'center',justifyContent:'center'}}>{s.icon}</span>
                                     <div>
-                                        <div style={{fontSize:'22px',fontWeight:'700',color:s.color,lineHeight:1}}>{s.value}</div>
-                                        <div style={{fontSize:'12px',fontWeight:'600',color:'#374151',marginTop:'2px'}}>{s.label}</div>
-                                        <div style={{fontSize:'11px',color:'#9CA3AF'}}>{s.sub}</div>
+                                        <span style={{fontSize:'16px',fontWeight:'700',color:s.color,marginRight:'4px'}}>{s.value}</span>
+                                        <span style={{fontSize:'11px',color:'#6B7280'}}>{s.label}</span>
                                     </div>
                                 </div>
                             ))}
                         </div>
-                        )}
 
                         {/* ══ MAIN LAYOUT: Calendar + Sidebar ══ */}
                         <div style={{display:'grid',gridTemplateColumns:'1fr 320px',gap:'16px',alignItems:'start'}}>
@@ -1816,10 +1803,10 @@
                                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'16px 20px',borderBottom:'1px solid #F0F0F0'}}>
                                     <button className="cal-nav2" onClick={prevMonth} style={{width:'32px',height:'32px',borderRadius:'8px',border:'1px solid #E5E7EB',background:'white',cursor:'pointer',fontSize:'16px',color:'#6B7280',display:'flex',alignItems:'center',justifyContent:'center'}}>‹</button>
                                     <div style={{textAlign:'center'}}>
-                                        <h2 style={{fontSize:'16px',fontWeight:'700',color:'#111827',margin:0}}>{monthNames[month]} {year}</h2>
+                                        <h2 style={{fontSize:'16px',fontWeight:'700',color:'#111827',margin:0}}>{MONTHS[month]} {year}</h2>
                                         <div style={{fontSize:'11px',color:'#9CA3AF',marginTop:'2px'}}>
-                                            {visibleHolidays.length>0 && <span style={{color:'#EF4444',fontWeight:'600'}}>{visibleHolidays.length} holiday{visibleHolidays.length!==1?'s':''}</span>}
-                                            {visibleHolidays.length>0 && mDue>0 && <span style={{color:'#D1D5DB'}}> · </span>}
+                                            {visibleHols.length>0 && <span style={{color:'#EF4444',fontWeight:'600'}}>{visibleHols.length} holiday{visibleHols.length!==1?'s':''}</span>}
+                                            {visibleHols.length>0 && mDue>0 && <span style={{color:'#D1D5DB'}}> · </span>}
                                             {mDue>0 && <span style={{color:'#6366F1',fontWeight:'600'}}>{mDue} ticket{mDue!==1?'s':''} due</span>}
                                         </div>
                                     </div>
@@ -1834,53 +1821,47 @@
                                 </div>
 
                                 {/* Grid cells */}
-                                <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)'}}>
-                                    {monCells.map((d,i)=>{
-                                        const ds = d ? dateStr(d) : null;
-                                        const hols = ds?(holidayMap[ds]||[]):[];
-                                        const tkts = ds?(ticketDateMap[ds]||[]):[];
-                                        const dow = d?new Date(year,month,d).getDay():null;
-                                        const isWknd = dow===0||dow===6;
-                                        const isTd = d&&isToday(d);
-                                        const isHol = hols.length>0;
-                                        const isSel = selectedDay===ds;
-                                        const isLast = i>=monCells.length-7;
-                                        const overdueOnDay = tkts.filter(isOverdue).length;
-                                        return (
-                                            <div key={i}
-                                                className={`cal2-cell${isSel?' sel':''}${isHol&&!isSel?' hol':''}${isWknd&&!isHol&&!isSel?' wknd':''}`}
-                                                onClick={()=>d&&setSelectedDay(isSel?null:ds)}
-                                                style={{minHeight:'90px',padding:'6px',cursor:d?'pointer':'default',borderBottom:isLast?'none':'1px solid #F3F4F6',borderRight:(i+1)%7===0?'none':'1px solid #F3F4F6',background:!d?'#FAFAFA':undefined,position:'relative'}}
-                                            >
-                                                {d && (<>
-                                                    {/* Top accent: holiday = red, overdue = orange */}
-                                                    {(isHol||overdueOnDay>0) && <div style={{position:'absolute',top:0,left:0,right:0,height:'2.5px',background:isHol?'#FCA5A5':'#FDBA74',borderRadius:'0'}}/>}
-                                                    {/* Date number */}
-                                                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'3px'}}>
-                                                        <div style={{width:'24px',height:'24px',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px',fontWeight:isTd?'700':'500',background:isTd?'#6366F1':'transparent',color:isTd?'white':isWknd?'#9CA3AF':'#374151',flexShrink:0}}>{d}</div>
-                                                        {tkts.length>0 && <div style={{fontSize:'10px',fontWeight:'700',color:overdueOnDay>0?'#EF4444':'#6366F1',background:overdueOnDay>0?'#FEF2F2':'#EEF2FF',borderRadius:'10px',padding:'1px 5px',minWidth:'16px',textAlign:'center'}}>{tkts.length}</div>}
-                                                    </div>
-                                                    {/* Holiday label */}
-                                                    {isHol && <div style={{fontSize:'9px',color:'#DC2626',fontWeight:'600',marginBottom:'2px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',lineHeight:'1.3'}}>{hols[0].name}</div>}
-                                                    {/* Ticket pills */}
-                                                    {tkts.slice(0,2).map((t,ti)=>{
-                                                        const done=isDone(t); const od=isOverdue(t);
-                                                        const ps=getPri(t);
-                                                        const dotColor=done?'#10B981':od?'#EF4444':ps.dot;
-                                                        const bgColor=done?'#ECFDF5':od?'#FEF2F2':ps.bg;
-                                                        const txColor=done?'#065F46':od?'#991B1B':ps.text;
-                                                        return (
-                                                            <div key={ti} className="tkt-pill" style={{display:'flex',alignItems:'center',gap:'4px',background:bgColor,borderRadius:'4px',padding:'2px 5px',marginBottom:'2px'}}>
-                                                                <div style={{width:'6px',height:'6px',borderRadius:'50%',background:dotColor,flexShrink:0}}/>
-                                                                <span style={{fontSize:'9.5px',fontWeight:'600',color:txColor,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.title||t.ticketNumber||'Ticket'}</span>
+                                <div>
+                                    {weeks.map((wk,wi)=>(
+                                        <div key={wi} style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)'}}>
+                                            {wk.map((d,di)=>{
+                                                const ds = d ? dateStr(d) : null;
+                                                const hols = ds?(holMap[ds]||[]):[];
+                                                const tkts = ds?(tktMap[ds]||[]):[];
+                                                const dow = d?new Date(year,month,d).getDay():null;
+                                                const isWknd = dow===0||dow===6;
+                                                const isTd = d&&isToday(d);
+                                                const isHol = hols.length>0;
+                                                const isSel = selectedDay===ds;
+                                                const isLastWk = wi===weeks.length-1;
+                                                const odOnDay = tkts.filter(isOverdue).length;
+                                                return (
+                                                    <div key={di}
+                                                        className={`gc-cell${isTd?' today-cell':''}${isSel?' sel-cell':''}${isHol&&!isSel?' hol-cell':''}${isWknd&&!isHol&&!isSel?' wknd-cell':''}`}
+                                                        onClick={()=>d&&setSelectedDay(isSel?null:ds)}
+                                                        style={{minHeight:'110px',padding:'4px 0',cursor:d?'pointer':'default',borderBottom:isLastWk?'none':'1px solid #F0F0F0',borderRight:di===6?'none':'1px solid #F0F0F0',position:'relative',overflow:'hidden',background:!d?'#FAFAFA':undefined}}
+                                                    >
+                                                        {d && (<>
+                                                            {/* Top accent */}
+                                                            {(isHol||odOnDay>0) && <div style={{position:'absolute',top:0,left:0,right:0,height:'2px',background:isHol?'#FCA5A5':'#FDBA74'}}/>}
+                                                            {/* Date number row */}
+                                                            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'4px 6px 3px',gap:'2px'}}>
+                                                                <div className="gc-date-num" style={{width:'22px',height:'22px',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'11px',fontWeight:isTd?'700':'500',background:isTd?'#3B82F6':'transparent',color:isTd?'white':isWknd?'#9CA3AF':'#374151',flexShrink:0}}>{d}</div>
+                                                                {isHol && <span style={{fontSize:'9px',color:'#DC2626',fontWeight:'600',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1,minWidth:0,paddingLeft:'2px'}}>{hols[0].name}</span>}
+                                                                {tkts.length>0 && <span style={{fontSize:'9px',fontWeight:'700',color:odOnDay>0?'#EF4444':'#6366F1',background:odOnDay>0?'#FEF2F2':'#EEF2FF',borderRadius:'8px',padding:'1px 4px',flexShrink:0}}>{tkts.length}</span>}
                                                             </div>
-                                                        );
-                                                    })}
-                                                    {tkts.length>2 && <div style={{fontSize:'9px',color:'#9CA3AF',paddingLeft:'2px'}}>+{tkts.length-2} more</div>}
-                                                </>)}
-                                            </div>
-                                        );
-                                    })}
+                                                            {/* Event bars */}
+                                                            {tkts.slice(0,3).map((t,ti)=>{
+                                                                const c = ticketColor(t);
+                                                                return <div key={ti} className="ev-bar" style={{background:c.bar,color:'white',marginBottom:'1px'}}>{t.title||t.ticketNumber||'Ticket'}</div>;
+                                                            })}
+                                                            {tkts.length>3 && <div style={{fontSize:'9px',color:'#9CA3AF',paddingLeft:'6px'}}>+{tkts.length-3} more</div>}
+                                                        </>)}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    ))}
                                 </div>
 
                                 {/* Legend */}
@@ -1907,8 +1888,8 @@
 
                                 {/* Selected day */}
                                 {selectedDay && (()=>{
-                                    const hols = holidayMap[selectedDay]||[];
-                                    const tkts = ticketDateMap[selectedDay]||[];
+                                    const hols = holMap[selectedDay]||[];
+                                    const tkts = tktMap[selectedDay]||[];
                                     const [sy,sm2,sd2] = selectedDay.split('-').map(Number);
                                     const dl = new Date(sy,sm2-1,sd2).toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
                                     const isPast = new Date(sy,sm2-1,sd2) < today && selectedDay!==todayStr;
@@ -1939,17 +1920,17 @@
                                                     <div style={{fontSize:'11px',fontWeight:'700',color:'#6B7280',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:'8px'}}>{tkts.length} ticket{tkts.length!==1?'s':''} due</div>
                                                     {tkts.map((t,i)=>{
                                                         const done=isDone(t); const od=isOverdue(t);
-                                                        const ps=getPri(t);
-                                                        const sc=STATUS_COLOR[t.status]||'#9CA3AF';
+                                                        const c=ticketColor(t);
+                                                        const sc=ST_COLOR[t.status]||'#9CA3AF';
                                                         return (
-                                                            <div key={i} style={{borderLeft:`3px solid ${done?'#10B981':od?'#EF4444':ps.dot}`,background:done?'#ECFDF5':od?'#FEF2F2':ps.bg,borderRadius:'0 8px 8px 0',padding:'8px 10px',marginBottom:'6px'}}>
+                                                            <div key={i} style={{borderLeft:`3px solid ${c.bar}`,background:c.bg,borderRadius:'0 8px 8px 0',padding:'8px 10px',marginBottom:'6px'}}>
                                                                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'3px'}}>
                                                                     <span style={{fontSize:'10px',fontWeight:'700',color:'#6B7280'}}>{t.ticketNumber||`#${t.id}`}</span>
-                                                                    <span style={{fontSize:'10px',fontWeight:'600',color:sc,background:sc+'1A',borderRadius:'20px',padding:'1px 7px'}}>{STATUS_LABEL[t.status]||t.status}</span>
+                                                                    <span style={{fontSize:'10px',fontWeight:'600',color:sc,background:sc+'1A',borderRadius:'20px',padding:'1px 7px'}}>{ST_LABEL[t.status]||t.status}</span>
                                                                 </div>
                                                                 <div style={{fontSize:'12px',fontWeight:'600',color:'#111827',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.title||'—'}</div>
                                                                 <div style={{display:'flex',gap:'6px',marginTop:'4px',flexWrap:'wrap'}}>
-                                                                    {(t.priorityLabel||t.priority) && <span style={{fontSize:'10px',color:ps.text,fontWeight:'600'}}>{(t.priorityLabel||t.priority).charAt(0).toUpperCase()+(t.priorityLabel||t.priority).slice(1)}</span>}
+                                                                    {(t.priorityLabel||t.priority) && <span style={{fontSize:'10px',color:c.text,fontWeight:'600'}}>{(t.priorityLabel||t.priority).charAt(0).toUpperCase()+(t.priorityLabel||t.priority).slice(1)}</span>}
                                                                     {od && <span style={{fontSize:'10px',color:'#EF4444',fontWeight:'700'}}>⚠ Overdue</span>}
                                                                     {done && <span style={{fontSize:'10px',color:'#10B981',fontWeight:'700'}}>✓ Resolved</span>}
                                                                 </div>
@@ -1964,15 +1945,15 @@
                                 })()}
 
                                 {/* Overdue tickets */}
-                                {overdueList.length > 0 && (
+                                {odList.length > 0 && (
                                 <div style={{background:'white',borderRadius:'12px',border:'1px solid #FECACA',overflow:'hidden',boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
                                     <div style={{padding:'12px 16px',borderBottom:'1px solid #FEF2F2',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                                         <span style={{fontSize:'13px',fontWeight:'700',color:'#DC2626'}}>⚠ Overdue Tickets</span>
-                                        <span style={{fontSize:'11px',background:'#FEF2F2',color:'#DC2626',borderRadius:'20px',padding:'2px 8px',fontWeight:'700'}}>{overdueList.length}</span>
+                                        <span style={{fontSize:'11px',background:'#FEF2F2',color:'#DC2626',borderRadius:'20px',padding:'2px 8px',fontWeight:'700'}}>{odList.length}</span>
                                     </div>
                                     <div style={{padding:'8px'}}>
-                                        {overdueList.map((t,i)=>{
-                                            const ps=getPri(t);
+                                        {odList.map((t,i)=>{
+                                            const c=ticketColor(t);
                                             const daysOver = t.dueAt ? Math.floor((today-new Date(t.dueAt))/86400000) : null;
                                             return (
                                                 <div key={i} className="sidebar-row" style={{padding:'8px',borderRadius:'8px'}}>
@@ -1980,7 +1961,7 @@
                                                         <div style={{flex:1,minWidth:0}}>
                                                             <div style={{fontSize:'12px',fontWeight:'600',color:'#111827',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.title||'—'}</div>
                                                             <div style={{display:'flex',gap:'6px',marginTop:'2px',alignItems:'center'}}>
-                                                                <span style={{fontSize:'10px',fontWeight:'600',color:ps.text}}>{(t.priorityLabel||t.priority||'').charAt(0).toUpperCase()+(t.priorityLabel||t.priority||'').slice(1)}</span>
+                                                                <span style={{fontSize:'10px',fontWeight:'600',color:c.text}}>{(t.priorityLabel||t.priority||'').charAt(0).toUpperCase()+(t.priorityLabel||t.priority||'').slice(1)}</span>
                                                                 {t.assigneeName && <span style={{fontSize:'10px',color:'#9CA3AF'}}>→ {t.assigneeName.split(' ')[0]}</span>}
                                                             </div>
                                                         </div>
@@ -1994,27 +1975,27 @@
                                 )}
 
                                 {/* Due this week */}
-                                {weekTickets.length > 0 && (
+                                {wkTkts.length > 0 && (
                                 <div style={{background:'white',borderRadius:'12px',border:'1px solid #E5E7EB',overflow:'hidden',boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
                                     <div style={{padding:'12px 16px',borderBottom:'1px solid #F3F4F6',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                                         <span style={{fontSize:'13px',fontWeight:'700',color:'#374151'}}>🔔 Due This Week</span>
-                                        <span style={{fontSize:'11px',background:'#FFFBEB',color:'#D97706',borderRadius:'20px',padding:'2px 8px',fontWeight:'700'}}>{weekTickets.length}</span>
+                                        <span style={{fontSize:'11px',background:'#FFFBEB',color:'#D97706',borderRadius:'20px',padding:'2px 8px',fontWeight:'700'}}>{wkTkts.length}</span>
                                     </div>
                                     <div style={{padding:'8px'}}>
-                                        {weekTickets.slice(0,6).map((t,i)=>{
-                                            const ps=getPri(t);
+                                        {wkTkts.slice(0,6).map((t,i)=>{
+                                            const c=ticketColor(t);
                                             const d=new Date(t.dueAt);
                                             const diffD=Math.round((d-today)/86400000);
                                             const dLabel=diffD===0?'Today':diffD===1?'Tomorrow':`${diffD}d`;
                                             return (
                                                 <div key={i} className="sidebar-row" style={{padding:'8px',borderRadius:'8px',display:'flex',gap:'8px',alignItems:'center'}}>
                                                     <div style={{width:'32px',height:'32px',background:'#FFFBEB',borderRadius:'8px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                                                        <div style={{fontSize:'9px',fontWeight:'700',color:'#D97706',textTransform:'uppercase'}}>{mnShort[d.getMonth()]}</div>
+                                                        <div style={{fontSize:'9px',fontWeight:'700',color:'#D97706',textTransform:'uppercase'}}>{MS[d.getMonth()]}</div>
                                                         <div style={{fontSize:'13px',fontWeight:'700',color:'#92400E',lineHeight:1}}>{d.getDate()}</div>
                                                     </div>
                                                     <div style={{flex:1,minWidth:0}}>
                                                         <div style={{fontSize:'12px',fontWeight:'600',color:'#111827',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.title||'—'}</div>
-                                                        <div style={{fontSize:'10px',color:ps.text,fontWeight:'600',marginTop:'1px'}}>{(t.priorityLabel||t.priority||'').charAt(0).toUpperCase()+(t.priorityLabel||t.priority||'').slice(1)}{t.assigneeName?` · ${t.assigneeName.split(' ')[0]}`:''}</div>
+                                                        <div style={{fontSize:'10px',color:c.text,fontWeight:'600',marginTop:'1px'}}>{(t.priorityLabel||t.priority||'').charAt(0).toUpperCase()+(t.priorityLabel||t.priority||'').slice(1)}{t.assigneeName?` · ${t.assigneeName.split(' ')[0]}`:''}</div>
                                                     </div>
                                                     <span style={{fontSize:'10px',fontWeight:'700',color:diffD===0?'#DC2626':'#D97706',flexShrink:0}}>{dLabel}</span>
                                                 </div>
@@ -2031,9 +2012,9 @@
                                         <span style={{fontSize:'10px',color:'#9CA3AF'}}>Next 90 days</span>
                                     </div>
                                     <div style={{padding:'8px'}}>
-                                        {upcoming.length===0 ? (
+                                        {upHols.length===0 ? (
                                             <p style={{fontSize:'12px',color:'#9CA3AF',textAlign:'center',padding:'12px',margin:0}}>None in the next 90 days</p>
-                                        ) : upcoming.map((h,i)=>{
+                                        ) : upHols.map((h,i)=>{
                                             const [hy,hm2,hd2]=h.date.split('-').map(Number);
                                             const diff=Math.round((new Date(hy,hm2-1,hd2)-today)/86400000);
                                             const dLabel=diff===0?'Today 🎉':diff===1?'Tomorrow':`${diff}d`;
@@ -2041,7 +2022,7 @@
                                             return (
                                                 <div key={i} className="sidebar-row" style={{padding:'8px',borderRadius:'8px',display:'flex',gap:'8px',alignItems:'center'}}>
                                                     <div style={{width:'32px',height:'32px',background:hot?'#FEF2F2':'#F9FAFB',borderRadius:'8px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                                                        <div style={{fontSize:'9px',fontWeight:'700',color:hot?'#DC2626':'#6B7280',textTransform:'uppercase'}}>{mnShort[hm2-1]}</div>
+                                                        <div style={{fontSize:'9px',fontWeight:'700',color:hot?'#DC2626':'#6B7280',textTransform:'uppercase'}}>{MS[hm2-1]}</div>
                                                         <div style={{fontSize:'13px',fontWeight:'700',color:hot?'#991B1B':'#374151',lineHeight:1}}>{hd2}</div>
                                                     </div>
                                                     <div style={{flex:1,minWidth:0}}>
@@ -2056,26 +2037,28 @@
                                 </div>
 
                                 {/* Monthly ticket breakdown by priority */}
-                                {monthTickets.length>0 && (()=>{
+                                {moTkts.length>0 && (()=>{
+                                    const PRI_C = {critical:{dot:'#EF4444',text:'#991B1B'},high:{dot:'#F59E0B',text:'#92400E'},medium:{dot:'#3B82F6',text:'#1D4ED8'},low:{dot:'#10B981',text:'#065F46'}};
                                     const priCounts = {};
-                                    monthTickets.forEach(t => {
+                                    moTkts.forEach(t => {
                                         const p = (t.priorityLabel||t.priority||'low').toLowerCase();
                                         priCounts[p] = (priCounts[p]||0)+1;
                                     });
                                     return (
                                         <div style={{background:'white',borderRadius:'12px',border:'1px solid #E5E7EB',padding:'14px 16px',boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
-                                            <div style={{fontSize:'13px',fontWeight:'700',color:'#374151',marginBottom:'12px'}}>📊 {monthNames[month]} Breakdown</div>
+                                            <div style={{fontSize:'13px',fontWeight:'700',color:'#374151',marginBottom:'12px'}}>📊 {MONTHS[month]} Breakdown</div>
                                             {['critical','high','medium','low'].map(p=>{
                                                 const cnt=priCounts[p]||0; if(!cnt) return null;
-                                                const ps=PRI[p]; const pct=Math.round(cnt/monthTickets.length*100);
+                                                const pc=PRI_C[p]||{dot:'#6B7280',text:'#374151'};
+                                                const pct=Math.round(cnt/moTkts.length*100);
                                                 return (
                                                     <div key={p} style={{marginBottom:'8px'}}>
                                                         <div style={{display:'flex',justifyContent:'space-between',fontSize:'11px',marginBottom:'3px'}}>
-                                                            <span style={{fontWeight:'600',color:ps.text,textTransform:'capitalize'}}>{p}</span>
+                                                            <span style={{fontWeight:'600',color:pc.text,textTransform:'capitalize'}}>{p}</span>
                                                             <span style={{color:'#6B7280'}}>{cnt} ({pct}%)</span>
                                                         </div>
                                                         <div style={{height:'6px',background:'#F3F4F6',borderRadius:'3px'}}>
-                                                            <div style={{height:'100%',width:pct+'%',background:ps.dot,borderRadius:'3px'}}/>
+                                                            <div style={{height:'100%',width:pct+'%',background:pc.dot,borderRadius:'3px'}}/>
                                                         </div>
                                                     </div>
                                                 );
