@@ -4992,8 +4992,39 @@
                                 </button>
                             </div>
 
-                            {/* ── RIGHT: Email & Schedule ── */}
+                            {/* ── RIGHT: Export + Email + Schedule ── */}
                             <div style={{display:'flex', flexDirection:'column', gap:20}}>
+                                {/* ── Export Only panel ── */}
+                                <div style={card}>
+                                    <h2 style={{fontSize:15, fontWeight:700, color:'#111827', marginBottom:4}}>📥 Export Report</h2>
+                                    <p style={{fontSize:12, color:'#6B7280', marginBottom:16}}>Download the report directly to your device</p>
+                                    <div style={{display:'flex', gap:10}}>
+                                        <button onClick={handleExport} disabled={exporting || previewRows.length===0}
+                                            style={{...btnPrimary, flex:1, justifyContent:'center', opacity:(exporting||previewRows.length===0)?0.6:1}}>
+                                            <span style={{fontSize:16}}>📊</span>
+                                            {exporting ? 'Exporting…' : 'Export as Excel (.xlsx)'}
+                                        </button>
+                                        <button onClick={() => {
+                                            const { headers, rows } = buildSheetData();
+                                            const csv = [headers, ...rows].map(r =>
+                                                r.map(v => (String(v).includes(',') || String(v).includes('"')) ? `"${String(v).replace(/"/g,'""')}"` : v).join(',')
+                                            ).join('\n');
+                                            const blob = new Blob([csv], {type:'text/csv'});
+                                            const url  = URL.createObjectURL(blob);
+                                            const a    = document.createElement('a');
+                                            a.href = url;
+                                            a.download = `${(REPORT_TYPES.find(r=>r.id===reportType)?.label||'Report').replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.csv`;
+                                            a.click();
+                                            URL.revokeObjectURL(url);
+                                            showToast('✅ CSV downloaded');
+                                        }} disabled={previewRows.length===0}
+                                            style={{...btnOutline, flex:1, justifyContent:'center', opacity:previewRows.length===0?0.6:1}}>
+                                            <span style={{fontSize:16}}>📄</span>
+                                            Export as CSV
+                                        </button>
+                                    </div>
+                                </div>
+
                                 {/* Email panel */}
                                 <div style={card}>
                                     <h2 style={{fontSize:15, fontWeight:700, color:'#111827', marginBottom:16}}>📧 Email Report</h2>
