@@ -46,118 +46,216 @@
         .calendar-day.today { background-color: #DBEAFE; border-color: #0369A1; }
         .calendar-day.event { background-color: #BFDBFE; }
 
-        /* ─── DARK MODE GLOBAL OVERRIDES ──────────────────────────────── */
+        /* ════════════════════════════════════════════════════════════════
+           PREMIUM DARK MODE  —  Glossy · Deep Space · Professional
+           ════════════════════════════════════════════════════════════════ */
+
+        /* ── Page shell ─────────────────────────────────────────────────── */
         html.dark,
         html.dark body,
-        html.dark .bg-gray-50 { background: #0F172A !important; color: #CBD5E1; }
+        html.dark .bg-gray-50 {
+            background: #04080f !important;
+            color: #e2eaf8;
+        }
+        html.dark main {
+            background:
+                radial-gradient(ellipse 80% 40% at 20% -5%, rgba(99,102,241,0.10) 0%, transparent 70%),
+                radial-gradient(ellipse 60% 40% at 85% 100%, rgba(139,92,246,0.07) 0%, transparent 70%),
+                #04080f !important;
+        }
 
-        /* Page <main> backgrounds */
-        html.dark main { background: #0F172A !important; }
-
-        /* White / rgb(255,255,255) card surfaces */
+        /* ── Card surfaces ───────────────────────────────────────────────── */
         html.dark [style*="background: white"],
         html.dark [style*="background:white"],
         html.dark [style*="background: rgb(255, 255, 255)"] {
-            background: #1E293B !important;
+            background: linear-gradient(145deg, #0f1c35 0%, #091425 100%) !important;
+            border-color: rgba(99,102,241,0.18) !important;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.04) !important;
         }
 
-        /* Light gray page/panel backgrounds */
-        html.dark [style*="background: rgb(249, 250, 251)"] { background: #111827 !important; }
-        html.dark [style*="background: rgb(244, 245, 247)"] { background: #0F172A !important; }
-        html.dark [style*="background: rgb(243, 244, 246)"] { background: #111827 !important; }
-        html.dark [style*="background: rgb(248, 250, 252)"] { background: #0F172A !important; }
-        html.dark [style*="background: rgb(240, 240, 240)"] { background: #111827 !important; }
+        /* ── Page / panel backgrounds ────────────────────────────────────── */
+        html.dark [style*="background: rgb(249, 250, 251)"],
+        html.dark [style*="background: rgb(248, 250, 252)"],
+        html.dark [style*="background: rgb(243, 244, 246)"],
+        html.dark [style*="background: rgb(244, 245, 247)"],
+        html.dark [style*="background: rgb(240, 240, 240)"] {
+            background: #07101e !important;
+        }
 
-        /* Neutral dark text → legible light text */
-        html.dark [style*="color: rgb(17, 24, 39)"]    { color: #F1F5F9 !important; }
-        html.dark [style*="color: rgb(31, 41, 55)"]    { color: #E2E8F0 !important; }
-        html.dark [style*="color: rgb(55, 65, 81)"]    { color: #CBD5E1 !important; }
-        html.dark [style*="color: rgb(75, 85, 99)"]    { color: #94A3B8 !important; }
-        html.dark [style*="color: rgb(107, 114, 128)"] { color: #94A3B8 !important; }
-        html.dark [style*="color: rgb(156, 163, 175)"] { color: #64748B !important; }
+        /* ── Typography ──────────────────────────────────────────────────── */
+        html.dark [style*="color: rgb(17, 24, 39)"]    { color: #eef2ff !important; }
+        html.dark [style*="color: rgb(30, 27, 75)"]    { color: #c7d2fe !important; }
+        html.dark [style*="color: rgb(31, 41, 55)"]    { color: #e2eaf8 !important; }
+        html.dark [style*="color: rgb(55, 65, 81)"]    { color: #bfcde8 !important; }
+        html.dark [style*="color: rgb(75, 85, 99)"]    { color: #8da0c4 !important; }
+        html.dark [style*="color: rgb(107, 114, 128)"] { color: #6b80a4 !important; }
+        html.dark [style*="color: rgb(156, 163, 175)"] { color: #4a607f !important; }
 
-        /* Tailwind text utilities */
-        html.dark .text-gray-900, html.dark .text-gray-800,
-        html.dark .text-gray-700, html.dark .text-gray-600,
-        html.dark .text-gray-500 { color: #CBD5E1 !important; }
+        html.dark .text-gray-900, html.dark .text-gray-800 { color: #eef2ff !important; }
+        html.dark .text-gray-700, html.dark .text-gray-600 { color: #bfcde8 !important; }
+        html.dark .text-gray-500                           { color: #8da0c4 !important; }
+        html.dark .text-gray-400                           { color: #6b80a4 !important; }
 
-        /* Gray card borders → dark border */
-        html.dark [style*="border: 1px solid rgb(229, 231, 235)"] { border-color: #334155 !important; }
-        html.dark [style*="border: 1px solid rgb(243, 244, 246)"] { border-color: #1E293B !important; }
-        html.dark [style*="border: 1px solid rgb(240, 240, 240)"] { border-color: #1E293B !important; }
-        html.dark [style*="border: 2px solid rgb(229, 231, 235)"] { border-color: #475569 !important; }
-        html.dark [style*="border-bottom: 1px solid rgb(229, 231, 235)"] { border-color: #334155 !important; }
-        html.dark [style*="border-bottom: 1px solid rgb(243, 244, 246)"] { border-color: #1E293B !important; }
-        html.dark [style*="border-bottom: 1px solid rgb(240, 240, 240)"] { border-color: #1E293B !important; }
-        html.dark [style*="border-top: 1px solid rgb(229, 231, 235)"]    { border-color: #334155 !important; }
+        /* ── Borders ─────────────────────────────────────────────────────── */
+        html.dark [style*="border: 1px solid rgb(229, 231, 235)"],
+        html.dark [style*="border: 1.5px solid rgb(229, 231, 235)"],
+        html.dark [style*="border: 1px solid rgb(243, 244, 246)"],
+        html.dark [style*="border: 1px solid rgb(240, 240, 240)"] {
+            border-color: rgba(99,102,241,0.18) !important;
+        }
+        html.dark [style*="border: 2px solid rgb(229, 231, 235)"],
+        html.dark [style*="border: 2px solid rgb(199, 210, 254)"] {
+            border-color: rgba(99,102,241,0.30) !important;
+        }
+        html.dark [style*="border-bottom: 1px solid rgb(229, 231, 235)"],
+        html.dark [style*="border-bottom: 1px solid rgb(243, 244, 246)"],
+        html.dark [style*="border-bottom: 1px solid rgb(240, 240, 240)"] {
+            border-color: rgba(99,102,241,0.15) !important;
+        }
+        html.dark [style*="border-top: 1px solid rgb(229, 231, 235)"] {
+            border-color: rgba(99,102,241,0.15) !important;
+        }
+        html.dark .border, html.dark .border-gray-200 {
+            border-color: rgba(99,102,241,0.18) !important;
+        }
 
-        /* Pale semantic badge/chip backgrounds */
-        html.dark [style*="background: rgb(238, 242, 255)"] { background: #1e1b4b !important; } /* indigo-50  */
-        html.dark [style*="background: rgb(224, 242, 254)"] { background: #0c2240 !important; } /* sky-100    */
+        /* ── Semantic badge / chip backgrounds ───────────────────────────── */
+        html.dark [style*="background: rgb(238, 242, 255)"],
+        html.dark [style*="background: rgb(224, 231, 255)"] {
+            background: rgba(99,102,241,0.12) !important;
+            border-color: rgba(99,102,241,0.30) !important;
+        }
+        html.dark [style*="background: rgb(224, 242, 254)"],
+        html.dark [style*="background: rgb(219, 234, 254)"] {
+            background: rgba(14,165,233,0.10) !important;
+            border-color: rgba(14,165,233,0.25) !important;
+        }
         html.dark [style*="background: rgb(236, 253, 245)"],
         html.dark [style*="background: rgb(240, 253, 244)"],
         html.dark [style*="background: rgb(220, 252, 231)"],
-        html.dark [style*="background: rgb(209, 250, 229)"] { background: #052e16 !important; } /* green-50   */
+        html.dark [style*="background: rgb(209, 250, 229)"],
+        html.dark [style*="background: rgb(220, 252, 231)"] {
+            background: rgba(16,185,129,0.10) !important;
+            border-color: rgba(16,185,129,0.25) !important;
+        }
         html.dark [style*="background: rgb(254, 242, 242)"],
         html.dark [style*="background: rgb(255, 241, 242)"],
-        html.dark [style*="background: rgb(254, 226, 226)"] { background: #450a0a !important; } /* red-50     */
+        html.dark [style*="background: rgb(254, 226, 226)"] {
+            background: rgba(239,68,68,0.10) !important;
+            border-color: rgba(239,68,68,0.25) !important;
+        }
         html.dark [style*="background: rgb(255, 251, 235)"],
         html.dark [style*="background: rgb(255, 247, 237)"],
-        html.dark [style*="background: rgb(254, 243, 199)"] { background: #292100 !important; } /* amber/orange */
+        html.dark [style*="background: rgb(254, 243, 199)"] {
+            background: rgba(245,158,11,0.10) !important;
+            border-color: rgba(245,158,11,0.25) !important;
+        }
         html.dark [style*="background: rgb(245, 243, 255)"],
-        html.dark [style*="background: rgb(243, 232, 255)"] { background: #1a0d3d !important; } /* purple-50  */
-        html.dark [style*="background: rgb(219, 234, 254)"],
-        html.dark [style*="background: rgb(219, 234, 254)"] { background: #0c1a3d !important; } /* blue-100   */
-        html.dark [style*="background: rgb(240, 253, 250)"] { background: #022c22 !important; } /* teal-50    */
+        html.dark [style*="background: rgb(243, 232, 255)"] {
+            background: rgba(139,92,246,0.10) !important;
+            border-color: rgba(139,92,246,0.25) !important;
+        }
+        html.dark [style*="background: rgb(240, 253, 250)"] {
+            background: rgba(20,184,166,0.10) !important;
+            border-color: rgba(20,184,166,0.25) !important;
+        }
+        /* Stat card accent bg (e.g. bg:#EEF2FF icon area) */
+        html.dark [style*="background: rgb(238, 242, 255)"] { background: rgba(99,102,241,0.12) !important; }
+        html.dark [style*="background: rgb(224, 242, 254)"] { background: rgba(14,165,233,0.10) !important; }
+        html.dark [style*="background: rgb(236, 253, 245)"] { background: rgba(16,185,129,0.10) !important; }
+        html.dark [style*="background: rgb(254, 242, 242)"] { background: rgba(239,68,68,0.10) !important; }
+        html.dark [style*="background: rgb(255, 241, 242)"] { background: rgba(239,68,68,0.10) !important; }
+        html.dark [style*="background: rgb(245, 243, 255)"] { background: rgba(139,92,246,0.10) !important; }
+        html.dark [style*="background: rgb(255, 251, 235)"] { background: rgba(245,158,11,0.10) !important; }
 
-        /* Form inputs / selects */
+        /* ── Form inputs / selects ────────────────────────────────────────── */
         html.dark input:not([type="radio"]):not([type="checkbox"]):not([type="range"]),
         html.dark select,
         html.dark textarea {
-            background: #1E293B !important;
-            color: #F1F5F9 !important;
-            border-color: #475569 !important;
+            background: rgba(4,8,15,0.85) !important;
+            color: #e2eaf8 !important;
+            border-color: rgba(99,102,241,0.25) !important;
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.4) !important;
+        }
+        html.dark input:focus,
+        html.dark select:focus,
+        html.dark textarea:focus {
+            border-color: rgba(99,102,241,0.6) !important;
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.4), 0 0 0 3px rgba(99,102,241,0.12) !important;
+            outline: none !important;
         }
         html.dark input::placeholder,
-        html.dark textarea::placeholder { color: #64748B !important; }
-        html.dark input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); }
-        html.dark input[type="time"]::-webkit-calendar-picker-indicator { filter: invert(1); }
+        html.dark textarea::placeholder { color: #3d5280 !important; }
+        html.dark input[type="date"]::-webkit-calendar-picker-indicator,
+        html.dark input[type="time"]::-webkit-calendar-picker-indicator { filter: invert(0.7) hue-rotate(180deg); }
 
-        /* Tables */
+        /* ── Tables ───────────────────────────────────────────────────────── */
         html.dark th {
-            background: #111827 !important;
-            color: #94A3B8 !important;
+            background: linear-gradient(90deg, #091425 0%, #0c1930 100%) !important;
+            color: #7c8db5 !important;
+            border-bottom: 1px solid rgba(99,102,241,0.2) !important;
+            letter-spacing: 0.05em;
         }
-        html.dark td { border-color: #1E293B !important; color: #CBD5E1 !important; }
+        html.dark td {
+            border-color: rgba(99,102,241,0.08) !important;
+            color: #bfcde8 !important;
+        }
         html.dark tr:hover > td,
-        html.dark .table-row:hover { background: #1E293B !important; }
-
-        /* Scrollbars */
-        html.dark ::-webkit-scrollbar { background: #1E293B; width: 6px; height: 6px; }
-        html.dark ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
-        html.dark ::-webkit-scrollbar-track { background: #0F172A; }
-
-        /* Tailwind border utilities */
-        html.dark .border,
-        html.dark .border-gray-200 { border-color: #334155 !important; }
-
-        /* Keep modal overlays dark (rgba already works) */
-
-        /* ── Detail layout children: sidebar takes full width when wrapped ── */
-        .yc-detail-layout > *:last-child { flex-shrink: 0; }
-        @media (max-width: 767px) {
-            .yc-detail-layout { flex-direction: column !important; }
-            .yc-detail-layout > * { width: 100% !important; min-width: 0 !important; }
-            /* Ticket list: remove fixed width on mobile */
-            .yc-ticket-list { width: 100% !important; max-width: 100% !important; }
-            /* Form grids: single-col */
-            .yc-grid-2-col { grid-template-columns: 1fr !important; }
-            /* Stat cards: 2-col minimum */
-            .yc-stat-cards { grid-template-columns: repeat(2, 1fr) !important; }
+        html.dark .table-row:hover {
+            background: rgba(99,102,241,0.06) !important;
         }
-        @media (max-width: 1023px) {
-            .yc-detail-layout { flex-wrap: wrap !important; }
-            .yc-detail-layout > * { min-width: 280px; }
+
+        /* ── Scrollbars ───────────────────────────────────────────────────── */
+        html.dark ::-webkit-scrollbar { background: #04080f; width: 5px; height: 5px; }
+        html.dark ::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, #3730a3, #4f46e5);
+            border-radius: 4px;
+        }
+        html.dark ::-webkit-scrollbar-track { background: #07101e; }
+
+        /* ── Dropdown menus & popovers ────────────────────────────────────── */
+        html.dark [style*="background: rgb(255, 255, 255)"][style*="border-radius"],
+        html.dark [style*="background:white"][style*="position: absolute"] {
+            background: linear-gradient(145deg, #0f1c35 0%, #091425 100%) !important;
+            border: 1px solid rgba(99,102,241,0.25) !important;
+            box-shadow: 0 16px 48px rgba(0,0,0,0.7), 0 0 0 1px rgba(99,102,241,0.1) !important;
+        }
+
+        /* ── Gray chip / pill backgrounds (e.g. status tags, breadcrumbs) ── */
+        html.dark [style*="background: rgb(243, 244, 246)"],
+        html.dark [style*="background: rgb(249, 250, 251)"][style*="border-radius"],
+        html.dark [style*="background: rgb(248, 250, 252)"][style*="border-radius"] {
+            background: rgba(15, 28, 53, 0.9) !important;
+        }
+        html.dark [style*="background: rgb(241, 245, 249)"] {
+            background: rgba(9, 20, 37, 0.95) !important;
+        }
+        html.dark [style*="background: rgb(248, 249, 255)"],
+        html.dark [style*="background: rgb(250, 250, 255)"] {
+            background: rgba(12, 20, 40, 0.95) !important;
+        }
+
+        /* ── Calendar ─────────────────────────────────────────────────────── */
+        html.dark .calendar-day {
+            border-color: rgba(99,102,241,0.12) !important;
+            color: #bfcde8 !important;
+        }
+        html.dark .calendar-day:hover { background: rgba(99,102,241,0.08) !important; }
+        html.dark .calendar-day.today {
+            background: rgba(99,102,241,0.2) !important;
+            border-color: rgba(99,102,241,0.5) !important;
+        }
+        html.dark .calendar-day.event { background: rgba(99,102,241,0.15) !important; }
+
+        /* ── Misc utility overrides ───────────────────────────────────────── */
+        html.dark [style*="background: rgb(30, 27, 75)"]  { background: rgba(30,27,75,0.6)  !important; }
+        html.dark [style*="background: rgb(67, 56, 202)"] { background: rgba(67,56,202,0.85) !important; }
+        html.dark [style*="background: rgb(99, 102, 241)"] { background: #5b5ef0 !important;
+            box-shadow: 0 0 16px rgba(99,102,241,0.4) !important; }
+
+        /* Notification drawer */
+        html.dark [style*="background: rgb(238, 242, 255)"][style*="border-radius: 8px"] {
+            background: rgba(99,102,241,0.10) !important;
         }
 
         /* Keep brand-coloured buttons as-is */
@@ -569,22 +667,26 @@
                 return () => document.removeEventListener('click', close);
             }, [userMenuOpen, notifOpen]);
 
-            const bg      = darkMode ? '#1F2937' : '#ffffff';
-            const border  = darkMode ? '#374151' : '#E5E7EB';
-            const textC   = darkMode ? '#F9FAFB'  : '#111827';
-            const subC    = darkMode ? '#9CA3AF'  : '#6B7280';
-            const iconBg  = darkMode ? '#374151'  : '#F9FAFB';
+            const bg      = darkMode ? 'linear-gradient(90deg,#080f1e 0%,#0b1628 100%)' : '#ffffff';
+            const border  = darkMode ? 'rgba(99,102,241,0.18)' : '#E5E7EB';
+            const textC   = darkMode ? '#eef2ff'  : '#111827';
+            const subC    = darkMode ? '#7c8db5'  : '#6B7280';
+            const iconBg  = darkMode ? 'rgba(99,102,241,0.1)'  : '#F9FAFB';
 
             const iconBtn = (extra={}) => ({
                 width:36, height:36, borderRadius:8, background:iconBg,
                 border:`1px solid ${border}`, cursor:'pointer',
                 display:'flex', alignItems:'center', justifyContent:'center',
-                fontSize:16, flexShrink:0, ...extra,
+                fontSize:16, flexShrink:0,
+                boxShadow: darkMode ? '0 0 8px rgba(99,102,241,0.08)' : 'none',
+                ...extra,
             });
 
             return (
                 <div style={{
-                    height:56, background:bg, borderBottom:`1px solid ${border}`,
+                    height:56, background:bg,
+                    borderBottom:`1px solid ${border}`,
+                    boxShadow: darkMode ? '0 2px 24px rgba(0,0,0,0.6), 0 1px 0 rgba(99,102,241,0.12)' : '0 1px 3px rgba(0,0,0,0.06)',
                     display:'flex', alignItems:'center', padding:'0 20px', gap:10,
                     flexShrink:0, position:'relative', zIndex:30,
                 }}>
@@ -759,17 +861,19 @@
                 onSignOut();
             };
 
-            const sidebarBg     = darkMode ? '#1F2937' : '#ffffff';
-            const sidebarBorder = darkMode ? '#374151' : '#E5E7EB';
-            const sidebarText   = darkMode ? '#D1D5DB' : '#374151';
-            const logoText      = darkMode ? '#F9FAFB' : '#111827';
-            const logoSub       = darkMode ? '#9CA3AF' : '#6B7280';
+            const sidebarBg     = darkMode ? 'linear-gradient(180deg,#0a1120 0%,#060d1c 100%)' : '#ffffff';
+            const sidebarBorder = darkMode ? 'rgba(99,102,241,0.18)' : '#E5E7EB';
+            const sidebarText   = darkMode ? '#8da0c4' : '#374151';
+            const logoText      = darkMode ? '#c7d2fe' : '#111827';
+            const logoSub       = darkMode ? '#4a607f' : '#6B7280';
 
             return (
-                <aside style={{width:256, background:sidebarBg, borderRight:`1px solid ${sidebarBorder}`, display:'flex', flexDirection:'column', height:'100vh', flexShrink:0}}>
+                <aside style={{width:256, background:sidebarBg, borderRight:`1px solid ${sidebarBorder}`, display:'flex', flexDirection:'column', height:'100vh', flexShrink:0, boxShadow: darkMode ? '4px 0 32px rgba(0,0,0,0.6)' : 'none'}}>
                     {/* Logo — fixed */}
                     <div style={{padding:'20px 16px 12px', flexShrink:0}}>
-                        <h1 style={{fontWeight:800, color:logoText, fontSize:18, lineHeight:1.2}}>YAHWEH<br/><span style={{fontSize:12, color:logoSub, fontWeight:500}}>CARE ™</span></h1>
+                        <h1 style={{fontWeight:900, color:logoText, fontSize:18, lineHeight:1.2, letterSpacing:'0.02em',
+                            textShadow: darkMode ? '0 0 20px rgba(199,210,254,0.3)' : 'none'
+                        }}>YAHWEH<br/><span style={{fontSize:11, color:logoSub, fontWeight:600, letterSpacing:'0.12em'}}>CARE ™</span></h1>
                     </div>
 
                     {/* Nav — scrolls independently */}
@@ -781,16 +885,24 @@
                                     key={page.id}
                                     onClick={() => setCurrentPage(page.id)}
                                     style={{
-                                        width:'100%', textAlign:'left', padding:'9px 12px',
+                                        width:'100%', textAlign:'left', padding:'9px 14px',
                                         borderRadius:8, border:'none', cursor:'pointer',
                                         display:'flex', alignItems:'center', gap:10,
-                                        background: active ? '#4F46E5' : 'transparent',
-                                        color: active ? '#ffffff' : sidebarText,
-                                        fontWeight: active ? 600 : 500,
+                                        background: active
+                                            ? (darkMode ? 'linear-gradient(90deg,rgba(99,102,241,0.22) 0%,rgba(99,102,241,0.06) 100%)' : '#4F46E5')
+                                            : 'transparent',
+                                        borderLeft: active && darkMode ? '3px solid rgba(99,102,241,0.85)' : '3px solid transparent',
+                                        boxShadow: active && darkMode ? '0 2px 12px rgba(99,102,241,0.2)' : 'none',
+                                        color: active ? (darkMode ? '#c7d2fe' : '#ffffff') : sidebarText,
+                                        fontWeight: active ? 700 : 400,
                                         fontSize:13,
-                                        transition:'background 0.15s',
+                                        transition:'all 0.18s',
                                     }}
-                                    onMouseEnter={e => { if(!active) e.currentTarget.style.background = darkMode ? '#374151' : '#F3F4F6'; }}
+                                    onMouseEnter={e => {
+                                        if(!active) e.currentTarget.style.background = darkMode
+                                            ? 'rgba(99,102,241,0.08)'
+                                            : '#F3F4F6';
+                                    }}
                                     onMouseLeave={e => { if(!active) e.currentTarget.style.background = 'transparent'; }}
                                 >
                                     <span style={{fontSize:15}}>{page.icon}</span>
@@ -969,11 +1081,11 @@
         // Dashboard Page
         function Dashboard() {
             const dm = useDark();
-            const pageBg  = dm ? '#0F172A' : '#F4F5F7';
-            const cardBg  = dm ? '#1E293B' : 'white';
-            const borderC = dm ? '#334155' : '#E5E7EB';
-            const textP   = dm ? '#F1F5F9' : '#111827';
-            const textM   = dm ? '#94A3B8' : '#6B7280';
+            const pageBg  = dm ? 'transparent' : '#F4F5F7';
+            const cardBg  = dm ? 'linear-gradient(145deg,#0f1c35 0%,#091425 100%)' : 'white';
+            const borderC = dm ? 'rgba(99,102,241,0.2)' : '#E5E7EB';
+            const textP   = dm ? '#eef2ff' : '#111827';
+            const textM   = dm ? '#7c8db5' : '#6B7280';
             const [tickets,       setTickets]       = React.useState([]);
             const [staffCount,    setStaffCount]    = React.useState(0);
             const [recentActivity,setRecentActivity]= React.useState([]);
@@ -1042,7 +1154,7 @@
                     if (statusChartRef.current) { try{statusChartRef.current.destroy();}catch(_){} }
                     statusChartRef.current = new Chart(statusCanvasRef.current, {
                         type: 'doughnut',
-                        data: { labels: sLabels, datasets:[{ data:sData, backgroundColor:['#0EA5E9','#F59E0B','#10B981','#EF4444','#9CA3AF'], borderColor:'#fff', borderWidth:2 }] },
+                        data: { labels: sLabels, datasets:[{ data:sData, backgroundColor:['#0EA5E9','#F59E0B','#10B981','#EF4444','#9CA3AF'], borderColor: dm ? '#091425' : '#fff', borderWidth:2 }] },
                         options: { responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{size:11} } } } }
                     });
                 });
@@ -1057,7 +1169,7 @@
                     categoryChartRef.current = new Chart(categoryCanvasRef.current, {
                         type: 'bar',
                         data: { labels:catEntries.map(e=>e[0]), datasets:[{ label:'Tickets', data:catEntries.map(e=>e[1]), backgroundColor:'#6366F1', borderRadius:4 }] },
-                        options: { indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ x:{ ticks:{ stepSize:1, precision:0 } } } }
+                        options: { indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ x:{ ticks:{ stepSize:1, precision:0, color: dm ? '#7c8db5' : '#6B7280' }, grid:{ color: dm ? 'rgba(99,102,241,0.08)' : '#F3F4F6' } }, y:{ grid:{ color: dm ? 'rgba(99,102,241,0.08)' : '#F3F4F6' }, ticks:{ color: dm ? '#7c8db5' : '#6B7280' } } } }
                     });
                 });
                 return ()=>{ cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); };
@@ -1194,11 +1306,11 @@
         function CreateTicket() {
 
             const dm = useDark();
-            const pageBg  = dm ? '#0F172A' : '#F4F5F7';
-            const cardBg  = dm ? '#1E293B' : 'white';
-            const borderC = dm ? '#334155' : '#E5E7EB';
-            const textP   = dm ? '#F1F5F9' : '#111827';
-            const textM   = dm ? '#94A3B8' : '#6B7280';
+            const pageBg  = dm ? 'transparent' : '#F4F5F7';
+            const cardBg  = dm ? 'linear-gradient(145deg,#0f1c35 0%,#091425 100%)' : 'white';
+            const borderC = dm ? 'rgba(99,102,241,0.2)' : '#E5E7EB';
+            const textP   = dm ? '#eef2ff' : '#111827';
+            const textM   = dm ? '#7c8db5' : '#6B7280';
             // Read logged-in user from sessionStorage so we can auto-fill reporter fields
             const sessionUser = React.useMemo(() => getSessionUser(), []);
 
@@ -1582,11 +1694,11 @@
 
 
             const dm = useDark();
-            const pageBg  = dm ? '#0F172A' : '#F4F5F7';
-            const cardBg  = dm ? '#1E293B' : 'white';
-            const borderC = dm ? '#334155' : '#E5E7EB';
-            const textP   = dm ? '#F1F5F9' : '#111827';
-            const textM   = dm ? '#94A3B8' : '#6B7280';
+            const pageBg  = dm ? 'transparent' : '#F4F5F7';
+            const cardBg  = dm ? 'linear-gradient(145deg,#0f1c35 0%,#091425 100%)' : 'white';
+            const borderC = dm ? 'rgba(99,102,241,0.2)' : '#E5E7EB';
+            const textP   = dm ? '#eef2ff' : '#111827';
+            const textM   = dm ? '#7c8db5' : '#6B7280';
             const [tickets, setTickets] = React.useState([]);
             const [staffList, setStaffList] = React.useState([]);
             const [ticketsLoading, setTicketsLoading] = React.useState(true);
@@ -2237,11 +2349,11 @@
         function CalendarPage() {
 
             const dm = useDark();
-            const pageBg  = dm ? '#0F172A' : '#F4F5F7';
-            const cardBg  = dm ? '#1E293B' : 'white';
-            const borderC = dm ? '#334155' : '#E5E7EB';
-            const textP   = dm ? '#F1F5F9' : '#111827';
-            const textM   = dm ? '#94A3B8' : '#6B7280';
+            const pageBg  = dm ? 'transparent' : '#F4F5F7';
+            const cardBg  = dm ? 'linear-gradient(145deg,#0f1c35 0%,#091425 100%)' : 'white';
+            const borderC = dm ? 'rgba(99,102,241,0.2)' : '#E5E7EB';
+            const textP   = dm ? '#eef2ff' : '#111827';
+            const textM   = dm ? '#7c8db5' : '#6B7280';
             const today = new Date();
             const [viewDate, setViewDate] = React.useState(new Date(today.getFullYear(), today.getMonth(), 1));
             const [selectedState, setSelectedState] = React.useState('NSW');
@@ -3539,11 +3651,11 @@
         function AnalyticsPage() {
 
             const dm = useDark();
-            const pageBg  = dm ? '#0F172A' : '#F4F5F7';
-            const cardBg  = dm ? '#1E293B' : 'white';
-            const borderC = dm ? '#334155' : '#E5E7EB';
-            const textP   = dm ? '#F1F5F9' : '#111827';
-            const textM   = dm ? '#94A3B8' : '#6B7280';
+            const pageBg  = dm ? 'transparent' : '#F4F5F7';
+            const cardBg  = dm ? 'linear-gradient(145deg,#0f1c35 0%,#091425 100%)' : 'white';
+            const borderC = dm ? 'rgba(99,102,241,0.2)' : '#E5E7EB';
+            const textP   = dm ? '#eef2ff' : '#111827';
+            const textM   = dm ? '#7c8db5' : '#6B7280';
             const [tickets, setTickets] = React.useState([]);
             const [loading, setLoading] = React.useState(true);
             const [range, setRange] = React.useState('90'); // days
@@ -3863,11 +3975,11 @@
         function OrgChartPage() {
 
             const dm = useDark();
-            const pageBg  = dm ? '#0F172A' : '#F4F5F7';
-            const cardBg  = dm ? '#1E293B' : 'white';
-            const borderC = dm ? '#334155' : '#E5E7EB';
-            const textP   = dm ? '#F1F5F9' : '#111827';
-            const textM   = dm ? '#94A3B8' : '#6B7280';
+            const pageBg  = dm ? 'transparent' : '#F4F5F7';
+            const cardBg  = dm ? 'linear-gradient(145deg,#0f1c35 0%,#091425 100%)' : 'white';
+            const borderC = dm ? 'rgba(99,102,241,0.2)' : '#E5E7EB';
+            const textP   = dm ? '#eef2ff' : '#111827';
+            const textM   = dm ? '#7c8db5' : '#6B7280';
             const [orgData, setOrgData] = React.useState(null);
             const [loading, setLoading] = React.useState(true);
             const [error,   setError]   = React.useState('');
@@ -4090,11 +4202,11 @@
 
 
             const dm = useDark();
-            const pageBg  = dm ? '#0F172A' : '#F4F5F7';
-            const cardBg  = dm ? '#1E293B' : 'white';
-            const borderC = dm ? '#334155' : '#E5E7EB';
-            const textP   = dm ? '#F1F5F9' : '#111827';
-            const textM   = dm ? '#94A3B8' : '#6B7280';
+            const pageBg  = dm ? 'transparent' : '#F4F5F7';
+            const cardBg  = dm ? 'linear-gradient(145deg,#0f1c35 0%,#091425 100%)' : 'white';
+            const borderC = dm ? 'rgba(99,102,241,0.2)' : '#E5E7EB';
+            const textP   = dm ? '#eef2ff' : '#111827';
+            const textM   = dm ? '#7c8db5' : '#6B7280';
             const [staff,       setStaff]       = React.useState([]);
             const [departments, setDepts]        = React.useState([]);
             const [positions,   setPositions]    = React.useState([]);
