@@ -142,7 +142,133 @@
         html.dark .border-gray-200 { border-color: #334155 !important; }
 
         /* Keep modal overlays dark (rgba already works) */
+
+        /* ── Detail layout children: sidebar takes full width when wrapped ── */
+        .yc-detail-layout > *:last-child { flex-shrink: 0; }
+        @media (max-width: 767px) {
+            .yc-detail-layout { flex-direction: column !important; }
+            .yc-detail-layout > * { width: 100% !important; min-width: 0 !important; }
+            /* Ticket list: remove fixed width on mobile */
+            .yc-ticket-list { width: 100% !important; max-width: 100% !important; }
+            /* Form grids: single-col */
+            .yc-grid-2-col { grid-template-columns: 1fr !important; }
+            /* Stat cards: 2-col minimum */
+            .yc-stat-cards { grid-template-columns: repeat(2, 1fr) !important; }
+        }
+        @media (max-width: 1023px) {
+            .yc-detail-layout { flex-wrap: wrap !important; }
+            .yc-detail-layout > * { min-width: 280px; }
+        }
+
         /* Keep brand-coloured buttons as-is */
+
+        /* ═══════════════════════════════════════════════════
+           RESPONSIVE LAYOUT
+           Breakpoints:  mobile < 768px  |  tablet 768–1023px  |  desktop ≥ 1024px
+           ═══════════════════════════════════════════════════ */
+
+        /* Sidebar overlay on mobile/tablet */
+        .yc-sidebar-overlay {
+            position: fixed !important;
+            left: 0; top: 0;
+            height: 100vh !important;
+            z-index: 200;
+            box-shadow: 4px 0 32px rgba(0,0,0,0.18);
+        }
+        .yc-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 199;
+            animation: fadeIn 0.15s ease;
+        }
+        @keyframes fadeIn { from { opacity:0 } to { opacity:1 } }
+
+        /* Table horizontal scroll wrapper */
+        .yc-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .yc-table-scroll table, .yc-table-scroll thead, .yc-table-scroll tbody { min-width: 640px; }
+
+        /* Charts / grids collapse */
+        .yc-chart-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+        .yc-chart-grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-bottom: 16px; }
+
+        /* ── TABLET (768 – 1023 px) ─────────────────────────── */
+        @media (max-width: 1023px) {
+            .yc-chart-grid-2 { grid-template-columns: 1fr !important; }
+            .yc-chart-grid-3 { grid-template-columns: 1fr 1fr !important; }
+
+            /* Form grids: 2-col → 1-col */
+            .yc-grid-2-col { grid-template-columns: 1fr !important; }
+
+            /* Staff perf 5-col stat grid */
+            .yc-stat-5 { grid-template-columns: repeat(3,1fr) !important; }
+
+            /* Team comparison 6-col */
+            .yc-grid-6 { grid-template-columns: repeat(3,1fr) !important; }
+
+            /* Hide lower-priority table columns */
+            .yc-col-tablet-hide { display: none !important; }
+
+            /* Right sidebar: stays in-flow but full width */
+            .yc-detail-sidebar { width: 100% !important; position: static !important; }
+        }
+
+        /* ── MOBILE (< 768 px) ──────────────────────────────── */
+        @media (max-width: 767px) {
+            .yc-chart-grid-2 { grid-template-columns: 1fr !important; }
+            .yc-chart-grid-3 { grid-template-columns: 1fr !important; }
+            .yc-stat-5 { grid-template-columns: repeat(2,1fr) !important; }
+            .yc-grid-6 { grid-template-columns: repeat(2,1fr) !important; }
+            .yc-grid-2-col { grid-template-columns: 1fr !important; }
+
+            /* Page header padding */
+            .yc-page-inner { padding: 14px !important; }
+
+            /* TopBar: hide page-title label to give room */
+            .yc-topbar-title { display: none !important; }
+
+            /* User menu: hide name label */
+            .yc-user-label { display: none !important; }
+
+            /* Ticket/table controls: wrap on small screens */
+            .yc-toolbar { flex-wrap: wrap !important; }
+            .yc-toolbar-filters { flex-wrap: wrap !important; gap: 6px !important; }
+
+            /* Modals: full-width, anchored to bottom */
+            .yc-modal-wrap {
+                align-items: flex-end !important;
+            }
+            .yc-modal {
+                width: 100% !important;
+                max-width: 100vw !important;
+                max-height: 90vh !important;
+                border-radius: 16px 16px 0 0 !important;
+                margin: 0 !important;
+                overflow-y: auto !important;
+            }
+
+            /* Calendar cells: compact */
+            .calendar-day { padding: 4px 2px !important; font-size: 10px !important; min-height: 36px !important; }
+
+            /* Org chart: zoom out */
+            .yc-org-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+            /* Schedule reports filters: stack */
+            .yc-report-toolbar { flex-direction: column !important; align-items: stretch !important; }
+
+            /* Detail panel sidebar: stack below main on mobile */
+            .yc-detail-layout { flex-direction: column !important; }
+            .yc-detail-sidebar { width: 100% !important; position: static !important; flex-shrink: 0; }
+
+            /* Analytics page filter bar */
+            .yc-analytics-bar { flex-wrap: wrap !important; }
+
+            /* Hide table columns on mobile */
+            .yc-col-mobile-hide { display: none !important; }
+
+            /* Stat cards: min 2-col on mobile */
+            .yc-stat-cards { grid-template-columns: repeat(2, minmax(130px,1fr)) !important; }
+        }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -503,9 +629,11 @@
                         }
                     </button>
 
-                    {/* Page title */}
-                    <span style={{fontSize:15, fontWeight:700, color:textC, flex:1, letterSpacing:'-0.01em'}}>
-                        {pageLabels[currentPage] || 'Dashboard'}
+                    {/* Page title — span wrapper keeps flex:1 on mobile even when text hidden */}
+                    <span style={{flex:1, minWidth:0}}>
+                        <span className="yc-topbar-title" style={{fontSize:15, fontWeight:700, color:textC, letterSpacing:'-0.01em'}}>
+                            {pageLabels[currentPage] || 'Dashboard'}
+                        </span>
                     </span>
 
                     {/* Notifications */}
@@ -585,7 +713,7 @@
                             <div style={{width:26,height:26,borderRadius:'50%',background:'#F97316',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:700,fontSize:11,flexShrink:0}}>
                                 {initials}
                             </div>
-                            <span style={{fontSize:13,fontWeight:600,color:textC,maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                            <span className="yc-user-label" style={{fontSize:13,fontWeight:600,color:textC,maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                                 {displayName}
                             </span>
                             <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{transform: userMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition:'transform 0.15s'}}>
@@ -988,7 +1116,7 @@
                         </div>
 
                         {/* Stat cards */}
-                        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(155px,1fr))',gap:'12px',marginBottom:'20px'}}>
+                        <div className='yc-stat-cards' style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(155px,1fr))',gap:'12px',marginBottom:'20px'}}>
                             {statCards.map((c,i)=>(
                                 <div key={i} style={{...card,padding:'16px'}}>
                                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
@@ -1005,7 +1133,7 @@
                         </div>
 
                         {/* Charts row */}
-                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px',marginBottom:'16px'}}>
+                        <div className='yc-chart-grid-2' style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px',marginBottom:'16px'}}>
                             <div style={{...card,padding:'20px'}}>
                                 <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,marginBottom:'14px'}}>📊 Status Distribution</h2>
                                 <div style={{height:'220px',position:'relative'}}>
@@ -1023,7 +1151,7 @@
                         </div>
 
                         {/* SLA + Activity row */}
-                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px'}}>
+                        <div className='yc-chart-grid-2' style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px'}}>
 
                             {/* SLA Compliance */}
                             <div style={{...card,padding:'20px'}}>
@@ -1272,7 +1400,7 @@
                                         <div className={sectionHeadCls}>
                                             <span style={{color:'#6366F1', fontSize:'15px'}}>📋</span> Ticket Details
                                         </div>
-                                        <div className="grid grid-cols-2 gap-4 mb-4">
+                                        <div className="grid gap-4 mb-4 yc-grid-2-col" style={{gridTemplateColumns:"repeat(2,1fr)"}} >
                                             <div>
                                                 <label className={labelCls}>Title Type <span className="text-red-400">*</span></label>
                                                 <select name="title_type" value={formData.title_type} onChange={handleChange} className={inputCls}>
@@ -1291,7 +1419,7 @@
                                                 <input type="text" name="subtitle" value={formData.subtitle} onChange={handleChange} placeholder="Brief description" className={inputCls}/>
                                             </div>
                                         </div>
-                                        <div className="grid grid-cols-2 gap-4 mb-4">
+                                        <div className="grid gap-4 mb-4 yc-grid-2-col" style={{gridTemplateColumns:"repeat(2,1fr)"}} >
                                             <div>
                                                 <label className={labelCls}>Category <span className="text-red-400">*</span></label>
                                                 <select name="category_id" value={formData.category_id} onChange={handleChange} className={inputCls}>
@@ -1322,7 +1450,7 @@
                                                 <span>🔒</span> Auto-filled from your account
                                             </span>
                                         </div>
-                                        <div className="grid grid-cols-2 gap-4 mb-4">
+                                        <div className="grid gap-4 mb-4 yc-grid-2-col" style={{gridTemplateColumns:"repeat(2,1fr)"}} >
                                             <div>
                                                 <label className={labelCls}>Submitted By <span className="text-red-400">*</span></label>
                                                 <input type="text" value={formData.submitted_by} className={inputCls + " bg-gray-50 text-gray-500 cursor-not-allowed"} disabled/>
@@ -1627,7 +1755,7 @@
                     <div style={{maxWidth:'1400px',margin:'0 auto',padding:'24px'}}>
 
                         {/* ── Header ── */}
-                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'20px'}}>
+                        <div className='yc-toolbar' style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'20px',flexWrap:'wrap',gap:'10px'}}>
                             <div>
                                 <h1 style={{fontSize:'20px',fontWeight:'700',color:'#111827',margin:0}}>Tickets</h1>
                                 <p style={{fontSize:'12px',color:'#9CA3AF',margin:'3px 0 0'}}>{scopeLabel || 'Manage and track support tickets'}</p>
@@ -1639,7 +1767,7 @@
                         </div>
 
                         {/* ── Status filter tabs ── */}
-                        <div style={{display:'flex',gap:'6px',marginBottom:'16px',flexWrap:'wrap'}}>
+                        <div className='yc-toolbar-filters' style={{display:'flex',gap:'6px',marginBottom:'16px',flexWrap:'wrap'}}>
                             {STATUS_GROUPS.map(g=>{
                                 const cnt = g.key==='all' ? tickets.length : tickets.filter(g.match).length;
                                 const active = filter===g.key;
@@ -1679,7 +1807,7 @@
                                     <p style={{fontSize:'12px',color:'#9CA3AF',margin:0}}>Try adjusting your filters or search term</p>
                                 </div>
                             ) : (
-                                <div style={{overflowX:'auto'}}>
+                                <div className="yc-table-scroll">
                                     <table style={{width:'100%',borderCollapse:'collapse'}}>
                                         <thead>
                                             <tr style={{background:'#FAFAFA',borderBottom:'1px solid #F0F0F0'}}>
@@ -2265,7 +2393,7 @@
                     <div style={{maxWidth:'1560px', margin:'0 auto', padding:'20px 24px'}}>
 
                         {/* ══ PAGE HEADER ══ */}
-                        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'16px',flexWrap:'wrap',gap:'10px'}}>
+                        <div className='yc-toolbar' style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'16px',flexWrap:'wrap',gap:'10px'}}>
                             <div>
                                 <h1 style={{fontSize:'19px',fontWeight:'700',color:'#111827',margin:0,letterSpacing:'-0.3px'}}>Ticket Calendar</h1>
                                 <p style={{fontSize:'12px',color:'#9CA3AF',margin:'3px 0 0'}}>Due dates, overdue tracking &amp; public holidays</p>
@@ -2280,7 +2408,7 @@
                         </div>
 
                         {/* ══ STATS CHIPS ══ */}
-                        <div style={{display:'flex',gap:'10px',marginBottom:'16px',flexWrap:'wrap'}}>
+                        <div className='yc-analytics-bar' style={{display:'flex',gap:'10px',marginBottom:'16px',flexWrap:'wrap'}}>
                             {[
                                 { label:'Due This Month', value:mDue,          color:'#6366F1', bg:'#EEF2FF', icon:'📅' },
                                 { label:'Overdue',        value:mOD,           color:'#EF4444', bg:'#FEF2F2', icon:'⚠️' },
@@ -2818,7 +2946,7 @@
                         ) : (
                         <>
                         {/* ── KPI row ── */}
-                        <div className="grid grid-cols-5 gap-4 mb-7">
+                        <div className="yc-stat-5 grid gap-4 mb-7" style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)"}}>
                             {[
                                 { label:'Total Tickets',   value: summary.totalTickets,              icon:'🎫', color:'#6366F1' },
                                 { label:'Resolved',        value: summary.totalResolved,             icon:'✅', color:'#10B981' },
@@ -2882,7 +3010,7 @@
                                 <h2 style={{fontSize:'14px',fontWeight:'700',color:'#111827'}}>📋 All Staff Metrics</h2>
                                 <span style={{fontSize:'11px',color:'#9CA3AF'}}>Click column headers to sort</span>
                             </div>
-                            <div style={{overflowX:'auto'}}>
+                            <div className="yc-table-scroll">
                                 <table style={{width:'100%',borderCollapse:'collapse',fontSize:'13px'}}>
                                     <thead>
                                         <tr style={{borderBottom:'2px solid #F3F4F6'}}>
@@ -3149,7 +3277,7 @@
                         ) : (<>
 
                         {/* Summary cards */}
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+                        <div className="yc-grid-6 grid gap-4 mb-6" style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)"}}>
                             {[
                                 { label:'Departments',    value:summary.totalDepts,    icon:'🏢', color:'#6366F1' },
                                 { label:'Total Staff',    value:summary.totalStaff,    icon:'👥', color:'#0EA5E9' },
@@ -3204,7 +3332,7 @@
                                 <h2 style={{fontSize:'14px',fontWeight:700,color:'#111827'}}>📋 Full Department Breakdown</h2>
                                 <p style={{fontSize:'11px',color:'#9CA3AF',marginTop:2}}>Click column headers to sort</p>
                             </div>
-                            <div style={{overflowX:'auto'}}>
+                            <div className="yc-table-scroll">
                                 <table style={{width:'100%',borderCollapse:'collapse'}}>
                                     <thead>
                                         <tr style={{borderBottom:'2px solid #F0F0F0'}}>
@@ -3655,7 +3783,7 @@
                         <div style={{background:'white', borderRadius:'16px', border:'1.5px solid #E0E7FF', padding:'20px', boxShadow:'0 1px 6px rgba(99,102,241,0.07)', marginBottom:'16px'}}>
                             <p style={{fontSize:'14px', fontWeight:'700', color:'#1E1B4B', margin:'0 0 2px'}}>📋 Ticket Summary Table</p>
                             <p style={{fontSize:'11px', color:'#9CA3AF', margin:'0 0 14px'}}>Breakdown by category, priority and status</p>
-                            <div style={{overflowX:'auto'}}>
+                            <div className="yc-table-scroll">
                                 <table style={{width:'100%', borderCollapse:'collapse', fontSize:'12px'}}>
                                     <thead>
                                         <tr style={{borderBottom:'2px solid #EEF2FF', background:'#F8F7FF'}}>
@@ -3873,13 +4001,14 @@
                             </button>
                         </div>
 
-                        <div style={{display:'flex', gap:'20px', alignItems:'flex-start'}}>
+                        <div className='yc-detail-layout' style={{display:'flex', gap:'20px', alignItems:'flex-start', flexWrap:'wrap'}}>
                             {/* ── Chart card ── */}
                             <div style={{flex:1, minWidth:0, background:'white', borderRadius:'20px', border:'2px solid #E0E7FF', padding:'24px 24px 20px', boxShadow:'0 4px 20px rgba(99,102,241,0.08)'}}>
                                 <h2 style={{textAlign:'center', fontSize:'22px', fontWeight:'900', color:'#1E1B4B', marginBottom:'24px', letterSpacing:'1px', textTransform:'uppercase', textShadow:'0 1px 2px rgba(0,0,0,0.08)'}}>
                                     Organizational Chart for Yahweh Care
                                 </h2>
 
+                                <div className='yc-org-scroll'>
                                 {loading && <div style={{textAlign:'center',padding:'60px',color:'#9CA3AF',fontSize:'14px'}}>Loading org chart…</div>}
                                 {error && <div style={{textAlign:'center',padding:'12px',fontSize:'13px',color:'#D97706',background:'#FFFBEB',borderRadius:'8px',marginBottom:'16px',border:'1px solid #FDE68A'}}>{error}</div>}
 
@@ -5112,7 +5241,7 @@
                                     <p style={{fontSize:13}}>Try selecting "All Time" or enable the demo tickets toggle above</p>
                                 </div>
                             ):(
-                                <div style={{overflowX:'auto'}}>
+                                <div className="yc-table-scroll">
                                     <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
                                         <thead>
                                             <tr style={{background:'#F9FAFB'}}>
@@ -5208,7 +5337,29 @@
             });
             const [signedOut,   setSignedOut]   = React.useState(false);
             const [authError,   setAuthError]   = React.useState(null);
-            const [sidebarOpen, setSidebarOpen] = React.useState(true);
+            const isMobile = () => window.innerWidth < 1024;
+            const [sidebarOpen, setSidebarOpen] = React.useState(() => !isMobile());
+            const [mobileOverlay, setMobileOverlay] = React.useState(false);
+
+            // Track viewport to toggle overlay mode
+            React.useEffect(() => {
+                const onResize = () => {
+                    if (!isMobile()) { setMobileOverlay(false); }
+                    else { setSidebarOpen(false); }
+                };
+                window.addEventListener('resize', onResize);
+                return () => window.removeEventListener('resize', onResize);
+            }, []);
+
+            // When sidebar opens on mobile, show overlay; on desktop keep inline
+            const handleSidebarToggle = () => {
+                if (isMobile()) {
+                    setMobileOverlay(o => !o);
+                } else {
+                    setSidebarOpen(o => !o);
+                }
+            };
+            const closeMobileNav = () => setMobileOverlay(false);
             const [darkMode,    setDarkMode]    = React.useState(() => {
                 try { return localStorage.getItem('yc_dark') === '1'; } catch(e) { return false; }
             });
@@ -5365,20 +5516,39 @@
 
             return (
                 <DarkModeContext.Provider value={darkMode}>
-                <div style={{display:'flex', height:'100vh', background:appBg, overflow:'hidden'}}>
+                <div style={{display:'flex', height:'100vh', background:appBg, overflow:'hidden', position:'relative'}}>
+
+                    {/* Desktop inline sidebar */}
                     {sidebarOpen && (
                         <Navigation
                             currentPage={currentPage}
-                            setCurrentPage={handlePageChange}
+                            setCurrentPage={p => { handlePageChange(p); }}
                             onSignOut={handleSignOut}
                             currentUser={currentUser}
                             darkMode={darkMode}
                         />
                     )}
+
+                    {/* Mobile/tablet overlay sidebar */}
+                    {mobileOverlay && (
+                        <>
+                            <div className="yc-backdrop" onClick={closeMobileNav}/>
+                            <div className="yc-sidebar-overlay">
+                                <Navigation
+                                    currentPage={currentPage}
+                                    setCurrentPage={p => { handlePageChange(p); closeMobileNav(); }}
+                                    onSignOut={() => { handleSignOut(); closeMobileNav(); }}
+                                    currentUser={currentUser}
+                                    darkMode={darkMode}
+                                />
+                            </div>
+                        </>
+                    )}
+
                     <div style={{display:'flex', flexDirection:'column', flex:1, minWidth:0, overflow:'hidden'}}>
                         <TopBar
                             sidebarOpen={sidebarOpen}
-                            setSidebarOpen={setSidebarOpen}
+                            setSidebarOpen={handleSidebarToggle}
                             darkMode={darkMode}
                             setDarkMode={setDarkMode}
                             currentUser={currentUser}
