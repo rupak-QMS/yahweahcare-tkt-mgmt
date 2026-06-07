@@ -4184,6 +4184,7 @@
         const ORG_LH   = 12;   // connector line height (px)
 
         function OrgCard({ name, title, email, type, vacant, deptLabel, extra }) {
+            const dm = useDark();
             const S = {
                 director:  { b:'#16A34A', bg:'#F0FDF4', hdr:'#16A34A', t:'#15803D' },
                 ops:       { b:'#DC2626', bg:'#FFF5F5', hdr:'#DC2626', t:'#DC2626' },
