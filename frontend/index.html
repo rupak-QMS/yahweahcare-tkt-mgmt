@@ -2191,8 +2191,8 @@
                                                         <td style={{padding:'12px 14px',maxWidth:'280px'}}>
                                                             <div style={{display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}>
                                                                 <span style={{fontSize:'13px',fontWeight:'600',color:textP,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'220px'}}>{t.title}</span>
-                                                                {t.isEscalated && <span style={{fontSize:'10px',fontWeight:'700',padding:'1px 7px',borderRadius:20,background:'#FFF7ED',color:'#C2410C',border:'1px solid #FED7AA',flexShrink:0}}>⬆ Escalated</span>}
-                                                                {od && <span style={{fontSize:'10px',fontWeight:'700',padding:'1px 7px',borderRadius:20,background:'#FEF2F2',color:'#991B1B',border:'1px solid #FECACA',flexShrink:0}}>Overdue</span>}
+                                                                {t.isEscalated && <span style={{fontSize:'10px',fontWeight:'700',padding:'1px 7px',borderRadius:20,background:dm?'rgba(249,115,22,0.15)':'#FFF7ED',color:dm?'#fdba74':'#C2410C',border:`1px solid ${dm?'rgba(249,115,22,0.3)':'#FED7AA'}`,flexShrink:0}}>⬆ Escalated</span>}
+                                                                {od && <span style={{fontSize:'10px',fontWeight:'700',padding:'1px 7px',borderRadius:20,background:dm?'rgba(239,68,68,0.15)':'#FEF2F2',color:dm?'#fca5a5':'#991B1B',border:'1px solid #FECACA',flexShrink:0}}>Overdue</span>}
                                                             </div>
                                                             {t.category && <div style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8',marginTop:'2px'}}>{t.category}</div>}
                                                         </td>
@@ -2451,7 +2451,7 @@
                                     )}
 
                                     {selectedTicket.status === 'Pending Approval' && (
-                                        <div style={{marginTop:16,padding:16,background:'#FFF7ED',borderRadius:12,border:'1px solid #FED7AA'}}>
+                                        <div style={{marginTop:16,padding:16,background:dm?'rgba(249,115,22,0.10)':'#FFF7ED',borderRadius:12,border:`1px solid ${dm?'rgba(249,115,22,0.25)':'#FED7AA'}`}}>
                                             <p style={{fontSize:12,fontWeight:700,color:'#C2410C',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:12}}>⚖ Your Decision</p>
                                             {!rejectMode ? (
                                                 <div style={{display:'flex',gap:'10px'}}>
@@ -2923,7 +2923,7 @@
                                 <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${dm?'rgba(239,68,68,0.25)':'#FECACA'}`,overflow:'hidden',boxShadow:dm?'0 4px 16px rgba(0,0,0,0.4)':'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
                                     <div style={{padding:'12px 16px',borderBottom:`1px solid ${dm?'rgba(239,68,68,0.12)':'#FEF2F2'}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                                         <span style={{fontSize:'13px',fontWeight:'700',color:'#EF4444'}}>⚠ Overdue Tickets</span>
-                                        <span style={{fontSize:'11px',background:'#FEF2F2',color:'#DC2626',borderRadius:'20px',padding:'2px 8px',fontWeight:'700'}}>{odList.length}</span>
+                                        <span style={{fontSize:'11px',background:dm?'rgba(239,68,68,0.15)':'#FEF2F2',color:dm?'#fca5a5':'#DC2626',borderRadius:'20px',padding:'2px 8px',fontWeight:'700'}}>{odList.length}</span>
                                     </div>
                                     <div style={{padding:'8px'}}>
                                         {odList.map((t,i)=>{
@@ -2939,7 +2939,7 @@
                                                                 {t.assigneeName && <span style={{fontSize:'10px',color:dm?'#4a607f':'#94A3B8'}}>→ {t.assigneeName.split(' ')[0]}</span>}
                                                             </div>
                                                         </div>
-                                                        {daysOver!=null && <span style={{fontSize:'10px',fontWeight:'700',color:'#EF4444',flexShrink:0,background:'#FEF2F2',borderRadius:'20px',padding:'2px 7px',whiteSpace:'nowrap'}}>{daysOver}d late</span>}
+                                                        {daysOver!=null && <span style={{fontSize:'10px',fontWeight:'700',color:dm?'#fca5a5':'#EF4444',flexShrink:0,background:dm?'rgba(239,68,68,0.15)':'#FEF2F2',borderRadius:'20px',padding:'2px 7px',whiteSpace:'nowrap'}}>{daysOver}d late</span>}
                                                     </div>
                                                 </div>
                                             );
@@ -2953,7 +2953,7 @@
                                 <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,overflow:'hidden',boxShadow:dm?'0 4px 16px rgba(0,0,0,0.4)':'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
                                     <div style={{padding:'12px 16px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.12)':'#EEF2F8'}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                                         <span style={{fontSize:'13px',fontWeight:'700',color:dm?'#c0cfec':'#334155'}}>🔔 Due This Week</span>
-                                        <span style={{fontSize:'11px',background:'#FFFBEB',color:'#D97706',borderRadius:'20px',padding:'2px 8px',fontWeight:'700'}}>{wkTkts.length}</span>
+                                        <span style={{fontSize:'11px',background:dm?'rgba(234,179,8,0.15)':'#FFFBEB',color:dm?'#fcd34d':'#D97706',borderRadius:'20px',padding:'2px 8px',fontWeight:'700'}}>{wkTkts.length}</span>
                                     </div>
                                     <div style={{padding:'8px'}}>
                                         {wkTkts.slice(0,6).map((t,i)=>{
@@ -3302,7 +3302,7 @@
                                 { label:'Avg Resolve Time',value: summary.teamAvgHours!=null?summary.teamAvgHours+'h':'—', icon:'🕐', color:dm?'#818cf8':'#4F46E5' },
                                 { label:'Overdue',         value: summary.totalOverdue||0,           icon:'🚨', color: summary.totalOverdue>0?'#EF4444':'#10B981' },
                             ].map((s,i) => (
-                                <div key={i} style={{background:'#fff',borderRadius:'12px',border:'1px solid #F0F0F0',padding:'18px 20px',boxShadow:'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
+                                <div key={i} style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,padding:'18px 20px',boxShadow:dm?'0 4px 24px rgba(0,0,0,0.4)':'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
                                     <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'8px'}}>
                                         <span style={{fontSize:'16px'}}>{s.icon}</span>
                                         <span style={{fontSize:'11px',fontWeight:'600',color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.05em'}}>{s.label}</span>
@@ -3313,7 +3313,7 @@
                         </div>
 
                         {/* ── Insights ── */}
-                        <div style={{background:'#fff',borderRadius:'12px',border:'1px solid #F0F0F0',padding:'20px 24px',marginBottom:'24px',boxShadow:'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
+                        <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,padding:'20px 24px',marginBottom:'24px',boxShadow:dm?'0 4px 24px rgba(0,0,0,0.4)':'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
                             <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,marginBottom:'14px',display:'flex',alignItems:'center',gap:'8px'}}>
                                 <span>💡</span> Performance Insights
                             </h2>
@@ -3329,11 +3329,11 @@
 
                         {/* ── Top performers podium ── */}
                         {top3.length > 0 && (
-                        <div style={{background:'#fff',borderRadius:'12px',border:'1px solid #F0F0F0',padding:'20px 24px',marginBottom:'24px',boxShadow:'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
+                        <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,padding:'20px 24px',marginBottom:'24px',boxShadow:dm?'0 4px 24px rgba(0,0,0,0.4)':'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
                             <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,marginBottom:'16px'}}>⭐ Top Performers</h2>
                             <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'14px'}}>
                                 {top3.map((s,idx) => (
-                                    <div key={s.id} style={{border:'1px solid '+(idx===0?'#FDE68A':idx===1?'#D1D5DB':'#E5E7EB'),borderRadius:'12px',padding:'20px',textAlign:'center',background:idx===0?'linear-gradient(135deg,#FFFBEB,#FEF3C7)':idx===1?'linear-gradient(135deg,#F8FAFC,#F1F5F9)':'#FAFAFA'}}>
+                                    <div key={s.id} style={{border:`1px solid ${dm?'rgba(99,102,241,0.2)':(idx===0?'#FDE68A':idx===1?'#D1D5DB':'#E5E7EB')}`,borderRadius:'12px',padding:'20px',textAlign:'center',background:dm?(idx===0?'rgba(234,179,8,0.12)':idx===1?'rgba(99,102,241,0.08)':'rgba(99,102,241,0.05)'):(idx===0?'linear-gradient(135deg,#FFFBEB,#FEF3C7)':idx===1?'linear-gradient(135deg,#F8FAFC,#F1F5F9)':'#FAFAFA')}}>
                                         <div style={{fontSize:'24px',marginBottom:'8px'}}>{MEDAL[idx]}</div>
                                         <div style={{width:'44px',height:'44px',borderRadius:'50%',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:'#4338CA',fontWeight:'800',fontSize:'14px',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 10px'}}>{s.initials}</div>
                                         <div style={{fontWeight:'700',fontSize:'13px',color:textP,marginBottom:'2px'}}>{s.name}</div>
@@ -3353,7 +3353,7 @@
 
                         {/* ── Full metrics table ── */}
                         {staffMetrics.length > 0 ? (
-                        <div style={{background:'#fff',borderRadius:'12px',border:'1px solid #F0F0F0',padding:'20px 24px',marginBottom:'24px',boxShadow:'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
+                        <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,padding:'20px 24px',marginBottom:'24px',boxShadow:dm?'0 4px 24px rgba(0,0,0,0.4)':'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
                             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'16px'}}>
                                 <h2 style={{fontSize:'14px',fontWeight:'700',color:textP}}>📋 All Staff Metrics</h2>
                                 <span style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8'}}>Click column headers to sort</span>
@@ -3377,9 +3377,9 @@
                                     </thead>
                                     <tbody>
                                         {sorted.map((s,i) => (
-                                            <tr key={s.id} style={{borderBottom:'1px solid #F9FAFB',background:i%2===0?'#fff':'#FAFAFA',transition:'background 0.15s'}}
-                                                onMouseEnter={e=>e.currentTarget.style.background='#F5F3FF'}
-                                                onMouseLeave={e=>e.currentTarget.style.background=i%2===0?'#fff':'#FAFAFA'}>
+                                            <tr key={s.id} style={{borderBottom:`1px solid ${borderC}`,background:i%2===0?(dm?'rgba(255,255,255,0.02)':'#fff'):(dm?'rgba(99,102,241,0.03)':'#FAFAFA'),transition:'background 0.15s'}}
+                                                onMouseEnter={e=>e.currentTarget.style.background=dm?'rgba(99,102,241,0.10)':'#F5F3FF'}
+                                                onMouseLeave={e=>e.currentTarget.style.background=i%2===0?(dm?'rgba(255,255,255,0.02)':'#fff'):(dm?'rgba(99,102,241,0.03)':'#FAFAFA')}>
                                                 <td style={{padding:'11px 12px'}}>
                                                     <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
                                                         <div style={{width:'30px',height:'30px',borderRadius:'50%',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:'#4338CA',fontWeight:'700',fontSize:'11px',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{s.initials}</div>
@@ -3403,17 +3403,17 @@
                                                 </td>
                                                 <td style={{padding:'11px 12px',textAlign:'center'}}>
                                                     {s.escalated>0
-                                                        ? <span style={{background:'#FEF2F2',color:'#DC2626',fontWeight:'700',padding:'2px 8px',borderRadius:'6px',fontSize:'12px'}}>{s.escalated}</span>
+                                                        ? <span style={{background:dm?'rgba(239,68,68,0.15)':'#FEF2F2',color:dm?'#fca5a5':'#DC2626',fontWeight:'700',padding:'2px 8px',borderRadius:'6px',fontSize:'12px'}}>{s.escalated}</span>
                                                         : <span style={{color:'#D1D5DB'}}>0</span>}
                                                 </td>
                                                 <td style={{padding:'11px 12px',textAlign:'center'}}>
                                                     {s.overdue>0
-                                                        ? <span style={{background:'#FFF7ED',color:'#EA580C',fontWeight:'700',padding:'2px 8px',borderRadius:'6px',fontSize:'12px'}}>{s.overdue}</span>
+                                                        ? <span style={{background:dm?'rgba(249,115,22,0.15)':'#FFF7ED',color:dm?'#fdba74':'#EA580C',fontWeight:'700',padding:'2px 8px',borderRadius:'6px',fontSize:'12px'}}>{s.overdue}</span>
                                                         : <span style={{color:'#D1D5DB'}}>0</span>}
                                                 </td>
                                                 <td style={{padding:'11px 12px',textAlign:'center'}}>
                                                     {s.criticalHigh>0
-                                                        ? <span style={{background:'#FFF1F2',color:'#BE123C',fontWeight:'700',padding:'2px 8px',borderRadius:'6px',fontSize:'12px'}}>{s.criticalHigh}</span>
+                                                        ? <span style={{background:dm?'rgba(190,18,60,0.15)':'#FFF1F2',color:dm?'#fda4af':'#BE123C',fontWeight:'700',padding:'2px 8px',borderRadius:'6px',fontSize:'12px'}}>{s.criticalHigh}</span>
                                                         : <span style={{color:'#D1D5DB'}}>0</span>}
                                                 </td>
                                             </tr>
@@ -3423,7 +3423,7 @@
                             </div>
                         </div>
                         ) : (
-                        <div style={{background:'#fff',borderRadius:'12px',border:'1px solid #F0F0F0',padding:'48px',textAlign:'center',marginBottom:'24px'}}>
+                        <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,padding:'48px',textAlign:'center',marginBottom:'24px'}}>
                             <div style={{fontSize:'40px',marginBottom:'12px'}}>📭</div>
                             <p style={{color:dm?'#4a607f':'#94A3B8',fontSize:'14px'}}>No tickets assigned to staff yet — metrics appear once tickets have assignees.</p>
                         </div>
@@ -3431,7 +3431,7 @@
 
                         {/* ── Chart ── */}
                         {staffMetrics.length > 0 && (
-                        <div style={{background:'#fff',borderRadius:'12px',border:'1px solid #F0F0F0',padding:'20px 24px',boxShadow:'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
+                        <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,padding:'20px 24px',boxShadow:dm?'0 4px 24px rgba(0,0,0,0.4)':'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
                             <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,marginBottom:'16px'}}>📊 Assigned / Resolved / Escalated by Staff</h2>
                             <div className="chart-container"><canvas id="perfChart"></canvas></div>
                         </div>
@@ -3640,7 +3640,7 @@
                                 { label:'Escalated',      value:summary.totalEscalated,icon:'⚠️', color:'#F97316' },
                                 { label:'Avg SLA',        value:summary.avgSla!=null?`${summary.avgSla}%`:'—', icon:'🎯', color:'#EC4899' },
                             ].map((c,i) => (
-                                <div key={i} style={{background:cardBg,borderRadius:'12px',border:'1px solid #F0F0F0',padding:'16px 18px',boxShadow:'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
+                                <div key={i} style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,padding:'16px 18px',boxShadow:'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
                                     <div style={{fontSize:'11px',color:textM,fontWeight:600,marginBottom:4}}>{c.icon} {c.label}</div>
                                     <div style={{fontSize:'26px',fontWeight:800,color:c.color}}>{c.value??'—'}</div>
                                 </div>
@@ -3649,7 +3649,7 @@
 
                         {/* Podium */}
                         {top3.length>0 && (
-                        <div style={{background:cardBg,borderRadius:'12px',border:'1px solid #F0F0F0',padding:'20px 24px',marginBottom:'20px',boxShadow:'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
+                        <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,padding:'20px 24px',marginBottom:'20px',boxShadow:'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
                             <h2 style={{fontSize:'14px',fontWeight:700,color:textP,marginBottom:'16px'}}>🏆 Top Performing Departments</h2>
                             <div style={{display:'flex',gap:'16px',flexWrap:'wrap'}}>
                                 {top3.map((d,i) => (
@@ -3674,14 +3674,14 @@
                         )}
 
                         {/* Chart — canvas always mounted so ref is available when deptMetrics loads */}
-                        <div style={{background:cardBg,borderRadius:'12px',border:'1px solid #F0F0F0',padding:'20px 24px',marginBottom:'20px',boxShadow:'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)',display:deptMetrics.length>0?'block':'none'}}>
+                        <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,padding:'20px 24px',marginBottom:'20px',boxShadow:'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)',display:deptMetrics.length>0?'block':'none'}}>
                             <h2 style={{fontSize:'14px',fontWeight:700,color:textP,marginBottom:'16px'}}>📊 Department Metrics Comparison</h2>
                             <div className="chart-container"><canvas ref={canvasRef}></canvas></div>
                         </div>
 
                         {/* Table */}
                         {deptMetrics.length>0 ? (
-                        <div style={{background:cardBg,borderRadius:'12px',border:'1px solid #F0F0F0',boxShadow:'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)',overflow:'hidden'}}>
+                        <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,boxShadow:dm?'0 4px 24px rgba(0,0,0,0.4)':'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)',overflow:'hidden'}}>
                             <div style={{padding:'16px 20px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
                                 <h2 style={{fontSize:'14px',fontWeight:700,color:textP}}>📋 Full Department Breakdown</h2>
                                 <p style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8',marginTop:2}}>Click column headers to sort</p>
@@ -3758,7 +3758,7 @@
                             </div>
                         </div>
                         ) : (
-                        <div style={{background:'#fff',borderRadius:'12px',border:'1px solid #F0F0F0',padding:'48px',textAlign:'center'}}>
+                        <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,padding:'48px',textAlign:'center'}}>
                             <div style={{fontSize:'40px',marginBottom:'12px'}}>📭</div>
                             <p style={{color:dm?'#4a607f':'#94A3B8',fontSize:'14px'}}>No department data yet — seed tickets and assign them to staff to see metrics.</p>
                         </div>
@@ -3800,7 +3800,7 @@
                                     {/* overlay */}
                                     <div style={{flex:1,background:'rgba(0,0,0,0.35)',cursor:'pointer'}} onClick={()=>setSelectedDept(null)}/>
                                     {/* panel */}
-                                    <div style={{width:'420px',maxWidth:'95vw',background:'#fff',overflowY:'auto',boxShadow:'-4px 0 24px rgba(0,0,0,0.15)',display:'flex',flexDirection:'column'}}>
+                                    <div style={{width:'420px',maxWidth:'95vw',background:cardBg,overflowY:'auto',boxShadow:dm?'-4px 0 40px rgba(0,0,0,0.7),- 1px 0 rgba(99,102,241,0.15)':'-4px 0 24px rgba(0,0,0,0.15)',display:'flex',flexDirection:'column'}}>
                                         {/* header */}
                                         <div style={{padding:'20px 24px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`,display:'flex',alignItems:'center',justifyContent:'space-between',position:'sticky',top:0,background:'#fff',zIndex:1}}>
                                             <div>
@@ -3849,7 +3849,7 @@
                                             {staffRows.length > 0 && (
                                                 <div style={{marginBottom:'24px'}}>
                                                     <div style={{fontSize:'13px',fontWeight:600,color:dm?'#c0cfec':'#334155',marginBottom:'8px',textTransform:'uppercase',letterSpacing:'0.05em'}}>Staff Breakdown</div>
-                                                    <div style={{borderRadius:'8px',border:'1px solid #F0F0F0',overflow:'hidden'}}>
+                                                    <div style={{borderRadius:'8px',border:`1px solid ${borderC}`,overflow:'hidden'}}>
                                                         <table style={{width:'100%',borderCollapse:'collapse',fontSize:'13px'}}>
                                                             <thead>
                                                                 <tr style={{background:dm?'rgba(4,8,20,0.6)':'#F8FAFF'}}>
@@ -4063,7 +4063,7 @@
                             </div>
                             <div style={{display:'flex', alignItems:'center', gap:'8px', background:cardBg, border:`1.5px solid ${borderC}`, borderRadius:'10px', padding:'8px 14px'}}>
                                 <span style={{fontSize:'11px', fontWeight:'700', color:dm?'#818cf8':'#4F46E5', textTransform:'uppercase', letterSpacing:'0.06em'}}>Period</span>
-                                <select value={range} onChange={e=>setRange(e.target.value)} style={{border:'1px solid #E0E7FF', borderRadius:'6px', padding:'4px 8px', fontSize:'12px', fontWeight:'600', color:'#4338CA', background:'#F5F3FF', cursor:'pointer', outline:'none'}}>
+                                <select value={range} onChange={e=>setRange(e.target.value)} style={{border:`1px solid ${borderC}`, borderRadius:'6px', padding:'4px 8px', fontSize:'12px', fontWeight:'600', color:dm?'#818cf8':'#4338CA', background:dm?'rgba(99,102,241,0.15)':'#F5F3FF', cursor:'pointer', outline:'none'}}>
                                     <option value="30">Last 30 days</option>
                                     <option value="60">Last 60 days</option>
                                     <option value="90">Last 90 days</option>
@@ -4136,7 +4136,7 @@
                             <div className="yc-table-scroll">
                                 <table style={{width:'100%', borderCollapse:'collapse', fontSize:'12px'}}>
                                     <thead>
-                                        <tr style={{borderBottom:'2px solid #EEF2FF', background:'#F8F7FF'}}>
+                                        <tr style={{borderBottom:`2px solid ${borderC}`, background:dm?'rgba(99,102,241,0.12)':'#F8F7FF'}}>
                                             {['Category','Total','Critical','High','Medium','Low','Open','Resolved','SLA OK'].map(h=>(
                                                 <th key={h} style={{padding:'8px 12px', textAlign: h==='Category'?'left':'center', fontWeight:'700', color:dm?'#818cf8':'#4F46E5', fontSize:'10px', textTransform:'uppercase', letterSpacing:'0.06em', whiteSpace:'nowrap'}}>{h}</th>
                                             ))}
@@ -4347,21 +4347,21 @@
                                 <h1 style={{fontSize:'22px', fontWeight:'700', color:dm?'#c7d2fe':'#1E1B4B', margin:0}}>🏢 Organizational Chart</h1>
                                 <p style={{fontSize:'12px', color:dm?'#4a607f':'#94A3B8', margin:'4px 0 0'}}>Yahweh Care — live staff hierarchy. Updates instantly when staff are added or removed.</p>
                             </div>
-                            <button onClick={fetchOrg} style={{padding:'7px 14px',background:cardBg,border:'2px solid #E0E7FF',borderRadius:'8px',fontSize:'12px',fontWeight:'600',color:'#4338CA',cursor:'pointer'}}>
+                            <button onClick={fetchOrg} style={{padding:'7px 14px',background:cardBg,border:`2px solid ${borderC}`,borderRadius:'8px',fontSize:'12px',fontWeight:'600',color:'#4338CA',cursor:'pointer'}}>
                                 🔄 Refresh
                             </button>
                         </div>
 
                         <div className='yc-detail-layout' style={{display:'flex', gap:'20px', alignItems:'flex-start', flexWrap:'wrap'}}>
                             {/* ── Chart card ── */}
-                            <div style={{flex:1, minWidth:0, background:cardBg, borderRadius:'20px', border:'2px solid #E0E7FF', padding:'24px 24px 20px', boxShadow:'0 4px 20px rgba(99,102,241,0.08)'}}>
+                            <div style={{flex:1, minWidth:0, background:cardBg, borderRadius:'20px', border:`2px solid ${borderC}`, padding:'24px 24px 20px', boxShadow:'0 4px 20px rgba(99,102,241,0.08)'}}>
                                 <h2 style={{textAlign:'center', fontSize:'22px', fontWeight:'900', color:dm?'#c7d2fe':'#1E1B4B', marginBottom:'24px', letterSpacing:'1px', textTransform:'uppercase', textShadow:'0 1px 2px rgba(0,0,0,0.08)'}}>
                                     Organizational Chart for Yahweh Care
                                 </h2>
 
                                 <div className='yc-org-scroll'>
                                 {loading && <div style={{textAlign:'center',padding:'60px',color:dm?'#4a607f':'#94A3B8',fontSize:'14px'}}>Loading org chart…</div>}
-                                {error && <div style={{textAlign:'center',padding:'12px',fontSize:'13px',color:'#D97706',background:'#FFFBEB',borderRadius:'8px',marginBottom:'16px',border:'1px solid #FDE68A'}}>{error}</div>}
+                                {error && <div style={{textAlign:'center',padding:'12px',fontSize:'13px',color:'#D97706',background:dm?'rgba(234,179,8,0.12)':'#FFFBEB',borderRadius:'8px',marginBottom:'16px',border:`1px solid ${dm?'rgba(234,179,8,0.3)':'#FDE68A'}`}}>{error}</div>}
 
                                 {!loading && orgData && (
                                     <div ref={containerRef} style={{width:'100%', overflowX:'hidden'}}>
@@ -4401,7 +4401,7 @@
                                     </div>
                                     <div style={{display:'flex', gap:'16px', alignItems:'center'}}>
                                         <span style={{fontSize:'11px',fontWeight:'700',background:'#DCFCE7',color:'#15803D',padding:'3px 12px',borderRadius:'20px',border:'1px solid #86EFAC'}}>[ACTIVE] Active Position</span>
-                                        <span style={{fontSize:'11px',fontWeight:'700',background:'#FEF2F2',color:'#DC2626',padding:'3px 12px',borderRadius:'20px',border:'1px solid #FCA5A5'}}>[VACANT] Inactive Position</span>
+                                        <span style={{fontSize:'11px',fontWeight:'700',background:dm?'rgba(239,68,68,0.15)':'#FEF2F2',color:dm?'#fca5a5':'#DC2626',padding:'3px 12px',borderRadius:'20px',border:'1px solid #FCA5A5'}}>[VACANT] Inactive Position</span>
                                     </div>
                                 </div>
                             </div>
@@ -4413,7 +4413,7 @@
                                     <p style={{fontSize:'11px',fontWeight:'800',color:'white',textTransform:'uppercase',letterSpacing:'0.07em',margin:'0 0 14px',padding:'6px 10px',background:'#4338CA',borderRadius:'8px',textAlign:'center'}}>⚙️ System Roles (Not Part of Org Hierarchy)</p>
                                     {sysRoles.length === 0 && <p style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',textAlign:'center',padding:'8px'}}>Loading…</p>}
                                     {sysRoles.map((r,i)=>(
-                                        <div key={i} style={{display:'flex',gap:'12px',marginBottom:'12px',padding:'12px',background:'#F8F9FF',borderRadius:'12px',border:'1.5px solid #E0E7FF',alignItems:'flex-start'}}>
+                                        <div key={i} style={{display:'flex',gap:'12px',marginBottom:'12px',padding:'12px',background:dm?'rgba(99,102,241,0.08)':'#F8F9FF',borderRadius:'12px',border:'1.5px solid #E0E7FF',alignItems:'flex-start'}}>
                                             <div style={{width:'40px',height:'40px',borderRadius:'50%',background: i===0 ? '#DBEAFE' : '#EDE9FE',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'20px',flexShrink:0}}>
                                                 {i===0 ? '👤' : '🛡️'}
                                             </div>
@@ -4429,7 +4429,7 @@
                                 </div>
 
                                 {/* Notes */}
-                                <div style={{background:cardBg,borderRadius:'16px',border:'2px solid #E0E7FF',padding:'16px',boxShadow:'0 2px 8px rgba(99,102,241,0.07)'}}>
+                                <div style={{background:cardBg,borderRadius:'16px',border:`2px solid ${borderC}`,padding:'16px',boxShadow:'0 2px 8px rgba(99,102,241,0.07)'}}>
                                     <p style={{fontSize:'12px',fontWeight:'800',color:dm?'#c7d2fe':'#1E1B4B',textTransform:'uppercase',letterSpacing:'0.07em',margin:'0 0 12px'}}>📝 Notes</p>
                                     {[
                                         'Only active positions are assigned to current staff.',
@@ -4659,7 +4659,7 @@
                             </div>
                             <div style={{display:'flex',gap:'10px'}}>
                                 <button onClick={()=>setShowPosModal(true)}
-                                    style={{padding:'9px 16px',background:cardBg,border:'2px solid #E0E7FF',borderRadius:'10px',fontSize:'13px',fontWeight:'600',color:'#4338CA',cursor:'pointer'}}>
+                                    style={{padding:'9px 16px',background:cardBg,border:`2px solid ${borderC}`,borderRadius:'10px',fontSize:'13px',fontWeight:'600',color:'#4338CA',cursor:'pointer'}}>
                                     + New Position
                                 </button>
                                 <button onClick={openAdd}
@@ -4672,9 +4672,9 @@
                         {/* Filters */}
                         <div style={{display:'flex',gap:'10px',marginBottom:'16px',flexWrap:'wrap'}}>
                             <input type="text" placeholder="Search name, email or position…" value={search} onChange={e=>setSearch(e.target.value)}
-                                style={{flex:1,minWidth:'200px',padding:'8px 12px',border:'1.5px solid #E0E7FF',borderRadius:'8px',fontSize:'13px'}} />
+                                style={{flex:1,minWidth:'200px',padding:'8px 12px',border:`1.5px solid ${borderC}`,borderRadius:'8px',fontSize:'13px',background:dm?'rgba(2,8,23,0.8)':'white',color:textP}} />
                             <select value={deptFilter} onChange={e=>setDeptFilter(e.target.value)}
-                                style={{padding:'8px 12px',border:'1.5px solid #E0E7FF',borderRadius:'8px',fontSize:'13px',background:cardBg,color:dm?'#c0cfec':'#334155'}}>
+                                style={{padding:'8px 12px',border:`1.5px solid ${borderC}`,borderRadius:'8px',fontSize:'13px',background:dm?'rgba(2,8,23,0.8)':'white',color:textP,background:cardBg,color:dm?'#c0cfec':'#334155'}}>
                                 <option value="all">All Departments</option>
                                 {departments.map(d=><option key={d.id} value={String(d.id)}>{d.name}</option>)}
                             </select>
@@ -4685,13 +4685,13 @@
 
                         {/* Error */}
                         {error && !showModal && (
-                            <div style={{background:'#FEF2F2',border:'1px solid #FECACA',borderRadius:'8px',padding:'10px 14px',marginBottom:'12px',fontSize:'13px',color:'#DC2626'}}>
+                            <div style={{background:dm?'rgba(239,68,68,0.12)':'#FEF2F2',border:`1px solid ${dm?'rgba(239,68,68,0.3)':'#FECACA'}`,borderRadius:'8px',padding:'10px 14px',marginBottom:'12px',fontSize:'13px',color:'#DC2626'}}>
                                 ⚠️ {error}
                             </div>
                         )}
 
                         {/* Staff Table */}
-                        <div style={{background:cardBg,borderRadius:'16px',border:'2px solid #E0E7FF',overflow:'hidden',boxShadow:'0 2px 12px rgba(99,102,241,0.07)'}}>
+                        <div style={{background:cardBg,borderRadius:'16px',border:`2px solid ${borderC}`,overflow:'hidden',boxShadow:'0 2px 12px rgba(99,102,241,0.07)'}}>
                             {loading ? (
                                 <div style={{padding:'40px',textAlign:'center',color:dm?'#4a607f':'#94A3B8',fontSize:'14px'}}>Loading staff…</div>
                             ) : filtered.length === 0 ? (
@@ -4699,7 +4699,7 @@
                             ) : (
                                 <table style={{width:'100%',borderCollapse:'collapse'}}>
                                     <thead>
-                                        <tr style={{background:'#F8F9FF',borderBottom:'2px solid #E0E7FF'}}>
+                                        <tr style={{background:dm?'rgba(99,102,241,0.12)':'#F8F9FF',borderBottom:`2px solid ${borderC}`}}>
                                             {['Staff Member','Positions','Department','Employment','Login','Actions'].map(h=>(
                                                 <th key={h} style={{padding:'11px 14px',textAlign:'left',fontSize:'11px',fontWeight:'700',color:dm?'#818cf8':'#4F46E5',textTransform:'uppercase',letterSpacing:'0.05em'}}>{h}</th>
                                             ))}
@@ -4714,7 +4714,7 @@
                                                         <div>
                                                             <div style={{fontSize:'13px',fontWeight:'700',color:textP,display:'flex',alignItems:'center',gap:'6px'}}>
                                                                 {m.name}
-                                                                {m.is_bootstrap_admin && <span style={{fontSize:'9px',fontWeight:'700',background:'#FEF3C7',color:'#D97706',padding:'1px 6px',borderRadius:'10px',border:'1px solid #FDE68A'}}>⭐ Bootstrap Admin</span>}
+                                                                {m.is_bootstrap_admin && <span style={{fontSize:'9px',fontWeight:'700',background:dm?'rgba(234,179,8,0.15)':'#FEF3C7',color:dm?'#fcd34d':'#D97706',padding:'1px 6px',borderRadius:'10px',border:'1px solid #FDE68A'}}>⭐ Bootstrap Admin</span>}
                                                             </div>
                                                             <div style={{fontSize:'11px',color:textM}}>{m.email}</div>
                                                             {m.phone && <div style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8'}}>{m.phone}</div>}
@@ -4756,7 +4756,7 @@
                                                         </button>
                                                         {!m.is_bootstrap_admin && (
                                                             <button onClick={()=>setDelConfirm(m)}
-                                                                style={{padding:'5px 12px',background:'#FEF2F2',border:'none',borderRadius:'6px',fontSize:'11px',fontWeight:'600',color:'#DC2626',cursor:'pointer'}}>
+                                                                style={{padding:'5px 12px',background:dm?'rgba(239,68,68,0.15)':'#FEF2F2',border:'none',borderRadius:'6px',fontSize:'11px',fontWeight:'600',color:dm?'#fca5a5':'#DC2626',cursor:'pointer'}}>
                                                                 Deactivate
                                                             </button>
                                                         )}
@@ -4779,7 +4779,7 @@
                                     {label:'Entra Login',   val:staff.filter(s=>s.auth_provider==='azure_ad').length,        color:dm?'#93c5fd':'#1E40AF'},
                                     {label:'Vacant Positions', val:positions.filter(p=>p.is_vacant).length,                  color:'#DC2626'},
                                 ].map(s=>(
-                                    <div key={s.label} style={{background:cardBg,border:'2px solid #E0E7FF',borderRadius:'10px',padding:'10px 16px',display:'flex',gap:'10px',alignItems:'center'}}>
+                                    <div key={s.label} style={{background:cardBg,border:`2px solid ${borderC}`,borderRadius:'10px',padding:'10px 16px',display:'flex',gap:'10px',alignItems:'center'}}>
                                         <span style={{fontSize:'18px',fontWeight:'800',color:s.color}}>{s.val}</span>
                                         <span style={{fontSize:'11px',color:textM,fontWeight:'600'}}>{s.label}</span>
                                     </div>
@@ -4793,7 +4793,7 @@
                         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:'20px'}}>
                             <div style={{background:cardBg,borderRadius:'16px',width:'100%',maxWidth:'680px',maxHeight:'90vh',overflow:'auto',boxShadow:'0 20px 60px rgba(0,0,0,0.25)'}}>
                                 {/* Modal header */}
-                                <div style={{padding:'20px 24px',borderBottom:'1px solid #E0E7FF',display:'flex',justifyContent:'space-between',alignItems:'center',background:'linear-gradient(135deg,#6366F1,#7C3AED)',borderRadius:'16px 16px 0 0'}}>
+                                <div style={{padding:'20px 24px',borderBottom:`1px solid ${borderC}`,display:'flex',justifyContent:'space-between',alignItems:'center',background:'linear-gradient(135deg,#6366F1,#7C3AED)',borderRadius:'16px 16px 0 0'}}>
                                     <h2 style={{fontSize:'16px',fontWeight:'700',color:'white',margin:0}}>
                                         {modalMode==='add'?'➕ Add New Staff Member':'✏️ Edit Staff Member'}
                                     </h2>
@@ -4801,7 +4801,7 @@
                                 </div>
 
                                 <div style={{padding:'20px 24px'}}>
-                                    {error && <div style={{background:'#FEF2F2',border:'1px solid #FECACA',borderRadius:'8px',padding:'8px 12px',marginBottom:'14px',fontSize:'12px',color:'#DC2626'}}>⚠️ {error}</div>}
+                                    {error && <div style={{background:dm?'rgba(239,68,68,0.12)':'#FEF2F2',border:`1px solid ${dm?'rgba(239,68,68,0.3)':'#FECACA'}`,borderRadius:'8px',padding:'8px 12px',marginBottom:'14px',fontSize:'12px',color:'#DC2626'}}>⚠️ {error}</div>}
 
                                     {/* Login method notice */}
                                     <div style={{background:'#EFF6FF',border:'1px solid #BFDBFE',borderRadius:'8px',padding:'10px 14px',marginBottom:'16px',fontSize:'12px',color:dm?'#93c5fd':'#1E40AF'}}>
@@ -4880,7 +4880,7 @@
                                                 <label style={{...labelStyle,margin:0}}>Org Chart Positions <span style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8',fontWeight:'400'}}>(one staff can hold multiple)</span></label>
                                                 <button onClick={()=>setShowPosModal(true)} style={{fontSize:'11px',fontWeight:'600',color:dm?'#818cf8':'#4F46E5',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',border:'none',borderRadius:'6px',padding:'3px 8px',cursor:'pointer'}}>+ New Position</button>
                                             </div>
-                                            <div style={{border:'1.5px solid #E0E7FF',borderRadius:'8px',maxHeight:'160px',overflow:'auto',padding:'8px'}}>
+                                            <div style={{border:`1.5px solid ${borderC}`,borderRadius:'8px',maxHeight:'160px',overflow:'auto',padding:'8px'}}>
                                                 {positions.length===0 ? (
                                                     <p style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',textAlign:'center',padding:'10px'}}>No positions found</p>
                                                 ) : positions.map(p=>(
@@ -4889,7 +4889,7 @@
                                                         <span style={{fontSize:'12px',color:dm?'#c0cfec':'#334155',flex:1}}>{p.title}</span>
                                                         <span style={{fontSize:'10px',fontWeight:'600',color:posTypeColor[p.position_type]||'#6366F1',background:`${posTypeColor[p.position_type]||'#6366F1'}15`,padding:'1px 6px',borderRadius:'8px'}}>{p.position_type}</span>
                                                         {!p.is_vacant && <span style={{fontSize:'10px',color:'#15803D',background:'#DCFCE7',padding:'1px 6px',borderRadius:'8px'}}>Occupied</span>}
-                                                        {p.is_vacant && <span style={{fontSize:'10px',color:'#DC2626',background:'#FEF2F2',padding:'1px 6px',borderRadius:'8px'}}>Vacant</span>}
+                                                        {p.is_vacant && <span style={{fontSize:'10px',color:'#DC2626',background:dm?'rgba(239,68,68,0.15)':'#FEF2F2',padding:'1px 6px',borderRadius:'8px'}}>Vacant</span>}
                                                     </label>
                                                 ))}
                                             </div>
@@ -4907,7 +4907,7 @@
 
                                 {/* Modal footer */}
                                 <div style={{padding:'16px 24px',borderTop:'1px solid #E0E7FF',display:'flex',justifyContent:'flex-end',gap:'10px',background:'#F8F9FF',borderRadius:'0 0 16px 16px'}}>
-                                    <button onClick={()=>setShowModal(false)} style={{padding:'9px 18px',background:cardBg,border:'2px solid #E0E7FF',borderRadius:'8px',fontSize:'13px',fontWeight:'600',color:textM,cursor:'pointer'}}>Cancel</button>
+                                    <button onClick={()=>setShowModal(false)} style={{padding:'9px 18px',background:cardBg,border:`2px solid ${borderC}`,borderRadius:'8px',fontSize:'13px',fontWeight:'600',color:textM,cursor:'pointer'}}>Cancel</button>
                                     <button onClick={handleSave} disabled={saving} style={{padding:'9px 20px',background:'linear-gradient(135deg,#6366F1,#7C3AED)',color:'white',border:'none',borderRadius:'8px',fontSize:'13px',fontWeight:'700',cursor:'pointer',opacity:saving?0.7:1}}>
                                         {saving ? 'Saving…' : (modalMode==='add'?'Add Staff Member':'Save Changes')}
                                     </button>
@@ -4920,7 +4920,7 @@
                     {showPosModal && (
                         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1100,display:'flex',alignItems:'center',justifyContent:'center',padding:'20px'}}>
                             <div style={{background:cardBg,borderRadius:'14px',width:'100%',maxWidth:'440px',boxShadow:'0 20px 60px rgba(0,0,0,0.25)'}}>
-                                <div style={{padding:'16px 20px',borderBottom:'1px solid #E0E7FF',background:'linear-gradient(135deg,#6366F1,#7C3AED)',borderRadius:'14px 14px 0 0',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                                <div style={{padding:'16px 20px',borderBottom:`1px solid ${borderC}`,background:'linear-gradient(135deg,#6366F1,#7C3AED)',borderRadius:'14px 14px 0 0',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                                     <h3 style={{fontSize:'14px',fontWeight:'700',color:'white',margin:0}}>🏷️ Create New Position</h3>
                                     <button onClick={()=>setShowPosModal(false)} style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',borderRadius:'50%',width:'26px',height:'26px',cursor:'pointer'}}>✕</button>
                                 </div>
@@ -4955,7 +4955,7 @@
                                     </div>
                                 </div>
                                 <div style={{padding:'12px 20px',borderTop:'1px solid #E0E7FF',display:'flex',justifyContent:'flex-end',gap:'8px',background:'#F8F9FF',borderRadius:'0 0 14px 14px'}}>
-                                    <button onClick={()=>setShowPosModal(false)} style={{padding:'8px 14px',background:cardBg,border:'2px solid #E0E7FF',borderRadius:'8px',fontSize:'12px',fontWeight:'600',color:textM,cursor:'pointer'}}>Cancel</button>
+                                    <button onClick={()=>setShowPosModal(false)} style={{padding:'8px 14px',background:cardBg,border:`2px solid ${borderC}`,borderRadius:'8px',fontSize:'12px',fontWeight:'600',color:textM,cursor:'pointer'}}>Cancel</button>
                                     <button onClick={handleAddPosition} style={{padding:'8px 16px',background:'linear-gradient(135deg,#6366F1,#7C3AED)',color:'white',border:'none',borderRadius:'8px',fontSize:'12px',fontWeight:'700',cursor:'pointer'}}>Create Position</button>
                                 </div>
                             </div>
@@ -5450,7 +5450,7 @@
                             <div style={{marginTop:10,display:'flex',gap:6,flexWrap:'wrap'}}>
                                 {period!=='all_time'&&<span style={{fontSize:11,background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:'#4F46E5',padding:'3px 10px',borderRadius:20,fontWeight:600}}>📅 {PERIOD_OPTS.find(o=>o.v===period)?.l||period}</span>}
                                 {categoryFilter!=='all'&&<span style={{fontSize:11,background:'#F0FDF4',color:'#166534',padding:'3px 10px',borderRadius:20,fontWeight:600}}>📂 {categoryFilter}</span>}
-                                {priorityFilter!=='all'&&<span style={{fontSize:11,background:'#FFF7ED',color:'#C2410C',padding:'3px 10px',borderRadius:20,fontWeight:600}}>🎯 {priorityFilter}</span>}
+                                {priorityFilter!=='all'&&<span style={{fontSize:11,background:dm?'rgba(249,115,22,0.15)':'#FFF7ED',color:dm?'#fdba74':'#C2410C',padding:'3px 10px',borderRadius:20,fontWeight:600}}>🎯 {priorityFilter}</span>}
                                 <span style={{fontSize:11,background:dm?'rgba(4,8,20,0.6)':'#F8FAFF',color:textM,padding:'3px 10px',borderRadius:20,fontWeight:600}}>{preview.rows.length} records match</span>
                             </div>
                         </div>
