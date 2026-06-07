@@ -128,6 +128,25 @@
             try { return JSON.parse(sessionStorage.getItem('ms_current_user') || 'null'); } catch { return null; }
         }
 
+        // Role-based scope for ticket queries
+        // Returns query params to append to any /tickets fetch
+        function getTicketScopeParams(sessionUser) {
+            if (!sessionUser) return {};
+            const { id, isBootstrapAdmin, positionType, deptId } = sessionUser;
+            // Bootstrap admin or Director → see everything
+            if (isBootstrapAdmin || positionType === 'director') {
+                return { scope: 'all', userId: id };
+            }
+            // Management positions → see all tickets in their department
+            if (['ops', 'finance', 'strategic'].includes(positionType)) {
+                const p = { scope: 'dept', userId: id };
+                if (deptId) p.deptId = deptId;
+                return p;
+            }
+            // Everyone else (staff, external, approver by ticket) → own + pending-approval tickets
+            return { scope: 'mine', userId: id };
+        }
+
         // Fallback mock data for lookups
         const LOOKUPS_MOCK = {
             categories: [
@@ -171,8 +190,13 @@
             tickets: {
                 getAll: async (opts = {}) => {
                     const params = new URLSearchParams();
-                    if (opts.all) params.set('all', '1');
+                    if (opts.all)    params.set('all', '1');
                     if (opts.status) params.set('status', opts.status);
+                    // Role-based scope
+                    const scope = opts.scope || getTicketScopeParams(getSessionUser());
+                    if (scope.scope)  params.set('scope',  scope.scope);
+                    if (scope.userId) params.set('userId', scope.userId);
+                    if (scope.deptId) params.set('deptId', scope.deptId);
                     const res = await fetch(`${HRMS_API}/tickets?${params}`);
                     if (!res.ok) throw new Error('Failed to fetch tickets');
                     return res.json();
@@ -1021,6 +1045,20 @@
 
         // Tickets Page
         function TicketsPage() {
+            const sessionUser = React.useMemo(() => getSessionUser(), []);
+            const scopeParams = React.useMemo(() => getTicketScopeParams(sessionUser), []);
+
+            // Human-readable scope label for the page header
+            const scopeLabel = React.useMemo(() => {
+                if (!sessionUser) return '';
+                const { isBootstrapAdmin, positionType } = sessionUser;
+                if (isBootstrapAdmin || positionType === 'director') return '👁 Viewing: All Tickets';
+                if (['ops','finance','strategic'].includes(positionType))
+                    return `👁 Viewing: ${sessionUser.dept || 'Your Department'} Tickets`;
+                if (scopeParams.scope === 'mine') return '👁 Viewing: Your Tickets';
+                return '';
+            }, []);
+
             const [tickets, setTickets] = React.useState([]);
             const [staffList, setStaffList] = React.useState([]);
             const [ticketsLoading, setTicketsLoading] = React.useState(true);
@@ -1110,7 +1148,9 @@
                         <div className="flex justify-between items-center mb-8">
                             <div>
                                 <h1 className="text-3xl font-bold text-gray-900">Tickets</h1>
-                                <p className="text-gray-600">Manage and track all support tickets</p>
+                                <p className="text-gray-600">
+                                    {scopeLabel || 'Manage and track support tickets'}
+                                </p>
                             </div>
                             <button
                                 className="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-blue-700"

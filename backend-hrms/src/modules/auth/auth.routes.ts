@@ -107,16 +107,24 @@ router.get('/microsoft/callback', async (req, res, next) => {
     // Mint our own session + JWTs
     const { accessToken, refreshToken, sessionToken } = await createSession({ user, rememberMe: rememberMe, req });
 
-    // Fetch department name for the user profile
+    // Fetch department name, dept_id, and primary position type for the user profile
     let deptName = '';
+    let deptId: number | null = null;
+    let positionType = 'staff';
     try {
-      const deptRow = await pool.query(
-        `SELECT d.name FROM yc_tkt_mgmt.departments d
-         JOIN yc_tkt_mgmt.users u ON u.department_id = d.id
+      const profileRow = await pool.query(
+        `SELECT d.id AS dept_id, d.name AS dept_name,
+                COALESCE(p.position_type, 'staff') AS position_type
+         FROM yc_tkt_mgmt.users u
+         LEFT JOIN yc_tkt_mgmt.departments d ON d.id = u.department_id
+         LEFT JOIN yc_tkt_mgmt.staff_positions sp ON sp.user_id = u.id AND sp.is_primary = TRUE
+         LEFT JOIN yc_tkt_mgmt.positions p ON p.id = sp.position_id
          WHERE u.id = $1 LIMIT 1`, [user.id]
       );
-      deptName = deptRow.rows[0]?.name || '';
-    } catch { /* dept not critical */ }
+      deptName     = profileRow.rows[0]?.dept_name     || '';
+      deptId       = profileRow.rows[0]?.dept_id       || null;
+      positionType = profileRow.rows[0]?.position_type || 'staff';
+    } catch { /* not critical */ }
 
     // Set HTTP-only cookies
     res.cookie('yc_access',  accessToken,  cookieOpts(15 * 60_000));
@@ -124,12 +132,14 @@ router.get('/microsoft/callback', async (req, res, next) => {
     res.cookie('yc_session', sessionToken, cookieOpts((rememberMe ? 90 : 30) * 86_400_000));
 
     // Embed user info in redirect so frontend can display correct name/id immediately
-    // id is included so the frontend can pass it as actorId for ticket operations
     const userParam = Buffer.from(JSON.stringify({
-      id:    user.id,
-      name:  user.name  || '',
-      email: user.email || '',
-      dept:  deptName,
+      id:              user.id,
+      name:            user.name  || '',
+      email:           user.email || '',
+      dept:            deptName,
+      deptId,
+      positionType,
+      isBootstrapAdmin: !!(user as unknown as Record<string, unknown>).bootstrap_admin,
     })).toString('base64url');
 
     res.redirect(`${env.FRONTEND_URL}?ms_user=${userParam}`);

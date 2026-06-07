@@ -114,12 +114,38 @@ router.get('/', optionalAuth, async (req, res, next) => {
     const category = (req.query.category as string || '').trim();
     const all      = (req.query.all      as string || '').trim(); // ?all=1 → include closed tickets
 
+    // Role-based scope:
+    //   scope=all              → Bootstrap Admin / Director   — no extra filter
+    //   scope=dept&deptId=N    → Manager                     — tickets in that department
+    //   scope=mine&userId=N    → Everyone else               — own + pending-approval tickets
+    const scope  = (req.query.scope  as string || '').trim();
+    const userId = req.query.userId  ? Number(req.query.userId)  : null;
+    const deptId = req.query.deptId  ? Number(req.query.deptId)  : null;
+
     const where: string[] = ['1=1'];
     const params: unknown[] = [];
     let i = 1;
-    if (status)   { where.push(`v.status_id   = $${i++}`); params.push(status); }
+    if (status)   { where.push(`v.status = $${i++}`); params.push(status); }
     if (priority) { where.push(`v.priority_id = $${i++}`); params.push(priority); }
     if (category) { where.push(`v.category_id = $${i++}`); params.push(category); }
+
+    // Apply role scope
+    if (scope === 'dept' && deptId) {
+      where.push(
+        `(v.assigned_to IN (SELECT id FROM yc_tkt_mgmt.users WHERE department_id = $${i++})` +
+        ` OR v.created_by IN (SELECT id FROM yc_tkt_mgmt.users WHERE department_id = $${i++}))`
+      );
+      params.push(deptId, deptId);
+    } else if (scope === 'mine' && userId) {
+      // Own tickets + any tickets pending this user's approval
+      where.push(
+        `(v.created_by = $${i} OR v.assigned_to = $${i}` +
+        ` OR EXISTS (SELECT 1 FROM yc_tkt_mgmt.ticket_approvers ta` +
+        `  WHERE ta.ticket_id = v.id AND ta.approver_user_id = $${i} AND ta.approval_status = 'Pending'))`
+      );
+      params.push(userId); i++;
+    }
+    // scope=all or no scope → no additional filter
 
     // v_open_tickets excludes closed rows; ?all=1 reads the base tickets table instead
     const source = all === '1'
