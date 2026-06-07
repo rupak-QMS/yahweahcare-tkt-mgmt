@@ -15,8 +15,11 @@ const schema = z.object({
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   SESSION_SECRET: z.string().min(32, 'SESSION_SECRET must be at least 32 characters'),
   COOKIE_DOMAIN: z.string().default('localhost'),
-  COOKIE_SECURE: z.string().default('false').transform(v => v === 'true'),
-  COOKIE_SAMESITE: z.enum(['strict', 'lax', 'none']).default('lax'),
+  COOKIE_SECURE: z.string()
+    .default(process.env.NODE_ENV === 'production' ? 'true' : 'false')
+    .transform(v => v === 'true'),
+  COOKIE_SAMESITE: z.enum(['strict', 'lax', 'none'])
+    .default(process.env.NODE_ENV === 'production' ? 'none' : 'lax'),
 
   AZURE_CLIENT_ID: z.string().min(1),
   AZURE_CLIENT_SECRET: z.string().min(1),
