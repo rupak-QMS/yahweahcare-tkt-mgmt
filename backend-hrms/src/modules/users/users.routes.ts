@@ -21,6 +21,7 @@ router.get('/', optionalAuth, async (req, res, next) => {
     const offset = Number(req.query.offset) || 0;
     const q      = (req.query.q as string || '').trim().toLowerCase();
     const status = (req.query.status as string || '').trim();
+    const deptId = req.query.dept_id ? Number(req.query.dept_id) : null;
     const where: string[] = ['1=1'];
     const params: unknown[] = [];
     let pi = 1;
@@ -31,6 +32,7 @@ router.get('/', optionalAuth, async (req, res, next) => {
     }
     if (status === 'active')   where.push('u.is_active = TRUE');
     else if (status === 'inactive') where.push('u.is_active = FALSE');
+    if (deptId) { where.push('u.department_id = $' + pi); params.push(deptId); pi++; }
 
     const { rows } = await pool.query(
       'SELECT u.id, u.email, u.name, u.is_active, u.is_bootstrap_admin, u.auth_provider,' +

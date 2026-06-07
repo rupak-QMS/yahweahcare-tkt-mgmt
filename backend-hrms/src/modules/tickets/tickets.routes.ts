@@ -193,12 +193,26 @@ router.get('/activity', optionalAuth, async (req, res, next) => {
     const offset = Number(req.query.offset) || 0;
     const search = ((req.query.search as string) || '').trim();
     const action = ((req.query.action as string) || '').trim();
+    // Role-based scope (same as /tickets)
+    const scope  = ((req.query.scope  as string) || '').trim();
+    const userId = req.query.userId ? Number(req.query.userId) : null;
+    const deptId = req.query.deptId ? Number(req.query.deptId) : null;
 
     const where: string[] = ['1=1'];
     const params: unknown[] = [];
     let i = 1;
     if (search) { where.push(`(t.title ILIKE $${i} OR u.name ILIKE $${i})`); params.push(`%${search}%`); i++; }
     if (action) { where.push(`a.action = $${i++}`); params.push(action); }
+    if (scope === 'dept' && deptId) {
+      where.push(
+        `(t.assigned_to IN (SELECT id FROM yc_tkt_mgmt.users WHERE department_id = $${i++})` +
+        ` OR t.created_by IN (SELECT id FROM yc_tkt_mgmt.users WHERE department_id = $${i++}))`
+      );
+      params.push(deptId, deptId);
+    } else if (scope === 'mine' && userId) {
+      where.push(`(t.created_by = $${i} OR t.assigned_to = $${i})`);
+      params.push(userId); i++;
+    }
 
     const { rows } = await pool.query(
       `SELECT

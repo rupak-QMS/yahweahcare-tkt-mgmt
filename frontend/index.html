@@ -147,6 +147,29 @@
             return { scope: 'mine', userId: id };
         }
 
+        // Returns query params for /users fetch based on role
+        // Admin/Director → no filter (all users)
+        // Manager        → ?dept_id=N  (their department only)
+        // Staff/external → ?dept_id=N  (their department, so they can see colleagues)
+        function getUserQueryParams(sessionUser) {
+            if (!sessionUser) return '';
+            const { isBootstrapAdmin, positionType, deptId } = sessionUser;
+            if (isBootstrapAdmin || positionType === 'director') return '';
+            if (deptId) return `&dept_id=${deptId}`;
+            return '';
+        }
+
+        // Build URLSearchParams string for /tickets/activity scope
+        function getActivityScopeParams(sessionUser) {
+            if (!sessionUser) return '';
+            const sp = getTicketScopeParams(sessionUser);
+            const p = new URLSearchParams();
+            if (sp.scope)  p.set('scope',  sp.scope);
+            if (sp.userId) p.set('userId', String(sp.userId));
+            if (sp.deptId) p.set('deptId', String(sp.deptId));
+            return p.toString() ? `&${p.toString()}` : '';
+        }
+
         // Fallback mock data for lookups
         const LOOKUPS_MOCK = {
             categories: [
@@ -544,7 +567,8 @@
             const [recentActivity, setRecentActivity] = React.useState([]);
 
             React.useEffect(() => {
-                fetch(`${HRMS_API}/tickets/activity?limit=4`)
+                const sp = getActivityScopeParams(getSessionUser());
+                fetch(`${HRMS_API}/tickets/activity?limit=4${sp}`)
                     .then(r => r.ok ? r.json() : { activity: [] })
                     .then(d => setRecentActivity(d.activity || []))
                     .catch(() => {});
@@ -711,7 +735,7 @@
                 try {
                     const [lookupsData, usersRes] = await Promise.all([
                         API.lookups.get(),
-                        fetch(`${HRMS_API}/users`)
+                        fetch(`${HRMS_API}/users?status=active&limit=200${getUserQueryParams(getSessionUser())}`)
                     ]);
                     const usersData = usersRes.ok ? await usersRes.json() : { users: [] };
                     // Merge real staff into lookups.users for approver list
@@ -1097,8 +1121,8 @@
             React.useEffect(() => {
                 // Fetch real tickets and real staff in parallel
                 Promise.all([
-                    API.tickets.getAll({ all: true }).catch(() => ({ tickets: [] })),
-                    fetch(`${HRMS_API}/users?status=active`).then(r => r.ok ? r.json() : { users: [] }).catch(() => ({ users: [] }))
+                    API.tickets.getAll({ all: true, limit: 500 }).catch(() => ({ tickets: [] })),
+                    fetch(`${HRMS_API}/users?status=active&limit=200${getUserQueryParams(getSessionUser())}`).then(r => r.ok ? r.json() : { users: [] }).catch(() => ({ users: [] }))
                 ]).then(([tickData, staffData]) => {
                     setTickets((tickData.tickets || []).map(normalise));
                     setStaffList(staffData.users || []);
@@ -2118,9 +2142,16 @@
             React.useEffect(() => {
                 (async () => {
                     try {
+                        const su = getSessionUser();
+                        const uqp = getUserQueryParams(su);
+                        const tsp = getTicketScopeParams(su);
+                        const tParams = new URLSearchParams({ all:'1', limit:'500' });
+                        if (tsp.scope)  tParams.set('scope',  tsp.scope);
+                        if (tsp.userId) tParams.set('userId', String(tsp.userId));
+                        if (tsp.deptId) tParams.set('deptId', String(tsp.deptId));
                         const [usersRes, ticketsRes] = await Promise.all([
-                            fetch(`${HRMS_API}/users?status=active&limit=200`),
-                            fetch(`${HRMS_API}/tickets?all=1&limit=500`),
+                            fetch(`${HRMS_API}/users?status=active&limit=200${uqp}`),
+                            fetch(`${HRMS_API}/tickets?${tParams}`),
                         ]);
                         const usersData   = usersRes.ok   ? await usersRes.json()   : { users: [] };
                         const ticketsData = ticketsRes.ok ? await ticketsRes.json() : { tickets: [] };
@@ -2504,9 +2535,16 @@
             React.useEffect(() => {
                 (async () => {
                     try {
+                        const su = getSessionUser();
+                        const uqp = getUserQueryParams(su);
+                        const tsp = getTicketScopeParams(su);
+                        const tParams = new URLSearchParams({ all:'1', limit:'500' });
+                        if (tsp.scope)  tParams.set('scope',  tsp.scope);
+                        if (tsp.userId) tParams.set('userId', String(tsp.userId));
+                        if (tsp.deptId) tParams.set('deptId', String(tsp.deptId));
                         const [usersRes, ticketsRes] = await Promise.all([
-                            fetch(`${HRMS_API}/users?status=active&limit=200`),
-                            fetch(`${HRMS_API}/tickets?all=1&limit=500`),
+                            fetch(`${HRMS_API}/users?status=active&limit=200${uqp}`),
+                            fetch(`${HRMS_API}/tickets?${tParams}`),
                         ]);
                         const users   = (usersRes.ok   ? await usersRes.json()   : { users: [] }).users   || [];
                         const tickets = (ticketsRes.ok ? await ticketsRes.json() : { tickets: [] }).tickets || [];
@@ -2923,7 +2961,7 @@
             const charts = React.useRef({});
 
             React.useEffect(() => {
-                API.tickets.getAll().then(d => {
+                API.tickets.getAll({ all: true, limit: 500 }).then(d => {
                     setTickets(d.tickets || []);
                     setLoading(false);
                 }).catch(() => {
@@ -3479,8 +3517,9 @@
             const fetchAll = React.useCallback(async () => {
                 setLoading(true);
                 try {
+                    const uqp = getUserQueryParams(getSessionUser());
                     const [sR,dR,pR] = await Promise.all([
-                        fetch(`${HRMS_API}/users`),
+                        fetch(`${HRMS_API}/users?limit=200${uqp}`),
                         fetch(`${HRMS_API}/org/departments`),
                         fetch(`${HRMS_API}/org/positions`),
                     ]);
