@@ -315,7 +315,150 @@
         };
 
         // Navigation Component
-        function Navigation({ currentPage, setCurrentPage, onSignOut, currentUser }) {
+        // ── Top Header Bar ──────────────────────────────────────────────────────
+        function TopBar({ sidebarOpen, setSidebarOpen, darkMode, setDarkMode, currentUser, currentPage, onSignOut, setCurrentPage }) {
+            const [userMenuOpen, setUserMenuOpen] = React.useState(false);
+            const [notifOpen,    setNotifOpen]    = React.useState(false);
+
+            const displayName = currentUser?.name || 'User';
+            const initials    = displayName.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+            const deptLabel   = currentUser?.dept || currentUser?.department_name || '';
+
+            const pageLabels = {
+                'dashboard':'Dashboard','create-ticket':'Create Ticket','tickets':'Tickets',
+                'calendar':'Calendar','analytics':'Analytics','org-chart':'Org Chart',
+                'staff-performance':'Staff Performance','team-comparison':'Team Comparison',
+                'staff-management':'Staff Management','scheduled-reports':'Scheduled Reports',
+            };
+
+            React.useEffect(() => {
+                if (!userMenuOpen && !notifOpen) return;
+                const close = () => { setUserMenuOpen(false); setNotifOpen(false); };
+                document.addEventListener('click', close);
+                return () => document.removeEventListener('click', close);
+            }, [userMenuOpen, notifOpen]);
+
+            const bg      = darkMode ? '#1F2937' : '#ffffff';
+            const border  = darkMode ? '#374151' : '#E5E7EB';
+            const textC   = darkMode ? '#F9FAFB'  : '#111827';
+            const subC    = darkMode ? '#9CA3AF'  : '#6B7280';
+            const iconBg  = darkMode ? '#374151'  : '#F9FAFB';
+
+            const iconBtn = (extra={}) => ({
+                width:36, height:36, borderRadius:8, background:iconBg,
+                border:`1px solid ${border}`, cursor:'pointer',
+                display:'flex', alignItems:'center', justifyContent:'center',
+                fontSize:16, flexShrink:0, ...extra,
+            });
+
+            return (
+                <div style={{
+                    height:56, background:bg, borderBottom:`1px solid ${border}`,
+                    display:'flex', alignItems:'center', padding:'0 20px', gap:10,
+                    flexShrink:0, position:'relative', zIndex:30,
+                }}>
+                    {/* Sidebar toggle */}
+                    <button onClick={() => setSidebarOpen(o => !o)} style={iconBtn()} title={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}>
+                        {sidebarOpen
+                            ? <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M4 4l10 10M14 4L4 14" stroke={textC} strokeWidth="2" strokeLinecap="round"/></svg>
+                            : <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M2 4h14M2 9h14M2 14h14" stroke={textC} strokeWidth="2" strokeLinecap="round"/></svg>
+                        }
+                    </button>
+
+                    {/* Page title */}
+                    <span style={{fontSize:15, fontWeight:700, color:textC, flex:1, letterSpacing:'-0.01em'}}>
+                        {pageLabels[currentPage] || 'Dashboard'}
+                    </span>
+
+                    {/* Notifications */}
+                    <div style={{position:'relative'}}>
+                        <button onClick={e => { e.stopPropagation(); setNotifOpen(o => !o); }}
+                            style={iconBtn({background: notifOpen ? '#EEF2FF' : iconBg, position:'relative'})}
+                            title="Notifications">
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+                                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" stroke={textC} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                            <span style={{position:'absolute',top:6,right:6,width:7,height:7,background:'#EF4444',borderRadius:'50%',border:`2px solid ${bg}`}}/>
+                        </button>
+                        {notifOpen && (
+                            <div onClick={e => e.stopPropagation()} style={{
+                                position:'absolute', top:'calc(100% + 8px)', right:0, width:280,
+                                background:bg, borderRadius:12, boxShadow:'0 8px 32px rgba(0,0,0,0.15)',
+                                border:`1px solid ${border}`, zIndex:50, overflow:'hidden',
+                            }}>
+                                <div style={{padding:'12px 16px', borderBottom:`1px solid ${border}`}}>
+                                    <p style={{fontSize:13, fontWeight:700, color:textC}}>Notifications</p>
+                                </div>
+                                <div style={{padding:'20px 16px', textAlign:'center'}}>
+                                    <div style={{fontSize:28, marginBottom:8}}>🔔</div>
+                                    <p style={{fontSize:13, color:subC}}>No new notifications</p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Dark / Light toggle */}
+                    <button onClick={() => setDarkMode(d => !d)} style={iconBtn()} title={darkMode ? 'Light mode' : 'Dark mode'}>
+                        {darkMode
+                            ? <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="5" stroke="#FCD34D" strokeWidth="2"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="#FCD34D" strokeWidth="2" strokeLinecap="round"/></svg>
+                            : <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke={textC} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        }
+                    </button>
+
+                    {/* User menu */}
+                    <div style={{position:'relative'}}>
+                        <button onClick={e => { e.stopPropagation(); setUserMenuOpen(o => !o); }}
+                            style={{
+                                height:36, borderRadius:8, background: userMenuOpen ? '#EEF2FF' : iconBg,
+                                border:`1px solid ${userMenuOpen ? '#818CF8' : border}`,
+                                cursor:'pointer', display:'flex', alignItems:'center', gap:8, padding:'0 10px',
+                            }}>
+                            <div style={{width:26,height:26,borderRadius:'50%',background:'#F97316',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:700,fontSize:11,flexShrink:0}}>
+                                {initials}
+                            </div>
+                            <span style={{fontSize:13,fontWeight:600,color:textC,maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                                {displayName}
+                            </span>
+                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{transform: userMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition:'transform 0.15s'}}>
+                                <path d="M2 3.5l3 3 3-3" stroke={subC} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                        </button>
+
+                        {userMenuOpen && (
+                            <div onClick={e => e.stopPropagation()} style={{
+                                position:'absolute', top:'calc(100% + 8px)', right:0, minWidth:210,
+                                background:bg, borderRadius:12, boxShadow:'0 8px 32px rgba(0,0,0,0.15)',
+                                border:`1px solid ${border}`, zIndex:50, overflow:'hidden',
+                            }}>
+                                <div style={{padding:'12px 16px', borderBottom:`1px solid ${border}`, display:'flex', alignItems:'center', gap:10}}>
+                                    <div style={{width:34,height:34,borderRadius:'50%',background:'#F97316',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:700,fontSize:13,flexShrink:0}}>
+                                        {initials}
+                                    </div>
+                                    <div>
+                                        <p style={{fontSize:13, fontWeight:700, color:textC}}>{displayName}</p>
+                                        <p style={{fontSize:11, color:subC, marginTop:1}}>{deptLabel}</p>
+                                    </div>
+                                </div>
+                                <button onClick={() => { setUserMenuOpen(false); setCurrentPage('staff-management'); }}
+                                    style={{width:'100%',textAlign:'left',display:'flex',alignItems:'center',gap:10,padding:'10px 16px',background:'none',border:'none',cursor:'pointer',fontSize:13,color:textC}}>
+                                    <span style={{fontSize:15}}>⚙️</span>
+                                    <span style={{fontWeight:500}}>Settings</span>
+                                </button>
+                                <div style={{height:1, background:border, margin:'0 12px'}}/>
+                                <button onClick={() => { setUserMenuOpen(false); onSignOut(); }}
+                                    style={{width:'100%',textAlign:'left',display:'flex',alignItems:'center',gap:10,padding:'10px 16px',background:'none',border:'none',cursor:'pointer',fontSize:13,color:'#DC2626',fontWeight:600}}>
+                                    <span style={{fontSize:15}}>↪️</span>
+                                    <span>Sign Out</span>
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        // ── Sidebar Navigation ───────────────────────────────────────────────────
+        function Navigation({ currentPage, setCurrentPage, onSignOut, currentUser, darkMode }) {
             const [profileOpen, setProfileOpen] = React.useState(false);
             const displayName = currentUser?.name || 'User';
             const initials = displayName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
@@ -352,81 +495,80 @@
                 onSignOut();
             };
 
+            const sidebarBg     = darkMode ? '#1F2937' : '#ffffff';
+            const sidebarBorder = darkMode ? '#374151' : '#E5E7EB';
+            const sidebarText   = darkMode ? '#D1D5DB' : '#374151';
+            const logoText      = darkMode ? '#F9FAFB' : '#111827';
+            const logoSub       = darkMode ? '#9CA3AF' : '#6B7280';
+
             return (
-                <aside className="w-64 bg-white border-r border-gray-200 flex flex-col h-screen">
+                <aside style={{width:256, background:sidebarBg, borderRight:`1px solid ${sidebarBorder}`, display:'flex', flexDirection:'column', height:'100vh', flexShrink:0}}>
                     {/* Logo — fixed */}
-                    <div className="px-4 pt-4 pb-2 flex-shrink-0">
-                        <h1 className="font-bold text-gray-900 text-lg">YAHWEH<br/><span className="text-sm text-gray-500">CARE</span></h1>
+                    <div style={{padding:'20px 16px 12px', flexShrink:0}}>
+                        <h1 style={{fontWeight:800, color:logoText, fontSize:18, lineHeight:1.2}}>YAHWEH<br/><span style={{fontSize:12, color:logoSub, fontWeight:500}}>CARE ™</span></h1>
                     </div>
 
                     {/* Nav — scrolls independently */}
-                    <nav className="flex-1 overflow-y-auto px-4 py-2 space-y-1">
-                        {pages.map((page) => (
-                            <button
-                                key={page.id}
-                                onClick={() => setCurrentPage(page.id)}
-                                className={`w-full text-left px-4 py-3 rounded-lg transition flex items-center gap-3 ${
-                                    currentPage === page.id
-                                        ? 'bg-indigo-600 text-white'
-                                        : 'text-gray-700 hover:bg-gray-100'
-                                }`}
-                            >
-                                <span>{page.icon}</span>
-                                <span className="font-medium text-sm">{page.label}</span>
-                            </button>
-                        ))}
+                    <nav style={{flex:1, overflowY:'auto', padding:'8px 12px', display:'flex', flexDirection:'column', gap:2}}>
+                        {pages.map((page) => {
+                            const active = currentPage === page.id;
+                            return (
+                                <button
+                                    key={page.id}
+                                    onClick={() => setCurrentPage(page.id)}
+                                    style={{
+                                        width:'100%', textAlign:'left', padding:'9px 12px',
+                                        borderRadius:8, border:'none', cursor:'pointer',
+                                        display:'flex', alignItems:'center', gap:10,
+                                        background: active ? '#4F46E5' : 'transparent',
+                                        color: active ? '#ffffff' : sidebarText,
+                                        fontWeight: active ? 600 : 500,
+                                        fontSize:13,
+                                        transition:'background 0.15s',
+                                    }}
+                                    onMouseEnter={e => { if(!active) e.currentTarget.style.background = darkMode ? '#374151' : '#F3F4F6'; }}
+                                    onMouseLeave={e => { if(!active) e.currentTarget.style.background = 'transparent'; }}
+                                >
+                                    <span style={{fontSize:15}}>{page.icon}</span>
+                                    <span>{page.label}</span>
+                                </button>
+                            );
+                        })}
                     </nav>
 
-                    {/* Profile — fixed at bottom, dropdown opens upward via absolute positioning */}
-                    <div className="flex-shrink-0 border-t border-gray-200 px-4 py-3" style={{position: 'relative'}}>
-                        {/* Dropdown — absolute, opens upward, not clipped */}
+                    {/* Profile — fixed at bottom */}
+                    <div style={{flexShrink:0, borderTop:`1px solid ${sidebarBorder}`, padding:'10px 12px', position:'relative'}}>
                         {profileOpen && (
-                            <div
-                                onClick={e => e.stopPropagation()}
-                                style={{
-                                    position: 'absolute',
-                                    bottom: '100%',
-                                    left: 16,
-                                    right: 16,
-                                    marginBottom: 6,
-                                    background: 'white',
-                                    borderRadius: 12,
-                                    boxShadow: '0 -4px 24px rgba(0,0,0,0.12)',
-                                    border: '1px solid #E5E7EB',
-                                    overflow: 'hidden',
-                                    zIndex: 50,
-                                }}
-                            >
-                                <button
-                                    onClick={handleSettings}
-                                    className="w-full text-left flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition"
-                                >
-                                    <span style={{fontSize:16}}>⚙️</span>
-                                    <span className="font-medium">Settings</span>
+                            <div onClick={e => e.stopPropagation()} style={{
+                                position:'absolute', bottom:'100%', left:12, right:12, marginBottom:6,
+                                background:sidebarBg, borderRadius:12, boxShadow:'0 -4px 24px rgba(0,0,0,0.15)',
+                                border:`1px solid ${sidebarBorder}`, overflow:'hidden', zIndex:50,
+                            }}>
+                                <button onClick={handleSettings} style={{width:'100%',textAlign:'left',display:'flex',alignItems:'center',gap:10,padding:'10px 14px',background:'none',border:'none',cursor:'pointer',fontSize:13,color:sidebarText}}>
+                                    <span style={{fontSize:15}}>⚙️</span>
+                                    <span style={{fontWeight:500}}>Settings</span>
                                 </button>
-                                <div style={{height:1, background:'#F3F4F6', margin:'0 12px'}}/>
-                                <button
-                                    onClick={handleSignOut}
-                                    className="w-full text-left flex items-center gap-3 px-4 py-3 text-sm font-semibold hover:bg-red-50 transition"
-                                    style={{color:'#DC2626'}}
-                                >
-                                    <span style={{fontSize:16}}>↪️</span>
+                                <div style={{height:1, background:sidebarBorder, margin:'0 12px'}}/>
+                                <button onClick={handleSignOut} style={{width:'100%',textAlign:'left',display:'flex',alignItems:'center',gap:10,padding:'10px 14px',background:'none',border:'none',cursor:'pointer',fontSize:13,color:'#DC2626',fontWeight:600}}>
+                                    <span style={{fontSize:15}}>↪️</span>
                                     <span>Sign Out</span>
                                 </button>
                             </div>
                         )}
-
-                        {/* Profile card */}
-                        <button
-                            onClick={e => { e.stopPropagation(); setProfileOpen(o => !o); }}
-                            className="w-full flex items-center gap-3 p-3 rounded-lg bg-orange-50 hover:bg-orange-100 transition text-left"
-                        >
-                            <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">{initials}</div>
-                            <div className="text-sm flex-1 min-w-0">
-                                <p className="font-semibold text-gray-900 truncate">{displayName}</p>
-                                <p className="text-xs text-gray-600 truncate">{deptLabel}</p>
+                        <button onClick={e => { e.stopPropagation(); setProfileOpen(o => !o); }}
+                            style={{
+                                width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 12px',
+                                borderRadius:8, border:'none', cursor:'pointer',
+                                background: darkMode ? '#374151' : '#FFF7ED',
+                            }}>
+                            <div style={{width:36,height:36,borderRadius:'50%',background:'#F97316',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:700,fontSize:13,flexShrink:0}}>
+                                {initials}
                             </div>
-                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{flexShrink:0, transform: profileOpen ? 'rotate(0deg)' : 'rotate(180deg)', transition:'transform 0.2s'}}>
+                            <div style={{flex:1, minWidth:0, textAlign:'left'}}>
+                                <p style={{fontSize:13,fontWeight:600,color:logoText,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{displayName}</p>
+                                <p style={{fontSize:11,color:logoSub,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{deptLabel}</p>
+                            </div>
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{flexShrink:0,transform:profileOpen?'rotate(0deg)':'rotate(180deg)',transition:'transform 0.2s'}}>
                                 <path d="M2 4l4 4 4-4" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                             </svg>
                         </button>
@@ -4166,8 +4308,12 @@
                 const hash = window.location.hash.slice(1) || 'dashboard';
                 return hash;
             });
-            const [signedOut, setSignedOut] = React.useState(false);
-            const [authError, setAuthError] = React.useState(null);
+            const [signedOut,   setSignedOut]   = React.useState(false);
+            const [authError,   setAuthError]   = React.useState(null);
+            const [sidebarOpen, setSidebarOpen] = React.useState(true);
+            const [darkMode,    setDarkMode]    = React.useState(() => {
+                try { return localStorage.getItem('yc_dark') === '1'; } catch(e) { return false; }
+            });
             const [currentUser, setCurrentUser] = React.useState(() => {
                 // Seed from sessionStorage — set by init script after Microsoft login redirect
                 try {
@@ -4175,6 +4321,12 @@
                     return stored ? JSON.parse(stored) : null;
                 } catch(e) { return null; }
             });
+
+            // Persist dark mode preference & apply to document
+            React.useEffect(() => {
+                try { localStorage.setItem('yc_dark', darkMode ? '1' : '0'); } catch(e) {}
+                document.documentElement.style.colorScheme = darkMode ? 'dark' : 'light';
+            }, [darkMode]);
 
             // Show any error the backend passed back via ?error= after Microsoft login
             React.useEffect(() => {
@@ -4249,10 +4401,34 @@
                 }
             };
 
+            const appBg = darkMode ? '#111827' : '#F9FAFB';
+
             return (
-                <div className="flex h-screen bg-gray-50">
-                    <Navigation currentPage={currentPage} setCurrentPage={handlePageChange} onSignOut={handleSignOut} currentUser={currentUser} />
-                    {renderPage()}
+                <div style={{display:'flex', height:'100vh', background:appBg, overflow:'hidden'}}>
+                    {sidebarOpen && (
+                        <Navigation
+                            currentPage={currentPage}
+                            setCurrentPage={handlePageChange}
+                            onSignOut={handleSignOut}
+                            currentUser={currentUser}
+                            darkMode={darkMode}
+                        />
+                    )}
+                    <div style={{display:'flex', flexDirection:'column', flex:1, minWidth:0, overflow:'hidden'}}>
+                        <TopBar
+                            sidebarOpen={sidebarOpen}
+                            setSidebarOpen={setSidebarOpen}
+                            darkMode={darkMode}
+                            setDarkMode={setDarkMode}
+                            currentUser={currentUser}
+                            currentPage={currentPage}
+                            onSignOut={handleSignOut}
+                            setCurrentPage={handlePageChange}
+                        />
+                        <div style={{flex:1, overflow:'hidden'}}>
+                            {renderPage()}
+                        </div>
+                    </div>
                 </div>
             );
         }
