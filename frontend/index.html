@@ -2514,13 +2514,11 @@
                         </div>
                         )}
 
-                        {/* Chart */}
-                        {deptMetrics.length>0 && (
-                        <div style={{background:'white',borderRadius:'12px',border:'1px solid #F0F0F0',padding:'20px 24px',marginBottom:'20px',boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
+                        {/* Chart — canvas always mounted so ref is available when deptMetrics loads */}
+                        <div style={{background:'white',borderRadius:'12px',border:'1px solid #F0F0F0',padding:'20px 24px',marginBottom:'20px',boxShadow:'0 1px 3px rgba(0,0,0,0.04)',display:deptMetrics.length>0?'block':'none'}}>
                             <h2 style={{fontSize:'14px',fontWeight:700,color:'#111827',marginBottom:'16px'}}>📊 Department Metrics Comparison</h2>
                             <div className="chart-container"><canvas ref={canvasRef}></canvas></div>
                         </div>
-                        )}
 
                         {/* Table */}
                         {deptMetrics.length>0 ? (
