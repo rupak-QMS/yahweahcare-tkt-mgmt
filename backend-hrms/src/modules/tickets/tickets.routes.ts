@@ -6,6 +6,24 @@ import { Router } from 'express';
 import { pool } from '../../db/pool';
 import { requireAuth, optionalAuth } from '../../middleware/auth.middleware';
 import { logAudit } from '../audit/audit.service';
+import { notify } from '../notifications/notifications.service';
+
+// Helper: get actor name + ticket dept from DB
+async function getActorName(userId: number | null): Promise<string | undefined> {
+  if (!userId) return undefined;
+  try {
+    const { rows } = await pool.query(`SELECT name FROM yc_tkt_mgmt.users WHERE id=$1`, [userId]);
+    return rows[0]?.name;
+  } catch { return undefined; }
+}
+async function getTicketDept(creatorId: number | null, assigneeId: number | null): Promise<number | undefined> {
+  const id = creatorId || assigneeId;
+  if (!id) return undefined;
+  try {
+    const { rows } = await pool.query(`SELECT department_id FROM yc_tkt_mgmt.users WHERE id=$1`, [id]);
+    return rows[0]?.department_id ?? undefined;
+  } catch { return undefined; }
+}
 
 const router = Router();
 
@@ -364,6 +382,15 @@ router.post('/', optionalAuth, async (req, res, next) => {
     const t = dbTicket(rows[0]);
     t.approvers = apRows.map(dbApprover);
     res.status(201).json({ ticket: t });
+
+    // Fire notifications (after response sent)
+    const actorName = await getActorName(actorId);
+    const deptId    = await getTicketDept(actorId, resolvedAssignee ? Number(resolvedAssignee) : null);
+    notify({
+      type: 'ticket.created', ticketId, ticketTitle: resolvedTitle,
+      actorId: actorId!, actorName, creatorId: actorId ?? undefined,
+      assigneeId: resolvedAssignee ? Number(resolvedAssignee) : undefined, deptId,
+    }).catch(() => {});
   } catch (err) { next(err); }
 });
 
@@ -405,6 +432,15 @@ router.post('/:id/complete', optionalAuth, async (req, res, next) => {
 
     await logAudit({ userId: actorId ?? undefined, actorEmail: req.auth?.email, action: 'ticket.complete', module: 'tickets', targetType: 'ticket', targetId: id, metadata: {}, req });
     res.json({ ticket: dbTicket(rows[0]) });
+
+    // Notify
+    const actorName = await getActorName(actorId);
+    const deptId    = await getTicketDept(tRows[0].created_by, tRows[0].assigned_to);
+    notify({
+      type: 'ticket.completed', ticketId: id, ticketTitle: tRows[0].title,
+      actorId: actorId!, actorName, creatorId: tRows[0].created_by ?? undefined,
+      assigneeId: tRows[0].assigned_to ?? undefined, deptId,
+    }).catch(() => {});
   } catch (err) { next(err); }
 });
 
@@ -470,6 +506,16 @@ router.post('/:id/approve', optionalAuth, async (req, res, next) => {
     t.approvers = allAp.map(dbApprover);
     await logAudit({ userId, actorEmail: req.auth?.email, action: 'ticket.approve', module: 'tickets', targetType: 'ticket', targetId: id, metadata: {}, req });
     res.json({ ticket: t });
+
+    // Notify
+    const actorName2 = await getActorName(userId);
+    const { rows: tInfo2 } = await pool.query(`SELECT title, created_by, assigned_to FROM yc_tkt_mgmt.tickets WHERE id=$1`, [id]);
+    const deptId2 = await getTicketDept(tInfo2[0]?.created_by, tInfo2[0]?.assigned_to);
+    notify({
+      type: 'ticket.approved', ticketId: id, ticketTitle: tInfo2[0]?.title ?? `Ticket #${id}`,
+      actorId: userId, actorName: actorName2, creatorId: tInfo2[0]?.created_by ?? undefined,
+      assigneeId: tInfo2[0]?.assigned_to ?? undefined, deptId: deptId2,
+    }).catch(() => {});
   } catch (err) { next(err); }
 });
 
@@ -523,6 +569,16 @@ router.post('/:id/reject', optionalAuth, async (req, res, next) => {
     t.approvers = allAp.map(dbApprover);
     await logAudit({ userId, actorEmail: req.auth?.email, action: 'ticket.reject', module: 'tickets', targetType: 'ticket', targetId: id, metadata: { justification }, req });
     res.json({ ticket: t });
+
+    // Notify
+    const actorName3 = await getActorName(userId);
+    const { rows: tInfo3 } = await pool.query(`SELECT title, created_by, assigned_to FROM yc_tkt_mgmt.tickets WHERE id=$1`, [id]);
+    const deptId3 = await getTicketDept(tInfo3[0]?.created_by, tInfo3[0]?.assigned_to);
+    notify({
+      type: 'ticket.rejected', ticketId: id, ticketTitle: tInfo3[0]?.title ?? `Ticket #${id}`,
+      actorId: userId, actorName: actorName3, creatorId: tInfo3[0]?.created_by ?? undefined,
+      assigneeId: tInfo3[0]?.assigned_to ?? undefined, deptId: deptId3,
+    }).catch(() => {});
   } catch (err) { next(err); }
 });
 
@@ -576,6 +632,17 @@ router.patch('/:id', optionalAuth, async (req, res, next) => {
 
     await logAudit({ userId: actorId ?? undefined, actorEmail: req.auth?.email, action: 'ticket.update', module: 'tickets', targetType: 'ticket', targetId: id, metadata: req.body, req });
     res.json({ ticket: dbTicket(rows[0]) });
+
+    // Notify on status change only
+    if ('status' in req.body && req.body.status !== old.status) {
+      const actorNameU = await getActorName(actorId);
+      const deptIdU    = await getTicketDept(old.created_by, old.assigned_to);
+      notify({
+        type: 'ticket.status_changed', ticketId: id, ticketTitle: (old.title as string),
+        actorId: actorId!, actorName: actorNameU, extra: req.body.status,
+        creatorId: old.created_by ?? undefined, assigneeId: old.assigned_to ?? undefined, deptId: deptIdU,
+      }).catch(() => {});
+    }
   } catch (err) { next(err); }
 });
 
@@ -668,6 +735,15 @@ router.post('/:id/escalate', optionalAuth, async (req, res, next) => {
     t.approvers = apRows.map(dbApprover);
     t.escalations = escRows;
     res.json({ ticket: t });
+
+    // Notify
+    const actorNameE = await getActorName(userId);
+    const deptIdE    = await getTicketDept(tRows[0].created_by, escalateToUserId);
+    notify({
+      type: 'ticket.escalated', ticketId: id, ticketTitle: tRows[0].title,
+      actorId: userId, actorName: actorNameE, creatorId: tRows[0].created_by ?? undefined,
+      assigneeId: escalateToUserId, deptId: deptIdE,
+    }).catch(() => {});
   } catch (err) { next(err); }
 });
 

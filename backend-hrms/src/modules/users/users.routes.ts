@@ -7,6 +7,7 @@ import { pool } from '../../db/pool';
 import { requireAuth, optionalAuth } from '../../middleware/auth.middleware';
 import { validateEmail } from '../../utils/emailDomain';
 import { logAudit } from '../audit/audit.service';
+import { notify } from '../notifications/notifications.service';
 
 const router = Router();
 
@@ -92,6 +93,13 @@ router.post('/', optionalAuth, async (req, res, next) => {
     }
     if (req.auth) await logAudit({ userId: req.auth.userId, actorEmail: req.auth.email, action: 'user.create', module: 'users', targetType: 'user', targetId: rows[0].id, metadata: { email: rows[0].email }, req });
     res.status(201).json({ user: rows[0] });
+
+    // Notify
+    notify({
+      type: 'user.created', targetUserId: rows[0].id, targetUserName: rows[0].name,
+      actorId: req.auth?.userId ?? rows[0].id, actorName: req.auth?.email,
+      deptId: rows[0].department_id ?? undefined,
+    }).catch(() => {});
   } catch (err: unknown) {
     const e = err as { code?: string };
     if (e.code === '23505') return res.status(409).json({ error: 'duplicate_email', message: 'A user with this email already exists' });
@@ -163,6 +171,24 @@ router.patch('/:id', optionalAuth, async (req, res, next) => {
     );
     if (req.auth) await logAudit({ userId: req.auth.userId, actorEmail: req.auth.email, action: 'user.update', module: 'users', targetType: 'user', targetId: id, metadata: { changes: req.body }, req });
     res.json({ user: updRows[0] });
+
+    // Notify if position changed
+    const positionChanged = 'position_id' in req.body || 'position_ids' in req.body;
+    if (positionChanged) {
+      // Get new position title
+      let posTitle = 'new role';
+      try {
+        const { rows: pRows } = await pool.query(
+          `SELECT p.title FROM yc_tkt_mgmt.staff_positions sp JOIN yc_tkt_mgmt.positions p ON p.id=sp.position_id WHERE sp.user_id=$1 AND sp.is_primary=TRUE LIMIT 1`, [id]
+        );
+        posTitle = pRows[0]?.title || posTitle;
+      } catch { /* ignore */ }
+      notify({
+        type: 'user.position_changed', targetUserId: id, targetUserName: target.name,
+        actorId: req.auth?.userId ?? id, actorName: req.auth?.email,
+        deptId: updRows[0]?.department_id ?? undefined, extra: posTitle,
+      }).catch(() => {});
+    }
   } catch (err) { next(err); }
 });
 
@@ -186,6 +212,13 @@ router.delete('/:id', optionalAuth, async (req, res, next) => {
     }
     if (req.auth) await logAudit({ userId: req.auth.userId, actorEmail: req.auth.email, action: 'user.delete', module: 'users', targetType: 'user', targetId: id, req });
     res.json({ ok: true, message: rows[0].name + ' has been deactivated. Their positions are now vacant.' });
+
+    // Notify
+    notify({
+      type: 'user.deleted', targetUserId: id, targetUserName: rows[0].name,
+      actorId: req.auth?.userId ?? id, actorName: req.auth?.email,
+      deptId: rows[0].department_id ?? undefined,
+    }).catch(() => {});
   } catch (err) { next(err); }
 });
 

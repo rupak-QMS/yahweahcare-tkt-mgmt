@@ -21,8 +21,10 @@ import auditRoutes         from './modules/audit/audit.routes';
 import scheduleRoutes      from './modules/schedules/schedules.routes';
 import ticketRoutes        from './modules/tickets/tickets.routes';
 import notificationRoutes  from './modules/notifications/notifications.routes';
+import pushRoutes          from './modules/notifications/push.routes';
 import lookupRoutes        from './modules/lookup/lookup.routes';
 import orgRoutes           from './modules/org/org.routes';
+import { ensurePushTable } from './modules/notifications/notifications.service';
 
 const app = express();
 
@@ -68,6 +70,7 @@ app.use('/audit-logs',     apiLimiter);
 app.use('/schedules',      apiLimiter);
 app.use('/tickets',        apiLimiter);
 app.use('/notifications',  apiLimiter);
+app.use('/push',           apiLimiter);
 app.use('/lookup',         apiLimiter);
 app.use('/org',            apiLimiter);
 
@@ -79,6 +82,7 @@ app.use('/audit-logs',     auditRoutes);
 app.use('/schedules',      scheduleRoutes);
 app.use('/tickets',        ticketRoutes);
 app.use('/notifications',  notificationRoutes);
+app.use('/push',           pushRoutes);
 app.use('/lookup',         lookupRoutes);
 app.use('/org',            orgRoutes);
 
@@ -87,11 +91,14 @@ app.use(notFound);
 app.use(errorHandler);
 
 // ─── Start ─────────────────────────────────────────────────
-app.listen(env.PORT, () => {
+app.listen(env.PORT, async () => {
   console.log(`✓ HRMS auth service listening on ${env.BACKEND_URL} (port ${env.PORT})`);
   console.log(`  Frontend allowed origin: ${env.FRONTEND_URL}`);
   console.log(`  Microsoft Entra tenant:  ${env.AZURE_TENANT_ID}`);
   console.log(`  Allowed org domains:     ${env.ALLOWED_DOMAINS.join(', ')}`);
+  // Run DB migration for push_subscriptions table
+  await ensurePushTable();
+  console.log('  Push subscriptions table: ready');
 });
 
 // ─── Background: clean expired sessions every 5 min ────────
