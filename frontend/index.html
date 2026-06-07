@@ -4307,12 +4307,14 @@
             const [toast,      setToast]      = React.useState(null);
 
             // form state
-            const [reportType, setReportType] = React.useState('ticket_summary');
-            const [period,     setPeriod]     = React.useState('last_30');
-            const [dateFrom,   setDateFrom]   = React.useState('');
-            const [dateTo,     setDateTo]     = React.useState('');
-            const [emailTo,    setEmailTo]    = React.useState('');
-            const [emailSubject, setEmailSubject] = React.useState('');
+            const [reportType,    setReportType]    = React.useState('ticket_summary');
+            const [period,        setPeriod]        = React.useState('last_30');
+            const [dateFrom,      setDateFrom]      = React.useState('');
+            const [dateTo,        setDateTo]        = React.useState('');
+            const [categoryFilter,setCategoryFilter]= React.useState('all');
+            const [priorityFilter,setPriorityFilter]= React.useState('all');
+            const [emailTo,       setEmailTo]       = React.useState('');
+            const [emailSubject,  setEmailSubject]  = React.useState('');
 
             // scheduled jobs list (stored in localStorage for demo)
             const [schedules, setSchedules] = React.useState(() => {
@@ -4370,145 +4372,344 @@
             };
 
             // ── report builders ────────────────────────────────────────────────
-            const REPORT_TYPES = [
-                { id:'ticket_summary',    label:'Ticket Summary',       icon:'📊', desc:'All tickets with status, priority, category' },
-                { id:'overdue_tickets',   label:'Overdue Tickets',      icon:'⚠️',  desc:'Tickets past due date not yet resolved' },
-                { id:'staff_performance', label:'Staff Performance',    icon:'⭐', desc:'Tickets assigned/resolved per staff member' },
-                { id:'category_breakdown',label:'Category Breakdown',   icon:'📂', desc:'Ticket counts grouped by category' },
-                { id:'sla_compliance',    label:'SLA Compliance',       icon:'✅', desc:'On-time vs overdue resolution rates' },
-                { id:'activity_log',      label:'Activity Log',         icon:'📋', desc:'All ticket status changes and actions' },
-                { id:'team_comparison',   label:'Team Comparison',      icon:'🔄', desc:'Department-level ticket metrics' },
+            const REPORT_GROUPS = [
+                {
+                    group: 'General',
+                    types: [
+                        { id:'ticket_summary',     label:'Ticket Summary',         icon:'📊', desc:'Full ticket list — status, priority, category, assignee' },
+                        { id:'activity_log',       label:'Activity Log',           icon:'📋', desc:'All ticket events and status changes in the period' },
+                        { id:'open_aging',         label:'Open Tickets Aging',     icon:'🕐', desc:'How long open tickets have been waiting (by age bracket)' },
+                        { id:'monthly_trend',      label:'Monthly Trend',          icon:'📈', desc:'Month-by-month ticket volume and resolution counts' },
+                    ]
+                },
+                {
+                    group: 'Status & Priority',
+                    types: [
+                        { id:'overdue_tickets',    label:'Overdue Tickets',        icon:'⚠️',  desc:'All tickets past due date, with days overdue' },
+                        { id:'critical_urgent',    label:'Critical & Urgent',      icon:'🚨', desc:'Only Critical or Urgent priority tickets' },
+                        { id:'unassigned',         label:'Unassigned Tickets',     icon:'👤', desc:'Open tickets with no staff member assigned' },
+                        { id:'pending_approval',   label:'Pending Approval',       icon:'⏳', desc:'Tickets waiting for approval decision' },
+                        { id:'escalated',          label:'Escalation Report',      icon:'⬆️',  desc:'All escalated tickets with escalation details' },
+                        { id:'resolved_period',    label:'Resolved This Period',   icon:'✔️',  desc:'Tickets resolved within the selected time window' },
+                    ]
+                },
+                {
+                    group: 'Performance & SLA',
+                    types: [
+                        { id:'staff_performance',  label:'Staff Performance',      icon:'⭐', desc:'Assigned/resolved/overdue counts per staff member' },
+                        { id:'sla_compliance',     label:'SLA Compliance',         icon:'✅', desc:'On-time vs breached resolution analysis' },
+                        { id:'resolution_time',    label:'Resolution Time',        icon:'⏱️',  desc:'Average resolution time grouped by category and priority' },
+                        { id:'team_comparison',    label:'Team Comparison',        icon:'🔄', desc:'Department-level ticket metrics' },
+                        { id:'priority_analysis',  label:'Priority Analysis',      icon:'🎯', desc:'Breakdown by priority with aging and resolution rates' },
+                    ]
+                },
+                {
+                    group: 'Category Reports',
+                    types: [
+                        { id:'category_breakdown', label:'Category Breakdown',     icon:'📂', desc:'Ticket counts across all categories' },
+                        { id:'ndis_compliance',    label:'NDIS Compliance',        icon:'🏥', desc:'NDIS-related tickets — compliance and documentation issues' },
+                        { id:'client_issues',      label:'Client Issues',          icon:'👥', desc:'All client complaint and service request tickets' },
+                        { id:'hr_issues',          label:'HR Issues',              icon:'👔', desc:'Staff HR-related tickets (leave, overtime, disputes)' },
+                        { id:'safety_incidents',   label:'Safety & Incidents',     icon:'🦺', desc:'Safety concern and incident report tickets' },
+                        { id:'equipment_issues',   label:'Equipment Issues',       icon:'🔧', desc:'Equipment fault, request and maintenance tickets' },
+                        { id:'cleaning_quality',   label:'Cleaning Quality',       icon:'🧹', desc:'Cleaning quality audit and complaint tickets' },
+                        { id:'account_finance',    label:'Account & Finance',      icon:'💰', desc:'Account, billing and financial tickets' },
+                    ]
+                },
             ];
+            const REPORT_TYPES = REPORT_GROUPS.flatMap(g => g.types);
 
             const buildSheetData = () => {
-                const filtered = filterByDate(tickets);
                 const now = new Date();
+                // apply date + category + priority filters
+                let filtered = filterByDate(tickets);
+                if (categoryFilter !== 'all') {
+                    filtered = filtered.filter(t => (t.category||'').toLowerCase() === categoryFilter.toLowerCase());
+                }
+                if (priorityFilter !== 'all') {
+                    filtered = filtered.filter(t => (t.priority||'').toLowerCase() === priorityFilter.toLowerCase());
+                }
 
+                const isOD = t => !['Resolved','Closed'].includes(t.status) && t.dueAt && new Date(t.dueAt) < now;
+                const ageDays = t => Math.ceil((now - new Date(t.createdAt || t.created_at || now)) / 86400000);
+                const resDays = t => (t.resolvedAt && t.createdAt)
+                    ? Math.ceil((new Date(t.resolvedAt) - new Date(t.createdAt)) / 86400000) : null;
+                const catFilter = (cat) => filtered.filter(t => (t.category||'').toLowerCase().includes(cat.toLowerCase()));
+                const baseRow = t => [
+                    t.ticketNumber || t.id || '',
+                    t.title || '',
+                    t.status || '',
+                    t.priority || '',
+                    t.category || '',
+                    t.assigneeName || t.assigned_to_name || '',
+                    t.departmentName || t.department_name || '',
+                    t.createdAt ? new Date(t.createdAt).toLocaleDateString() : '',
+                    t.dueAt ? new Date(t.dueAt).toLocaleDateString() : '',
+                    t.resolvedAt ? new Date(t.resolvedAt).toLocaleDateString() : '',
+                ];
+                const baseHeaders = ['Ticket ID','Title','Status','Priority','Category','Assignee','Department','Created','Due Date','Resolved'];
+
+                // ── General ───────────────────────────────────────────────────
                 if (reportType === 'ticket_summary') {
-                    const headers = ['Ticket ID','Title','Status','Priority','Category','Assignee','Dept','Created','Due Date','Resolved'];
-                    const rows = filtered.map(t => [
-                        t.ticketNumber || t.id || '',
-                        t.title || '',
-                        t.status || '',
-                        t.priority || '',
-                        t.category || '',
-                        t.assigneeName || t.assigned_to_name || '',
-                        t.departmentName || t.department_name || '',
-                        t.createdAt ? new Date(t.createdAt).toLocaleDateString() : '',
-                        t.dueAt ? new Date(t.dueAt).toLocaleDateString() : '',
-                        t.resolvedAt ? new Date(t.resolvedAt).toLocaleDateString() : '',
-                    ]);
-                    return { headers, rows, title: 'Ticket Summary' };
+                    return { title:'Ticket Summary', headers: [...baseHeaders, 'Created By', 'NDIS Related', 'Escalated'],
+                        rows: filtered.map(t => [...baseRow(t),
+                            t.createdByName || t.created_by_name || '',
+                            (t.ndisRelated || t.ndis_related) ? 'Yes' : 'No',
+                            t.isEscalated ? 'Yes' : 'No',
+                        ])};
                 }
 
-                if (reportType === 'overdue_tickets') {
-                    const od = filtered.filter(t =>
-                        !['Resolved','Closed'].includes(t.status) &&
-                        t.dueAt && new Date(t.dueAt) < now
-                    );
-                    const headers = ['Ticket ID','Title','Status','Priority','Category','Assignee','Due Date','Days Overdue'];
-                    const rows = od.map(t => {
-                        const due = new Date(t.dueAt);
-                        const days = Math.ceil((now - due) / 86400000);
-                        return [
-                            t.ticketNumber || t.id || '',
-                            t.title || '',
-                            t.status || '',
-                            t.priority || '',
-                            t.category || '',
-                            t.assigneeName || t.assigned_to_name || '',
-                            due.toLocaleDateString(),
-                            days,
-                        ];
+                if (reportType === 'activity_log') {
+                    return { title:'Activity Log', headers: [...baseHeaders, 'Created By', 'Last Updated', 'Age (days)'],
+                        rows: filtered.map(t => [...baseRow(t),
+                            t.createdByName || t.created_by_name || '',
+                            t.updatedAt ? new Date(t.updatedAt).toLocaleDateString() : '',
+                            ageDays(t),
+                        ])};
+                }
+
+                if (reportType === 'open_aging') {
+                    const open = filtered.filter(t => !['Resolved','Closed'].includes(t.status));
+                    const bracket = d => d <= 3 ? '0-3 days' : d <= 7 ? '4-7 days' : d <= 14 ? '8-14 days' : d <= 30 ? '15-30 days' : '30+ days';
+                    return { title:'Open Tickets Aging',
+                        headers: ['Ticket ID','Title','Status','Priority','Category','Assignee','Department','Created','Due Date','Age (days)','Age Bracket'],
+                        rows: open.map(t => { const d = ageDays(t); return [
+                            t.ticketNumber||t.id||'', t.title||'', t.status||'', t.priority||'',
+                            t.category||'', t.assigneeName||t.assigned_to_name||'', t.departmentName||t.department_name||'',
+                            t.createdAt ? new Date(t.createdAt).toLocaleDateString() : '',
+                            t.dueAt ? new Date(t.dueAt).toLocaleDateString() : '',
+                            d, bracket(d),
+                        ]; }).sort((a,b) => b[9]-a[9])};
+                }
+
+                if (reportType === 'monthly_trend') {
+                    const map = {};
+                    filtered.forEach(t => {
+                        const d = new Date(t.createdAt || t.created_at);
+                        if (isNaN(d)) return;
+                        const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+                        if (!map[key]) map[key] = { created:0, resolved:0, escalated:0, overdue:0 };
+                        map[key].created++;
+                        if (['Resolved','Closed'].includes(t.status)) map[key].resolved++;
+                        if (t.isEscalated) map[key].escalated++;
+                        if (isOD(t)) map[key].overdue++;
                     });
-                    return { headers, rows, title: 'Overdue Tickets' };
+                    return { title:'Monthly Trend',
+                        headers: ['Month','Created','Resolved','Escalated','Overdue','Resolution Rate %'],
+                        rows: Object.entries(map).sort().map(([m,v]) => [
+                            m, v.created, v.resolved, v.escalated, v.overdue,
+                            v.created > 0 ? ((v.resolved/v.created)*100).toFixed(1) : '0.0',
+                        ])};
                 }
 
+                // ── Status & Priority ─────────────────────────────────────────
+                if (reportType === 'overdue_tickets') {
+                    const od = filtered.filter(isOD);
+                    return { title:'Overdue Tickets',
+                        headers: ['Ticket ID','Title','Status','Priority','Category','Assignee','Department','Due Date','Days Overdue','Escalated'],
+                        rows: od.map(t => {
+                            const days = Math.ceil((now - new Date(t.dueAt)) / 86400000);
+                            return [t.ticketNumber||t.id||'', t.title||'', t.status||'', t.priority||'',
+                                t.category||'', t.assigneeName||t.assigned_to_name||'', t.departmentName||t.department_name||'',
+                                new Date(t.dueAt).toLocaleDateString(), days, t.isEscalated ? 'Yes' : 'No'];
+                        }).sort((a,b) => b[8]-a[8])};
+                }
+
+                if (reportType === 'critical_urgent') {
+                    const hi = filtered.filter(t => ['Critical','Urgent'].includes(t.priority));
+                    return { title:'Critical & Urgent Tickets',
+                        headers: [...baseHeaders, 'Age (days)', 'Overdue', 'Escalated'],
+                        rows: hi.map(t => [...baseRow(t), ageDays(t), isOD(t)?'Yes':'No', t.isEscalated?'Yes':'No'])
+                            .sort((a,b) => (b[11]==='Yes') - (a[11]==='Yes'))};
+                }
+
+                if (reportType === 'unassigned') {
+                    const ua = filtered.filter(t => !t.assigneeName && !t.assigned_to_name && !['Resolved','Closed'].includes(t.status));
+                    return { title:'Unassigned Tickets',
+                        headers: ['Ticket ID','Title','Status','Priority','Category','Department','Created','Due Date','Age (days)'],
+                        rows: ua.map(t => [t.ticketNumber||t.id||'', t.title||'', t.status||'', t.priority||'',
+                            t.category||'', t.departmentName||t.department_name||'',
+                            t.createdAt ? new Date(t.createdAt).toLocaleDateString() : '',
+                            t.dueAt ? new Date(t.dueAt).toLocaleDateString() : '', ageDays(t)])
+                            .sort((a,b) => b[8]-a[8])};
+                }
+
+                if (reportType === 'pending_approval') {
+                    const pa = filtered.filter(t => t.status === 'Pending Approval');
+                    return { title:'Pending Approval',
+                        headers: [...baseHeaders, 'Created By', 'Age (days)', 'Waiting Since'],
+                        rows: pa.map(t => [...baseRow(t),
+                            t.createdByName||t.created_by_name||'', ageDays(t),
+                            t.updatedAt ? new Date(t.updatedAt).toLocaleDateString() : ''])};
+                }
+
+                if (reportType === 'escalated') {
+                    const esc = filtered.filter(t => t.isEscalated || t.status === 'Escalated');
+                    return { title:'Escalation Report',
+                        headers: [...baseHeaders, 'Escalated By', 'Escalated To', 'Escalation Reason', 'Age (days)'],
+                        rows: esc.map(t => [...baseRow(t),
+                            t.escalatedByName || '', t.escalatedToName || '',
+                            t.escalationReason || t.escalate_reason || '', ageDays(t)])};
+                }
+
+                if (reportType === 'resolved_period') {
+                    const res = filtered.filter(t => ['Resolved','Closed'].includes(t.status));
+                    return { title:'Resolved This Period',
+                        headers: [...baseHeaders, 'Created By', 'Resolution Days', 'SLA Met'],
+                        rows: res.map(t => {
+                            const rd = resDays(t);
+                            const due = t.dueAt ? new Date(t.dueAt) : null;
+                            const resDate = t.resolvedAt ? new Date(t.resolvedAt) : null;
+                            return [...baseRow(t),
+                                t.createdByName||t.created_by_name||'',
+                                rd !== null ? rd : '',
+                                due && resDate ? (resDate <= due ? 'Yes' : 'No') : 'N/A'];
+                        })};
+                }
+
+                // ── Performance & SLA ─────────────────────────────────────────
                 if (reportType === 'staff_performance') {
                     const map = {};
                     filtered.forEach(t => {
                         const name = t.assigneeName || t.assigned_to_name || 'Unassigned';
-                        if (!map[name]) map[name] = { assigned:0, resolved:0, inprog:0, overdue:0 };
+                        if (!map[name]) map[name] = { assigned:0, resolved:0, inprog:0, pending:0, overdue:0, totalDays:0, resCnt:0 };
                         map[name].assigned++;
-                        if (t.status === 'Resolved' || t.status === 'Closed') map[name].resolved++;
+                        if (['Resolved','Closed'].includes(t.status)) { map[name].resolved++; const rd = resDays(t); if(rd!==null){map[name].totalDays+=rd; map[name].resCnt++;} }
                         if (t.status === 'In Progress') map[name].inprog++;
-                        if (!['Resolved','Closed'].includes(t.status) && t.dueAt && new Date(t.dueAt) < now) map[name].overdue++;
+                        if (t.status === 'Pending Approval') map[name].pending++;
+                        if (isOD(t)) map[name].overdue++;
                     });
-                    const headers = ['Staff Member','Total Assigned','Resolved','In Progress','Overdue','Resolution Rate %'];
-                    const rows = Object.entries(map).map(([name,v]) => [
-                        name, v.assigned, v.resolved, v.inprog, v.overdue,
-                        v.assigned > 0 ? ((v.resolved/v.assigned)*100).toFixed(1) : '0.0',
-                    ]);
-                    return { headers, rows, title: 'Staff Performance' };
-                }
-
-                if (reportType === 'category_breakdown') {
-                    const map = {};
-                    filtered.forEach(t => {
-                        const cat = t.category || 'Uncategorised';
-                        if (!map[cat]) map[cat] = { total:0, open:0, resolved:0, overdue:0 };
-                        map[cat].total++;
-                        if (['New','Open','Assigned','In Progress'].includes(t.status)) map[cat].open++;
-                        if (['Resolved','Closed'].includes(t.status)) map[cat].resolved++;
-                        if (!['Resolved','Closed'].includes(t.status) && t.dueAt && new Date(t.dueAt) < now) map[cat].overdue++;
-                    });
-                    const headers = ['Category','Total','Open','Resolved','Overdue'];
-                    const rows = Object.entries(map).sort((a,b)=>b[1].total-a[1].total).map(([cat,v]) => [cat, v.total, v.open, v.resolved, v.overdue]);
-                    return { headers, rows, title: 'Category Breakdown' };
+                    return { title:'Staff Performance',
+                        headers: ['Staff Member','Total Assigned','Resolved','In Progress','Pending Approval','Overdue','Resolution Rate %','Avg Resolution Days'],
+                        rows: Object.entries(map).sort((a,b)=>b[1].assigned-a[1].assigned).map(([name,v]) => [
+                            name, v.assigned, v.resolved, v.inprog, v.pending, v.overdue,
+                            v.assigned > 0 ? ((v.resolved/v.assigned)*100).toFixed(1) : '0.0',
+                            v.resCnt > 0 ? (v.totalDays/v.resCnt).toFixed(1) : 'N/A',
+                        ])};
                 }
 
                 if (reportType === 'sla_compliance') {
-                    const resolved = filtered.filter(t => ['Resolved','Closed'].includes(t.status));
-                    const onTime   = resolved.filter(t => t.resolvedAt && t.dueAt && new Date(t.resolvedAt) <= new Date(t.dueAt));
-                    const breached = resolved.filter(t => !t.resolvedAt || !t.dueAt || new Date(t.resolvedAt) > new Date(t.dueAt));
-                    const headers  = ['Ticket ID','Title','Priority','Due Date','Resolved Date','SLA Status','Days Diff'];
-                    const rows = resolved.map(t => {
-                        const due = t.dueAt ? new Date(t.dueAt) : null;
-                        const res = t.resolvedAt ? new Date(t.resolvedAt) : null;
-                        const diff = due && res ? Math.ceil((res-due)/86400000) : null;
-                        return [
-                            t.ticketNumber || t.id || '',
-                            t.title || '',
-                            t.priority || '',
-                            due ? due.toLocaleDateString() : '',
-                            res ? res.toLocaleDateString() : '',
-                            due && res ? (res <= due ? 'On Time' : 'Breached') : 'N/A',
-                            diff !== null ? diff : '',
-                        ];
+                    const res = filtered.filter(t => ['Resolved','Closed'].includes(t.status));
+                    const onTime = res.filter(t => t.resolvedAt && t.dueAt && new Date(t.resolvedAt) <= new Date(t.dueAt)).length;
+                    return { title:'SLA Compliance',
+                        headers: ['Ticket ID','Title','Category','Priority','Due Date','Resolved Date','SLA Status','Days Difference','Assignee'],
+                        rows: res.map(t => {
+                            const due = t.dueAt ? new Date(t.dueAt) : null;
+                            const resDate = t.resolvedAt ? new Date(t.resolvedAt) : null;
+                            const diff = due && resDate ? Math.ceil((resDate-due)/86400000) : null;
+                            return [t.ticketNumber||t.id||'', t.title||'', t.category||'', t.priority||'',
+                                due ? due.toLocaleDateString() : '',
+                                resDate ? resDate.toLocaleDateString() : '',
+                                due && resDate ? (resDate <= due ? 'On Time' : 'Breached') : 'N/A',
+                                diff !== null ? diff : '',
+                                t.assigneeName||t.assigned_to_name||''];
+                        })};
+                }
+
+                if (reportType === 'resolution_time') {
+                    const map = {};
+                    filtered.filter(t => ['Resolved','Closed'].includes(t.status) && resDays(t) !== null).forEach(t => {
+                        const key = `${t.category||'Unknown'} | ${t.priority||'Unknown'}`;
+                        if (!map[key]) map[key] = { count:0, total:0, min:9999, max:0 };
+                        const d = resDays(t);
+                        map[key].count++; map[key].total+=d;
+                        if(d < map[key].min) map[key].min = d;
+                        if(d > map[key].max) map[key].max = d;
                     });
-                    return { headers, rows, title: 'SLA Compliance' };
+                    return { title:'Resolution Time Analysis',
+                        headers: ['Category','Priority','Tickets Resolved','Avg Days','Min Days','Max Days'],
+                        rows: Object.entries(map).sort((a,b)=>b[1].total/b[1].count - a[1].total/a[1].count).map(([key,v]) => {
+                            const [cat, pri] = key.split(' | ');
+                            return [cat, pri, v.count, (v.total/v.count).toFixed(1), v.min, v.max];
+                        })};
                 }
 
                 if (reportType === 'team_comparison') {
                     const map = {};
                     filtered.forEach(t => {
                         const dept = t.departmentName || t.department_name || 'Unknown';
-                        if (!map[dept]) map[dept] = { total:0, open:0, resolved:0, escalated:0, overdue:0 };
+                        if (!map[dept]) map[dept] = { total:0, open:0, resolved:0, escalated:0, overdue:0, pending:0, totalDays:0, resCnt:0 };
                         map[dept].total++;
                         if (['New','Open','Assigned','In Progress'].includes(t.status)) map[dept].open++;
-                        if (['Resolved','Closed'].includes(t.status)) map[dept].resolved++;
+                        if (['Resolved','Closed'].includes(t.status)) { map[dept].resolved++; const rd=resDays(t); if(rd!==null){map[dept].totalDays+=rd;map[dept].resCnt++;} }
                         if (t.isEscalated) map[dept].escalated++;
-                        if (!['Resolved','Closed'].includes(t.status) && t.dueAt && new Date(t.dueAt) < now) map[dept].overdue++;
+                        if (isOD(t)) map[dept].overdue++;
+                        if (t.status === 'Pending Approval') map[dept].pending++;
                     });
-                    const headers = ['Department','Total','Open','Resolved','Escalated','Overdue'];
-                    const rows = Object.entries(map).map(([dept,v]) => [dept, v.total, v.open, v.resolved, v.escalated, v.overdue]);
-                    return { headers, rows, title: 'Team Comparison' };
+                    return { title:'Team Comparison',
+                        headers: ['Department','Total','Open','Resolved','Escalated','Overdue','Pending Approval','Avg Resolution Days'],
+                        rows: Object.entries(map).sort((a,b)=>b[1].total-a[1].total).map(([dept,v]) => [
+                            dept, v.total, v.open, v.resolved, v.escalated, v.overdue, v.pending,
+                            v.resCnt > 0 ? (v.totalDays/v.resCnt).toFixed(1) : 'N/A',
+                        ])};
                 }
 
-                if (reportType === 'activity_log') {
-                    const headers = ['Ticket ID','Title','Status','Priority','Category','Created By','Assignee','Created','Last Updated'];
-                    const rows = filtered.map(t => [
-                        t.ticketNumber || t.id || '',
-                        t.title || '',
-                        t.status || '',
-                        t.priority || '',
-                        t.category || '',
-                        t.createdByName || t.created_by_name || '',
-                        t.assigneeName || t.assigned_to_name || '',
-                        t.createdAt ? new Date(t.createdAt).toLocaleDateString() : '',
-                        t.updatedAt ? new Date(t.updatedAt).toLocaleDateString() : '',
-                    ]);
-                    return { headers, rows, title: 'Activity Log' };
+                if (reportType === 'priority_analysis') {
+                    const map = {};
+                    filtered.forEach(t => {
+                        const p = t.priority || 'Unknown';
+                        if (!map[p]) map[p] = { total:0, open:0, resolved:0, overdue:0, escalated:0, totalDays:0, resCnt:0 };
+                        map[p].total++;
+                        if (!['Resolved','Closed'].includes(t.status)) map[p].open++;
+                        if (['Resolved','Closed'].includes(t.status)) { map[p].resolved++; const rd=resDays(t); if(rd!==null){map[p].totalDays+=rd;map[p].resCnt++;} }
+                        if (isOD(t)) map[p].overdue++;
+                        if (t.isEscalated) map[p].escalated++;
+                    });
+                    const order = ['Critical','Urgent','High','Medium','Low','Unknown'];
+                    return { title:'Priority Analysis',
+                        headers: ['Priority','Total','Open','Resolved','Overdue','Escalated','Resolution Rate %','Avg Resolution Days'],
+                        rows: order.filter(p => map[p]).map(p => { const v = map[p]; return [
+                            p, v.total, v.open, v.resolved, v.overdue, v.escalated,
+                            v.total > 0 ? ((v.resolved/v.total)*100).toFixed(1) : '0.0',
+                            v.resCnt > 0 ? (v.totalDays/v.resCnt).toFixed(1) : 'N/A',
+                        ]; })};
+                }
+
+                // ── Category Reports ──────────────────────────────────────────
+                if (reportType === 'category_breakdown') {
+                    const map = {};
+                    filtered.forEach(t => {
+                        const cat = t.category || 'Uncategorised';
+                        if (!map[cat]) map[cat] = { total:0, open:0, resolved:0, overdue:0, escalated:0, critical:0, pending:0 };
+                        map[cat].total++;
+                        if (['New','Open','Assigned','In Progress'].includes(t.status)) map[cat].open++;
+                        if (['Resolved','Closed'].includes(t.status)) map[cat].resolved++;
+                        if (isOD(t)) map[cat].overdue++;
+                        if (t.isEscalated) map[cat].escalated++;
+                        if (['Critical','Urgent'].includes(t.priority)) map[cat].critical++;
+                        if (t.status === 'Pending Approval') map[cat].pending++;
+                    });
+                    return { title:'Category Breakdown',
+                        headers: ['Category','Total','Open','Resolved','Overdue','Escalated','Critical/Urgent','Pending Approval','Resolution Rate %'],
+                        rows: Object.entries(map).sort((a,b)=>b[1].total-a[1].total).map(([cat,v]) => [
+                            cat, v.total, v.open, v.resolved, v.overdue, v.escalated, v.critical, v.pending,
+                            v.total > 0 ? ((v.resolved/v.total)*100).toFixed(1) : '0.0',
+                        ])};
+                }
+
+                // Category-specific reports all share the same structure
+                const CAT_MAP = {
+                    ndis_compliance:  { label:'NDIS Compliance',    match: t => (t.category||'').toLowerCase().includes('ndis') },
+                    client_issues:    { label:'Client Issues',      match: t => (t.category||'').toLowerCase().includes('client') },
+                    hr_issues:        { label:'HR Issues',          match: t => (t.category||'').toLowerCase().includes('hr') },
+                    safety_incidents: { label:'Safety & Incidents', match: t => (t.category||'').toLowerCase().includes('safety') || (t.category||'').toLowerCase().includes('incident') },
+                    equipment_issues: { label:'Equipment Issues',   match: t => (t.category||'').toLowerCase().includes('equipment') },
+                    cleaning_quality: { label:'Cleaning Quality',   match: t => (t.category||'').toLowerCase().includes('cleaning') },
+                    account_finance:  { label:'Account & Finance',  match: t => (t.category||'').toLowerCase().includes('account') || (t.category||'').toLowerCase().includes('finance') || (t.category||'').toLowerCase().includes('billing') },
+                };
+                if (CAT_MAP[reportType]) {
+                    const { label, match } = CAT_MAP[reportType];
+                    const subset = filtered.filter(match);
+                    return { title: label,
+                        headers: [...baseHeaders, 'Created By', 'Age (days)', 'Overdue', 'SLA Met'],
+                        rows: subset.map(t => {
+                            const due = t.dueAt ? new Date(t.dueAt) : null;
+                            const resDate = t.resolvedAt ? new Date(t.resolvedAt) : null;
+                            return [...baseRow(t),
+                                t.createdByName||t.created_by_name||'', ageDays(t),
+                                isOD(t) ? 'Yes' : 'No',
+                                due && resDate ? (resDate <= due ? 'Yes' : 'No') : 'N/A'];
+                        })};
                 }
 
                 return { headers: [], rows: [], title: 'Report' };
@@ -4640,7 +4841,7 @@
             };
 
             // ── preview stats ──────────────────────────────────────────────────
-            const { rows: previewRows } = React.useMemo(() => buildSheetData(), [tickets, reportType, period, dateFrom, dateTo]);
+            const { rows: previewRows } = React.useMemo(() => buildSheetData(), [tickets, reportType, period, dateFrom, dateTo, categoryFilter, priorityFilter]);
 
             const PERIOD_OPTS = [
                 {v:'today',     l:'Today'},
@@ -4650,6 +4851,13 @@
                 {v:'last_year', l:'Last year'},
                 {v:'custom',    l:'Custom range'},
             ];
+
+            const CATEGORY_OPTS = [
+                'all','Client Issue','Account Issue','HR Issue','Cleaning Quality',
+                'Safety Concern','Equipment Issue','NDIS Compliance','Other',
+            ];
+
+            const PRIORITY_OPTS = ['all','Critical','Urgent','High','Medium','Low'];
 
             const FREQ_OPTS = ['daily','weekly','monthly'];
             const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday'];
@@ -4700,27 +4908,51 @@
                             <div style={card}>
                                 <h2 style={{fontSize:15, fontWeight:700, color:'#111827', marginBottom:18}}>⚙️ Report Builder</h2>
 
-                                {/* Report Type */}
+                                {/* Report Type — grouped */}
                                 <div style={{marginBottom:16}}>
                                     <span style={label}>Report Type</span>
-                                    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:8}}>
-                                        {REPORT_TYPES.map(r => (
-                                            <button key={r.id} onClick={() => setReportType(r.id)}
-                                                style={{
-                                                    padding:'10px 12px', borderRadius:8, border:`2px solid ${reportType===r.id ? '#4F46E5' : '#E5E7EB'}`,
-                                                    background: reportType===r.id ? '#EEF2FF' : 'white',
-                                                    cursor:'pointer', textAlign:'left', transition:'all 0.15s',
-                                                }}>
-                                                <div style={{fontSize:16, marginBottom:2}}>{r.icon}</div>
-                                                <div style={{fontSize:12, fontWeight:700, color: reportType===r.id ? '#4F46E5' : '#111827'}}>{r.label}</div>
-                                                <div style={{fontSize:11, color:'#9CA3AF', marginTop:2, lineHeight:1.3}}>{r.desc}</div>
-                                            </button>
+                                    <div style={{display:'flex', flexDirection:'column', gap:12}}>
+                                        {REPORT_GROUPS.map(g => (
+                                            <div key={g.group}>
+                                                <p style={{fontSize:10, fontWeight:700, color:'#9CA3AF', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:6}}>{g.group}</p>
+                                                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:6}}>
+                                                    {g.types.map(r => (
+                                                        <button key={r.id} onClick={() => setReportType(r.id)}
+                                                            style={{
+                                                                padding:'8px 10px', borderRadius:8,
+                                                                border:`2px solid ${reportType===r.id ? '#4F46E5' : '#E5E7EB'}`,
+                                                                background: reportType===r.id ? '#EEF2FF' : 'white',
+                                                                cursor:'pointer', textAlign:'left', transition:'all 0.15s',
+                                                            }}>
+                                                            <div style={{fontSize:14, marginBottom:1}}>{r.icon}</div>
+                                                            <div style={{fontSize:11, fontWeight:700, color: reportType===r.id ? '#4F46E5' : '#111827', lineHeight:1.3}}>{r.label}</div>
+                                                            <div style={{fontSize:10, color:'#9CA3AF', marginTop:1, lineHeight:1.3}}>{r.desc}</div>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
                                         ))}
                                     </div>
                                 </div>
 
+                                {/* Filters row */}
+                                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:12}}>
+                                    <div>
+                                        <span style={label}>Category Filter</span>
+                                        <select value={categoryFilter} onChange={e=>setCategoryFilter(e.target.value)} style={select}>
+                                            {CATEGORY_OPTS.map(c => <option key={c} value={c}>{c === 'all' ? 'All Categories' : c}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <span style={label}>Priority Filter</span>
+                                        <select value={priorityFilter} onChange={e=>setPriorityFilter(e.target.value)} style={select}>
+                                            {PRIORITY_OPTS.map(p => <option key={p} value={p}>{p === 'all' ? 'All Priorities' : p}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+
                                 {/* Period */}
-                                <div style={{marginBottom:16}}>
+                                <div style={{marginBottom:10}}>
                                     <span style={label}>Time Period</span>
                                     <select value={period} onChange={e=>setPeriod(e.target.value)} style={select}>
                                         {PERIOD_OPTS.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
@@ -4728,7 +4960,7 @@
                                 </div>
 
                                 {period === 'custom' && (
-                                    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:16}}>
+                                    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10}}>
                                         <div>
                                             <span style={label}>From</span>
                                             <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)} style={input}/>
@@ -4741,9 +4973,15 @@
                                 )}
 
                                 {/* Preview stats */}
-                                <div style={{background:'#F9FAFB', borderRadius:8, padding:'12px 14px', marginBottom:16, border:'1px solid #E5E7EB'}}>
-                                    <p style={{fontSize:12, color:'#6B7280', marginBottom:2}}>Preview</p>
-                                    <p style={{fontSize:20, fontWeight:800, color:'#111827'}}>{previewRows.length} <span style={{fontSize:13, fontWeight:500, color:'#6B7280'}}>records</span></p>
+                                <div style={{background:'#F9FAFB', borderRadius:8, padding:'10px 14px', marginBottom:12, border:'1px solid #E5E7EB', display:'flex', alignItems:'center', justifyContent:'space-between'}}>
+                                    <div>
+                                        <p style={{fontSize:11, color:'#6B7280', marginBottom:1}}>Matching records</p>
+                                        <p style={{fontSize:22, fontWeight:800, color:'#111827', lineHeight:1}}>{previewRows.length}</p>
+                                    </div>
+                                    <div style={{textAlign:'right'}}>
+                                        <p style={{fontSize:11, color:'#6B7280', marginBottom:1}}>Selected report</p>
+                                        <p style={{fontSize:12, fontWeight:600, color:'#4F46E5'}}>{REPORT_TYPES.find(r=>r.id===reportType)?.label}</p>
+                                    </div>
                                 </div>
 
                                 {/* Export button */}
