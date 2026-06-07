@@ -278,7 +278,6 @@
                 { id: 'create-ticket', label: 'Create Ticket', icon: '➕' },
                 { id: 'tickets', label: 'Tickets', icon: '📋' },
                 { id: 'calendar', label: 'Calendar', icon: '📅' },
-                { id: 'ticket-logs', label: 'Ticket Logs', icon: '📝' },
                 { id: 'analytics', label: 'Analytics', icon: '📈' },
                 { id: 'org-chart', label: 'Org Chart', icon: '🏢' },
                 { id: 'staff-performance', label: 'Staff Performance', icon: '⭐' },
@@ -517,6 +516,14 @@
         function Dashboard() {
             const [statusChart, setStatusChart] = React.useState(null);
             const [categoryChart, setCategoryChart] = React.useState(null);
+            const [recentActivity, setRecentActivity] = React.useState([]);
+
+            React.useEffect(() => {
+                fetch(`${HRMS_API}/tickets/activity?limit=4`)
+                    .then(r => r.ok ? r.json() : { activity: [] })
+                    .then(d => setRecentActivity(d.activity || []))
+                    .catch(() => {});
+            }, []);
 
             React.useEffect(() => {
                 const statusCtx = document.getElementById('statusChart');
@@ -610,21 +617,31 @@
                             </div>
 
                             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                                <h2 className="text-lg font-bold text-gray-900 mb-4">📌 Recent Activity</h2>
-                                <div className="space-y-4">
-                                    {ACTIVITY_LOG.slice(0, 3).map((log, i) => (
-                                        <div key={i} className="flex items-start gap-3 pb-4 border-b border-gray-200 last:border-0">
-                                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-xs font-bold text-blue-600">
-                                                {log.user.substring(0, 2).toUpperCase()}
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className="text-lg font-bold text-gray-900">📌 Recent Activity</h2>
+                                    <span className="text-xs text-gray-400">Live</span>
+                                </div>
+                                <div className="space-y-3">
+                                    {recentActivity.length === 0 ? (
+                                        <p className="text-sm text-gray-400 text-center py-4">No recent activity</p>
+                                    ) : recentActivity.map((log, i) => {
+                                        const am = ACTION_META[log.action] || { label: log.action, bg: '#F3F4F6', color: '#374151' };
+                                        const initials = (log.actorName||'?').split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+                                        return (
+                                            <div key={i} className="flex items-start gap-3 pb-3 border-b border-gray-100 last:border-0">
+                                                <div style={{width:32,height:32,borderRadius:'50%',background:'#EEF2FF',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:'#6366F1',flexShrink:0}}>
+                                                    {initials}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        <span style={{fontSize:11,fontWeight:600,padding:'2px 7px',borderRadius:20,background:am.bg,color:am.color}}>{am.label}</span>
+                                                        <span className="text-xs text-gray-500 truncate">{log.ticketTitle}</span>
+                                                    </div>
+                                                    <p className="text-xs text-gray-400 mt-0.5">{log.actorName} · {fmtDate(log.at)}</p>
+                                                </div>
                                             </div>
-                                            <div className="flex-1">
-                                                <p className="text-sm font-medium text-gray-900">
-                                                    {log.action} <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded">Waiting</span>
-                                                </p>
-                                                <p className="text-xs text-gray-500">{log.description} • {log.timestamp}</p>
-                                            </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </div>
@@ -1871,53 +1888,39 @@
             );
         }
 
-        // Ticket Logs Page
-        function TicketLogsPage() {
-            return (
-                <main className="flex-1 overflow-auto bg-gray-50">
-                    <div className="p-8">
-                        <h1 className="text-3xl font-bold text-gray-900 mb-2">Ticket Logs</h1>
-                        <p className="text-gray-600 mb-8">Complete audit trail of all ticket activities</p>
+        const ACTION_META = {
+            created:          { label: 'Created',          bg: '#DCFCE7', color: '#166534' },
+            assigned:         { label: 'Assigned',          bg: '#DBEAFE', color: '#1E40AF' },
+            status_changed:   { label: 'Status Changed',    bg: '#EDE9FE', color: '#6D28D9' },
+            resolved:         { label: 'Resolved',          bg: '#D1FAE5', color: '#065F46' },
+            approved:         { label: 'Approved',          bg: '#D1FAE5', color: '#065F46' },
+            rejected:         { label: 'Rejected',          bg: '#FEE2E2', color: '#991B1B' },
+            escalated:        { label: 'Escalated',         bg: '#FEF3C7', color: '#92400E' },
+            commented:        { label: 'Comment',           bg: '#F3F4F6', color: '#374151' },
+            priority_changed: { label: 'Priority Changed',  bg: '#FFF7ED', color: '#C2410C' },
+        };
 
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                            <div className="mb-6">
-                                <input type="text" placeholder="Search logs..." className="w-full"/>
-                            </div>
+        const PRIORITY_META = {
+            critical: { bg: '#FEE2E2', color: '#991B1B' },
+            high:     { bg: '#FEF3C7', color: '#92400E' },
+            medium:   { bg: '#DBEAFE', color: '#1E40AF' },
+            low:      { bg: '#F0FDF4', color: '#166534' },
+        };
 
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className="border-b border-gray-200">
-                                            <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900">Timestamp</th>
-                                            <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900">Ticket</th>
-                                            <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900">Action</th>
-                                            <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900">Priority</th>
-                                            <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900">Description</th>
-                                            <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900">Performed By</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {ACTIVITY_LOG.map((log, i) => (
-                                            <tr key={i} className="table-row border-b border-gray-200">
-                                                <td className="py-3 px-4 text-sm text-gray-600">{log.timestamp}</td>
-                                                <td className="py-3 px-4 text-sm text-blue-600 font-medium">{log.ticket}</td>
-                                                <td className="py-3 px-4 text-sm text-gray-900">{log.action}</td>
-                                                <td className="py-3 px-4">
-                                                    <span className={`badge ${log.priority === 'Urgent' ? 'badge-urgent' : 'badge-medium'}`}>
-                                                        {log.priority}
-                                                    </span>
-                                                </td>
-                                                <td className="py-3 px-4 text-sm text-gray-600">{log.description}</td>
-                                                <td className="py-3 px-4 text-sm text-gray-600">{log.user}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </main>
-            );
+        function fmtDate(iso) {
+            if (!iso) return '—';
+            const d = new Date(iso);
+            return d.toLocaleString('en-AU', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:true });
+        }
+
+        function detailSummary(action, details) {
+            if (!details) return '';
+            if (action === 'status_changed') return `${details.from || '?'} → ${details.to || '?'}`;
+            if (action === 'assigned')       return details.to ? `to user #${details.to}` : '';
+            if (action === 'priority_changed') return `${details.from || '?'} → ${details.to || '?'}`;
+            if (action === 'escalated')      return details.escalatedTo ? `to ${details.escalatedTo}${details.reason ? ` — ${details.reason}` : ''}` : '';
+            if (action === 'rejected')       return details.justification ? `"${details.justification.substring(0,60)}"` : '';
+            return '';
         }
 
         // ─── Staff Performance Page ───────────────────────────────
@@ -3473,7 +3476,6 @@
                     case 'create-ticket': return <CreateTicket />;
                     case 'tickets': return <TicketsPage />;
                     case 'calendar': return <CalendarPage />;
-                    case 'ticket-logs': return <TicketLogsPage />;
                     case 'analytics': return <AnalyticsPage />;
                     case 'org-chart': return <OrgChartPage />;
                     case 'staff-performance': return <StaffPerformancePage />;

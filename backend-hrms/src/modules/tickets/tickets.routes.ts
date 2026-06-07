@@ -160,6 +160,61 @@ router.get('/', optionalAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ── GET /tickets/activity — global activity feed ─────────────────────────────
+router.get('/activity', optionalAuth, async (req, res, next) => {
+  try {
+    const limit  = Math.min(Number(req.query.limit)  || 100, 500);
+    const offset = Number(req.query.offset) || 0;
+    const search = ((req.query.search as string) || '').trim();
+    const action = ((req.query.action as string) || '').trim();
+
+    const where: string[] = ['1=1'];
+    const params: unknown[] = [];
+    let i = 1;
+    if (search) { where.push(`(t.title ILIKE $${i} OR u.name ILIKE $${i})`); params.push(`%${search}%`); i++; }
+    if (action) { where.push(`a.action = $${i++}`); params.push(action); }
+
+    const { rows } = await pool.query(
+      `SELECT
+         a.id, a.ticket_id, a.user_id, a.action, a.details, a.created_at,
+         t.title   AS ticket_title,
+         t.status  AS ticket_status,
+         p.label   AS priority_label,
+         u.name    AS actor_name,
+         COUNT(*) OVER() AS total
+       FROM yc_tkt_mgmt.activity a
+       JOIN yc_tkt_mgmt.tickets t ON t.id = a.ticket_id
+       LEFT JOIN yc_tkt_mgmt.priorities p ON p.id = t.priority_id
+       LEFT JOIN yc_tkt_mgmt.users u ON u.id = a.user_id
+       WHERE ${where.join(' AND ')}
+       ORDER BY a.created_at DESC
+       LIMIT $${i++} OFFSET $${i++}`,
+      [...params, limit, offset]
+    );
+
+    const total = rows.length ? Number(rows[0].total) : 0;
+    const activity = rows.map(r => {
+      const details = r.details
+        ? (typeof r.details === 'string' ? JSON.parse(r.details) : r.details)
+        : {};
+      return {
+        id: r.id,
+        ticketId: r.ticket_id,
+        ticketNumber: `TKT-${String(r.ticket_id).padStart(6, '0')}`,
+        ticketTitle: r.ticket_title,
+        ticketStatus: r.ticket_status,
+        action: r.action,
+        details,
+        actorName: r.actor_name || 'System',
+        priorityLabel: r.priority_label || '—',
+        at: r.created_at,
+      };
+    });
+
+    res.json({ total, activity });
+  } catch (err) { next(err); }
+});
+
 // ── GET /tickets/:id ──────────────────────────────────────────────────────────
 router.get('/:id', optionalAuth, async (req, res, next) => {
   try {
