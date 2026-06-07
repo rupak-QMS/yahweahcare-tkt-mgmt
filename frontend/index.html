@@ -4291,13 +4291,7 @@
 
         // Scheduled Reports Page
         function ScheduledReportsPage() {
-            const BACKEND = window.location.hostname === 'localhost'
-                ? 'http://localhost:4001'
-                : 'https://yahweahcare-tkt-mgmt-hx48.vercel.app';
-
-            const cu = React.useMemo(() => {
-                try { return JSON.parse(sessionStorage.getItem('ms_current_user') || 'null'); } catch(e) { return null; }
-            }, []);
+            const cu = React.useMemo(() => getSessionUser(), []);
 
             // ── Dummy seed tickets (always present for validation) ──────────────
             const DUMMY_TICKETS = [
@@ -4351,11 +4345,15 @@
             const [schedEmail,        setSchedEmail]        = React.useState('');
             const [schedPeriod,       setSchedPeriod]       = React.useState('last_30');
 
-            // ── fetch tickets ──────────────────────────────────────────────────
+            // ── fetch tickets — same scope logic as Dashboard ──────────────────
             React.useEffect(() => {
-                const scopeP = (cu && cu.positionType !== 'bootstrap_admin' && cu.positionType !== 'admin')
-                    ? `&dept_id=${cu.deptId||''}&user_id=${cu.id||''}` : '';
-                fetch(`${BACKEND}/tickets?limit=2000${scopeP}`)
+                const su  = getSessionUser();
+                const tsp = getTicketScopeParams(su);
+                const tp  = new URLSearchParams({ all: '1', limit: '2000' });
+                if (tsp.scope)  tp.set('scope',  tsp.scope);
+                if (tsp.userId) tp.set('userId', String(tsp.userId));
+                if (tsp.deptId) tp.set('deptId', String(tsp.deptId));
+                fetch(`${HRMS_API}/tickets?${tp}`)
                     .then(r => r.ok ? r.json() : {tickets:[]})
                     .then(d => setApiTickets(Array.isArray(d.tickets) ? d.tickets : []))
                     .catch(() => setApiTickets([]))
@@ -4644,7 +4642,7 @@
                 try {
                     const { title, headers, rows } = buildReport();
                     // Try backend endpoint first
-                    const res = await fetch(`${BACKEND}/reports/email`, {
+                    const res = await fetch(`${HRMS_API}/reports/email`, {
                         method:'POST', headers:{'Content-Type':'application/json'},
                         body: JSON.stringify({ to: emailTo.split(',').map(e=>e.trim()).filter(Boolean), subject: emailSubject || `${title} — ${new Date().toLocaleDateString('en-AU')}`, reportType, period, rows, headers, generatedBy: cu?.name || 'System' }),
                     }).catch(() => null);
