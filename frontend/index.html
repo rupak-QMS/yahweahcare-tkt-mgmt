@@ -1853,30 +1853,47 @@
             }, []);
 
             const fetchLookups = async () => {
-                try {
-                    const [lookupsData, usersRes] = await Promise.all([
-                        API.lookups.get(),
-                        fetch(`${HRMS_API}/users?status=active&limit=200${getUserQueryParams(getSessionUser())}`)
-                    ]);
-                    const usersData = usersRes.ok ? await usersRes.json() : { users: [] };
-                    // Merge real staff into lookups.users for approver list
-                    const realStaff = (usersData.users || []).map(u => ({
-                        id: u.id, name: u.name, email: u.email,
-                        role: u.position_title || 'Staff'
-                    }));
-                    setLookups({ ...lookupsData, users: realStaff });
-                    // Set defaults from lookup data and current user
-                    const currentUser = (usersData.users || []).find(u => u.email?.toLowerCase() === sessionUser?.email?.toLowerCase());
-                    setFormData(prev => ({
-                        ...prev,
-                        created_by: currentUser?.id || prev.created_by,
-                        category_id: prev.category_id || (lookupsData.categories?.[0]?.id || ''),
-                        priority_id: prev.priority_id || (lookupsData.priorities?.find(p => p.label?.toLowerCase() === 'medium')?.id || lookupsData.priorities?.[0]?.id || ''),
-                    }));
-                } catch (err) {
-                    const data = await API.lookups.get();
-                    setLookups(data);
+                // Fetch lookups and users independently so one failure doesn't poison the other
+                const [lookupsRes, usersRes] = await Promise.allSettled([
+                    fetch(`${HRMS_API}/lookup/all`),
+                    fetch(`${HRMS_API}/users?status=active&limit=200`)
+                ]);
+
+                // Parse categories/priorities from real API, fall back to mock only if truly needed
+                let categories = LOOKUPS_MOCK.categories;
+                let priorities = LOOKUPS_MOCK.priorities;
+                let statuses   = LOOKUPS_MOCK.statuses;
+                if (lookupsRes.status === 'fulfilled' && lookupsRes.value.ok) {
+                    try {
+                        const data = await lookupsRes.value.json();
+                        if (data.categories?.length) categories = data.categories;
+                        if (data.priorities?.length)  priorities = data.priorities;
+                        if (data.statuses?.length)    statuses   = data.statuses;
+                    } catch(_) {}
                 }
+
+                // Parse users list from real API
+                let users = [];
+                if (usersRes.status === 'fulfilled' && usersRes.value.ok) {
+                    try {
+                        const data = await usersRes.value.json();
+                        users = (data.users || []).map(u => ({
+                            id: u.id, name: u.name, email: u.email,
+                            role: u.position_title || u.role || 'Staff'
+                        }));
+                    } catch(_) {}
+                }
+
+                setLookups({ categories, priorities, statuses, users });
+
+                // Find current user in list to get their real DB id
+                const currentUser = users.find(u => u.email?.toLowerCase() === sessionUser?.email?.toLowerCase());
+                setFormData(prev => ({
+                    ...prev,
+                    created_by: currentUser?.id || prev.created_by,
+                    category_id: prev.category_id || (categories[0]?.id || ''),
+                    priority_id: prev.priority_id || (priorities.find(p => p.label?.toLowerCase() === 'medium')?.id || priorities[0]?.id || ''),
+                }));
             };
 
             const handleSubmit = async (e) => {
@@ -2162,16 +2179,11 @@
                                                 className={inputCls}
                                             >
                                                 <option value="">Unassigned</option>
-                                                {sessionUser?.id && (
-                                                    <option value={sessionUser.id}>
-                                                        {sessionUser.name || 'Me'} (Me)
+                                                {(lookups?.users || []).map(u => (
+                                                    <option key={u.id} value={u.id}>
+                                                        {u.name}{String(u.id) === String(formData.created_by) ? ' (Me)' : ''}
                                                     </option>
-                                                )}
-                                                {(lookups?.users || [])
-                                                    .filter(u => String(u.id) !== String(sessionUser?.id))
-                                                    .map(u => (
-                                                        <option key={u.id} value={u.id}>{u.name}</option>
-                                                    ))}
+                                                ))}
                                             </select>
                                         </div>
                                     </div>
