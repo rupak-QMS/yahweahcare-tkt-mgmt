@@ -743,30 +743,29 @@
             return STAFF_PAGES;
         }
 
-        // Fallback mock data for lookups
+        // Fallback mock data — IDs must match actual DB seed values
         const LOOKUPS_MOCK = {
             categories: [
-                { id: 'it', label: 'IT Support', icon: '💻' },
-                { id: 'hr', label: 'HR & Payroll', icon: '👥' },
-                { id: 'facilities', label: 'Facilities & Maintenance', icon: '🔧' },
-                { id: 'care', label: 'Care Coordination', icon: '🤝' },
-                { id: 'clinical', label: 'Clinical / Compliance', icon: '🩺' },
-                { id: 'finance', label: 'Finance', icon: '💰' },
-                { id: 'general', label: 'General Enquiry', icon: '💬' }
+                { id: 'client',    label: 'Client Issue',     icon: 'user' },
+                { id: 'account',   label: 'Account Issue',    icon: 'key' },
+                { id: 'hr',        label: 'HR Issue',         icon: 'users' },
+                { id: 'cleaning',  label: 'Cleaning Quality', icon: 'star' },
+                { id: 'safety',    label: 'Safety Concern',   icon: 'shield' },
+                { id: 'equipment', label: 'Equipment Issue',  icon: 'tool' },
+                { id: 'ndis',      label: 'NDIS Compliance',  icon: 'clipboard' }
             ],
             priorities: [
-                { id: 'critical', label: 'Critical' },
-                { id: 'high', label: 'High' },
-                { id: 'medium', label: 'Medium' },
-                { id: 'low', label: 'Low' }
+                { id: 'urgent', label: 'Urgent', sla_hours: 2 },
+                { id: 'high',   label: 'High',   sla_hours: 8 },
+                { id: 'medium', label: 'Medium', sla_hours: 24 },
+                { id: 'low',    label: 'Low',    sla_hours: 72 }
             ],
             statuses: [
-                { id: 'new', label: 'New' },
-                { id: 'assigned', label: 'Assigned' },
-                { id: 'in_progress', label: 'In Progress' },
-                { id: 'waiting', label: 'Waiting on Requester' },
-                { id: 'resolved', label: 'Resolved' },
-                { id: 'closed', label: 'Closed' }
+                { id: 'open',             label: 'Open' },
+                { id: 'in_progress',      label: 'In Progress' },
+                { id: 'pending_approval', label: 'Pending Approval' },
+                { id: 'resolved',         label: 'Resolved' },
+                { id: 'closed',           label: 'Closed' }
             ]
         };
 

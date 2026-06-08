@@ -11,12 +11,17 @@ const router = Router();
 // GET /lookup/all — combined endpoint for the frontend create-ticket form
 router.get('/all', async (_req, res, next) => {
   try {
-    const [cats, pris, stats] = await Promise.all([
+    const [cats, pris] = await Promise.all([
       pool.query(`SELECT id, label, icon, sort_order FROM yc_tkt_mgmt.categories ORDER BY sort_order`),
       pool.query(`SELECT id, label, sla_hours, sort_order FROM yc_tkt_mgmt.priorities ORDER BY sort_order`),
-      pool.query(`SELECT id, label, sort_order, is_closed FROM yc_tkt_mgmt.statuses ORDER BY sort_order`),
     ]);
-    res.json({ categories: cats.rows, priorities: pris.rows, statuses: stats.rows });
+    // statuses table may have schema differences — query separately and degrade gracefully
+    let statRows: Record<string, unknown>[] = [];
+    try {
+      const sr = await pool.query(`SELECT id, label, sort_order FROM yc_tkt_mgmt.statuses ORDER BY sort_order`);
+      statRows = sr.rows;
+    } catch { /* statuses table absent or missing columns — frontend uses built-in defaults */ }
+    res.json({ categories: cats.rows, priorities: pris.rows, statuses: statRows });
   } catch (err) { next(err); }
 });
 
