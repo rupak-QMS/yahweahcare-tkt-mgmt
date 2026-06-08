@@ -806,6 +806,7 @@
                 create: async (data) => {
                     const res = await fetch(`${HRMS_API}/tickets`, {
                         method: 'POST',
+                        credentials: 'include',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(data)
                     });
@@ -816,6 +817,7 @@
                     const u = getSessionUser();
                     const res = await fetch(`${HRMS_API}/tickets/${id}`, {
                         method: 'PATCH',
+                        credentials: 'include',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ ...data, actorId: u?.id })
                     });
@@ -826,6 +828,7 @@
                     const u = getSessionUser();
                     const res = await fetch(`${HRMS_API}/tickets/${id}`, {
                         method: 'DELETE',
+                        credentials: 'include',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ actorId: u?.id })
                     });
@@ -836,6 +839,7 @@
                     const u = getSessionUser();
                     const res = await fetch(`${HRMS_API}/tickets/${id}/escalate`, {
                         method: 'POST',
+                        credentials: 'include',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ escalateToUserId, reason, actorId: u?.id })
                     });
@@ -851,6 +855,7 @@
                     const u = getSessionUser();
                     const res = await fetch(`${HRMS_API}/tickets/${id}/complete`, {
                         method: 'POST',
+                        credentials: 'include',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ actorId: u?.id })
                     });
@@ -861,6 +866,7 @@
                     const u = getSessionUser();
                     const res = await fetch(`${HRMS_API}/tickets/${id}/approve`, {
                         method: 'POST',
+                        credentials: 'include',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ actorId: u?.id })
                     });
@@ -871,6 +877,7 @@
                     const u = getSessionUser();
                     const res = await fetch(`${HRMS_API}/tickets/${id}/reject`, {
                         method: 'POST',
+                        credentials: 'include',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ justification, actorId: u?.id })
                     });
