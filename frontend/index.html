@@ -2162,14 +2162,16 @@
                                                 className={inputCls}
                                             >
                                                 <option value="">Unassigned</option>
-                                                {formData.created_by && (
-                                                    <option value={formData.created_by}>
-                                                        {sessionUser?.name || 'Me'} (Me)
+                                                {sessionUser?.id && (
+                                                    <option value={sessionUser.id}>
+                                                        {sessionUser.name || 'Me'} (Me)
                                                     </option>
                                                 )}
-                                                {(lookups?.users || []).filter(u => u.id !== formData.created_by).map(u => (
-                                                    <option key={u.id} value={u.id}>{u.name}</option>
-                                                ))}
+                                                {(lookups?.users || [])
+                                                    .filter(u => String(u.id) !== String(sessionUser?.id))
+                                                    .map(u => (
+                                                        <option key={u.id} value={u.id}>{u.name}</option>
+                                                    ))}
                                             </select>
                                         </div>
                                     </div>
