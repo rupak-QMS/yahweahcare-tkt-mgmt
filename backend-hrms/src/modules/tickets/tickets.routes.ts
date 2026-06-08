@@ -197,8 +197,8 @@ router.get('/', optionalAuth, async (req, res, next) => {
        ORDER BY v.created_at DESC
        LIMIT $${i} OFFSET $${i + 1}`;
 
-    const res = await pool.query(ticketQuery, [...params, limit, offset]);
-    const rows: Record<string, unknown>[] = res.rows;
+    const qRes = await pool.query(ticketQuery, [...params, limit, offset]);
+    const rows: Record<string, unknown>[] = qRes.rows;
 
     const ticketIds = rows.map(r => r.id);
     let commentRows: Record<string, unknown>[] = [];
