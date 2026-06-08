@@ -5471,9 +5471,28 @@
                     .finally(() => setLoading(false));
             }, []);
 
-            // ── All tickets from API only ─────────────────────────────────────
+            // ── All tickets — normalize API field names for reports ───────────
             const allTickets = React.useMemo(() => {
-                return apiTickets.map(t => ({...t, _source:'api'}));
+                // API returns lowercase status ('open','in_progress','resolved','closed').
+                // Report builder checks Title Case, so normalise here once.
+                const STATUS_LABELS = {
+                    'open':'Open', 'new':'New', 'assigned':'Assigned',
+                    'in_progress':'In Progress', 'resolved':'Resolved', 'closed':'Closed',
+                    'escalated':'Escalated', 'pending_approval':'Pending Approval', 'waiting':'Waiting',
+                };
+                return apiTickets.map(t => ({
+                    ...t,
+                    _source: 'api',
+                    // normalise status to Title Case
+                    status: STATUS_LABELS[(t.status||'').toLowerCase()] || t.status || '',
+                    // use label fields (populated by backend join), fall back to raw IDs
+                    priority:       t.priorityLabel || t.priority_label || String(t.priority || ''),
+                    category:       t.categoryLabel || t.category_label || t.category_name || String(t.category || ''),
+                    // consistent name fields
+                    assigneeName:   t.assigneeName  || t.assigned_to_name || '',
+                    departmentName: t.departmentName || t.department_name  || '',
+                    createdByName:  t.requesterName  || t.requester_name   || t.createdByName || '',
+                }));
             }, [apiTickets]);
 
             // ── dynamic categories from actual data ────────────────────────────
