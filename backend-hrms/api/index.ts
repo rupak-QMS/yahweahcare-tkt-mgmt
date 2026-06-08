@@ -29,6 +29,8 @@ import notificationRoutes  from '../src/modules/notifications/notifications.rout
 import pushRoutes          from '../src/modules/notifications/push.routes';
 import lookupRoutes        from '../src/modules/lookup/lookup.routes';
 import orgRoutes           from '../src/modules/org/org.routes';
+import { pool }            from '../src/db/pool';
+import { sendEmail, buildSlaBreachHtml, type SlaBreachTicket } from '../src/modules/notifications/email.service';
 
 // Build the Express app ONCE per cold start
 const app = express();
@@ -80,6 +82,88 @@ app.use('/notifications', notificationRoutes);
 app.use('/push',          pushRoutes);
 app.use('/lookup',        lookupRoutes);
 app.use('/org',           orgRoutes);
+
+// ── SLA breach cron — called by Vercel Cron daily ─────────
+// Secured by CRON_SECRET header to prevent public access.
+app.post('/cron/sla-check', async (req, res) => {
+  // Verify cron secret
+  const secret = env.CRON_SECRET;
+  const provided = req.headers['x-cron-secret'] || req.headers['authorization']?.replace('Bearer ', '');
+  if (secret && provided !== secret) {
+    return res.status(401).json({ error: 'unauthorized' });
+  }
+
+  try {
+    // Find tickets past their due date that haven't been alerted yet
+    const { rows: breached } = await pool.query(`
+      SELECT t.id, t.title, t.due_date, t.category_id, t.priority_id,
+             c.name AS category_name,
+             COALESCE(u.name, 'Unassigned') AS assignee_name,
+             EXTRACT(DAY FROM NOW() - t.due_date)::int AS days_overdue
+        FROM yc_tkt_mgmt.tickets t
+        LEFT JOIN yc_tkt_mgmt.categories c ON c.id = t.category_id
+        LEFT JOIN yc_tkt_mgmt.users u ON u.id = t.assignee_id
+       WHERE t.due_date < NOW()
+         AND t.status NOT IN ('resolved', 'closed')
+         AND (t.sla_breach_alerted_at IS NULL OR t.sla_breach_alerted_at < NOW() - INTERVAL '24 hours')
+       ORDER BY t.due_date ASC
+       LIMIT 100
+    `);
+
+    if (!breached.length) {
+      return res.json({ ok: true, alerted: 0 });
+    }
+
+    // Get admin + director emails
+    const { rows: adminRows } = await pool.query(`
+      SELECT DISTINCT u.email
+        FROM yc_tkt_mgmt.users u
+        LEFT JOIN yc_tkt_mgmt.staff_positions sp ON sp.user_id = u.id AND sp.is_primary = TRUE
+        LEFT JOIN yc_tkt_mgmt.positions p ON p.id = sp.position_id
+       WHERE u.is_active = TRUE
+         AND u.email IS NOT NULL
+         AND (u.is_bootstrap_admin = TRUE
+              OR LOWER(COALESCE(p.position_type,'')) = 'director'
+              OR u.role IN ('super_admin', 'admin', 'hr'))
+    `);
+    const alertEmails: string[] = adminRows.map((r: { email: string }) => r.email).filter(Boolean);
+
+    if (alertEmails.length) {
+      const tickets: SlaBreachTicket[] = breached.map((r: Record<string, unknown>) => ({
+        id:          r.id as number,
+        title:       String(r.title || `Ticket #${r.id}`),
+        assigneeName:String(r.assignee_name || 'Unassigned'),
+        daysOverdue: Number(r.days_overdue) || 1,
+        priority:    String(r.priority_id || 'Normal'),
+        category:    String(r.category_name || r.category_id || 'General'),
+      }));
+
+      const html = buildSlaBreachHtml(tickets);
+      await sendEmail(
+        alertEmails,
+        `⚠️ SLA Breach Alert — ${tickets.length} ticket${tickets.length !== 1 ? 's' : ''} overdue`,
+        html,
+      );
+    }
+
+    // Mark tickets as alerted (add column if it doesn't exist)
+    await pool.query(`
+      ALTER TABLE yc_tkt_mgmt.tickets
+        ADD COLUMN IF NOT EXISTS sla_breach_alerted_at TIMESTAMPTZ
+    `).catch(() => {}); // ignore if already exists
+
+    const breachedIds = breached.map((r: Record<string, unknown>) => r.id);
+    await pool.query(
+      `UPDATE yc_tkt_mgmt.tickets SET sla_breach_alerted_at = NOW() WHERE id = ANY($1)`,
+      [breachedIds]
+    );
+
+    res.json({ ok: true, alerted: breached.length, emailsSent: alertEmails.length });
+  } catch (err) {
+    console.error('[cron/sla-check]', err);
+    res.status(500).json({ ok: false, error: String(err) });
+  }
+});
 
 app.use(notFound);
 app.use(errorHandler);

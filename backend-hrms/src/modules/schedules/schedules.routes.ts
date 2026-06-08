@@ -7,6 +7,7 @@ import { Router } from 'express';
 import { pool } from '../../db/pool';
 import { requireAuth } from '../../middleware/auth.middleware';
 import { logAudit } from '../audit/audit.service';
+import { sendEmail, buildScheduledReportHtml, type ReportData } from '../notifications/email.service';
 
 const router = Router();
 router.use(requireAuth);
@@ -98,18 +99,95 @@ router.delete('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// POST /schedules/:id/send
+// POST /schedules/:id/send — fetch report data and email recipients
 router.post('/:id/send', async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     if (!isManagerOrAdmin(req.auth!.role)) return res.status(403).json({ error: 'forbidden' });
-    const { rows } = await pool.query(
-      `UPDATE yc_tkt_mgmt.scheduled_reports SET last_sent_at = NOW(), sent_count = sent_count + 1, updated_at = NOW() WHERE id = $1 RETURNING *`,
+
+    // Load the schedule
+    const { rows: schedRows } = await pool.query(
+      `SELECT * FROM yc_tkt_mgmt.scheduled_reports WHERE id = $1`, [id]
+    );
+    if (!schedRows[0]) return res.status(404).json({ error: 'not_found' });
+    const sched = schedRows[0];
+
+    // Fetch recipient emails
+    const recipientIds: number[] = (sched.recipient_ids || []).map(Number).filter(Boolean);
+    let recipientEmails: string[] = [];
+    if (recipientIds.length) {
+      const { rows: emailRows } = await pool.query(
+        `SELECT email FROM yc_tkt_mgmt.users WHERE id = ANY($1) AND is_active = TRUE AND email IS NOT NULL`,
+        [recipientIds]
+      );
+      recipientEmails = emailRows.map((r: { email: string }) => r.email).filter(Boolean);
+    }
+
+    // Build report data from tickets
+    const { rows: tickets } = await pool.query(
+      `SELECT t.id, t.status, t.priority_id, t.category_id, t.is_escalated,
+              t.sla_breached, t.due_date, t.created_at,
+              c.name AS category_name, p.label AS priority_label
+         FROM yc_tkt_mgmt.tickets t
+         LEFT JOIN yc_tkt_mgmt.categories c ON c.id = t.category_id
+         LEFT JOIN yc_tkt_mgmt.priorities p ON p.id = t.priority_id
+        WHERE t.created_at >= NOW() - INTERVAL '30 days'
+        ORDER BY t.created_at DESC`
+    );
+
+    const resolved  = tickets.filter((t: Record<string,unknown>) => ['resolved','closed'].includes(String(t.status)));
+    const open      = tickets.filter((t: Record<string,unknown>) => !['resolved','closed'].includes(String(t.status)));
+    const escalated = tickets.filter((t: Record<string,unknown>) => t.is_escalated).length;
+    const slaBreached = resolved.filter((t: Record<string,unknown>) => t.sla_breached).length;
+    const overdue   = open.filter((t: Record<string,unknown>) => t.due_date && new Date(t.due_date as string) < new Date()).length;
+    const slaEval   = resolved.length + overdue;
+    const slaRate   = slaEval > 0 ? Math.round(((resolved.length - slaBreached) / slaEval) * 100) : 100;
+
+    // Category breakdown
+    const catMap: Record<string, number> = {};
+    tickets.forEach((t: Record<string,unknown>) => {
+      const cat = String(t.category_name || t.category_id || 'Other');
+      catMap[cat] = (catMap[cat] || 0) + 1;
+    });
+    const breakdownRows = Object.entries(catMap)
+      .sort((a, b) => b[1] - a[1])
+      .map(([label, value]) => ({ label, value, pct: tickets.length ? Math.round((value / tickets.length) * 100) : 0 }));
+
+    // Top category
+    const topCategory = breakdownRows[0]?.label || 'N/A';
+
+    const reportData: ReportData = {
+      total:        tickets.length,
+      open:         open.length,
+      resolved:     resolved.length,
+      escalated,
+      slaBreached,
+      slaRate,
+      topCategory,
+      generatedAt:  new Date().toLocaleString('en-AU', { timeZone: 'Australia/Sydney', dateStyle: 'medium', timeStyle: 'short' }),
+      reportType:   (sched.report_types || ['activity_log'])[0],
+      rows:         breakdownRows,
+    };
+
+    // Send email
+    if (recipientEmails.length) {
+      const html = buildScheduledReportHtml(sched.name, sched.frequency, reportData);
+      await sendEmail(
+        recipientEmails,
+        `${sched.name} — ${sched.frequency.charAt(0).toUpperCase() + sched.frequency.slice(1)} Report`,
+        html,
+      );
+    }
+
+    // Mark as sent
+    const { rows: updated } = await pool.query(
+      `UPDATE yc_tkt_mgmt.scheduled_reports
+          SET last_sent_at = NOW(), sent_count = sent_count + 1, updated_at = NOW()
+        WHERE id = $1 RETURNING *`,
       [id]
     );
-    if (!rows[0]) return res.status(404).json({ error: 'not_found' });
     await logAudit({ userId: req.auth!.userId, actorEmail: req.auth!.email, action: 'schedule.send_now', module: 'schedules', targetType: 'schedule', targetId: id, req });
-    res.json({ schedule: dbToFrontend(rows[0]) });
+    res.json({ schedule: dbToFrontend(updated[0]), emailsSent: recipientEmails.length });
   } catch (err) { next(err); }
 });
 

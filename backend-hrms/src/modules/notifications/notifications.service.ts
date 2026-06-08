@@ -8,6 +8,7 @@
 
 import webpush from 'web-push';
 import { pool } from '../../db/pool';
+import { sendTicketEventEmail, sendUserEventEmail } from './email.service';
 
 // ── VAPID setup (keys set in Vercel env vars) ─────────────
 const VAPID_PUBLIC  = process.env.VAPID_PUBLIC_KEY  || '';
@@ -260,6 +261,26 @@ export async function notify(ev: NotifyEvent): Promise<void> {
         await sendPush(recipientId, pushPayload);
       })
     );
+
+    // ── Email notifications ───────────────────────────────
+    // Fetch emails for all recipients in one query
+    try {
+      const { rows: emailRows } = await pool.query(
+        `SELECT email FROM yc_tkt_mgmt.users WHERE id = ANY($1) AND is_active = TRUE AND email IS NOT NULL`,
+        [recipients]
+      );
+      const recipientEmails = emailRows.map((r: { email: string }) => r.email).filter(Boolean);
+      if (recipientEmails.length) {
+        if ('ticketId' in ev) {
+          await sendTicketEventEmail(ev as TicketEvent, recipientEmails);
+        } else {
+          await sendUserEventEmail(ev as UserEvent, recipientEmails);
+        }
+      }
+    } catch (emailErr) {
+      console.warn('[notify] email send error', emailErr);
+    }
+
   } catch (err) {
     console.error('[notify] unhandled error', err);
   }

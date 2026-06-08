@@ -41,6 +41,11 @@ const schema = z.object({
   SESSION_INACTIVITY_TIMEOUT_MS: z.coerce.number().default(1_800_000),
 
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
+
+  // ── Email (Resend) — optional; email silently skipped if not set ──
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_FROM: z.string().default('Yahwehcare <noreply@yahwehcare.com.au>'),
+  CRON_SECRET: z.string().optional(),
 });
 
 const parsed = schema.safeParse(process.env);
