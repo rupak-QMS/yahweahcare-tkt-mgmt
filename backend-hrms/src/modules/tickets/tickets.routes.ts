@@ -168,33 +168,41 @@ router.get('/', optionalAuth, async (req, res, next) => {
     // scope=all or no scope → no additional filter
 
     // v_open_tickets excludes closed rows; ?all=1 reads the base tickets table instead.
-    // When using the raw table we join labels explicitly so the mapper gets the same fields.
-    const queryFrom = all === '1'
-      ? `(SELECT t.*,
-            c.name      AS category_label,
-            c.icon      AS category_icon,
-            p.label     AS priority_label,
-            p.sla_hours AS sla_hours,
-            ureq.name   AS requester_name,  ureq.email AS requester_email,
-            uasgn.name  AS assignee_name,   uasgn.email AS assignee_email,
-            d.name      AS department_name
-          FROM yc_tkt_mgmt.tickets t
-          LEFT JOIN yc_tkt_mgmt.categories  c    ON c.id    = t.category_id
-          LEFT JOIN yc_tkt_mgmt.priorities  p    ON p.id    = t.priority_id
-          LEFT JOIN yc_tkt_mgmt.users       ureq ON ureq.id = t.created_by
-          LEFT JOIN yc_tkt_mgmt.users       uasgn ON uasgn.id = t.assigned_to
-          LEFT JOIN yc_tkt_mgmt.departments d    ON d.id    = uasgn.department_id
-        ) v`
-      : 'yc_tkt_mgmt.v_open_tickets v';
-
-    const { rows } = await pool.query(
-      `SELECT v.*, COUNT(*) OVER() AS total
-       FROM ${queryFrom}
-       WHERE ${where.join(' AND ')}
-       ORDER BY v.created_at DESC
-       LIMIT $${i++} OFFSET $${i++}`,
-      [...params, limit, offset]
-    );
+    // For all=1 we JOIN label tables directly (no subquery, avoids duplicate-column issues).
+    let rows: Record<string, unknown>[];
+    if (all === '1') {
+      const res = await pool.query(
+        `SELECT v.*,
+                cat.name   AS category_label,
+                pri.label  AS priority_label,
+                pri.sla_hours,
+                ureq.name  AS requester_name,  ureq.email  AS requester_email,
+                uasgn.name AS assignee_name,   uasgn.email AS assignee_email,
+                dept.name  AS department_name,
+                COUNT(*) OVER() AS total
+           FROM yc_tkt_mgmt.tickets v
+           LEFT JOIN yc_tkt_mgmt.categories  cat  ON cat.id   = v.category_id
+           LEFT JOIN yc_tkt_mgmt.priorities  pri  ON pri.id   = v.priority_id
+           LEFT JOIN yc_tkt_mgmt.users       ureq ON ureq.id  = v.created_by
+           LEFT JOIN yc_tkt_mgmt.users      uasgn ON uasgn.id = v.assigned_to
+           LEFT JOIN yc_tkt_mgmt.departments dept ON dept.id  = uasgn.department_id
+          WHERE ${where.join(' AND ')}
+          ORDER BY v.created_at DESC
+          LIMIT $${i} OFFSET $${i + 1}`,
+        [...params, limit, offset]
+      );
+      rows = res.rows;
+    } else {
+      const res = await pool.query(
+        `SELECT v.*, COUNT(*) OVER() AS total
+           FROM yc_tkt_mgmt.v_open_tickets v
+          WHERE ${where.join(' AND ')}
+          ORDER BY v.created_at DESC
+          LIMIT $${i} OFFSET $${i + 1}`,
+        [...params, limit, offset]
+      );
+      rows = res.rows;
+    }
 
     const ticketIds = rows.map(r => r.id);
     let commentRows: Record<string, unknown>[] = [];
