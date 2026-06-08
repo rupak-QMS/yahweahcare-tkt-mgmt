@@ -178,7 +178,7 @@ router.get('/', optionalAuth, async (req, res, next) => {
     // Departments JOIN removed — users.department_id may not exist on all DB schemas.
     const ticketQuery = `
       SELECT v.*,
-             cat.name      AS category_label,
+             cat.label     AS category_label,
              cat.icon      AS category_icon,
              pri.label     AS priority_label,
              pri.sla_hours AS priority_sla_hours,
@@ -357,19 +357,23 @@ router.post('/', requireAuth, async (req, res, next) => {
     const { rows: priRows } = await pool.query(`SELECT sla_hours FROM yc_tkt_mgmt.priorities WHERE id = $1`, [resolvedPriority]);
     const dueDate = resolvedDueDate;
 
-    // Validate status exists
-    const { rows: statRows } = await pool.query(`SELECT id FROM yc_tkt_mgmt.statuses WHERE id = $1`, [resolvedStatus]);
-    const finalStatus = statRows[0]?.id || 'new';
+    // Validate status (statuses table may not exist in all envs — fall back gracefully)
+    let finalStatus = resolvedStatus;
+    try {
+      const { rows: statRows } = await pool.query(`SELECT id FROM yc_tkt_mgmt.statuses WHERE id = $1`, [resolvedStatus]);
+      finalStatus = statRows[0]?.id || resolvedStatus;
+    } catch (_) {
+      // statuses table doesn't exist; use the provided status value as-is
+    }
 
     const { rows } = await pool.query(
       `INSERT INTO yc_tkt_mgmt.tickets
          (title, description, category_id, priority_id, status,
-          created_by, assigned_to, due_date, expected_completion, ndis_related)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+          created_by, assigned_to, due_date, expected_completion)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
        RETURNING *`,
       [resolvedTitle, description || req.body.issue_details || '', resolvedCategory, resolvedPriority,
-       finalStatus, req.auth?.userId || req.body.created_by || null, resolvedAssignee || null, dueDate, resolvedDueDate,
-       !!(req.body.ndis_related || req.body.ndisRelated)]
+       finalStatus, req.auth?.userId || req.body.created_by || null, resolvedAssignee || null, dueDate, resolvedDueDate]
     );
     const ticketId = rows[0].id;
 
