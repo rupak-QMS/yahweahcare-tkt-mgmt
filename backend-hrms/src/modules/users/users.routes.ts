@@ -37,9 +37,10 @@ router.get('/', optionalAuth, async (req, res, next) => {
 
     const { rows } = await pool.query(
       // Only select columns that exist in the live DB schema (legacy 000_reset_schema).
-      // Columns like is_bootstrap_admin, auth_provider, employment_type, phone,
-      // manager_id, start_date, profile_notes do NOT exist and would crash the query.
+      // is_bootstrap_admin is added by migration 008. Non-existent columns like auth_provider,
+      // employment_type, phone, manager_id, start_date, profile_notes are intentionally excluded.
       'SELECT u.id, u.email, u.name, u.is_active, u.department_id, u.position_id, u.created_at,' +
+      ' COALESCE(u.is_bootstrap_admin, FALSE) AS is_bootstrap_admin,' +
       ' d.name AS department_name,' +
       ' (SELECT COALESCE(json_agg(' +
       "   json_build_object('id',p2.id,'title',p2.title,'type',COALESCE(p2.position_type,'ops'),'is_primary',sp2.is_primary)" +
@@ -122,11 +123,11 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
       if (!domainCheck.valid) return res.status(400).json({ error: 'invalid_email_domain', message: domainCheck.reason });
     }
 
+    // Only include columns that exist in the live DB schema
     const fieldMap: Record<string, string> = {
-      name: 'name', email: 'email', phone: 'phone', employment_type: 'employment_type',
-      department_id: 'department_id', manager_id: 'manager_id', start_date: 'start_date',
-      profile_notes: 'profile_notes', position_id: 'position_id', auth_provider: 'auth_provider',
-      is_active: 'is_active', designation: 'designation', avatar_initials: 'avatar_initials',
+      name: 'name', email: 'email',
+      department_id: 'department_id', position_id: 'position_id',
+      is_active: 'is_active',
     };
     const updates: string[] = []; const values: unknown[] = []; let i = 1;
     for (const [key, col] of Object.entries(fieldMap)) {
@@ -167,7 +168,7 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
     }
 
     const { rows: updRows } = await pool.query(
-      `SELECT id, email, name, is_active, position_id, department_id, manager_id, employment_type, auth_provider, avatar_initials, designation FROM yc_tkt_mgmt.users WHERE id=$1`, [id]
+      `SELECT id, email, name, is_active, position_id, department_id, COALESCE(is_bootstrap_admin, FALSE) AS is_bootstrap_admin FROM yc_tkt_mgmt.users WHERE id=$1`, [id]
     );
     if (req.auth) await logAudit({ userId: req.auth.userId, actorEmail: req.auth.email, action: 'user.update', module: 'users', targetType: 'user', targetId: id, metadata: { changes: req.body }, req });
     res.json({ user: updRows[0] });
