@@ -1048,6 +1048,19 @@
                                         </div>
                                     ))}
                                 </div>
+                                {/* Footer: test notification button */}
+                                <div style={{padding:'10px 16px', borderTop:`1px solid ${border}`, flexShrink:0, display:'flex', gap:8, alignItems:'center', justifyContent:'space-between'}}>
+                                    <button onClick={async () => {
+                                        try {
+                                            const r = await fetch(`${HRMS_API}/push/test`, { method:'POST', credentials:'include' });
+                                            if (r.ok) { loadNotifications(); showToast('🔔 Demo notification sent!'); }
+                                            else showToast('Push not set up yet — check VAPID keys');
+                                        } catch { showToast('Failed to send test notification'); }
+                                    }} style={{fontSize:11,fontWeight:600,color:darkMode?'#818cf8':'#4F46E5',background:darkMode?'rgba(99,102,241,0.1)':'#EEF2FF',border:`1px solid ${darkMode?'rgba(99,102,241,0.3)':'#C7D2FE'}`,borderRadius:6,padding:'5px 10px',cursor:'pointer'}}>
+                                        🔔 Send test notification
+                                    </button>
+                                    <span style={{fontSize:10,color:subC}}>Demo only</span>
+                                </div>
                             </div>
                         )}
                     </div>
