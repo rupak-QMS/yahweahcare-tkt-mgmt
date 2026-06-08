@@ -14,9 +14,9 @@ await client.connect();
 console.log('✅ Connected to Neon DB');
 
 // ── Load lookup data ──────────────────────────────────────
-const { rows: cats }  = await client.query(`SELECT id, name FROM yc_tkt_mgmt.categories ORDER BY id`);
+const { rows: cats }  = await client.query(`SELECT id, label AS name FROM yc_tkt_mgmt.categories ORDER BY id`);
 const { rows: pris }  = await client.query(`SELECT id, label, sla_hours FROM yc_tkt_mgmt.priorities ORDER BY id`);
-const { rows: users } = await client.query(`SELECT id, name FROM yc_tkt_mgmt.users WHERE is_active = TRUE ORDER BY id`);
+const { rows: users } = await client.query(`SELECT id, name FROM yc_tkt_mgmt.users WHERE is_active = true ORDER BY id`);
 
 if (!cats.length)  throw new Error('No categories found — run migrations first.');
 if (!pris.length)  throw new Error('No priorities found — run migrations first.');
@@ -36,61 +36,63 @@ const slaMap = {};
 pris.forEach(p => { slaMap[p.label.toLowerCase()] = p.sla_hours || 48; });
 
 // ── Demo ticket definitions ──────────────────────────────
-// Each entry: { title, desc, status, priority, category, createdDaysAgo, dueDaysFromCreated, resolved, ndis, escalated }
+// Categories in DB: client, account, hr, cleaning, safety, equipment, ndis
+// Priorities in DB: urgent, high, medium, low
+// Statuses (text col): open, in_progress, pending_approval, resolved, closed, escalated
 const TICKETS = [
   // ── Open / In Progress ──
-  { title:'IT equipment request — new laptop for onboarding', category:'it', priority:'medium',    status:'open',            daysAgo:2,  dueDays:5,  ndis:false, escalated:false },
-  { title:'NDIS participant care plan update required',        category:'care',priority:'high',     status:'in_progress',     daysAgo:5,  dueDays:3,  ndis:true,  escalated:false },
-  { title:'HR policy clarification — annual leave entitlement',category:'hr',  priority:'low',      status:'open',            daysAgo:1,  dueDays:10, ndis:false, escalated:false },
-  { title:'Finance invoice discrepancy — supplier overpayment',category:'finance',priority:'urgent', status:'in_progress',    daysAgo:3,  dueDays:2,  ndis:false, escalated:false },
-  { title:'Facilities maintenance — broken air conditioning',  category:'facilities',priority:'high',status:'open',           daysAgo:4,  dueDays:2,  ndis:false, escalated:false },
-  { title:'Clinical documentation audit — missing records',    category:'clinical',priority:'critical',status:'in_progress',  daysAgo:6,  dueDays:1,  ndis:true,  escalated:true  },
-  { title:'Staff IT access request — new team member',         category:'it',  priority:'medium',   status:'open',            daysAgo:1,  dueDays:7,  ndis:false, escalated:false },
-  { title:'NDIS support coordination plan review',             category:'care',priority:'high',     status:'in_progress',     daysAgo:8,  dueDays:2,  ndis:true,  escalated:false },
-  { title:'Payroll discrepancy — overtime not processed',      category:'finance',priority:'high',  status:'open',            daysAgo:2,  dueDays:3,  ndis:false, escalated:false },
-  { title:'Safety incident report — slip and fall',            category:'general',priority:'critical',status:'in_progress',   daysAgo:1,  dueDays:1,  ndis:false, escalated:true  },
+  { title:'Equipment request — new laptop for onboarding',      category:'equipment', priority:'medium',  status:'open',            daysAgo:2,  dueDays:5,  ndis:false, escalated:false },
+  { title:'NDIS participant care plan update required',          category:'ndis',      priority:'high',    status:'in_progress',     daysAgo:5,  dueDays:3,  ndis:true,  escalated:false },
+  { title:'HR policy clarification — annual leave entitlement',  category:'hr',        priority:'low',     status:'open',            daysAgo:1,  dueDays:10, ndis:false, escalated:false },
+  { title:'Account issue — supplier invoice discrepancy',        category:'account',   priority:'urgent',  status:'in_progress',     daysAgo:3,  dueDays:2,  ndis:false, escalated:false },
+  { title:'Safety concern — broken equipment in facility',       category:'safety',    priority:'high',    status:'open',            daysAgo:4,  dueDays:2,  ndis:false, escalated:false },
+  { title:'NDIS documentation audit — missing records',          category:'ndis',      priority:'high',    status:'in_progress',     daysAgo:6,  dueDays:1,  ndis:true,  escalated:true  },
+  { title:'Staff system access request — new team member',       category:'equipment', priority:'medium',  status:'open',            daysAgo:1,  dueDays:7,  ndis:false, escalated:false },
+  { title:'NDIS support coordination plan review',               category:'ndis',      priority:'high',    status:'in_progress',     daysAgo:8,  dueDays:2,  ndis:true,  escalated:false },
+  { title:'Payroll discrepancy — overtime not processed',        category:'account',   priority:'high',    status:'open',            daysAgo:2,  dueDays:3,  ndis:false, escalated:false },
+  { title:'Safety incident report — slip and fall',              category:'safety',    priority:'urgent',  status:'in_progress',     daysAgo:1,  dueDays:1,  ndis:false, escalated:true  },
 
   // ── Pending Approval ──
-  { title:'Budget approval request — Q3 equipment upgrade',   category:'finance',priority:'medium', status:'pending_approval',daysAgo:7,  dueDays:14, ndis:false, escalated:false },
-  { title:'New staff position creation — care coordinator',    category:'hr',  priority:'medium',   status:'pending_approval', daysAgo:5,  dueDays:10, ndis:false, escalated:false },
-  { title:'NDIS plan implementation approval',                 category:'care',priority:'high',     status:'pending_approval', daysAgo:3,  dueDays:5,  ndis:true,  escalated:false },
-  { title:'Facilities renovation sign-off — break room',       category:'facilities',priority:'low',status:'pending_approval', daysAgo:10, dueDays:20, ndis:false, escalated:false },
+  { title:'Budget approval — Q3 equipment upgrade',             category:'equipment', priority:'medium',  status:'pending_approval', daysAgo:7,  dueDays:14, ndis:false, escalated:false },
+  { title:'New staff position creation — care coordinator',      category:'hr',        priority:'medium',  status:'pending_approval', daysAgo:5,  dueDays:10, ndis:false, escalated:false },
+  { title:'NDIS plan implementation approval',                   category:'ndis',      priority:'high',    status:'pending_approval', daysAgo:3,  dueDays:5,  ndis:true,  escalated:false },
+  { title:'Cleaning services contract renewal approval',         category:'cleaning',  priority:'low',     status:'pending_approval', daysAgo:10, dueDays:20, ndis:false, escalated:false },
 
   // ── Resolved (recent) ──
-  { title:'IT server maintenance — scheduled downtime',        category:'it',  priority:'high',     status:'resolved',         daysAgo:10, dueDays:3,  ndis:false, escalated:false, resolvedDaysAgo:7  },
-  { title:'Clinical compliance report — monthly submission',   category:'clinical',priority:'high', status:'resolved',         daysAgo:14, dueDays:5,  ndis:true,  escalated:false, resolvedDaysAgo:9  },
-  { title:'HR recruitment process — three candidates shortlisted',category:'hr',priority:'medium',  status:'resolved',         daysAgo:20, dueDays:10, ndis:false, escalated:false, resolvedDaysAgo:12 },
-  { title:'Finance expense claim — team offsite',              category:'finance',priority:'low',   status:'resolved',         daysAgo:8,  dueDays:5,  ndis:false, escalated:false, resolvedDaysAgo:5  },
-  { title:'NDIS participant transport arrangement',             category:'care',priority:'medium',  status:'resolved',         daysAgo:12, dueDays:4,  ndis:true,  escalated:false, resolvedDaysAgo:8  },
-  { title:'IT network outage — branch office',                 category:'it',  priority:'critical', status:'resolved',         daysAgo:7,  dueDays:1,  ndis:false, escalated:true,  resolvedDaysAgo:6  },
-  { title:'Facilities fire safety inspection follow-up',       category:'facilities',priority:'high',status:'resolved',        daysAgo:15, dueDays:5,  ndis:false, escalated:false, resolvedDaysAgo:11 },
-  { title:'General admin — update contact directory',          category:'general',priority:'low',   status:'resolved',         daysAgo:9,  dueDays:7,  ndis:false, escalated:false, resolvedDaysAgo:6  },
-  { title:'HR onboarding package — new care support worker',   category:'hr',  priority:'medium',   status:'resolved',         daysAgo:18, dueDays:7,  ndis:false, escalated:false, resolvedDaysAgo:14 },
-  { title:'Clinical medication administration protocol update',category:'clinical',priority:'critical',status:'resolved',      daysAgo:22, dueDays:3,  ndis:true,  escalated:false, resolvedDaysAgo:19 },
-  { title:'NDIS behaviour support plan — urgent review',       category:'care',priority:'urgent',   status:'resolved',         daysAgo:11, dueDays:2,  ndis:true,  escalated:true,  resolvedDaysAgo:9  },
+  { title:'Equipment maintenance — scheduled server downtime',  category:'equipment', priority:'high',    status:'resolved',         daysAgo:10, dueDays:3,  ndis:false, escalated:false, resolvedDaysAgo:7  },
+  { title:'NDIS compliance report — monthly submission',         category:'ndis',      priority:'high',    status:'resolved',         daysAgo:14, dueDays:5,  ndis:true,  escalated:false, resolvedDaysAgo:9  },
+  { title:'HR recruitment — three candidates shortlisted',       category:'hr',        priority:'medium',  status:'resolved',         daysAgo:20, dueDays:10, ndis:false, escalated:false, resolvedDaysAgo:12 },
+  { title:'Account — expense claim for team offsite',            category:'account',   priority:'low',     status:'resolved',         daysAgo:8,  dueDays:5,  ndis:false, escalated:false, resolvedDaysAgo:5  },
+  { title:'NDIS participant transport arrangement',               category:'ndis',      priority:'medium',  status:'resolved',         daysAgo:12, dueDays:4,  ndis:true,  escalated:false, resolvedDaysAgo:8  },
+  { title:'Equipment outage — branch office network',            category:'equipment', priority:'urgent',  status:'resolved',         daysAgo:7,  dueDays:1,  ndis:false, escalated:true,  resolvedDaysAgo:6  },
+  { title:'Safety inspection follow-up — fire safety',           category:'safety',    priority:'high',    status:'resolved',         daysAgo:15, dueDays:5,  ndis:false, escalated:false, resolvedDaysAgo:11 },
+  { title:'Client request — update contact directory',           category:'client',    priority:'low',     status:'resolved',         daysAgo:9,  dueDays:7,  ndis:false, escalated:false, resolvedDaysAgo:6  },
+  { title:'HR onboarding package — new support worker',          category:'hr',        priority:'medium',  status:'resolved',         daysAgo:18, dueDays:7,  ndis:false, escalated:false, resolvedDaysAgo:14 },
+  { title:'NDIS medication administration protocol update',       category:'ndis',      priority:'urgent',  status:'resolved',         daysAgo:22, dueDays:3,  ndis:true,  escalated:false, resolvedDaysAgo:19 },
+  { title:'NDIS behaviour support plan — urgent review',         category:'ndis',      priority:'urgent',  status:'resolved',         daysAgo:11, dueDays:2,  ndis:true,  escalated:true,  resolvedDaysAgo:9  },
 
   // ── Closed (older) ──
-  { title:'IT upgrade — workstation replacements',             category:'it',  priority:'medium',   status:'closed',           daysAgo:45, dueDays:14, ndis:false, escalated:false, resolvedDaysAgo:30 },
-  { title:'Finance annual audit preparation',                  category:'finance',priority:'high',  status:'closed',           daysAgo:60, dueDays:20, ndis:false, escalated:false, resolvedDaysAgo:40 },
-  { title:'NDIS registration renewal documentation',           category:'care',priority:'high',     status:'closed',           daysAgo:50, dueDays:10, ndis:true,  escalated:false, resolvedDaysAgo:38 },
-  { title:'HR performance review cycle — mid-year',            category:'hr',  priority:'medium',   status:'closed',           daysAgo:90, dueDays:30, ndis:false, escalated:false, resolvedDaysAgo:60 },
-  { title:'Facilities lease renewal negotiation',              category:'facilities',priority:'medium',status:'closed',         daysAgo:75, dueDays:30, ndis:false, escalated:false, resolvedDaysAgo:55 },
-  { title:'Clinical incident report — Q1 summary',            category:'clinical',priority:'high',  status:'closed',           daysAgo:100,dueDays:14, ndis:false, escalated:false, resolvedDaysAgo:85 },
-  { title:'IT cyber security awareness training rollout',      category:'it',  priority:'high',     status:'closed',           daysAgo:55, dueDays:21, ndis:false, escalated:false, resolvedDaysAgo:42 },
-  { title:'General — update emergency contact procedures',     category:'general',priority:'medium', status:'closed',           daysAgo:80, dueDays:20, ndis:false, escalated:false, resolvedDaysAgo:65 },
+  { title:'Equipment upgrade — workstation replacements',        category:'equipment', priority:'medium',  status:'closed',           daysAgo:45, dueDays:14, ndis:false, escalated:false, resolvedDaysAgo:30 },
+  { title:'Account — annual audit preparation',                  category:'account',   priority:'high',    status:'closed',           daysAgo:60, dueDays:20, ndis:false, escalated:false, resolvedDaysAgo:40 },
+  { title:'NDIS registration renewal documentation',             category:'ndis',      priority:'high',    status:'closed',           daysAgo:50, dueDays:10, ndis:true,  escalated:false, resolvedDaysAgo:38 },
+  { title:'HR performance review cycle — mid-year',              category:'hr',        priority:'medium',  status:'closed',           daysAgo:90, dueDays:30, ndis:false, escalated:false, resolvedDaysAgo:60 },
+  { title:'Cleaning contract — facility deep clean schedule',    category:'cleaning',  priority:'medium',  status:'closed',           daysAgo:75, dueDays:30, ndis:false, escalated:false, resolvedDaysAgo:55 },
+  { title:'Safety incident report — Q1 summary',                 category:'safety',    priority:'high',    status:'closed',           daysAgo:100,dueDays:14, ndis:false, escalated:false, resolvedDaysAgo:85 },
+  { title:'Equipment — cyber security awareness training',       category:'equipment', priority:'high',    status:'closed',           daysAgo:55, dueDays:21, ndis:false, escalated:false, resolvedDaysAgo:42 },
+  { title:'Client — update emergency contact procedures',        category:'client',    priority:'medium',  status:'closed',           daysAgo:80, dueDays:20, ndis:false, escalated:false, resolvedDaysAgo:65 },
 
   // ── Overdue (open past due date) ──
-  { title:'Clinical supervision schedule overdue review',      category:'clinical',priority:'high', status:'open',             daysAgo:14, dueDays:-7, ndis:true,  escalated:false },
-  { title:'Finance quarterly reconciliation — outstanding',    category:'finance',priority:'urgent',status:'in_progress',      daysAgo:20, dueDays:-5, ndis:false, escalated:true  },
-  { title:'IT disaster recovery plan — annual update',         category:'it',  priority:'high',     status:'open',             daysAgo:30, dueDays:-10,ndis:false, escalated:false },
-  { title:'NDIS compliance audit — action items outstanding',  category:'care',priority:'critical', status:'in_progress',      daysAgo:25, dueDays:-3, ndis:true,  escalated:true  },
-  { title:'HR policy manual — 2026 revision overdue',         category:'hr',  priority:'medium',   status:'open',             daysAgo:45, dueDays:-15,ndis:false, escalated:false },
-  { title:'Facilities OH&S risk assessment overdue',           category:'facilities',priority:'high',status:'open',            daysAgo:18, dueDays:-8, ndis:false, escalated:false },
+  { title:'NDIS supervision schedule — overdue review',          category:'ndis',      priority:'high',    status:'open',             daysAgo:14, dueDays:-7, ndis:true,  escalated:false },
+  { title:'Account quarterly reconciliation — outstanding',      category:'account',   priority:'urgent',  status:'in_progress',      daysAgo:20, dueDays:-5, ndis:false, escalated:true  },
+  { title:'Equipment — disaster recovery plan annual update',    category:'equipment', priority:'high',    status:'open',             daysAgo:30, dueDays:-10,ndis:false, escalated:false },
+  { title:'NDIS compliance audit — action items outstanding',    category:'ndis',      priority:'high',    status:'in_progress',      daysAgo:25, dueDays:-3, ndis:true,  escalated:true  },
+  { title:'HR policy manual — 2026 revision overdue',            category:'hr',        priority:'medium',  status:'open',             daysAgo:45, dueDays:-15,ndis:false, escalated:false },
+  { title:'Safety OH&S risk assessment overdue',                 category:'safety',    priority:'high',    status:'open',             daysAgo:18, dueDays:-8, ndis:false, escalated:false },
 
   // ── Escalated ──
-  { title:'Critical NDIS safeguarding concern — immediate action',category:'care',priority:'critical',status:'in_progress',   daysAgo:2,  dueDays:1,  ndis:true,  escalated:true  },
-  { title:'Urgent IT security breach — investigation required', category:'it',  priority:'critical', status:'in_progress',    daysAgo:1,  dueDays:1,  ndis:false, escalated:true  },
-  { title:'Finance fraud allegation — board notification',     category:'finance',priority:'critical',status:'pending_approval',daysAgo:3, dueDays:2,  ndis:false, escalated:true  },
+  { title:'Critical NDIS safeguarding concern — immediate action',category:'ndis',    priority:'urgent',  status:'in_progress',      daysAgo:2,  dueDays:1,  ndis:true,  escalated:true  },
+  { title:'Urgent equipment security breach — investigation',    category:'equipment', priority:'urgent',  status:'in_progress',      daysAgo:1,  dueDays:1,  ndis:false, escalated:true  },
+  { title:'Account fraud allegation — board notification',       category:'account',   priority:'urgent',  status:'pending_approval',  daysAgo:3,  dueDays:2,  ndis:false, escalated:true  },
 ];
 
 // ── Category + Priority lookup maps ──────────────────────
