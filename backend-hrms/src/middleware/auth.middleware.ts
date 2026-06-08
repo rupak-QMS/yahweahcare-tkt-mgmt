@@ -89,8 +89,47 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   }
 }
 
-/** Optional auth — populates req.auth if a valid token is present, but doesn't reject. */
+/** Optional auth — populates req.auth if a valid token is present, but NEVER rejects.
+ *  An expired / invalid / missing cookie is silently ignored. */
 export async function optionalAuth(req: Request, res: Response, next: NextFunction) {
-  if (!req.cookies?.['yc_access'] && !req.headers.authorization) return next();
-  return requireAuth(req, res, next);
+  const token = req.cookies?.['yc_access'] || (req.headers.authorization?.startsWith('Bearer ')
+    ? req.headers.authorization.slice(7) : undefined);
+  if (!token) return next(); // no credentials at all — proceed unauthenticated
+
+  try {
+    let payload: AccessTokenPayload;
+    try { payload = verifyToken<AccessTokenPayload>(token); }
+    catch { return next(); } // bad/expired JWT — proceed unauthenticated
+
+    const { rows } = await pool.query(
+      `SELECT s.id, s.user_id, s.is_revoked, s.expires_at, s.last_activity_at,
+              u.email, u.role, u.bootstrap_admin, u.is_admin, u.microsoft_id, u.active, u.role_id
+       FROM yc_tkt_mgmt.sessions s
+       JOIN yc_tkt_mgmt.users u ON u.id = s.user_id
+       WHERE s.id = $1`, [payload.sid]
+    );
+    const session = rows[0];
+    // Any invalid session state → silently skip auth
+    if (!session || session.is_revoked || !session.active || new Date(session.expires_at) < new Date()) {
+      return next();
+    }
+    const inactiveFor = Date.now() - new Date(session.last_activity_at).getTime();
+    if (inactiveFor > env.SESSION_INACTIVITY_TIMEOUT_MS) return next();
+
+    const permRes = await pool.query<{ name: string }>(
+      `SELECT p.name FROM yc_tkt_mgmt.permissions p
+       JOIN yc_tkt_mgmt.role_permissions rp ON rp.permission_id = p.id
+       WHERE rp.role_id = $1`, [session.role_id]
+    );
+    req.auth = {
+      userId: session.user_id, email: session.email, role: session.role,
+      permissions: permRes.rows.map(r => r.name),
+      sessionId: session.id, microsoftId: session.microsoft_id,
+      isAdmin: session.is_admin, bootstrapAdmin: session.bootstrap_admin,
+    };
+    pool.query(`UPDATE yc_tkt_mgmt.sessions SET last_activity_at = NOW() WHERE id = $1`, [session.id]).catch(() => {});
+  } catch {
+    // DB error or anything else — just proceed unauthenticated
+  }
+  next();
 }
