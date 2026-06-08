@@ -4226,7 +4226,7 @@
             // Monthly volume (last 6 months)
             const monthlyMap = {};
             for(let i=5;i>=0;i--){ const d=new Date(now); d.setMonth(d.getMonth()-i); const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; monthlyMap[k]=0; }
-            tickets.forEach(t => { const d=new Date(t.createdAt||t.date||now); const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; if(monthlyMap[k]!==undefined) monthlyMap[k]++; });
+            filtered.forEach(t => { const d=new Date(t.createdAt||t.date||now); const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; if(monthlyMap[k]!==undefined) monthlyMap[k]++; });
             const monthLabels = Object.keys(monthlyMap).map(k=>{ const [y,m]=k.split('-'); return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][Number(m)-1]+' '+y; });
             const monthData   = Object.values(monthlyMap);
 
@@ -4272,7 +4272,7 @@
                 const nc = document.getElementById('chart-ndis');
                 if(nc) charts.current.ndis = new Chart(nc, { type:'doughnut', data:{ labels:['NDIS Related','Non-NDIS'], datasets:[{ data:[ndis, total-ndis], backgroundColor:['#6366F1','#E0E7FF'], borderWidth:2, borderColor:'white', hoverOffset:4 }] }, options:{ responsive:true, cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, padding:10, font:{size:11}, color:dm?'#8fa4cc':'#334155' } } } } });
 
-            }, [loading, filtered.length, range]);
+            }, [loading, range, filtered.map(t=>t.id||t.createdAt).join(',')]);
 
             const [insight, setInsight] = React.useState(null);
 
