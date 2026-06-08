@@ -718,6 +718,31 @@
             return p.toString() ? `&${p.toString()}` : '';
         }
 
+        // ── Page access control ────────────────────────────────────────────────
+        // Returns the set of page IDs the current user may visit.
+        //   Staff (default)        → dashboard, create-ticket, tickets, calendar, analytics
+        //   Dept Manager           → + org-chart, staff-performance, team-comparison
+        //   HR Manager             → + staff-management  (also gets manager pages)
+        //   Director / Bootstrap   → all pages
+        const STAFF_PAGES    = ['dashboard','create-ticket','tickets','calendar','analytics'];
+        const MANAGER_PAGES  = [...STAFF_PAGES, 'org-chart','staff-performance','team-comparison'];
+        const HR_PAGES       = [...MANAGER_PAGES, 'staff-management'];
+        const DIRECTOR_PAGES = [...HR_PAGES, 'scheduled-reports'];
+
+        function getAccessiblePages(sessionUser) {
+            if (!sessionUser) return STAFF_PAGES;
+            const { isBootstrapAdmin, positionType, role } = sessionUser;
+            // Director level: bootstrap admin, director position, or admin/super_admin role
+            if (isBootstrapAdmin || positionType === 'director'
+                || role === 'super_admin' || role === 'admin') return DIRECTOR_PAGES;
+            // HR Manager: hr role
+            if (role === 'hr')                                   return HR_PAGES;
+            // Department Manager: ops/finance/strategic position, or manager role
+            if (['ops','finance','strategic'].includes(positionType)
+                || role === 'manager')                           return MANAGER_PAGES;
+            return STAFF_PAGES;
+        }
+
         // Fallback mock data for lookups
         const LOOKUPS_MOCK = {
             categories: [
@@ -1063,11 +1088,13 @@
                                         <p style={{fontSize:11, color:subC, marginTop:1}}>{deptLabel}</p>
                                     </div>
                                 </div>
+                                {getAccessiblePages(currentUser).includes('staff-management') && (
                                 <button onClick={() => { setUserMenuOpen(false); setCurrentPage('staff-management'); }}
                                     style={{width:'100%',textAlign:'left',display:'flex',alignItems:'center',gap:10,padding:'10px 16px',background:'none',border:'none',cursor:'pointer',fontSize:13,color:textC}}>
                                     <span style={{fontSize:15}}>⚙️</span>
                                     <span style={{fontWeight:500}}>Settings</span>
                                 </button>
+                                )}
                                 <div style={{height:1, background:border, margin:'0 12px'}}/>
                                 <button onClick={() => { setUserMenuOpen(false); onSignOut(); }}
                                     style={{width:'100%',textAlign:'left',display:'flex',alignItems:'center',gap:10,padding:'10px 16px',background:'none',border:'none',cursor:'pointer',fontSize:13,color:'#DC2626',fontWeight:600}}>
@@ -1088,18 +1115,19 @@
             const initials = displayName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
             const deptLabel = currentUser?.dept || currentUser?.department_name || currentUser?.employment_type || '';
 
+            const allowedPages = getAccessiblePages(currentUser);
             const pages = [
-                { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-                { id: 'create-ticket', label: 'Create Ticket', icon: '➕' },
-                { id: 'tickets', label: 'Tickets', icon: '📋' },
-                { id: 'calendar', label: 'Calendar', icon: '📅' },
-                { id: 'analytics', label: 'Analytics', icon: '📈' },
-                { id: 'org-chart', label: 'Org Chart', icon: '🏢' },
+                { id: 'dashboard',         label: 'Dashboard',         icon: '📊' },
+                { id: 'create-ticket',     label: 'Create Ticket',     icon: '➕' },
+                { id: 'tickets',           label: 'Tickets',           icon: '📋' },
+                { id: 'calendar',          label: 'Calendar',          icon: '📅' },
+                { id: 'analytics',         label: 'Analytics',         icon: '📈' },
+                { id: 'org-chart',         label: 'Org Chart',         icon: '🏢' },
                 { id: 'staff-performance', label: 'Staff Performance', icon: '⭐' },
-                { id: 'team-comparison', label: 'Team Comparison', icon: '🔄' },
-                { id: 'staff-management', label: 'Staff Management', icon: '👥' },
+                { id: 'team-comparison',   label: 'Team Comparison',   icon: '🔄' },
+                { id: 'staff-management',  label: 'Staff Management',  icon: '👥' },
                 { id: 'scheduled-reports', label: 'Scheduled Reports', icon: '📧' },
-            ];
+            ].filter(p => allowedPages.includes(p.id));
 
             // Close dropdown when clicking outside
             React.useEffect(() => {
@@ -1178,10 +1206,12 @@
                                 background:sidebarBg, borderRadius:12, boxShadow:'0 -4px 24px rgba(0,0,0,0.15)',
                                 border:`1px solid ${sidebarBorder}`, overflow:'hidden', zIndex:50,
                             }}>
+                                {allowedPages.includes('staff-management') && (
                                 <button onClick={handleSettings} style={{width:'100%',textAlign:'left',display:'flex',alignItems:'center',gap:10,padding:'10px 14px',background:'none',border:'none',cursor:'pointer',fontSize:13,color:sidebarText}}>
                                     <span style={{fontSize:15}}>⚙️</span>
                                     <span style={{fontWeight:500}}>Settings</span>
                                 </button>
+                                )}
                                 <div style={{height:1, background:sidebarBorder, margin:'0 12px'}}/>
                                 <button onClick={handleSignOut} style={{width:'100%',textAlign:'left',display:'flex',alignItems:'center',gap:10,padding:'10px 14px',background:'none',border:'none',cursor:'pointer',fontSize:13,color:'#DC2626',fontWeight:600}}>
                                     <span style={{fontSize:15}}>↪️</span>
@@ -6162,7 +6192,10 @@
                 return <SignedOutScreen onSignBackIn={handleSignBackIn} authError={authError} />;
             }
 
+            const allowedPages = getAccessiblePages(currentUser);
             const renderPage = () => {
+                // Block direct URL access to pages outside the user's role
+                if (!allowedPages.includes(currentPage)) return <Dashboard />;
                 switch (currentPage) {
                     case 'dashboard': return <Dashboard />;
                     case 'create-ticket': return <CreateTicket />;

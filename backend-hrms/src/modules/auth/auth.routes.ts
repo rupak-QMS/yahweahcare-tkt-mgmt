@@ -107,14 +107,16 @@ router.get('/microsoft/callback', async (req, res, next) => {
     // Mint our own session + JWTs
     const { accessToken, refreshToken, sessionToken } = await createSession({ user, rememberMe: rememberMe, req });
 
-    // Fetch department name, dept_id, and primary position type for the user profile
+    // Fetch department name, dept_id, primary position type, and role for the user profile
     let deptName = '';
     let deptId: number | null = null;
     let positionType = 'staff';
+    let userRole = 'staff';
     try {
       const profileRow = await pool.query(
         `SELECT d.id AS dept_id, d.name AS dept_name,
-                COALESCE(p.position_type, 'staff') AS position_type
+                COALESCE(p.position_type, 'staff') AS position_type,
+                COALESCE(u.role, 'staff') AS user_role
          FROM yc_tkt_mgmt.users u
          LEFT JOIN yc_tkt_mgmt.departments d ON d.id = u.department_id
          LEFT JOIN yc_tkt_mgmt.staff_positions sp ON sp.user_id = u.id AND sp.is_primary = TRUE
@@ -124,6 +126,7 @@ router.get('/microsoft/callback', async (req, res, next) => {
       deptName     = profileRow.rows[0]?.dept_name     || '';
       deptId       = profileRow.rows[0]?.dept_id       || null;
       positionType = profileRow.rows[0]?.position_type || 'staff';
+      userRole     = profileRow.rows[0]?.user_role     || 'staff';
     } catch { /* not critical */ }
 
     // Set HTTP-only cookies
@@ -139,6 +142,7 @@ router.get('/microsoft/callback', async (req, res, next) => {
       dept:            deptName,
       deptId,
       positionType,
+      role:            userRole,
       isBootstrapAdmin: !!(user as unknown as Record<string, unknown>).bootstrap_admin,
     })).toString('base64url');
 
