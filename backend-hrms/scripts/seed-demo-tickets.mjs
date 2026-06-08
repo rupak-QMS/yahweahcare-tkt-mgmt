@@ -149,8 +149,8 @@ for (const t of TICKETS) {
       `INSERT INTO yc_tkt_mgmt.tickets
          (title, description, status, category_id, priority_id,
           created_by, assigned_to, due_date, closed_date,
-          is_escalated, ndis_related, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+          is_escalated, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
       [
         t.title,
         `Demo ticket: ${t.title}. Created for dashboard and report demonstration purposes.`,
@@ -162,7 +162,6 @@ for (const t of TICKETS) {
         dueDate,
         closedDate,
         t.escalated,
-        t.ndis,
         createdAt,
         createdAt,
       ]

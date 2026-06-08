@@ -69,7 +69,7 @@ function dbTicket(row: Record<string, unknown>) {
     categoryLabel:  row.category_label  || null,
     categoryIcon:   row.category_icon   || null,
     priorityLabel:  row.priority_label  || null,
-    slaHours:       row.sla_hours       || null,
+    slaHours:       row.priority_sla_hours || row.sla_hours || null,
     statusLabel:    row.status_label    || null,
     requesterName:  row.requester_name  || null,
     requesterEmail: row.requester_email || null,
@@ -174,20 +174,15 @@ router.get('/', optionalAuth, async (req, res, next) => {
       where.push(`v.status NOT IN ('resolved', 'closed')`);
     }
 
+    // Use v.* so the query works regardless of which optional columns exist
+    // (ndis_related, expected_completion etc. may not be present on older DB schemas).
+    // JOIN aliases use names that never appear in the tickets table itself.
     const ticketQuery = `
-      SELECT v.id, v.title, v.description, v.status,
-             v.category_id, v.priority_id,
-             v.created_by, v.assigned_to,
-             v.due_date, v.closed_date, v.expected_completion,
-             v.pending_approval_at,
-             v.is_escalated, v.escalated_to, v.escalated_by,
-             v.escalated_at, v.escalation_reason,
-             v.ndis_related,
-             v.created_at, v.updated_at,
+      SELECT v.*,
              cat.name      AS category_label,
              cat.icon      AS category_icon,
              pri.label     AS priority_label,
-             pri.sla_hours AS sla_hours,
+             pri.sla_hours AS priority_sla_hours,
              ureq.name     AS requester_name,  ureq.email  AS requester_email,
              uasgn.name    AS assignee_name,   uasgn.email AS assignee_email,
              dept.name     AS department_name,
