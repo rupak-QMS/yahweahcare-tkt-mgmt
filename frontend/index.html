@@ -1250,6 +1250,123 @@
             );
         }
 
+        // ── InsightDrawer — professional slide-in insight panel ──────────────────
+        function InsightDrawer({ data, onClose }) {
+            const dm = useDark();
+            const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E2E8F2';
+            const textP   = dm ? '#f0f4ff' : '#0F172A';
+            const textM   = dm ? '#8fa4cc' : '#64748B';
+            React.useEffect(() => {
+                const fn = e => { if (e.key === 'Escape') onClose(); };
+                document.addEventListener('keydown', fn);
+                return () => document.removeEventListener('keydown', fn);
+            }, []);
+            if (!data) return null;
+            const TS = {
+                good: { bg: dm?'rgba(16,185,129,0.08)':'#F0FDF4', b: dm?'rgba(16,185,129,0.2)':'#BBF7D0' },
+                warn: { bg: dm?'rgba(245,158,11,0.08)':'#FFFBEB', b: dm?'rgba(245,158,11,0.2)':'#FDE68A' },
+                bad:  { bg: dm?'rgba(239,68,68,0.08)':'#FFF5F5',  b: dm?'rgba(239,68,68,0.2)':'#FCA5A5'  },
+                info: { bg: dm?'rgba(99,102,241,0.08)':'#F5F3FF',  b: dm?'rgba(99,102,241,0.2)':'#DDD6FE' },
+            };
+            return (
+                <div style={{position:'fixed',inset:0,zIndex:2000,display:'flex'}}>
+                    <div style={{flex:1,background:'rgba(0,0,0,0.45)',cursor:'pointer',backdropFilter:'blur(2px)'}} onClick={onClose}/>
+                    <div style={{width:'500px',maxWidth:'96vw',background:dm?'linear-gradient(180deg,rgba(6,12,32,0.99) 0%,rgba(3,7,20,1) 100%)':'#fff',overflowY:'auto',display:'flex',flexDirection:'column',boxShadow:dm?'-12px 0 64px rgba(0,0,0,0.85)':'-4px 0 40px rgba(15,23,42,0.14)',borderLeft:`1px solid ${borderC}`}}>
+                        {/* Header */}
+                        <div style={{padding:'20px 24px 16px',borderBottom:`1px solid ${borderC}`,position:'sticky',top:0,background:dm?'rgba(6,12,32,0.98)':'rgba(255,255,255,0.98)',zIndex:1,backdropFilter:'blur(8px)',display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:'12px'}}>
+                            <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
+                                <div style={{width:44,height:44,borderRadius:'12px',background:data.iconBg||(dm?'rgba(99,102,241,0.15)':'#EEF2FF'),display:'flex',alignItems:'center',justifyContent:'center',fontSize:'22px',flexShrink:0}}>{data.icon}</div>
+                                <div>
+                                    <h2 style={{fontSize:'16px',fontWeight:'800',color:textP,margin:'0 0 2px'}}>{data.title}</h2>
+                                    <p style={{fontSize:'11px',color:textM,margin:0}}>{data.subtitle}</p>
+                                </div>
+                            </div>
+                            <button onClick={onClose} style={{background:dm?'rgba(255,255,255,0.06)':'#F3F4F6',border:'none',borderRadius:'8px',width:'30px',height:'30px',cursor:'pointer',color:textM,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:'16px',lineHeight:1}}>✕</button>
+                        </div>
+                        <div style={{padding:'20px 24px',flex:1}}>
+                            {/* KPI chips */}
+                            {data.metrics?.length > 0 && (
+                                <div style={{display:'grid',gridTemplateColumns:`repeat(${Math.min(data.metrics.length,3)},1fr)`,gap:'10px',marginBottom:'22px'}}>
+                                    {data.metrics.map((m,i) => (
+                                        <div key={i} style={{background:dm?'rgba(99,102,241,0.06)':'#F8FAFF',border:`1px solid ${borderC}`,borderRadius:'10px',padding:'14px 10px',textAlign:'center'}}>
+                                            <div style={{fontSize:'21px',fontWeight:'800',color:m.color||textP,lineHeight:1}}>{m.value}</div>
+                                            <div style={{fontSize:'10px',color:textM,marginTop:'4px',fontWeight:'600',textTransform:'uppercase',letterSpacing:'0.05em'}}>{m.label}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            {/* Business Insights */}
+                            {data.insights?.length > 0 && (
+                                <div style={{marginBottom:'22px'}}>
+                                    <p style={{fontSize:'10px',fontWeight:'700',color:dm?'#818cf8':'#4F46E5',textTransform:'uppercase',letterSpacing:'0.07em',margin:'0 0 10px'}}>💡 Business Insights</p>
+                                    <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
+                                        {data.insights.map((ins,i) => {
+                                            const s = TS[ins.type]||TS.info;
+                                            return (
+                                                <div key={i} style={{display:'flex',gap:'10px',alignItems:'flex-start',padding:'11px 13px',borderRadius:'9px',background:s.bg,border:`1px solid ${s.b}`}}>
+                                                    <span style={{fontSize:'15px',flexShrink:0,marginTop:'1px'}}>{ins.icon}</span>
+                                                    <div>
+                                                        {ins.title && <p style={{fontSize:'12px',fontWeight:'700',color:textP,margin:'0 0 2px'}}>{ins.title}</p>}
+                                                        <p style={{fontSize:'12px',color:dm?'#c0cfec':'#374151',margin:0,lineHeight:'1.55'}}>{ins.text}</p>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                            {/* Breakdown bars */}
+                            {data.breakdown?.length > 0 && (
+                                <div style={{marginBottom:'22px'}}>
+                                    <p style={{fontSize:'10px',fontWeight:'700',color:dm?'#818cf8':'#4F46E5',textTransform:'uppercase',letterSpacing:'0.07em',margin:'0 0 10px'}}>{data.breakdownTitle||'Breakdown'}</p>
+                                    <div style={{borderRadius:'10px',border:`1px solid ${borderC}`,overflow:'hidden'}}>
+                                        {data.breakdown.map((row,i) => (
+                                            <div key={i} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'9px 14px',background:i%2===0?(dm?'rgba(255,255,255,0.02)':'#fff'):(dm?'rgba(99,102,241,0.03)':'#FAFBFF'),borderBottom:i<data.breakdown.length-1?`1px solid ${borderC}`:'none'}}>
+                                                <div style={{display:'flex',alignItems:'center',gap:'8px',flex:1,minWidth:0}}>
+                                                    {row.dot && <span style={{width:'8px',height:'8px',borderRadius:'50%',background:row.dot,flexShrink:0,display:'inline-block'}}/>}
+                                                    <span style={{fontSize:'12px',fontWeight:'600',color:textP,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{row.label}</span>
+                                                </div>
+                                                <div style={{display:'flex',alignItems:'center',gap:'10px',flexShrink:0}}>
+                                                    {row.bar !== undefined && (
+                                                        <div style={{width:'70px',height:'5px',borderRadius:'3px',background:dm?'rgba(99,102,241,0.12)':'#E5E7EB'}}>
+                                                            <div style={{height:'100%',width:`${Math.min(row.bar,100)}%`,background:row.dot||'#6366F1',borderRadius:'3px'}}/>
+                                                        </div>
+                                                    )}
+                                                    <span style={{fontSize:'12px',fontWeight:'700',color:row.valueColor||textP,minWidth:'28px',textAlign:'right'}}>{row.value}</span>
+                                                    {row.sub && <span style={{fontSize:'10px',color:textM,minWidth:'38px'}}>{row.sub}</span>}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            {/* Ticket rows */}
+                            {data.rows?.length > 0 && (
+                                <div>
+                                    <p style={{fontSize:'10px',fontWeight:'700',color:dm?'#818cf8':'#4F46E5',textTransform:'uppercase',letterSpacing:'0.07em',margin:'0 0 10px',display:'flex',alignItems:'center',gap:'6px'}}>
+                                        {data.rowsTitle||'Tickets'}
+                                        <span style={{background:dm?'rgba(99,102,241,0.2)':'#EEF2FF',color:dm?'#818cf8':'#4F46E5',padding:'1px 8px',borderRadius:'20px',fontSize:'10px',fontWeight:'700',letterSpacing:0}}>{data.rows.length}</span>
+                                    </p>
+                                    <div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
+                                        {data.rows.slice(0,20).map((row,i) => (
+                                            <div key={i} style={{padding:'10px 12px',borderRadius:'8px',background:dm?'rgba(255,255,255,0.02)':'#F8FAFF',border:`1px solid ${borderC}`,display:'flex',alignItems:'flex-start',gap:'10px'}}>
+                                                <div style={{flex:1,minWidth:0}}>
+                                                    <p style={{fontSize:'12px',fontWeight:'600',color:textP,margin:'0 0 3px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{row.title}</p>
+                                                    <p style={{fontSize:'11px',color:textM,margin:0}}>{row.sub}</p>
+                                                </div>
+                                                {row.badge && <span style={{flexShrink:0,fontSize:'10px',fontWeight:'700',padding:'2px 8px',borderRadius:'20px',background:row.badgeBg||(dm?'rgba(99,102,241,0.15)':'#EEF2FF'),color:row.badgeColor||(dm?'#818cf8':'#4F46E5'),whiteSpace:'nowrap'}}>{row.badge}</span>}
+                                            </div>
+                                        ))}
+                                        {data.rows.length > 20 && <p style={{fontSize:'11px',color:textM,textAlign:'center',margin:'6px 0 0',padding:'8px',background:dm?'rgba(99,102,241,0.05)':'#F8FAFF',borderRadius:'8px'}}>+{data.rows.length-20} more not shown</p>}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
         // Dashboard Page
         function Dashboard() {
             const dm = useDark();
@@ -1347,14 +1464,182 @@
                 return ()=>{ cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); };
             }, [tickets]);
 
+            const [insight, setInsight] = React.useState(null);
+
+            const buildInsight = (type) => {
+                const now2 = new Date();
+                const getStatus   = t => (t.status||t.status_id||'');
+                const getCategory = t => (t.categoryLabel||t.category||t.category_id||'Other');
+                const getAssignee = t => (t.assigneeName||t.assignedToName||'Unassigned');
+                const getPriority = t => (t.priorityLabel||t.priority||t.priority_id||'Low');
+                const isResolved  = t => ['resolved','closed'].includes(getStatus(t));
+                const fmtAge = t => { const d=Math.floor((now2-new Date(t.createdAt||t.date||now2))/86400000); return d===0?'Today':d===1?'Yesterday':`${d}d ago`; };
+                const pBadge = p => { const l=p.toLowerCase(); return l==='critical'||l==='urgent'?{bg:dm?'rgba(239,68,68,0.15)':'#FEF2F2',color:dm?'#fca5a5':'#DC2626'}:l==='high'?{bg:dm?'rgba(249,115,22,0.15)':'#FFF7ED',color:dm?'#fdba74':'#EA580C'}:l==='medium'?{bg:dm?'rgba(234,179,8,0.15)':'#FEFCE8',color:dm?'#fcd34d':'#A16207'}:{bg:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:dm?'#818cf8':'#4338CA'}; };
+                const tkRow = t => { const p=getPriority(t); const pb=pBadge(p); return {title:t.subtitle||t.title_type||'Untitled',sub:`${getAssignee(t)} · ${getCategory(t)} · ${fmtAge(t)}`,badge:p,badgeBg:pb.bg,badgeColor:pb.color}; };
+
+                if (type==='total') {
+                    const catMap={};tickets.forEach(t=>{const c=getCategory(t);catMap[c]=(catMap[c]||0)+1;});
+                    const topCat=Object.entries(catMap).sort((a,b)=>b[1]-a[1])[0];
+                    const openPct=total?Math.round((open/total)*100):0; const resPct2=total?Math.round((resolved/total)*100):0;
+                    return { title:'All Tickets', subtitle:`Complete overview of ${total} tickets in the system`, icon:'📋', iconBg:dm?'rgba(99,102,241,0.15)':'#EEF2FF',
+                        metrics:[{label:'Total',value:total,color:dm?'#818cf8':'#4F46E5'},{label:'Open',value:open,color:'#F97316'},{label:'Resolved',value:resolved,color:'#10B981'}],
+                        insights:[
+                            {type:resPct2>=70?'good':'warn',icon:resPct2>=70?'✅':'⚠️',title:'Resolution Health',text:`${resPct2}% of all tickets have been resolved. ${resPct2>=70?'Team throughput is strong and demand is being managed well.':resPct2>=50?'Resolution rate is moderate — review workload allocation across staff.':'Resolution rate is below optimal — recommend triaging the backlog urgently.'}`},
+                            {type:openPct>50?'bad':openPct>25?'warn':'good',icon:openPct>50?'🔴':openPct>25?'🟡':'🟢',title:'Open Backlog Health',text:`${openPct}% of tickets are currently open (${open} tickets). ${openPct>50?'Backlog is growing — staff capacity may need to be reviewed or redistributed.':openPct>25?'Moderate open load — monitor closely to prevent accumulation.':'Healthy balance between open and resolved work.'}`},
+                            escalated>0?{type:'warn',icon:'⬆️',title:'Escalations Require Attention',text:`${escalated} ticket${escalated!==1?'s have':' has'} been escalated. Recurring escalations in the same category may signal a systemic workflow issue worth investigating.`}:{type:'good',icon:'🌟',title:'Zero Escalations',text:'No tickets have been escalated — this reflects strong first-contact resolution quality and effective service delivery.'},
+                            topCat?{type:'info',icon:'📌',title:'Highest Volume Category',text:`"${topCat[0].replace(/_/g,' ')}" accounts for ${topCat[1]} ticket${topCat[1]!==1?'s':''} (${Math.round((topCat[1]/total)*100)}% of total). Ensure adequate resource allocation and process documentation for this service area.`}:null,
+                        ].filter(Boolean),
+                        breakdown:Object.entries(catMap).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([label,value])=>({label,value,bar:Math.round((value/total)*100),sub:`${Math.round((value/total)*100)}%`})),
+                        breakdownTitle:'Volume by Category',
+                    };
+                }
+                if (type==='open') {
+                    const openTkts=tickets.filter(t=>['new','assigned'].includes(getStatus(t))).sort((a,b)=>new Date(a.createdAt||0)-new Date(b.createdAt||0));
+                    const unassigned=openTkts.filter(t=>!t.assigneeName&&!t.assignedToName).length;
+                    const byA={};openTkts.forEach(t=>{const a=getAssignee(t);byA[a]=(byA[a]||0)+1;});
+                    const oldest=openTkts[0]; const oldDays=oldest?Math.floor((now2-new Date(oldest.createdAt||0))/86400000):0;
+                    const topHolder=Object.entries(byA).sort((a,b)=>b[1]-a[1])[0];
+                    return { title:'Open Tickets', subtitle:`${open} tickets awaiting action`, icon:'⏱️', iconBg:dm?'rgba(14,165,233,0.12)':'#E0F2FE',
+                        metrics:[{label:'New',value:openTkts.filter(t=>getStatus(t)==='new').length,color:'#06B6D4'},{label:'Assigned',value:openTkts.filter(t=>getStatus(t)==='assigned').length,color:'#3B82F6'},{label:'Unassigned',value:unassigned,color:'#EF4444'}],
+                        insights:[
+                            unassigned>0?{type:'bad',icon:'🚨',title:`${unassigned} Unassigned Ticket${unassigned!==1?'s':''}`,text:`${unassigned} open ticket${unassigned!==1?'s have':' has'} no assignee. Unassigned tickets risk being overlooked — assign them immediately to prevent SLA breaches.`}:{type:'good',icon:'✅',title:'All Open Tickets Assigned',text:'Every open ticket has an assignee — excellent queue management and accountability.'},
+                            oldest?{type:oldDays>7?'bad':oldDays>3?'warn':'info',icon:'⏳',title:'Oldest Open Ticket',text:`"${oldest.subtitle||oldest.title_type||'Untitled'}" has been open for ${oldDays} day${oldDays!==1?'s':''}. ${oldDays>7?'This warrants immediate review and escalation.':oldDays>3?'Consider prioritising resolution to prevent SLA breach.':'Within normal response window.'}`}:null,
+                            topHolder?{type:'info',icon:'👤',title:'Queue Distribution',text:`Open tickets span ${Object.keys(byA).length} staff. Top holder: ${topHolder[0]} (${topHolder[1]} ticket${topHolder[1]!==1?'s':''}). ${unassigned>0?`${unassigned} still awaiting assignment.`:''}`}:null,
+                        ].filter(Boolean),
+                        rows:openTkts.map(tkRow), rowsTitle:'Open Tickets (oldest first)',
+                    };
+                }
+                if (type==='inprogress') {
+                    const inpTkts=tickets.filter(t=>['in_progress','waiting','pending_approval'].includes(getStatus(t)));
+                    const byA={};inpTkts.forEach(t=>{const a=getAssignee(t);byA[a]=(byA[a]||0)+1;});
+                    const waiting=inpTkts.filter(t=>getStatus(t)==='waiting').length;
+                    const pendApp=inpTkts.filter(t=>getStatus(t)==='pending_approval').length;
+                    return { title:'In Progress', subtitle:`${inProg} tickets actively being worked`, icon:'⚙️', iconBg:dm?'rgba(245,158,11,0.12)':'#FFFBEB',
+                        metrics:[{label:'In Progress',value:inpTkts.filter(t=>getStatus(t)==='in_progress').length,color:'#F59E0B'},{label:'Waiting',value:waiting,color:'#8B5CF6'},{label:'Pending Approval',value:pendApp,color:'#EC4899'}],
+                        insights:[
+                            waiting>0?{type:'warn',icon:'⏸️',title:`${waiting} Blocked on External Input`,text:`${waiting} ticket${waiting!==1?'s are':' is'} in "Waiting" status. Follow up with clients or third parties to unblock these and prevent SLA impact.`}:{type:'good',icon:'✅',title:'No Blocked Tickets',text:'No tickets are in "Waiting" status — all active work is progressing without external blockers.'},
+                            pendApp>0?{type:'warn',icon:'📋',title:`${pendApp} Awaiting Approval`,text:`${pendApp} ticket${pendApp!==1?'s require':' requires'} approval to proceed. Ensure approvers have been notified — approval delays directly extend resolution time.`}:null,
+                            Object.keys(byA).length>0?{type:'info',icon:'👥',title:'Active Team Workload',text:`Active work is distributed across ${Object.keys(byA).length} staff member${Object.keys(byA).length!==1?'s':''}. ${Object.entries(byA).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([n,c])=>`${n}: ${c}`).join(' · ')}.`}:null,
+                        ].filter(Boolean),
+                        rows:inpTkts.map(t=>{const s=getStatus(t);const SC={in_progress:{bg:dm?'rgba(245,158,11,0.15)':'#FFFBEB',c:dm?'#fcd34d':'#D97706'},waiting:{bg:dm?'rgba(139,92,246,0.15)':'#F5F3FF',c:dm?'#c4b5fd':'#7C3AED'},pending_approval:{bg:dm?'rgba(236,72,153,0.15)':'#FDF2F8',c:dm?'#f9a8d4':'#DB2777'}};const sc=SC[s]||SC.in_progress;return {title:t.subtitle||t.title_type||'Untitled',sub:`${getAssignee(t)} · ${fmtAge(t)}`,badge:s.replace(/_/g,' '),badgeBg:sc.bg,badgeColor:sc.c};}),
+                        rowsTitle:'In-Progress Tickets',
+                    };
+                }
+                if (type==='resolved') {
+                    const resTkts2=tickets.filter(isResolved);
+                    const slaOkL=resTkts2.filter(t=>!(t.slaBreached||t.sla_breached)).length;
+                    const byA={};resTkts2.forEach(t=>{const a=getAssignee(t);byA[a]=(byA[a]||0)+1;});
+                    const topRes=Object.entries(byA).sort((a,b)=>b[1]-a[1])[0];
+                    const slaPctL=resTkts2.length>0?Math.round((slaOkL/resTkts2.length)*100):0;
+                    return { title:'Resolved Tickets', subtitle:`${resolved} tickets successfully closed`, icon:'✅', iconBg:dm?'rgba(16,185,129,0.12)':'#ECFDF5',
+                        metrics:[{label:'Resolved',value:resTkts2.filter(t=>getStatus(t)==='resolved').length,color:'#10B981'},{label:'Closed',value:resTkts2.filter(t=>getStatus(t)==='closed').length,color:'#6366F1'},{label:'SLA Met',value:`${slaPctL}%`,color:'#10B981'}],
+                        insights:[
+                            {type:slaPctL>=80?'good':'warn',icon:'⏱️',title:'SLA Performance on Resolved',text:`${slaOkL} of ${resTkts2.length} resolved tickets met SLA requirements (${slaPctL}%). ${resTkts2.length-slaOkL>0?`${resTkts2.length-slaOkL} were closed late — review those cases for process improvements.`:'All resolutions were on time — excellent.'}`},
+                            topRes?{type:'good',icon:'🏆',title:'Top Resolver',text:`${topRes[0]} has resolved the most tickets (${topRes[1]}). Recognising high performers reinforces service excellence and motivates the broader team.`}:null,
+                            {type:'info',icon:'📊',title:'Resolution Rate',text:`${resRate}% of all tickets have been resolved. ${resRate>=80?'Excellent throughput — team capacity is well matched to demand.':resRate>=60?'Good throughput — check if any categories are creating resolution bottlenecks.':'Consider reviewing workflow — a lower resolution rate may indicate process or capacity gaps.'}`},
+                        ].filter(Boolean),
+                        breakdown:Object.entries(byA).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([label,value])=>({label,value,bar:resTkts2.length?Math.round((value/resTkts2.length)*100):0,sub:`${resTkts2.length?Math.round((value/resTkts2.length)*100):0}%`})),
+                        breakdownTitle:'Resolved by Staff Member',
+                    };
+                }
+                if (type==='escalated') {
+                    const escTkts=tickets.filter(t=>t.isEscalated||t.escalated||t.status==='escalated');
+                    const byCat={};escTkts.forEach(t=>{const c=getCategory(t);byCat[c]=(byCat[c]||0)+1;});
+                    const stillOpen=escTkts.filter(t=>!isResolved(t)).length;
+                    return { title:'Escalated Tickets', subtitle:`${escalated} tickets flagged as escalated`, icon:'⬆️', iconBg:dm?'rgba(124,58,237,0.12)':'#F5F3FF',
+                        metrics:[{label:'Escalated',value:escalated,color:'#7C3AED'},{label:'% of Total',value:`${total?Math.round((escalated/total)*100):0}%`,color:'#8B5CF6'},{label:'Still Open',value:stillOpen,color:'#EF4444'}],
+                        insights:[
+                            escalated===0?{type:'good',icon:'🌟',title:'Zero Escalations',text:'No escalated tickets — this reflects strong first-contact resolution, effective staff training, and proactive client communication.'}:{type:'warn',icon:'⚠️',title:'Escalation Pattern',text:`Escalations are concentrated in: ${Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([c,n])=>`${c.replace(/_/g,' ')} (${n})`).join(', ')}. Address these categories to reduce future escalation rates.`},
+                            stillOpen>0?{type:'bad',icon:'🚨',title:'Open Escalations Need Immediate Action',text:`${stillOpen} escalated ticket${stillOpen!==1?'s remain':' remains'} unresolved. Escalated open tickets carry the highest risk to client satisfaction and SLA compliance.`}:null,
+                        ].filter(Boolean),
+                        rows:escTkts.map(tkRow), rowsTitle:'Escalated Tickets',
+                    };
+                }
+                if (type==='overdue') {
+                    const ovdTkts=tickets.filter(t=>!isResolved(t)&&t.dueAt&&new Date(t.dueAt)<now2).sort((a,b)=>new Date(a.dueAt)-new Date(b.dueAt));
+                    const fmtOvd=t=>{const d=Math.floor((now2-new Date(t.dueAt))/86400000);return `${d}d overdue`;};
+                    const critOvd=ovdTkts.filter(t=>['critical','urgent'].includes(getPriority(t).toLowerCase())).length;
+                    const potentialSla=Math.round((slaOk+overdue)/Math.max(slaTotalEval,1)*100);
+                    return { title:'Overdue Tickets', subtitle:`${overdue} tickets past their due date`, icon:'⚠️', iconBg:dm?'rgba(239,68,68,0.12)':'#FEF2F2',
+                        metrics:[{label:'Overdue',value:overdue,color:'#EF4444'},{label:'% of Open',value:`${open>0?Math.round((overdue/open)*100):0}%`,color:'#F97316'},{label:'Critical',value:critOvd,color:'#DC2626'}],
+                        insights:[
+                            overdue===0?{type:'good',icon:'🎯',title:'No Overdue Tickets',text:'All active tickets are within their due dates — excellent deadline management and client commitment.'}:{type:'bad',icon:'🚨',title:'Immediate Action Required',text:`${overdue} ticket${overdue!==1?'s are':' is'} past due. Overdue tickets risk SLA breaches, client dissatisfaction, and potential compliance issues. Prioritise resolution today.`},
+                            critOvd>0?{type:'bad',icon:'🔴',title:`${critOvd} Critical/Urgent Overdue`,text:`${critOvd} overdue ticket${critOvd!==1?'s are':' is'} Critical or Urgent priority. These represent the highest business risk and should be escalated and resolved immediately.`}:null,
+                            overdue>0?{type:'warn',icon:'📉',title:'SLA Recovery Opportunity',text:`Resolving all ${overdue} overdue tickets would recover your SLA rate from ${slaPct}% to a potential ${potentialSla}% — a ${potentialSla-slaPct} point improvement.`}:null,
+                        ].filter(Boolean),
+                        rows:ovdTkts.map(t=>{const p=getPriority(t);const pb=pBadge(p);return{title:t.subtitle||t.title_type||'Untitled',sub:`${getAssignee(t)} · ${fmtOvd(t)} · ${getCategory(t)}`,badge:p,badgeBg:pb.bg,badgeColor:pb.color};}),
+                        rowsTitle:'Overdue Tickets (most overdue first)',
+                    };
+                }
+                if (type==='urgent') {
+                    const urgTkts=tickets.filter(t=>['critical','urgent'].includes(getPriority(t).toLowerCase()));
+                    const openUrg=urgTkts.filter(t=>!isResolved(t));
+                    return { title:'Urgent & Critical Tickets', subtitle:`${urgent} high-priority tickets`, icon:'🔴', iconBg:dm?'rgba(220,38,38,0.12)':'#FFF1F2',
+                        metrics:[{label:'Critical/Urgent',value:urgent,color:'#DC2626'},{label:'Still Open',value:openUrg.length,color:'#EF4444'},{label:'Resolved',value:urgTkts.length-openUrg.length,color:'#10B981'}],
+                        insights:[
+                            urgent===0?{type:'good',icon:'✅',title:'No Critical Tickets',text:'No critical or urgent tickets — excellent risk management and proactive service delivery.'}:
+                            openUrg.length>0?{type:'bad',icon:'🚨',title:`${openUrg.length} Critical Ticket${openUrg.length!==1?'s':''} Unresolved`,text:`${openUrg.length} open critical/urgent ticket${openUrg.length!==1?'s require':' requires'} immediate resolution. Delays in critical tickets can cause significant service disruption and client escalations.`}:
+                            {type:'good',icon:'✅',title:'All Critical Tickets Resolved',text:`All ${urgent} critical/urgent ticket${urgent!==1?'s have':' has'} been resolved — excellent responsiveness to high-priority issues.`},
+                            urgent>0&&total>0?{type:Math.round((urgent/total)*100)>20?'bad':'info',icon:'📊',title:'Priority Distribution Risk',text:`Critical/Urgent tickets represent ${Math.round((urgent/total)*100)}% of all tickets. ${Math.round((urgent/total)*100)>20?'A high proportion of critical tickets may indicate systemic service issues — investigate root causes and consider preventative measures.':'This proportion is within a manageable range.'}`}:null,
+                        ].filter(Boolean),
+                        rows:urgTkts.sort((a,b)=>isResolved(a)?1:-1).map(t=>{const s=getStatus(t);const res=isResolved(t);return{title:t.subtitle||t.title_type||'Untitled',sub:`${getAssignee(t)} · ${getCategory(t)} · ${fmtAge(t)}`,badge:s.replace(/_/g,' '),badgeBg:res?(dm?'rgba(16,185,129,0.15)':'#ECFDF5'):(dm?'rgba(239,68,68,0.15)':'#FEF2F2'),badgeColor:res?'#10B981':'#DC2626'};}),
+                        rowsTitle:'Critical & Urgent Tickets',
+                    };
+                }
+                if (type==='status-chart') {
+                    const sMap={};tickets.forEach(t=>{const s=getStatus(t);sMap[s]=(sMap[s]||0)+1;});
+                    const SC2={new:'#06B6D4',assigned:'#3B82F6',in_progress:'#F59E0B',waiting:'#8B5CF6',pending_approval:'#EC4899',resolved:'#10B981',closed:'#475569',escalated:'#7C3AED'};
+                    return { title:'Status Distribution', subtitle:'Full pipeline breakdown by current status', icon:'📊', iconBg:dm?'rgba(99,102,241,0.15)':'#EEF2FF',
+                        metrics:[{label:'Total Tickets',value:total,color:dm?'#818cf8':'#4F46E5'},{label:'Active',value:open+inProg,color:'#F59E0B'},{label:'Completed',value:resolved,color:'#10B981'}],
+                        insights:[
+                            {type:'info',icon:'📈',title:'Pipeline Health',text:`${open+inProg} tickets are actively in the pipeline (${total?Math.round(((open+inProg)/total)*100):0}% of total). ${resolved} have been completed and ${overdue} are past due.`},
+                            inProg>open?{type:'good',icon:'⚙️',title:'Strong Throughput Velocity',text:'More tickets are in progress than waiting in queue — the team has excellent throughput and is actively servicing demand.'}:open>inProg*2?{type:'warn',icon:'⏸️',title:'Potential Queue Bottleneck',text:`${open} tickets are queued as "Open" versus only ${inProg} in progress. Consider reviewing team capacity or ticket assignment processes to prevent backlog growth.`}:{type:'info',icon:'⚖️',title:'Balanced Pipeline',text:'Open and in-progress tickets are in proportion — pipeline flow appears healthy with no major bottlenecks.'},
+                        ],
+                        breakdown:Object.entries(sMap).sort((a,b)=>b[1]-a[1]).map(([label,value])=>({label:label.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()),value,dot:SC2[label]||'#6366F1',bar:Math.round((value/Math.max(total,1))*100),sub:`${Math.round((value/Math.max(total,1))*100)}%`})),
+                        breakdownTitle:'Status Breakdown',
+                    };
+                }
+                if (type==='category-chart') {
+                    const catMap={};tickets.forEach(t=>{const c=getCategory(t);catMap[c]=(catMap[c]||0)+1;});
+                    const catE=Object.entries(catMap).sort((a,b)=>b[1]-a[1]);
+                    const openByCat={};tickets.filter(t=>!isResolved(t)).forEach(t=>{const c=getCategory(t);openByCat[c]=(openByCat[c]||0)+1;});
+                    const top=catE[0];
+                    const top2vol=catE.slice(0,2).reduce((s,[,v])=>s+v,0);
+                    return { title:'Category Breakdown', subtitle:'Ticket volume and open load per service category', icon:'📑', iconBg:dm?'rgba(99,102,241,0.15)':'#EEF2FF',
+                        metrics:[{label:'Categories',value:catE.length,color:dm?'#818cf8':'#4F46E5'},{label:'Top Volume',value:top?top[1]:0,color:'#F97316'},{label:'Open in Top',value:top?openByCat[top[0]]||0:0,color:'#EF4444'}],
+                        insights:[
+                            top?{type:'info',icon:'📌',title:`"${top[0].replace(/_/g,' ')}" Leads Volume`,text:`This category accounts for ${top[1]} ticket${top[1]!==1?'s':''} (${Math.round((top[1]/total)*100)}% of total). ${openByCat[top[0]]>0?`${openByCat[top[0]]} are still open.`:''} Ensure adequate resources and documented processes are in place.`}:null,
+                            catE.length>1?{type:top2vol/total>0.7?'warn':'info',icon:'⚖️',title:'Category Concentration',text:top2vol/total>0.7?`Top 2 categories represent ${Math.round(top2vol/total*100)}% of all tickets. High concentration may indicate a gap in service coverage or a recurring systemic issue in these areas.`:`Ticket volume is distributed across ${catE.length} categories — healthy service breadth with no extreme concentration.`}:null,
+                        ].filter(Boolean),
+                        breakdown:catE.map(([label,value])=>({label:label.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()),value,bar:Math.round((value/total)*100),sub:`${openByCat[label]||0} open`})),
+                        breakdownTitle:'Volume by Category',
+                    };
+                }
+                if (type==='sla') {
+                    const potSla=Math.round((slaOk+overdue)/Math.max(slaTotalEval,1)*100);
+                    return { title:'SLA Compliance', subtitle:'Service Level Agreement performance analysis', icon:'⏱️', iconBg:dm?'rgba(16,185,129,0.12)':'#ECFDF5',
+                        metrics:[{label:'SLA Rate',value:`${slaPct}%`,color:slaPct>=80?'#10B981':slaPct>=50?'#F59E0B':'#EF4444'},{label:'On Time',value:slaOk,color:'#10B981'},{label:'Breached',value:slaFailed+overdue,color:'#EF4444'}],
+                        insights:[
+                            {type:slaPct>=90?'good':slaPct>=70?'warn':'bad',icon:slaPct>=90?'✅':slaPct>=70?'⚠️':'🚨',title:`SLA Compliance: ${slaPct}%`,text:slaPct>=90?'Excellent SLA performance — the team consistently meets service commitments, building strong client trust.':slaPct>=70?'SLA compliance is within an acceptable range but has clear room for improvement. Focus on reducing overdue tickets first.':'SLA compliance is below target. An immediate review of ticket resolution workflows, staff capacity, and escalation processes is recommended.'},
+                            overdue>0?{type:'bad',icon:'⏰',title:`${overdue} Active Overdue — Direct SLA Impact`,text:`${overdue} ticket${overdue!==1?'s are':' is'} currently open past their due date. Each is an active SLA breach. Resolving these would push SLA from ${slaPct}% to a potential ${potSla}%.`}:{type:'good',icon:'🎯',title:'No Active Overdue Tickets',text:'All active tickets are within their due dates — SLA pressure is only from historically late closures.'},
+                            slaFailed>0?{type:'warn',icon:'📋',title:`${slaFailed} Late Closures`,text:`${slaFailed} resolved ticket${slaFailed!==1?'s were':' was'} closed after their due date. Review these cases to identify patterns — common causes include under-staffing, unclear ownership, or complex category types.`}:null,
+                            {type:'info',icon:'🧮',title:'How SLA is Calculated',text:`SLA = on-time closures ÷ (all resolved + active overdue) = ${slaOk} ÷ ${slaTotalEval} = ${slaPct}%. Reducing active overdue to zero would result in ${Math.round(slaOk/Math.max(resTkts.length,1)*100)}% SLA.`},
+                        ].filter(Boolean),
+                        breakdown:[{label:'Resolved On Time',value:slaOk,dot:'#10B981',bar:slaTotalEval?Math.round((slaOk/slaTotalEval)*100):0,sub:'on time'},{label:'Resolved Late',value:slaFailed,dot:'#F97316',bar:slaTotalEval?Math.round((slaFailed/slaTotalEval)*100):0,sub:'late'},{label:'Active Overdue',value:overdue,dot:'#EF4444',bar:slaTotalEval?Math.round((overdue/slaTotalEval)*100):0,sub:'past due'},{label:'Active Staff',value:staffCount,dot:'#0EA5E9',bar:0,sub:'staff'}],
+                        breakdownTitle:'SLA Components',
+                    };
+                }
+                return null;
+            };
+
             const statCards = [
-                { label:'Total Tickets',  value:total,     color:dm?'#818cf8':'#4F46E5', bg:'#EEF2FF', icon:'📋' },
-                { label:'Open',           value:open,      color:'#0EA5E9', bg:'#E0F2FE', icon:'⏱️' },
-                { label:'In Progress',    value:inProg,    color:'#F59E0B', bg:'#FFFBEB', icon:'⚙️' },
-                { label:'Resolved',       value:resolved,  color:'#10B981', bg:'#ECFDF5', icon:'✅' },
-                { label:'Escalated',      value:escalated, color:'#7C3AED', bg:'#F5F3FF', icon:'⬆️' },
-                { label:'Overdue',        value:overdue,   color:'#EF4444', bg:'#FEF2F2', icon:'⚠️' },
-                { label:'Urgent/Critical',value:urgent,    color:'#DC2626', bg:'#FFF1F2', icon:'🔴' },
+                { id:'total',      label:'Total Tickets',  value:total,     color:dm?'#818cf8':'#4F46E5', bg:'#EEF2FF', icon:'📋' },
+                { id:'open',       label:'Open',           value:open,      color:'#0EA5E9', bg:'#E0F2FE', icon:'⏱️' },
+                { id:'inprogress', label:'In Progress',    value:inProg,    color:'#F59E0B', bg:'#FFFBEB', icon:'⚙️' },
+                { id:'resolved',   label:'Resolved',       value:resolved,  color:'#10B981', bg:'#ECFDF5', icon:'✅' },
+                { id:'escalated',  label:'Escalated',      value:escalated, color:'#7C3AED', bg:'#F5F3FF', icon:'⬆️' },
+                { id:'overdue',    label:'Overdue',        value:overdue,   color:'#EF4444', bg:'#FEF2F2', icon:'⚠️' },
+                { id:'urgent',     label:'Urgent/Critical',value:urgent,    color:'#DC2626', bg:'#FFF1F2', icon:'🔴' },
             ];
 
             const card = {background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,
@@ -1362,7 +1647,7 @@
                     ? '0 1px 0 rgba(255,255,255,0.04) inset, 0 4px 6px rgba(0,0,0,0.4), 0 16px 48px rgba(0,0,0,0.6), 0 0 80px -30px rgba(99,102,241,0.10)'
                     : '0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0  0 0 1px rgba(15,23,42,0.03)'};
 
-            return (
+            return (<>
                 <main className="flex-1 overflow-auto" style={{background:pageBg}}>
                     <div style={{maxWidth:'1400px',margin:'0 auto',padding:'24px'}}>
 
@@ -1375,7 +1660,10 @@
                         {/* Stat cards */}
                         <div className='yc-stat-cards' style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(155px,1fr))',gap:'12px',marginBottom:'20px'}}>
                             {statCards.map((c,i)=>(
-                                <div key={i} style={{...card,padding:'16px'}}>
+                                <div key={i} onClick={()=>!loading&&setInsight(buildInsight(c.id))}
+                                    style={{...card,padding:'16px',cursor:loading?'default':'pointer',transition:'transform 0.12s,box-shadow 0.12s'}}
+                                    onMouseEnter={e=>{if(!loading){e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.boxShadow=dm?'0 8px 32px rgba(0,0,0,0.6),0 0 0 1px rgba(99,102,241,0.2)':'0 8px 24px rgba(99,102,241,0.12),0 0 0 1px rgba(99,102,241,0.1)'}}}
+                                    onMouseLeave={e=>{e.currentTarget.style.transform='';e.currentTarget.style.boxShadow=''}}>
                                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
                                         <div>
                                             <p style={{fontSize:'11px',color:textM,fontWeight:'600',margin:0,textTransform:'uppercase',letterSpacing:'0.04em'}}>{c.label}</p>
@@ -1385,21 +1673,28 @@
                                         </div>
                                         <span style={{fontSize:'20px',background:c.bg,borderRadius:'8px',width:'36px',height:'36px',display:'flex',alignItems:'center',justifyContent:'center'}}>{c.icon}</span>
                                     </div>
+                                    {!loading && <p style={{fontSize:'9px',color:dm?'rgba(99,102,241,0.5)':'rgba(99,102,241,0.4)',margin:'8px 0 0',fontWeight:'600',letterSpacing:'0.06em'}}>CLICK FOR INSIGHTS →</p>}
                                 </div>
                             ))}
                         </div>
 
                         {/* Charts row */}
                         <div className='yc-chart-grid-2' style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px',marginBottom:'16px'}}>
-                            <div style={{...card,padding:'20px'}}>
-                                <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,marginBottom:'14px'}}>📊 Status Distribution</h2>
+                            <div onClick={()=>!loading&&setInsight(buildInsight('status-chart'))} style={{...card,padding:'20px',cursor:loading?'default':'pointer',transition:'transform 0.12s'}} onMouseEnter={e=>{if(!loading)e.currentTarget.style.transform='translateY(-2px)'}} onMouseLeave={e=>e.currentTarget.style.transform=''}>
+                                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'14px'}}>
+                                    <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,margin:0}}>📊 Status Distribution</h2>
+                                    {!loading && <span style={{fontSize:'9px',color:dm?'rgba(99,102,241,0.5)':'rgba(99,102,241,0.4)',fontWeight:'700',letterSpacing:'0.06em'}}>CLICK FOR INSIGHTS</span>}
+                                </div>
                                 <div style={{height:'220px',position:'relative'}}>
                                     {loading ? <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:textM,fontSize:'13px'}}>Loading…</div>
                                              : <canvas ref={statusCanvasRef}></canvas>}
                                 </div>
                             </div>
-                            <div style={{...card,padding:'20px'}}>
-                                <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,marginBottom:'14px'}}>📑 Category Breakdown</h2>
+                            <div onClick={()=>!loading&&setInsight(buildInsight('category-chart'))} style={{...card,padding:'20px',cursor:loading?'default':'pointer',transition:'transform 0.12s'}} onMouseEnter={e=>{if(!loading)e.currentTarget.style.transform='translateY(-2px)'}} onMouseLeave={e=>e.currentTarget.style.transform=''}>
+                                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'14px'}}>
+                                    <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,margin:0}}>📑 Category Breakdown</h2>
+                                    {!loading && <span style={{fontSize:'9px',color:dm?'rgba(99,102,241,0.5)':'rgba(99,102,241,0.4)',fontWeight:'700',letterSpacing:'0.06em'}}>CLICK FOR INSIGHTS</span>}
+                                </div>
                                 <div style={{height:'220px',position:'relative'}}>
                                     {loading ? <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:textM,fontSize:'13px'}}>Loading…</div>
                                              : <canvas ref={categoryCanvasRef}></canvas>}
@@ -1411,8 +1706,11 @@
                         <div className='yc-chart-grid-2' style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px'}}>
 
                             {/* SLA Compliance */}
-                            <div style={{...card,padding:'20px'}}>
-                                <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,marginBottom:'16px'}}>⏱️ SLA Compliance</h2>
+                            <div onClick={()=>!loading&&setInsight(buildInsight('sla'))} style={{...card,padding:'20px',cursor:loading?'default':'pointer',transition:'transform 0.12s'}} onMouseEnter={e=>{if(!loading)e.currentTarget.style.transform='translateY(-2px)'}} onMouseLeave={e=>e.currentTarget.style.transform=''}>
+                                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'16px'}}>
+                                    <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,margin:0}}>⏱️ SLA Compliance</h2>
+                                    {!loading && <span style={{fontSize:'9px',color:dm?'rgba(99,102,241,0.5)':'rgba(99,102,241,0.4)',fontWeight:'700',letterSpacing:'0.06em'}}>CLICK FOR INSIGHTS</span>}
+                                </div>
                                 <div style={{display:'flex',alignItems:'center',gap:'24px'}}>
                                     <div style={{position:'relative',flexShrink:0}}>
                                         <svg width="120" height="120" viewBox="0 0 120 120" style={{transform:'rotate(-90deg)'}}>
@@ -1474,6 +1772,8 @@
 
                     </div>
                 </main>
+                {insight && <InsightDrawer data={insight} onClose={()=>setInsight(null)}/>}
+            </>
             );
         }
 
@@ -3944,20 +4244,206 @@
 
             }, [loading, filtered.length, range]);
 
-            const card = (label, value, sub, color='#6366F1', icon, meta) => (
-                <div style={{background:cardBg, borderRadius:'16px', border:`1.5px solid ${borderC}`, padding:'18px 20px', boxShadow:dm?'0 4px 24px rgba(0,0,0,0.4)':'0 1px 6px rgba(99,102,241,0.07)'}}>
+            const [insight, setInsight] = React.useState(null);
+
+            const buildAnalyticsInsight = (type) => {
+                const now2 = new Date();
+                const getStatus   = t => (t.status||t.status_id||'');
+                const getCategory = t => (t.categoryLabel||t.category||t.category_id||'Other');
+                const getAssignee = t => (t.assigneeName||t.assignedToName||'Unassigned');
+                const getPriority = t => (t.priorityLabel||t.priority||t.priority_id||'Low');
+                const isRes = t => ['resolved','closed'].includes(getStatus(t));
+                const fmtAge = t => { const d=Math.floor((now2-new Date(t.createdAt||t.date||now2))/86400000); return d===0?'Today':d===1?'Yesterday':`${d}d ago`; };
+                const pBadge = p => { const l=p.toLowerCase(); return l==='critical'||l==='urgent'?{bg:dm?'rgba(239,68,68,0.15)':'#FEF2F2',color:dm?'#fca5a5':'#DC2626'}:l==='high'?{bg:dm?'rgba(249,115,22,0.15)':'#FFF7ED',color:dm?'#fdba74':'#EA580C'}:l==='medium'?{bg:dm?'rgba(234,179,8,0.15)':'#FEFCE8',color:dm?'#fcd34d':'#A16207'}:{bg:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:dm?'#818cf8':'#4338CA'}; };
+                const tkRow = t => { const p=getPriority(t); const pb=pBadge(p); return {title:t.subtitle||t.title_type||'Untitled',sub:`${getAssignee(t)} · ${getCategory(t)} · ${fmtAge(t)}`,badge:p,badgeBg:pb.bg,badgeColor:pb.color}; };
+
+                if (type==='total') {
+                    const catMap={};filtered.forEach(t=>{const c=getCategory(t);catMap[c]=(catMap[c]||0)+1;});
+                    const topCat=Object.entries(catMap).sort((a,b)=>b[1]-a[1])[0];
+                    const openPct=total?Math.round((open/total)*100):0;
+                    return { title:`All Tickets — Last ${range} Days`, subtitle:`${total} tickets created in this period`, icon:'🎫', iconBg:dm?'rgba(30,27,75,0.4)':'#EEF2FF',
+                        metrics:[{label:'Total',value:total,color:dm?'#818cf8':'#4F46E5'},{label:'Open',value:open,color:'#F97316'},{label:'Resolved',value:resolved,color:'#10B981'}],
+                        insights:[
+                            {type:resRate>=70?'good':'warn',icon:resRate>=70?'✅':'⚠️',title:`${resRate}% Resolution Rate`,text:`${resolved} of ${total} tickets in this period have been resolved. ${resRate>=70?'Strong throughput — team is keeping up with demand.':resRate>=50?'Moderate resolution rate — consider if there are workflow or capacity constraints.':'Lower resolution rate warrants investigation into potential bottlenecks or resourcing gaps.'}`},
+                            {type:openPct>50?'bad':openPct>25?'warn':'good',icon:openPct>50?'🔴':'🟡',title:'Open Backlog Risk',text:`${open} tickets (${openPct}%) remain open in this period. ${openPct>50?'Backlog is accumulating — review capacity allocation.':openPct>25?'Moderate open load.':'Healthy pipeline balance.'}`},
+                            topCat?{type:'info',icon:'📌',title:'Leading Category',text:`"${topCat[0].replace(/_/g,' ')}" is the top category with ${topCat[1]} tickets (${Math.round((topCat[1]/total)*100)}% of this period). Resource allocation and process quality here directly impacts overall performance.`}:null,
+                            escalated>0?{type:'warn',icon:'⬆️',title:`${escalated} Escalation${escalated!==1?'s':''}`,text:`${escalated} ticket${escalated!==1?'s were':' was'} escalated in this period. Investigate recurring categories to address root causes before they escalate.`}:{type:'good',icon:'🌟',title:'Zero Escalations',text:'No escalations in this period — indicates strong service delivery and proactive resolution.'},
+                        ].filter(Boolean),
+                        breakdown:Object.entries(catMap).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([label,value])=>({label,value,bar:Math.round((value/total)*100),sub:`${Math.round((value/total)*100)}%`})),
+                        breakdownTitle:'Volume by Category',
+                    };
+                }
+                if (type==='open') {
+                    const openTkts=filtered.filter(t=>!isRes(t)).sort((a,b)=>new Date(a.createdAt||0)-new Date(b.createdAt||0));
+                    const byA={};openTkts.forEach(t=>{const a=getAssignee(t);byA[a]=(byA[a]||0)+1;});
+                    const unassigned=openTkts.filter(t=>!t.assigneeName&&!t.assignedToName).length;
+                    return { title:'Open Tickets', subtitle:`${open} unresolved tickets in period`, icon:'🔓', iconBg:dm?'rgba(249,115,22,0.12)':'#FFF7ED',
+                        metrics:[{label:'Open',value:open,color:'#F97316'},{label:'% of Period',value:`${total?Math.round((open/total)*100):0}%`,color:'#EF4444'},{label:'Unassigned',value:unassigned,color:'#DC2626'}],
+                        insights:[
+                            unassigned>0?{type:'bad',icon:'🚨',title:`${unassigned} Without Assignee`,text:`${unassigned} open ticket${unassigned!==1?'s have':' has'} no assigned staff member. These are at highest risk of being missed — assign immediately.`}:{type:'good',icon:'✅',title:'All Open Tickets Assigned',text:'All open tickets have assigned staff — good ownership and accountability.'},
+                            overduePct>0?{type:'bad',icon:'⏰',title:`${overduePct} Actively Overdue`,text:`${overduePct} open ticket${overduePct!==1?'s are':' is'} past their due date. Each one is an active SLA breach. Prioritise resolution today.`}:null,
+                            Object.keys(byA).length>0?{type:'info',icon:'👥',title:'Open Load by Staff',text:`Open tickets distributed across ${Object.keys(byA).length} staff member${Object.keys(byA).length!==1?'s':''}. ${Object.entries(byA).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([n,c])=>`${n}: ${c}`).join(' · ')}.`}:null,
+                        ].filter(Boolean),
+                        rows:openTkts.map(tkRow), rowsTitle:'Open Tickets (oldest first)',
+                    };
+                }
+                if (type==='resolved') {
+                    const resTkts2=filtered.filter(isRes);
+                    const byA={};resTkts2.forEach(t=>{const a=getAssignee(t);byA[a]=(byA[a]||0)+1;});
+                    const topRes=Object.entries(byA).sort((a,b)=>b[1]-a[1])[0];
+                    return { title:'Resolved Tickets', subtitle:`${resolved} tickets closed in this period`, icon:'✅', iconBg:dm?'rgba(16,185,129,0.12)':'#ECFDF5',
+                        metrics:[{label:'Resolved',value:resolved,color:'#10B981'},{label:'Resolution Rate',value:`${resRate}%`,color:'#10B981'},{label:'SLA Met',value:`${slaRate}%`,color:slaRate>=80?'#10B981':'#F59E0B'}],
+                        insights:[
+                            {type:resRate>=70?'good':'warn',icon:'📊',title:`${resRate}% Period Resolution Rate`,text:`${resRate>=70?'Excellent resolution velocity — the team is effectively closing out demand.':resRate>=50?'Moderate resolution rate. Consider whether complex tickets are causing delays.':'Lower resolution rate — investigate workflow friction, capacity constraints, or external dependencies.'}`},
+                            {type:slaRate>=80?'good':'warn',icon:'⏱️',title:`SLA Compliance: ${slaRate}%`,text:`${slaOkCount} of ${slaEval} evaluated tickets met SLA. ${slaBreached>0?`${slaBreached} resolved late.`:''} ${overduePct>0?`${overduePct} still open and overdue.`:''}`},
+                            topRes?{type:'good',icon:'🏆',title:'Top Resolver This Period',text:`${topRes[0]} resolved the most tickets (${topRes[1]}) in this period. High individual performers should be recognised and their practices shared with the team.`}:null,
+                        ].filter(Boolean),
+                        breakdown:Object.entries(byA).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([label,value])=>({label,value,bar:resTkts2.length?Math.round((value/resTkts2.length)*100):0,sub:`${resTkts2.length?Math.round((value/resTkts2.length)*100):0}%`})),
+                        breakdownTitle:'Resolved by Staff',
+                    };
+                }
+                if (type==='sla') {
+                    const potSla=Math.round((slaOkCount+overduePct)/Math.max(slaEval,1)*100);
+                    return { title:'SLA Compliance', subtitle:`Service level analysis · last ${range} days`, icon:'⏱️', iconBg:dm?'rgba(16,185,129,0.12)':'#ECFDF5',
+                        metrics:[{label:'SLA Rate',value:`${slaRate}%`,color:slaRate>=80?'#10B981':slaRate>=60?'#F59E0B':'#EF4444'},{label:'On Time',value:slaOkCount,color:'#10B981'},{label:'Breached',value:slaBreached+overduePct,color:'#EF4444'}],
+                        insights:[
+                            {type:slaRate>=90?'good':slaRate>=70?'warn':'bad',icon:slaRate>=90?'✅':slaRate>=70?'⚠️':'🚨',title:`SLA at ${slaRate}% in This Period`,text:slaRate>=90?'Outstanding SLA performance — the team is consistently meeting client commitments.':slaRate>=70?'SLA compliance is acceptable but improvable. Focus on reducing overdue tickets first.':'SLA compliance needs immediate attention. Review ticket assignment, staff capacity, and escalation processes.'},
+                            overduePct>0?{type:'bad',icon:'⏰',title:`${overduePct} Active Overdue`,text:`${overduePct} tickets are currently open past their due date. Resolving these would push SLA from ${slaRate}% to ~${potSla}%.`}:{type:'good',icon:'🎯',title:'No Active Overdue',text:'All active tickets are within their due dates this period.'},
+                            slaBreached>0?{type:'warn',icon:'📋',title:`${slaBreached} Late Closures`,text:`${slaBreached} ticket${slaBreached!==1?'s were':' was'} resolved after their due date. Analyse these for common causes — repeated patterns indicate a process or capacity issue.`}:null,
+                            {type:'info',icon:'🧮',title:'Calculation',text:`SLA = ${slaOkCount} on-time ÷ (${resTickets.length} resolved + ${overduePct} overdue) = ${slaRate}%.`},
+                        ].filter(Boolean),
+                        breakdown:[{label:'On Time',value:slaOkCount,dot:'#10B981',bar:slaEval?Math.round((slaOkCount/slaEval)*100):0,sub:'on time'},{label:'Resolved Late',value:slaBreached,dot:'#F97316',bar:slaEval?Math.round((slaBreached/slaEval)*100):0,sub:'late'},{label:'Active Overdue',value:overduePct,dot:'#EF4444',bar:slaEval?Math.round((overduePct/slaEval)*100):0,sub:'overdue'}],
+                        breakdownTitle:'SLA Components',
+                    };
+                }
+                if (type==='escalated') {
+                    const escTkts=filtered.filter(t=>t.isEscalated);
+                    const byCat={};escTkts.forEach(t=>{const c=getCategory(t);byCat[c]=(byCat[c]||0)+1;});
+                    return { title:'Escalated Tickets', subtitle:`${escalated} escalations in last ${range} days`, icon:'⬆️', iconBg:dm?'rgba(124,58,237,0.12)':'#F5F3FF',
+                        metrics:[{label:'Escalated',value:escalated,color:'#7C3AED'},{label:'% of Period',value:`${total?Math.round((escalated/total)*100):0}%`,color:'#8B5CF6'},{label:'Still Open',value:escTkts.filter(t=>!isRes(t)).length,color:'#EF4444'}],
+                        insights:[
+                            escalated===0?{type:'good',icon:'🌟',title:'Zero Escalations This Period',text:`No tickets were escalated in the last ${range} days — reflects effective first-contact resolution and well-managed expectations.`}:{type:'warn',icon:'⚠️',title:'Escalation Categories',text:`Escalations in this period: ${Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([c,n])=>`${c.replace(/_/g,' ')} (${n})`).join(', ')}. Investigate root causes to build prevention strategies.`},
+                            escalated>0&&escTkts.filter(t=>!isRes(t)).length>0?{type:'bad',icon:'🚨',title:'Open Escalations',text:`${escTkts.filter(t=>!isRes(t)).length} escalated ticket${escTkts.filter(t=>!isRes(t)).length!==1?'s remain':' remains'} open — these represent the highest risk to client trust and SLA compliance.`}:null,
+                        ].filter(Boolean),
+                        rows:escTkts.map(tkRow), rowsTitle:'Escalated Tickets',
+                    };
+                }
+                if (type==='ndis') {
+                    const ndisTkts=filtered.filter(t=>t.ndisRelated||t.ndis_related||t.ndisrelated);
+                    const nonNdis=total-ndis;
+                    const ndisRes=ndisTkts.filter(isRes).length;
+                    const ndisResRate=ndisTkts.length>0?Math.round((ndisRes/ndisTkts.length)*100):0;
+                    const byCat={};ndisTkts.forEach(t=>{const c=getCategory(t);byCat[c]=(byCat[c]||0)+1;});
+                    return { title:'NDIS Related Tickets', subtitle:`NDIS compliance analysis · last ${range} days`, icon:'🏥', iconBg:dm?'rgba(6,182,212,0.12)':'#ECFEFF',
+                        metrics:[{label:'NDIS Tickets',value:ndis,color:'#06B6D4'},{label:'% of Total',value:`${total?Math.round((ndis/total)*100):0}%`,color:'#0EA5E9'},{label:'NDIS Resolved',value:ndisRes,color:'#10B981'}],
+                        insights:[
+                            {type:'info',icon:'📋',title:'NDIS Compliance Obligation',text:`${ndis} NDIS-related ticket${ndis!==1?'s':''} in this period (${total?Math.round((ndis/total)*100):0}% of total). Ensure all NDIS tickets have complete documentation, appropriate response times, and comply with NDIS Practice Standards.`},
+                            {type:ndisResRate>=70?'good':'warn',icon:ndisResRate>=70?'✅':'⚠️',title:`NDIS Resolution Rate: ${ndisResRate}%`,text:`${ndisRes} of ${ndisTkts.length} NDIS tickets have been resolved. ${ndisResRate>=70?'Strong compliance throughput.':'Review NDIS ticket workflows — lower resolution rates may indicate complexity or resourcing gaps in NDIS service delivery.'}`},
+                            Object.keys(byCat).length>0?{type:'info',icon:'📌',title:'NDIS Category Distribution',text:`NDIS tickets span: ${Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([c,n])=>`${c.replace(/_/g,' ')} (${n})`).join(', ')}. Ensure service staff in these areas are trained in NDIS compliance requirements.`}:null,
+                        ].filter(Boolean),
+                        breakdown:Object.entries(byCat).sort((a,b)=>b[1]-a[1]).map(([label,value])=>({label:label.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()),value,bar:ndis?Math.round((value/ndis)*100):0,sub:`${ndis?Math.round((value/ndis)*100):0}%`})),
+                        breakdownTitle:'NDIS Tickets by Category',
+                    };
+                }
+                if (type==='trend') {
+                    const maxMonth=Math.max(...monthData,1); const minMonth=Math.min(...monthData.filter(v=>v>0),0);
+                    const recentTrend=monthData.slice(-3); const prevTrend=monthData.slice(-6,-3);
+                    const recentAvg=recentTrend.reduce((a,b)=>a+b,0)/Math.max(recentTrend.length,1);
+                    const prevAvg=prevTrend.reduce((a,b)=>a+b,0)/Math.max(prevTrend.length,1);
+                    const trendDir=recentAvg>prevAvg*1.1?'up':recentAvg<prevAvg*0.9?'down':'stable';
+                    return { title:'Ticket Volume Trend', subtitle:'Monthly ticket creation over 6 months', icon:'📈', iconBg:dm?'rgba(99,102,241,0.15)':'#EEF2FF',
+                        metrics:[{label:'Peak Month',value:maxMonth,color:'#EF4444'},{label:'Monthly Avg',value:Math.round(monthData.reduce((a,b)=>a+b,0)/Math.max(monthData.length,1)),color:dm?'#818cf8':'#4F46E5'},{label:'Recent Avg',value:Math.round(recentAvg),color:'#10B981'}],
+                        insights:[
+                            {type:trendDir==='up'?'warn':trendDir==='down'?'good':'info',icon:trendDir==='up'?'📈':trendDir==='down'?'📉':'➡️',title:`Volume Trend: ${trendDir==='up'?'Increasing':trendDir==='down'?'Decreasing':'Stable'}`,text:`Recent 3-month average (${Math.round(recentAvg)}/mo) vs prior 3-month (${Math.round(prevAvg)}/mo). ${trendDir==='up'?'Increasing volume may require capacity review to prevent SLA degradation.':trendDir==='down'?'Decreasing volume may indicate improved client self-service, seasonal variation, or reduced service demand.':'Volume is stable — predictable demand enables effective resource planning.'}`},
+                            {type:'info',icon:'📊',title:'Volume Distribution',text:`Peak month: ${monthLabels[monthData.indexOf(maxMonth)]} (${maxMonth} tickets). ${maxMonth>recentAvg*1.5?'Significant volume spikes suggest seasonal patterns or one-off events — investigate and plan for recurrence.':'Volume is relatively consistent across months — good for planning.'}`},
+                        ],
+                        breakdown:monthLabels.map((label,i)=>({label,value:monthData[i],bar:maxMonth?Math.round((monthData[i]/maxMonth)*100):0})),
+                        breakdownTitle:'Monthly Volume',
+                    };
+                }
+                if (type==='priority') {
+                    const pMap=Object.entries(priorityCounts).filter(([,v])=>v>0);
+                    const critUrgCount=(priorityCounts.critical||0)+(priorityCounts.urgent||0);
+                    return { title:'Priority Distribution', subtitle:`Ticket priority breakdown · last ${range} days`, icon:'🎯', iconBg:dm?'rgba(239,68,68,0.08)':'#FFF5F5',
+                        metrics:[{label:'Critical/Urgent',value:critUrgCount,color:'#EF4444'},{label:'High',value:priorityCounts.high||0,color:'#F97316'},{label:'Med/Low',value:(priorityCounts.medium||0)+(priorityCounts.low||0),color:'#6366F1'}],
+                        insights:[
+                            {type:critUrgCount/Math.max(total,1)>0.2?'bad':critUrgCount>0?'warn':'good',icon:critUrgCount/Math.max(total,1)>0.2?'🚨':critUrgCount>0?'⚠️':'✅',title:'Critical Load Assessment',text:`${critUrgCount} critical/urgent ticket${critUrgCount!==1?'s':''} represent ${total?Math.round((critUrgCount/total)*100):0}% of the period's volume. ${critUrgCount/Math.max(total,1)>0.2?'High critical ratio may indicate service quality issues or insufficient preventative maintenance — investigate root causes.':critUrgCount>0?'Manageable critical load — monitor for any upward trend.':'No critical tickets — excellent risk management.'}`},
+                            {type:'info',icon:'📊',title:'Priority Balance',text:`Priority mix: ${pMap.map(([p,c])=>`${p}: ${c} (${Math.round((c/total)*100)}%)`).join(', ')}. A healthy service operation typically sees most tickets in the medium/low range.`},
+                        ],
+                        breakdown:[{label:'Critical/Urgent',value:critUrgCount,dot:'#EF4444',bar:total?Math.round((critUrgCount/total)*100):0},{label:'High',value:priorityCounts.high||0,dot:'#F97316',bar:total?Math.round(((priorityCounts.high||0)/total)*100):0},{label:'Medium',value:priorityCounts.medium||0,dot:'#EAB308',bar:total?Math.round(((priorityCounts.medium||0)/total)*100):0},{label:'Low',value:priorityCounts.low||0,dot:'#6366F1',bar:total?Math.round(((priorityCounts.low||0)/total)*100):0}],
+                        breakdownTitle:'Priority Breakdown',
+                    };
+                }
+                if (type==='status') {
+                    const SC2={new:'#06B6D4',assigned:'#3B82F6',in_progress:'#F59E0B',waiting:'#8B5CF6',pending_approval:'#EC4899',resolved:'#10B981',closed:'#475569'};
+                    return { title:'Status Breakdown', subtitle:`All ticket statuses · last ${range} days`, icon:'📋', iconBg:dm?'rgba(99,102,241,0.15)':'#EEF2FF',
+                        metrics:[{label:'Active Pipeline',value:open,color:'#F59E0B'},{label:'Resolved',value:resolved,color:'#10B981'},{label:'Waiting/Blocked',value:(statusCounts['waiting']||0)+(statusCounts['pending_approval']||0),color:'#8B5CF6'}],
+                        insights:[
+                            {type:'info',icon:'📈',title:'Pipeline Flow',text:`${open} tickets in the open queue, ${Object.values(statusCounts).reduce((a,b)=>a+b,0)-resolved} actively being managed. A healthy pipeline has more tickets in "in_progress" than "new" or "assigned".`},
+                            (statusCounts['waiting']||0)>0?{type:'warn',icon:'⏸️',title:`${statusCounts['waiting']} Blocked Tickets`,text:`${statusCounts['waiting']} ticket${statusCounts['waiting']!==1?'s are':' is'} in "Waiting" — stalled on external input. Follow up to unblock and protect SLA.`}:null,
+                            (statusCounts['pending_approval']||0)>0?{type:'warn',icon:'📋',title:`${statusCounts['pending_approval']} Awaiting Approval`,text:`${statusCounts['pending_approval']} ticket${statusCounts['pending_approval']!==1?'s require':' requires'} approval. Approvers should be prompted to review to prevent delays.`}:null,
+                        ].filter(Boolean),
+                        breakdown:Object.entries(statusCounts).sort((a,b)=>b[1]-a[1]).map(([label,value])=>({label:label.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()),value,dot:SC2[label]||'#6366F1',bar:Math.round((value/Math.max(total,1))*100),sub:`${Math.round((value/Math.max(total,1))*100)}%`})),
+                        breakdownTitle:'Status Breakdown',
+                    };
+                }
+                if (type==='category') {
+                    const openByCat={};filtered.filter(t=>!isRes(t)).forEach(t=>{const c=getCategory(t);openByCat[c]=(openByCat[c]||0)+1;});
+                    const top=topCats[0];
+                    return { title:'Top Categories', subtitle:`Service category analysis · last ${range} days`, icon:'🗂️', iconBg:dm?'rgba(99,102,241,0.15)':'#EEF2FF',
+                        metrics:[{label:'Categories',value:topCats.length,color:dm?'#818cf8':'#4F46E5'},{label:'Top Volume',value:top?top[1]:0,color:'#F97316'},{label:'Open in Top',value:top?openByCat[top[0]]||0:0,color:'#EF4444'}],
+                        insights:[
+                            top?{type:'info',icon:'📌',title:`"${top[0].replace(/_/g,' ')}" Leads Volume`,text:`Top category with ${top[1]} tickets (${Math.round((top[1]/total)*100)}% of period). ${openByCat[top[0]]>0?`${openByCat[top[0]]} remain open.`:''} Ensure staff capacity, process documentation, and quality standards are prioritised here.`}:null,
+                            {type:'info',icon:'⚖️',title:'Category Spread',text:topCats.slice(0,2).reduce((s,[,v])=>s+v,0)/total>0.7?`Top 2 categories account for ${Math.round(topCats.slice(0,2).reduce((s,[,v])=>s+v,0)/total*100)}% of tickets — high concentration. Investigate if this reflects a systemic issue.`:`Tickets are spread across ${topCats.length} categories — broad service delivery with no extreme concentration.`},
+                        ].filter(Boolean),
+                        breakdown:topCats.map(([label,value])=>({label:label.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()),value,bar:Math.round((value/total)*100),sub:`${openByCat[label]||0} open`})),
+                        breakdownTitle:'Volume by Category',
+                    };
+                }
+                if (type==='staff') {
+                    const top3Staff=staffRows.slice(0,3);
+                    const unassigned=filtered.filter(t=>!t.assigneeName&&!t.assignedToName).length;
+                    const maxLoad=staffRows[0]?staffRows[0][1]:0;
+                    const avgLoad=staffRows.length>0?Math.round(staffRows.reduce((s,[,v])=>s+v,0)/staffRows.length):0;
+                    return { title:'Staff Workload', subtitle:`Team capacity analysis · last ${range} days`, icon:'👥', iconBg:dm?'rgba(99,102,241,0.15)':'#EEF2FF',
+                        metrics:[{label:'Active Staff',value:staffRows.length,color:dm?'#818cf8':'#4F46E5'},{label:'Avg Load',value:avgLoad,color:'#F59E0B'},{label:'Unassigned',value:unassigned,color:'#EF4444'}],
+                        insights:[
+                            maxLoad>avgLoad*2?{type:'warn',icon:'⚠️',title:'Uneven Workload Distribution',text:`${staffRows[0]?staffRows[0][0]:'Top staff'} has ${maxLoad} tickets vs team average of ${avgLoad}. Significant imbalances risk burnout and SLA inconsistencies — consider redistributing open tickets.`}:{type:'good',icon:'⚖️',title:'Balanced Team Load',text:`Workload is relatively evenly distributed across ${staffRows.length} staff (avg ${avgLoad} tickets each). Balanced loads support consistent service quality.`},
+                            unassigned>0?{type:'bad',icon:'🚨',title:`${unassigned} Unassigned Tickets`,text:`${unassigned} ticket${unassigned!==1?'s have':' has'} no assigned staff. These are invisible to all team members and at risk of being missed entirely — assign immediately.`}:{type:'good',icon:'✅',title:'Full Ticket Coverage',text:'All tickets have an assigned staff member — complete ownership and accountability across the team.'},
+                            top3Staff.length>0?{type:'info',icon:'🏆',title:'Top Performers',text:`Highest load: ${top3Staff.map(([n,c])=>`${n} (${c})`).join(', ')}. Top performers should be recognised — their approaches may provide best practice learnings for the team.`}:null,
+                        ].filter(Boolean),
+                        breakdown:staffRows.slice(0,10).map(([label,value])=>({label,value,bar:maxLoad?Math.round((value/maxLoad)*100):0,sub:`${value} tickets`})),
+                        breakdownTitle:'Tickets per Staff Member',
+                    };
+                }
+                if (type==='ndis-chart') {
+                    return buildAnalyticsInsight('ndis');
+                }
+                return null;
+            };
+
+            const card = (label, value, sub, color='#6366F1', icon, meta, onClickFn) => (
+                <div onClick={onClickFn} style={{background:cardBg, borderRadius:'16px', border:`1.5px solid ${borderC}`, padding:'18px 20px', boxShadow:dm?'0 4px 24px rgba(0,0,0,0.4)':'0 1px 6px rgba(99,102,241,0.07)', cursor:onClickFn?'pointer':'default', transition:'transform 0.12s'}}
+                    onMouseEnter={e=>{if(onClickFn)e.currentTarget.style.transform='translateY(-2px)'}}
+                    onMouseLeave={e=>e.currentTarget.style.transform=''}>
                     <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'8px'}}>
                         <p style={{fontSize:'11px', fontWeight:'700', color:dm?'#4a607f':'#94A3B8', textTransform:'uppercase', letterSpacing:'0.07em', margin:0}}>{label}</p>
                         <span style={{fontSize:'20px'}}>{icon}</span>
                     </div>
                     <p style={{fontSize:'30px', fontWeight:'700', color, margin:'0 0 4px', lineHeight:1}}>{value}</p>
-                    <p style={{fontSize:'12px', color:dm?'#4a607f':'#94A3B8', margin:0}}>{sub}</p>
+                    <p style={{fontSize:'12px', color:dm?'#4a607f':'#94A3B8', margin:'0 0 4px'}}>{sub}</p>
+                    {onClickFn && <p style={{fontSize:'9px',color:dm?'rgba(99,102,241,0.5)':'rgba(99,102,241,0.4)',margin:0,fontWeight:'600',letterSpacing:'0.06em'}}>CLICK FOR INSIGHTS →</p>}
                 </div>
             );
 
-            const chartCard = (title, subtitle, id, height=220, footnote) => (
-                <div style={{background:cardBg, borderRadius:'16px', border:`1.5px solid ${borderC}`, padding:'20px', boxShadow:dm?'0 4px 24px rgba(0,0,0,0.4)':'0 1px 6px rgba(99,102,241,0.07)'}}>
-                    <p style={{fontSize:'14px', fontWeight:'700', color:dm?'#c7d2fe':'#1E1B4B', margin:'0 0 2px'}}>{title}</p>
+            const chartCard = (title, subtitle, id, height=220, footnote, onClickFn) => (
+                <div onClick={onClickFn} style={{background:cardBg, borderRadius:'16px', border:`1.5px solid ${borderC}`, padding:'20px', boxShadow:dm?'0 4px 24px rgba(0,0,0,0.4)':'0 1px 6px rgba(99,102,241,0.07)', cursor:onClickFn?'pointer':'default', transition:'transform 0.12s'}}
+                    onMouseEnter={e=>{if(onClickFn)e.currentTarget.style.transform='translateY(-2px)'}}
+                    onMouseLeave={e=>e.currentTarget.style.transform=''}>
+                    <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:'2px'}}>
+                        <p style={{fontSize:'14px', fontWeight:'700', color:dm?'#c7d2fe':'#1E1B4B', margin:0}}>{title}</p>
+                        {onClickFn && <span style={{fontSize:'9px',color:dm?'rgba(99,102,241,0.5)':'rgba(99,102,241,0.4)',fontWeight:'700',letterSpacing:'0.06em',flexShrink:0,marginLeft:'8px',marginTop:'2px'}}>CLICK FOR INSIGHTS</span>}
+                    </div>
                     <p style={{fontSize:'11px', color:dm?'#4a607f':'#94A3B8', margin:'0 0 10px'}}>{subtitle}</p>
                     <div style={{position:'relative', height:`${height}px`}}>
                         <canvas id={id}></canvas>
@@ -3965,7 +4451,7 @@
                 </div>
             );
 
-            return (
+            return (<>
                 <main className="flex-1 overflow-auto" style={{background:pageBg}}>
                     <div style={{maxWidth:'1400px', margin:'0 auto', padding:'24px 28px'}}>
 
@@ -3996,30 +4482,30 @@
 
                         {/* ── KPI Cards ── */}
                         <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:'14px', marginBottom:'20px'}}>
-                            {card('Total Tickets', total, `in last ${range} days`, '#1E1B4B', '🎫')}
-                            {card('Open', open, `${total ? Math.round((open/total)*100) : 0}% of total`, '#F97316', '🔓')}
-                            {card('Resolved', resolved, `${resRate}% resolution rate`, '#10B981', '✅')}
-                            {card('SLA Compliance', `${slaRate}%`, `${slaBreached} late closures · ${overduePct} active overdue`, slaRate>=90?'#10B981':slaRate>=70?'#F97316':'#EF4444', '⏱️')}
-                            {card('Escalated', escalated, `${total ? Math.round((escalated/total)*100) : 0}% of total`, '#8B5CF6', '⬆️')}
-                            {card('NDIS Related', ndis, `${total ? Math.round((ndis/total)*100) : 0}% of total`, '#06B6D4', '🏥')}
+                            {card('Total Tickets', total, `in last ${range} days`, '#1E1B4B', '🎫', null, ()=>!loading&&setInsight(buildAnalyticsInsight('total')))}
+                            {card('Open', open, `${total ? Math.round((open/total)*100) : 0}% of total`, '#F97316', '🔓', null, ()=>!loading&&setInsight(buildAnalyticsInsight('open')))}
+                            {card('Resolved', resolved, `${resRate}% resolution rate`, '#10B981', '✅', null, ()=>!loading&&setInsight(buildAnalyticsInsight('resolved')))}
+                            {card('SLA Compliance', `${slaRate}%`, `${slaBreached} late closures · ${overduePct} active overdue`, slaRate>=90?'#10B981':slaRate>=70?'#F97316':'#EF4444', '⏱️', null, ()=>!loading&&setInsight(buildAnalyticsInsight('sla')))}
+                            {card('Escalated', escalated, `${total ? Math.round((escalated/total)*100) : 0}% of total`, '#8B5CF6', '⬆️', null, ()=>!loading&&setInsight(buildAnalyticsInsight('escalated')))}
+                            {card('NDIS Related', ndis, `${total ? Math.round((ndis/total)*100) : 0}% of total`, '#06B6D4', '🏥', null, ()=>!loading&&setInsight(buildAnalyticsInsight('ndis')))}
                         </div>
 
                         {/* ── Row 1: Trend + Priority ── */}
                         <div style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:'16px', marginBottom:'16px'}}>
-                            {chartCard('Ticket Volume Trend', 'Monthly ticket creation — all tickets regardless of period filter', 'chart-trend', 200)}
-                            {chartCard('Priority Breakdown', `Distribution by priority · ${filtered.length} tickets in period`, 'chart-priority', 200)}
+                            {chartCard('Ticket Volume Trend', 'Monthly ticket creation — all tickets regardless of period filter', 'chart-trend', 200, null, ()=>!loading&&setInsight(buildAnalyticsInsight('trend')))}
+                            {chartCard('Priority Breakdown', `Distribution by priority · ${filtered.length} tickets in period`, 'chart-priority', 200, null, ()=>!loading&&setInsight(buildAnalyticsInsight('priority')))}
                         </div>
 
                         {/* ── Row 2: Status + Category ── */}
                         <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'16px', marginBottom:'16px'}}>
-                            {chartCard('Tickets by Status', `Raw status values from backend · ${filtered.length} tickets`, 'chart-status', 200)}
-                            {chartCard('Top Categories', `Top ${Math.min(topCats.length,7)} categories by volume · ${filtered.length} tickets`, 'chart-category', 200)}
+                            {chartCard('Tickets by Status', `Raw status values from backend · ${filtered.length} tickets`, 'chart-status', 200, null, ()=>!loading&&setInsight(buildAnalyticsInsight('status')))}
+                            {chartCard('Top Categories', `Top ${Math.min(topCats.length,7)} categories by volume · ${filtered.length} tickets`, 'chart-category', 200, null, ()=>!loading&&setInsight(buildAnalyticsInsight('category')))}
                         </div>
 
                         {/* ── Row 3: Staff + NDIS + Insights ── */}
                         <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'16px', marginBottom:'16px'}}>
-                            {chartCard('Staff Workload', `Assigned tickets per staff member · ${filtered.length} tickets`, 'chart-staff', 200)}
-                            {chartCard('NDIS vs Non-NDIS', `NDIS flag from backend · ${ndis} of ${total} tickets flagged`, 'chart-ndis', 200)}
+                            {chartCard('Staff Workload', `Assigned tickets per staff member · ${filtered.length} tickets`, 'chart-staff', 200, null, ()=>!loading&&setInsight(buildAnalyticsInsight('staff')))}
+                            {chartCard('NDIS vs Non-NDIS', `NDIS flag from backend · ${ndis} of ${total} tickets flagged`, 'chart-ndis', 200, null, ()=>!loading&&setInsight(buildAnalyticsInsight('ndis-chart')))}
 
                             {/* Key Insights card */}
                             <div style={{background:cardBg, borderRadius:'16px', border:`1.5px solid ${borderC}`, padding:'20px', boxShadow:dm?'0 4px 24px rgba(0,0,0,0.4)':'0 1px 6px rgba(99,102,241,0.07)'}}>
@@ -4088,7 +4574,8 @@
                         </>)}
                     </div>
                 </main>
-            );
+                <InsightDrawer data={insight} onClose={()=>setInsight(null)}/>
+            </>);
         }
 
         // Org Chart Page
