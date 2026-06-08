@@ -2162,7 +2162,10 @@
                                                 className={inputCls}
                                             >
                                                 <option value="">Unassigned</option>
-                                                {(lookups?.users || []).map(u => (
+                                                {sessionUser?.id && (
+                                                    <option value={sessionUser.id}>{sessionUser.name} (Me)</option>
+                                                )}
+                                                {(lookups?.users || []).filter(u => u.id !== sessionUser?.id).map(u => (
                                                     <option key={u.id} value={u.id}>{u.name}</option>
                                                 ))}
                                             </select>
