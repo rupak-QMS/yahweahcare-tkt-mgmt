@@ -167,42 +167,43 @@ router.get('/', optionalAuth, async (req, res, next) => {
     }
     // scope=all or no scope → no additional filter
 
-    // v_open_tickets excludes closed rows; ?all=1 reads the base tickets table instead.
-    // For all=1 we JOIN label tables directly (no subquery, avoids duplicate-column issues).
-    let rows: Record<string, unknown>[];
-    if (all === '1') {
-      const res = await pool.query(
-        `SELECT v.*,
-                cat.name   AS category_label,
-                pri.label  AS priority_label,
-                pri.sla_hours,
-                ureq.name  AS requester_name,  ureq.email  AS requester_email,
-                uasgn.name AS assignee_name,   uasgn.email AS assignee_email,
-                dept.name  AS department_name,
-                COUNT(*) OVER() AS total
-           FROM yc_tkt_mgmt.tickets v
-           LEFT JOIN yc_tkt_mgmt.categories  cat  ON cat.id   = v.category_id
-           LEFT JOIN yc_tkt_mgmt.priorities  pri  ON pri.id   = v.priority_id
-           LEFT JOIN yc_tkt_mgmt.users       ureq ON ureq.id  = v.created_by
-           LEFT JOIN yc_tkt_mgmt.users      uasgn ON uasgn.id = v.assigned_to
-           LEFT JOIN yc_tkt_mgmt.departments dept ON dept.id  = uasgn.department_id
-          WHERE ${where.join(' AND ')}
-          ORDER BY v.created_at DESC
-          LIMIT $${i} OFFSET $${i + 1}`,
-        [...params, limit, offset]
-      );
-      rows = res.rows;
-    } else {
-      const res = await pool.query(
-        `SELECT v.*, COUNT(*) OVER() AS total
-           FROM yc_tkt_mgmt.v_open_tickets v
-          WHERE ${where.join(' AND ')}
-          ORDER BY v.created_at DESC
-          LIMIT $${i} OFFSET $${i + 1}`,
-        [...params, limit, offset]
-      );
-      rows = res.rows;
+    // Both all=1 and open-only use direct JOINs against the raw tickets table.
+    // (The v_open_tickets view uses legacy column names and cannot be relied upon.)
+    // all=1 → include closed/resolved; default → open tickets only.
+    if (!all) {
+      where.push(`v.status NOT IN ('resolved', 'closed')`);
     }
+
+    const ticketQuery = `
+      SELECT v.id, v.title, v.description, v.status,
+             v.category_id, v.priority_id,
+             v.created_by, v.assigned_to,
+             v.due_date, v.closed_date, v.expected_completion,
+             v.pending_approval_at,
+             v.is_escalated, v.escalated_to, v.escalated_by,
+             v.escalated_at, v.escalation_reason,
+             v.ndis_related,
+             v.created_at, v.updated_at,
+             cat.name      AS category_label,
+             cat.icon      AS category_icon,
+             pri.label     AS priority_label,
+             pri.sla_hours AS sla_hours,
+             ureq.name     AS requester_name,  ureq.email  AS requester_email,
+             uasgn.name    AS assignee_name,   uasgn.email AS assignee_email,
+             dept.name     AS department_name,
+             COUNT(*) OVER() AS total
+        FROM yc_tkt_mgmt.tickets v
+        LEFT JOIN yc_tkt_mgmt.categories  cat  ON cat.id   = v.category_id
+        LEFT JOIN yc_tkt_mgmt.priorities  pri  ON pri.id   = v.priority_id
+        LEFT JOIN yc_tkt_mgmt.users       ureq ON ureq.id  = v.created_by
+        LEFT JOIN yc_tkt_mgmt.users      uasgn ON uasgn.id = v.assigned_to
+        LEFT JOIN yc_tkt_mgmt.departments dept ON dept.id  = uasgn.department_id
+       WHERE ${where.join(' AND ')}
+       ORDER BY v.created_at DESC
+       LIMIT $${i} OFFSET $${i + 1}`;
+
+    const res = await pool.query(ticketQuery, [...params, limit, offset]);
+    const rows: Record<string, unknown>[] = res.rows;
 
     const ticketIds = rows.map(r => r.id);
     let commentRows: Record<string, unknown>[] = [];
