@@ -174,9 +174,8 @@ router.get('/', optionalAuth, async (req, res, next) => {
       where.push(`v.status NOT IN ('resolved', 'closed')`);
     }
 
-    // Use v.* so the query works regardless of which optional columns exist
-    // (ndis_related, expected_completion etc. may not be present on older DB schemas).
-    // JOIN aliases use names that never appear in the tickets table itself.
+    // Use v.* so the query works regardless of which optional columns exist.
+    // Departments JOIN removed — users.department_id may not exist on all DB schemas.
     const ticketQuery = `
       SELECT v.*,
              cat.name      AS category_label,
@@ -185,19 +184,23 @@ router.get('/', optionalAuth, async (req, res, next) => {
              pri.sla_hours AS priority_sla_hours,
              ureq.name     AS requester_name,  ureq.email  AS requester_email,
              uasgn.name    AS assignee_name,   uasgn.email AS assignee_email,
-             dept.name     AS department_name,
              COUNT(*) OVER() AS total
         FROM yc_tkt_mgmt.tickets v
         LEFT JOIN yc_tkt_mgmt.categories  cat  ON cat.id   = v.category_id
         LEFT JOIN yc_tkt_mgmt.priorities  pri  ON pri.id   = v.priority_id
         LEFT JOIN yc_tkt_mgmt.users       ureq ON ureq.id  = v.created_by
         LEFT JOIN yc_tkt_mgmt.users      uasgn ON uasgn.id = v.assigned_to
-        LEFT JOIN yc_tkt_mgmt.departments dept ON dept.id  = uasgn.department_id
        WHERE ${where.join(' AND ')}
        ORDER BY v.created_at DESC
        LIMIT $${i} OFFSET $${i + 1}`;
 
-    const qRes = await pool.query(ticketQuery, [...params, limit, offset]);
+    let qRes;
+    try {
+      qRes = await pool.query(ticketQuery, [...params, limit, offset]);
+    } catch (qErr) {
+      console.error('[GET /tickets] SQL error:', qErr);
+      throw qErr;
+    }
     const rows: Record<string, unknown>[] = qRes.rows;
 
     const ticketIds = rows.map(r => r.id);
