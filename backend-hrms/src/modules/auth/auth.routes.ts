@@ -180,6 +180,7 @@ router.get('/me', requireAuth, async (req, res) => {
             u.auth_provider,
             u.department_id,
             u.employment_type,
+            u.role,
             d.name               AS department_name
        FROM yc_tkt_mgmt.users u
        LEFT JOIN yc_tkt_mgmt.departments d ON d.id = u.department_id

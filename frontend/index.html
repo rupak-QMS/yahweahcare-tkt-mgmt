@@ -909,7 +909,7 @@
 
             const displayName = currentUser?.name || 'User';
             const initials    = displayName.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
-            const deptLabel   = currentUser?.dept || currentUser?.department_name || '';
+            const deptLabel   = currentUser?.department_name || currentUser?.dept || '';
 
             const pageLabels = {
                 'dashboard':'Dashboard','create-ticket':'Create Ticket','tickets':'Tickets',
@@ -988,7 +988,7 @@
                                         Notifications {unreadCount > 0 && <span style={{background:'#EF4444',color:'white',borderRadius:10,fontSize:10,padding:'1px 6px',marginLeft:6}}>{unreadCount}</span>}
                                     </p>
                                     {unreadCount > 0 && (
-                                        <button onClick={markAllRead} style={{fontSize:11,color:dm?'#818cf8':'#4F46E5',background:'none',border:'none',cursor:'pointer',padding:0}}>Mark all read</button>
+                                        <button onClick={markAllRead} style={{fontSize:11,color:darkMode?'#818cf8':'#4F46E5',background:'none',border:'none',cursor:'pointer',padding:0}}>Mark all read</button>
                                     )}
                                 </div>
                                 <div style={{overflowY:'auto', flex:1}}>
@@ -1475,7 +1475,7 @@
                 const isResolved  = t => ['resolved','closed'].includes(getStatus(t));
                 const fmtAge = t => { const d=Math.floor((now2-new Date(t.createdAt||t.date||now2))/86400000); return d===0?'Today':d===1?'Yesterday':`${d}d ago`; };
                 const pBadge = p => { const l=p.toLowerCase(); return l==='critical'||l==='urgent'?{bg:dm?'rgba(239,68,68,0.15)':'#FEF2F2',color:dm?'#fca5a5':'#DC2626'}:l==='high'?{bg:dm?'rgba(249,115,22,0.15)':'#FFF7ED',color:dm?'#fdba74':'#EA580C'}:l==='medium'?{bg:dm?'rgba(234,179,8,0.15)':'#FEFCE8',color:dm?'#fcd34d':'#A16207'}:{bg:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:dm?'#818cf8':'#4338CA'}; };
-                const tkRow = t => { const p=getPriority(t); const pb=pBadge(p); return {title:t.subtitle||t.title_type||'Untitled',sub:`${getAssignee(t)} · ${getCategory(t)} · ${fmtAge(t)}`,badge:p,badgeBg:pb.bg,badgeColor:pb.color}; };
+                const tkRow = t => { const p=getPriority(t); const pb=pBadge(p); return {title:t.title||t.subtitle||t.title_type||'Untitled',sub:`${getAssignee(t)} · ${getCategory(t)} · ${fmtAge(t)}`,badge:p,badgeBg:pb.bg,badgeColor:pb.color}; };
 
                 if (type==='total') {
                     const catMap={};tickets.forEach(t=>{const c=getCategory(t);catMap[c]=(catMap[c]||0)+1;});
@@ -1521,7 +1521,7 @@
                             pendApp>0?{type:'warn',icon:'📋',title:`${pendApp} Awaiting Approval`,text:`${pendApp} ticket${pendApp!==1?'s require':' requires'} approval to proceed. Ensure approvers have been notified — approval delays directly extend resolution time.`}:null,
                             Object.keys(byA).length>0?{type:'info',icon:'👥',title:'Active Team Workload',text:`Active work is distributed across ${Object.keys(byA).length} staff member${Object.keys(byA).length!==1?'s':''}. ${Object.entries(byA).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([n,c])=>`${n}: ${c}`).join(' · ')}.`}:null,
                         ].filter(Boolean),
-                        rows:inpTkts.map(t=>{const s=getStatus(t);const SC={in_progress:{bg:dm?'rgba(245,158,11,0.15)':'#FFFBEB',c:dm?'#fcd34d':'#D97706'},waiting:{bg:dm?'rgba(139,92,246,0.15)':'#F5F3FF',c:dm?'#c4b5fd':'#7C3AED'},pending_approval:{bg:dm?'rgba(236,72,153,0.15)':'#FDF2F8',c:dm?'#f9a8d4':'#DB2777'}};const sc=SC[s]||SC.in_progress;return {title:t.subtitle||t.title_type||'Untitled',sub:`${getAssignee(t)} · ${fmtAge(t)}`,badge:s.replace(/_/g,' '),badgeBg:sc.bg,badgeColor:sc.c};}),
+                        rows:inpTkts.map(t=>{const s=getStatus(t);const SC={in_progress:{bg:dm?'rgba(245,158,11,0.15)':'#FFFBEB',c:dm?'#fcd34d':'#D97706'},waiting:{bg:dm?'rgba(139,92,246,0.15)':'#F5F3FF',c:dm?'#c4b5fd':'#7C3AED'},pending_approval:{bg:dm?'rgba(236,72,153,0.15)':'#FDF2F8',c:dm?'#f9a8d4':'#DB2777'}};const sc=SC[s]||SC.in_progress;return {title:t.title||t.subtitle||t.title_type||'Untitled',sub:`${getAssignee(t)} · ${fmtAge(t)}`,badge:s.replace(/_/g,' '),badgeBg:sc.bg,badgeColor:sc.c};}),
                         rowsTitle:'In-Progress Tickets',
                     };
                 }
@@ -4255,7 +4255,7 @@
                 const isRes = t => ['resolved','closed'].includes(getStatus(t));
                 const fmtAge = t => { const d=Math.floor((now2-new Date(t.createdAt||t.date||now2))/86400000); return d===0?'Today':d===1?'Yesterday':`${d}d ago`; };
                 const pBadge = p => { const l=p.toLowerCase(); return l==='critical'||l==='urgent'?{bg:dm?'rgba(239,68,68,0.15)':'#FEF2F2',color:dm?'#fca5a5':'#DC2626'}:l==='high'?{bg:dm?'rgba(249,115,22,0.15)':'#FFF7ED',color:dm?'#fdba74':'#EA580C'}:l==='medium'?{bg:dm?'rgba(234,179,8,0.15)':'#FEFCE8',color:dm?'#fcd34d':'#A16207'}:{bg:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:dm?'#818cf8':'#4338CA'}; };
-                const tkRow = t => { const p=getPriority(t); const pb=pBadge(p); return {title:t.subtitle||t.title_type||'Untitled',sub:`${getAssignee(t)} · ${getCategory(t)} · ${fmtAge(t)}`,badge:p,badgeBg:pb.bg,badgeColor:pb.color}; };
+                const tkRow = t => { const p=getPriority(t); const pb=pBadge(p); return {title:t.title||t.subtitle||t.title_type||'Untitled',sub:`${getAssignee(t)} · ${getCategory(t)} · ${fmtAge(t)}`,badge:p,badgeBg:pb.bg,badgeColor:pb.color}; };
 
                 if (type==='total') {
                     const catMap={};filtered.forEach(t=>{const c=getCategory(t);catMap[c]=(catMap[c]||0)+1;});
@@ -5718,20 +5718,11 @@
                 if (!emailTo.trim()) { showToast('Enter at least one recipient email.', 'error'); return; }
                 setSending(true);
                 try {
-                    const { title, headers, rows } = buildReport();
-                    // Try backend endpoint first
-                    const res = await fetch(`${HRMS_API}/reports/email`, {
-                        method:'POST', headers:{'Content-Type':'application/json'},
-                        body: JSON.stringify({ to: emailTo.split(',').map(e=>e.trim()).filter(Boolean), subject: emailSubject || `${title} — ${new Date().toLocaleDateString('en-AU')}`, reportType, period, rows, headers, generatedBy: cu?.name || 'System' }),
-                    }).catch(() => null);
-                    if (res && res.ok) {
-                        showToast(`📧 Report sent to ${emailTo}`);
-                    } else {
-                        const subj = encodeURIComponent(emailSubject || `${title} — ${new Date().toLocaleDateString('en-AU')}`);
-                        const body = encodeURIComponent(`Hi,\n\nPlease find below the ${title} report.\n\nGenerated: ${new Date().toLocaleString('en-AU')}\nGenerated By: ${cu?.name||'System'}\nPeriod: ${period.replace(/_/g,' ')}\nTotal Records: ${rows.length}\n\nNote: Download the Excel/CSV file from the Reports page for the full dataset.`);
-                        window.open(`mailto:${encodeURIComponent(emailTo)}?subject=${subj}&body=${body}`, '_blank');
-                        showToast(`📧 Email client opened for ${emailTo}`);
-                    }
+                    const { title, rows } = buildReport();
+                    const subj = encodeURIComponent(emailSubject || `${title} — ${new Date().toLocaleDateString('en-AU')}`);
+                    const body = encodeURIComponent(`Hi,\n\nPlease find below the ${title} report.\n\nGenerated: ${new Date().toLocaleString('en-AU')}\nGenerated By: ${cu?.name||'System'}\nPeriod: ${period.replace(/_/g,' ')}\nTotal Records: ${rows.length}\n\nNote: Download the Excel/CSV file from the Reports page for the full dataset.`);
+                    window.open(`mailto:${encodeURIComponent(emailTo)}?subject=${subj}&body=${body}`, '_blank');
+                    showToast(`📧 Email client opened for ${emailTo}`);
                 } catch(e) { showToast('Send failed: ' + e.message, 'error'); }
                 finally { setSending(false); }
             };
@@ -6154,12 +6145,7 @@
                 window.MicrosoftAuth.signIn();
             };
 
-            const handleEmailLogin = (token) => {
-                localStorage.setItem('authToken', token);
-                setSignedOut(false);
-                window.location.hash = 'dashboard';
-                setCurrentPage('dashboard');
-            };
+            // handleEmailLogin removed — Microsoft Entra is the only login method
 
             // ── Service Worker + Web Push setup ──────────────────────
             React.useEffect(() => {
@@ -6218,8 +6204,8 @@
                 return () => clearTimeout(t);
             }, [currentUser]);
 
-            if (signedOut) {
-                return <SignedOutScreen onSignBackIn={handleSignBackIn} onEmailLogin={handleEmailLogin} authError={authError} />;
+            if (signedOut || !currentUser) {
+                return <SignedOutScreen onSignBackIn={handleSignBackIn} authError={authError} />;
             }
 
             const renderPage = () => {

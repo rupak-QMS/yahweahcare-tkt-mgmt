@@ -43,7 +43,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     // Load session — verifies it hasn't been revoked
     const { rows } = await pool.query(
       `SELECT s.id, s.user_id, s.is_revoked, s.expires_at, s.last_activity_at,
-              u.email, u.role, u.bootstrap_admin, u.bootstrap_admin, u.microsoft_id, u.active, u.role_id
+              u.email, u.role, u.bootstrap_admin, u.is_admin, u.microsoft_id, u.active, u.role_id
        FROM yc_tkt_mgmt.sessions s
        JOIN yc_tkt_mgmt.users u ON u.id = s.user_id
        WHERE s.id = $1`, [payload.sid]

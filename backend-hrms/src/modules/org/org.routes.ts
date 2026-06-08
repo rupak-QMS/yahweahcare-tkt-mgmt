@@ -140,7 +140,7 @@ router.get('/positions', optionalAuth, async (req, res, next) => {
 });
 
 // ── POST /org/positions ──────────────────────────────────────
-router.post('/positions', optionalAuth, async (req, res, next) => {
+router.post('/positions', requireAuth, async (req, res, next) => {
   try {
     const { title, departmentId, parentPositionId, sortOrder } = req.body || {};
     if (!title) return res.status(400).json({ error: 'missing_title' });

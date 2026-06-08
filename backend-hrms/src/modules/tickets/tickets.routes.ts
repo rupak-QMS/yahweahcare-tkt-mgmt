@@ -300,7 +300,7 @@ router.get('/:id', optionalAuth, async (req, res, next) => {
 });
 
 // ── POST /tickets — create ──────────────────────────────────
-router.post('/', optionalAuth, async (req, res, next) => {
+router.post('/', requireAuth, async (req, res, next) => {
   try {
     const {
       title, description, category, priority, status, site, assigneeId,
@@ -321,7 +321,7 @@ router.post('/', optionalAuth, async (req, res, next) => {
     const resolvedDueDate  = expectedCompletion || expected_completion || null;
 
     if (!resolvedTitle || !resolvedCategory || !resolvedPriority) {
-      return res.status(400).json({ error: 'missing_fields', message: 'title, category, priority and expected_completion are required' });
+      return res.status(400).json({ error: 'missing_fields', message: 'title, category and priority are required' });
     }
     if (!resolvedDueDate) {
       return res.status(400).json({ error: 'missing_fields', message: 'expected_completion is required' });
@@ -330,10 +330,9 @@ router.post('/', optionalAuth, async (req, res, next) => {
       return res.status(400).json({ error: 'missing_fields', message: 'At least one approver is required' });
     }
 
-    // SLA-based due date (fallback if expected_completion not provided)
+    // Use the provided expected_completion as the due date
     const { rows: priRows } = await pool.query(`SELECT sla_hours FROM yc_tkt_mgmt.priorities WHERE id = $1`, [resolvedPriority]);
-    const slaHours = priRows[0]?.sla_hours || 24;
-    const dueDate = resolvedDueDate || new Date(Date.now() + slaHours * 3600000).toISOString().split('T')[0];
+    const dueDate = resolvedDueDate;
 
     // Validate status exists
     const { rows: statRows } = await pool.query(`SELECT id FROM yc_tkt_mgmt.statuses WHERE id = $1`, [resolvedStatus]);
@@ -399,7 +398,7 @@ router.post('/', optionalAuth, async (req, res, next) => {
 // ── POST /tickets/:id/complete — assignee marks work done ───
 // Moves status to pending_approval; all approvers notified
 // Uses optionalAuth: falls back to actorId in request body when no session cookie
-router.post('/:id/complete', optionalAuth, async (req, res, next) => {
+router.post('/:id/complete', requireAuth, async (req, res, next) => {
   try {
     const id      = Number(req.params.id);
     const actorId = req.auth?.userId ?? (req.body.actorId ? Number(req.body.actorId) : null);
@@ -448,7 +447,7 @@ router.post('/:id/complete', optionalAuth, async (req, res, next) => {
 
 // ── POST /tickets/:id/approve — approver approves ──────────
 // If ALL approvers have approved → ticket becomes resolved
-router.post('/:id/approve', optionalAuth, async (req, res, next) => {
+router.post('/:id/approve', requireAuth, async (req, res, next) => {
   try {
     const id     = Number(req.params.id);
     const userId = req.auth?.userId ?? (req.body.actorId ? Number(req.body.actorId) : null);
@@ -523,7 +522,7 @@ router.post('/:id/approve', optionalAuth, async (req, res, next) => {
 
 // ── POST /tickets/:id/reject — approver rejects (reopens) ──
 // Sets status back to in_progress, records justification
-router.post('/:id/reject', optionalAuth, async (req, res, next) => {
+router.post('/:id/reject', requireAuth, async (req, res, next) => {
   try {
     const id     = Number(req.params.id);
     const userId = req.auth?.userId ?? (req.body.actorId ? Number(req.body.actorId) : null);
@@ -585,7 +584,7 @@ router.post('/:id/reject', optionalAuth, async (req, res, next) => {
 });
 
 // ── PATCH /tickets/:id — update ─────────────────────────────
-router.patch('/:id', optionalAuth, async (req, res, next) => {
+router.patch('/:id', requireAuth, async (req, res, next) => {
   try {
     const id      = Number(req.params.id);
     const actorId = req.auth?.userId ?? (req.body.actorId ? Number(req.body.actorId) : null);
@@ -599,8 +598,12 @@ router.patch('/:id', optionalAuth, async (req, res, next) => {
       resolvedAt: 'closed_date', closedAt: 'closed_date',
     };
     const updates: string[] = []; const values: unknown[] = []; let i = 1;
+    const usedDbCols = new Set<string>();
     for (const [fKey, dbCol] of Object.entries(colMap)) {
-      if (fKey in req.body) { updates.push(`${dbCol} = $${i++}`); values.push(req.body[fKey]); }
+      if (fKey in req.body && !usedDbCols.has(dbCol)) {
+        usedDbCols.add(dbCol);
+        updates.push(`${dbCol} = $${i++}`); values.push(req.body[fKey]);
+      }
     }
     if (!updates.length) return res.json({ ticket: dbTicket(old) });
     values.push(id);
@@ -649,7 +652,7 @@ router.patch('/:id', optionalAuth, async (req, res, next) => {
 });
 
 // ── DELETE /tickets/:id ─────────────────────────────────────
-router.delete('/:id', optionalAuth, async (req, res, next) => {
+router.delete('/:id', requireAuth, async (req, res, next) => {
   try {
     const id      = Number(req.params.id);
     const actorId = req.auth?.userId ?? (req.body?.actorId ? Number(req.body.actorId) : null);
@@ -663,7 +666,7 @@ router.delete('/:id', optionalAuth, async (req, res, next) => {
 
 // ── POST /tickets/:id/escalate — manager escalates to any user ─
 // Reassigns ticket + logs full escalation trail
-router.post('/:id/escalate', optionalAuth, async (req, res, next) => {
+router.post('/:id/escalate', requireAuth, async (req, res, next) => {
   try {
     const id     = Number(req.params.id);
     const userId = req.auth?.userId ?? (req.body.actorId ? Number(req.body.actorId) : null);
@@ -778,7 +781,7 @@ router.get('/:id/comments', async (req, res, next) => {
 });
 
 // ── POST /tickets/:id/comments ──────────────────────────────
-router.post('/:id/comments', optionalAuth, async (req, res, next) => {
+router.post('/:id/comments', requireAuth, async (req, res, next) => {
   try {
     const ticketId = Number(req.params.id);
     const { body, isInternal } = req.body || {};

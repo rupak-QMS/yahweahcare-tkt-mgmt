@@ -15,7 +15,7 @@ const isSuperAdmin = (role: string) => role === 'super_admin';
 const isAdminOrAbove = (role: string) => ['super_admin', 'admin'].includes(role);
 const isManagerOrAbove = (role: string) => ['super_admin', 'admin', 'manager', 'hr'].includes(role);
 
-// GET /users — returns all positions via correlated subquery
+// GET /users — returns all users with their department and position via correlated subquery
 router.get('/', optionalAuth, async (req, res, next) => {
   try {
     const limit  = Math.min(Number(req.query.limit) || 100, 200);
@@ -62,8 +62,8 @@ router.get('/', optionalAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// POST /users — create staff (no auth required)
-router.post('/', optionalAuth, async (req, res, next) => {
+// POST /users — create staff
+router.post('/', requireAuth, async (req, res, next) => {
   try {
     const { email, name, phone, employment_type, department_id, manager_id,
       start_date, profile_notes, position_id, auth_provider, is_active, designation } = req.body || {};
@@ -107,8 +107,8 @@ router.post('/', optionalAuth, async (req, res, next) => {
   }
 });
 
-// PATCH /users/:id — update (no auth required)
-router.patch('/:id', optionalAuth, async (req, res, next) => {
+// PATCH /users/:id — update
+router.patch('/:id', requireAuth, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     const { rows: tRows } = await pool.query(`SELECT * FROM yc_tkt_mgmt.users WHERE id = $1`, [id]);
@@ -193,7 +193,7 @@ router.patch('/:id', optionalAuth, async (req, res, next) => {
 });
 
 // DELETE /users/:id — soft delete
-router.delete('/:id', optionalAuth, async (req, res, next) => {
+router.delete('/:id', requireAuth, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     const { rows } = await pool.query(`SELECT * FROM yc_tkt_mgmt.users WHERE id = $1`, [id]);
