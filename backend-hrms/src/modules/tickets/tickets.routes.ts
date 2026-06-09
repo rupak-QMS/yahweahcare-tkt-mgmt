@@ -153,6 +153,9 @@ function dbTicket(row: Record<string, unknown>) {
     comments: row.comments || [],
     approvers: row.approvers || [],
     attachments: Array.isArray(row.attachments) ? row.attachments : [],
+    // Flat list of user IDs who still have a Pending decision — used for
+    // the "Pending My Approval" tab filter on the frontend
+    pendingApproverIds: Array.isArray(row.pending_approver_ids) ? row.pending_approver_ids : [],
   };
 }
 
@@ -281,18 +284,33 @@ router.get('/', optionalAuth, async (req, res, next) => {
     const ticketIds = rows.map(r => r.id);
     let commentRows: Record<string, unknown>[] = [];
     let activityRows: Record<string, unknown>[] = [];
+    // approverMap: ticketId → array of pending approver user IDs
+    const approverMap: Record<number, number[]> = {};
 
     if (ticketIds.length > 0) {
-      const [cRes, aRes] = await Promise.all([
+      const [cRes, aRes, apRes] = await Promise.all([
         pool.query(`SELECT * FROM yc_tkt_mgmt.comments WHERE ticket_id = ANY($1) ORDER BY created_at ASC`, [ticketIds]),
         pool.query(`SELECT * FROM yc_tkt_mgmt.activity WHERE ticket_id = ANY($1) ORDER BY created_at ASC`, [ticketIds]),
+        pool.query(
+          `SELECT ticket_id, approver_user_id
+             FROM yc_tkt_mgmt.ticket_approvers
+            WHERE ticket_id = ANY($1) AND approval_status = 'Pending'`,
+          [ticketIds]
+        ).catch(() => ({ rows: [] as Record<string, unknown>[] })),
       ]);
       commentRows  = cRes.rows;
       activityRows = aRes.rows;
+      for (const r of apRes.rows) {
+        const tid = r.ticket_id as number;
+        if (!approverMap[tid]) approverMap[tid] = [];
+        approverMap[tid].push(r.approver_user_id as number);
+      }
     }
 
     const total = rows.length ? Number(rows[0].total) : 0;
     const tickets = rows.map(r => {
+      const rid = r.id as number;
+      (r as Record<string, unknown>).pending_approver_ids = approverMap[rid] || [];
       const t = dbTicket(r);
       t.comments = commentRows.filter(c => c.ticket_id === r.id).map(dbComment);
       t.activity  = activityRows.filter(a => a.ticket_id === r.id).map(dbActivity);

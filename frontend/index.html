@@ -2445,6 +2445,8 @@
                 assigned: t.assigneeName || 'Unassigned',
                 date: t.createdAt ? new Date(t.createdAt).toLocaleDateString('en-AU', {day:'numeric',month:'short',year:'numeric'}) : '',
                 isEscalated: !!t.isEscalated,
+                // Carry through pending approver IDs for tab filtering
+                pendingApproverIds: Array.isArray(t.pendingApproverIds) ? t.pendingApproverIds : [],
             });
 
             React.useEffect(() => {
@@ -2531,7 +2533,7 @@
             const STATUS_GROUPS = [
                 {key:'all',            label:'All',                match: ()=>true},
                 {key:'mine',           label:'Assigned to Me',     match: t=>t.assigneeId===sessionUser?.id, color:'#6366F1'},
-                {key:'my_approvals',   label:'Pending My Approval',match: t=>t.status==='Pending Approval', color:'#D97706'},
+                {key:'my_approvals',   label:'Pending My Approval',match: t=>t.status==='Pending Approval' && (t.pendingApproverIds||[]).includes(sessionUser?.id), color:'#D97706'},
                 {key:'open',           label:'New / Open',         match: t=>['New','Open','Assigned'].includes(t.status)},
                 {key:'in_progress',    label:'In Progress',        match: t=>['In Progress','Waiting'].includes(t.status)},
                 {key:'pending',        label:'Pending Approval',   match: t=>t.status==='Pending Approval'},
