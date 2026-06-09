@@ -146,7 +146,11 @@ router.get('/microsoft/callback', async (req, res, next) => {
       isBootstrapAdmin: !!(user as unknown as Record<string, unknown>).bootstrap_admin,
     })).toString('base64url');
 
-    res.redirect(`${env.FRONTEND_URL}?ms_user=${userParam}`);
+    // Also pass the access token so the frontend can use Authorization: Bearer
+    // (cross-origin HTTP-only cookies are blocked by modern browsers)
+    const tokenParam = Buffer.from(accessToken).toString('base64url');
+
+    res.redirect(`${env.FRONTEND_URL}?ms_user=${userParam}&_t=${tokenParam}`);
   } catch (err) {
     const e = err as { statusCode?: number; code?: string; message?: string };
     await logAudit({ action: 'login.failed', module: 'auth', metadata: { reason: e.code || 'callback_error', error: String(err) }, success: false, req });
@@ -171,7 +175,8 @@ router.post('/refresh', async (req: Request, res: Response, next: NextFunction) 
 
     res.cookie('yc_access',  accessToken,  cookieOpts(15 * 60_000));
     res.cookie('yc_refresh', refreshToken, cookieOpts(30 * 86_400_000));
-    res.json({ ok: true });
+    // Return new access token in body so frontend can update sessionStorage Bearer token
+    res.json({ ok: true, accessToken });
   } catch (err) { next(err); }
 });
 

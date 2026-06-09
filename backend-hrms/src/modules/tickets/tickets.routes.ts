@@ -27,6 +27,34 @@ async function getTicketDept(creatorId: number | null, assigneeId: number | null
 
 const router = Router();
 
+// ── Auto-migrate: ensure ticket_approvers table exists ─────
+let approverTableMigrated = false;
+async function ensureApproversTable() {
+  if (approverTableMigrated) return;
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS yc_tkt_mgmt.ticket_approvers (
+        id                SERIAL PRIMARY KEY,
+        ticket_id         INTEGER NOT NULL REFERENCES yc_tkt_mgmt.tickets(id) ON DELETE CASCADE,
+        approver_user_id  INTEGER NOT NULL REFERENCES yc_tkt_mgmt.users(id),
+        approval_status   TEXT NOT NULL DEFAULT 'Pending',
+        comments          TEXT,
+        approval_date     TIMESTAMPTZ,
+        created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE(ticket_id, approver_user_id)
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_ticket_approvers_ticket ON yc_tkt_mgmt.ticket_approvers(ticket_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_ticket_approvers_approver ON yc_tkt_mgmt.ticket_approvers(approver_user_id)`);
+    // If table already existed with created_date instead of created_at, add the column
+    await pool.query(`ALTER TABLE yc_tkt_mgmt.ticket_approvers ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`);
+    approverTableMigrated = true;
+  } catch (err) {
+    console.warn('[tickets] ticket_approvers migration skipped:', err);
+  }
+}
+ensureApproversTable();
+
 // ── Auto-migrate: add attachments + extension columns ──────
 let attachmentsMigrated = false;
 async function ensureAttachmentsColumn() {
@@ -359,7 +387,8 @@ router.get('/:id', optionalAuth, async (req, res, next) => {
     ]);
     if (!tRows[0]) return res.status(404).json({ error: 'not_found' });
 
-    // Approvers — defensive: try without ORDER BY first, then fall back
+    // Approvers — ensure table exists then query
+    await ensureApproversTable();
     let apRows: Record<string, unknown>[] = [];
     try {
       const apQ = await pool.query(
@@ -369,12 +398,13 @@ router.get('/:id', optionalAuth, async (req, res, next) => {
                 u.name AS user_name, u.email AS user_email
            FROM yc_tkt_mgmt.ticket_approvers ta
            JOIN yc_tkt_mgmt.users u ON u.id = ta.approver_user_id
-          WHERE ta.ticket_id = $1`,
+          WHERE ta.ticket_id = $1
+          ORDER BY ta.created_at ASC`,
         [id]
       );
       apRows = apQ.rows;
     } catch (apErr) {
-      console.warn('[GET /tickets/:id] approvers query failed:', apErr);
+      console.error('[GET /tickets/:id] approvers query failed:', apErr);
     }
 
     const t = dbTicket(tRows[0]);
@@ -441,6 +471,7 @@ router.post('/', requireAuth, async (req, res, next) => {
       : [];
 
     await ensureAttachmentsColumn();
+    await ensureApproversTable();
     const { rows } = await pool.query(
       `INSERT INTO yc_tkt_mgmt.tickets
          (title, title_type, subtitle, subcategory, description, category_id, priority_id, status,

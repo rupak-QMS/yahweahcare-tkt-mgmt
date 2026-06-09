@@ -640,6 +640,7 @@
             var urlParams  = new URLSearchParams(window.location.search);
             var loginError = urlParams.get('error');
             var msUserB64  = urlParams.get('ms_user');
+            var msTokenB64 = urlParams.get('_t');
 
             // Capture user info passed from backend redirect, store in sessionStorage
             if (msUserB64) {
@@ -649,8 +650,17 @@
                 } catch(e) {}
             }
 
+            // Capture access token (passed alongside ms_user after login)
+            // Used as Authorization: Bearer header so cross-origin cookie issues don't break auth
+            if (msTokenB64) {
+                try {
+                    var token = atob(msTokenB64.replace(/-/g,'+').replace(/_/g,'/'));
+                    sessionStorage.setItem('ms_access_token', token);
+                } catch(e) {}
+            }
+
             // Clean URL so hash routing starts fresh
-            if (loginError || msUserB64) {
+            if (loginError || msUserB64 || msTokenB64) {
                 window.history.replaceState({}, '', window.location.pathname);
             }
 
@@ -675,6 +685,47 @@
         function getSessionUser() {
             try { return JSON.parse(sessionStorage.getItem('ms_current_user') || 'null'); } catch { return null; }
         }
+
+        // ── Auth helpers: Bearer token for cross-origin API calls ──────────────
+        function getAccessToken() {
+            return sessionStorage.getItem('ms_access_token') || null;
+        }
+
+        // Build headers with Authorization: Bearer for authenticated requests
+        function authHeaders(extra = {}) {
+            const token = getAccessToken();
+            const h = { 'Content-Type': 'application/json', ...extra };
+            if (token) h['Authorization'] = `Bearer ${token}`;
+            return h;
+        }
+
+        // Refresh the access token using the refresh cookie; update sessionStorage
+        // Returns true if successful. Called automatically before expiry.
+        async function refreshAccessToken() {
+            try {
+                const res = await fetch(`${HRMS_API}/auth/refresh`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.accessToken) {
+                        sessionStorage.setItem('ms_access_token', data.accessToken);
+                        return true;
+                    }
+                }
+            } catch (_) {}
+            return false;
+        }
+
+        // Schedule a token refresh 2 minutes before the 15-minute access token expiry
+        (function scheduleTokenRefresh() {
+            const REFRESH_INTERVAL_MS = 13 * 60 * 1000; // 13 min (token lasts 15 min)
+            setInterval(async () => {
+                if (getAccessToken()) await refreshAccessToken();
+            }, REFRESH_INTERVAL_MS);
+        })();
 
         // Role-based scope for ticket queries
         // Returns query params to append to any /tickets fetch
@@ -793,12 +844,12 @@
                     if (scope.scope)  params.set('scope',  scope.scope);
                     if (scope.userId) params.set('userId', scope.userId);
                     if (scope.deptId) params.set('deptId', scope.deptId);
-                    const res = await fetch(`${HRMS_API}/tickets?${params}`, { credentials: 'include' });
+                    const res = await fetch(`${HRMS_API}/tickets?${params}`, { credentials: 'include', headers: authHeaders() });
                     if (!res.ok) throw new Error('Failed to fetch tickets');
                     return res.json();
                 },
                 getById: async (id) => {
-                    const res = await fetch(`${HRMS_API}/tickets/${id}`);
+                    const res = await fetch(`${HRMS_API}/tickets/${id}`, { headers: authHeaders() });
                     if (!res.ok) throw new Error('Ticket not found');
                     return res.json();
                 },
@@ -806,7 +857,7 @@
                     const res = await fetch(`${HRMS_API}/tickets`, {
                         method: 'POST',
                         credentials: 'include',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: authHeaders(),
                         body: JSON.stringify(data)
                     });
                     if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.message || 'Failed to create ticket'); }
@@ -817,7 +868,7 @@
                     const res = await fetch(`${HRMS_API}/tickets/${id}`, {
                         method: 'PATCH',
                         credentials: 'include',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: authHeaders(),
                         body: JSON.stringify({ ...data, actorId: u?.id })
                     });
                     if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.message || 'Failed to update ticket'); }
@@ -828,7 +879,7 @@
                     const res = await fetch(`${HRMS_API}/tickets/${id}`, {
                         method: 'DELETE',
                         credentials: 'include',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: authHeaders(),
                         body: JSON.stringify({ actorId: u?.id, justification })
                     });
                     if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.message || 'Failed to delete ticket'); }
@@ -839,7 +890,7 @@
                     const res = await fetch(`${HRMS_API}/tickets/${id}/request-extension`, {
                         method: 'POST',
                         credentials: 'include',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: authHeaders(),
                         body: JSON.stringify({ newDueDate, note, actorId: u?.id })
                     });
                     if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.message || 'Failed to request extension'); }
@@ -850,7 +901,7 @@
                     const res = await fetch(`${HRMS_API}/tickets/${id}/respond-extension`, {
                         method: 'POST',
                         credentials: 'include',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: authHeaders(),
                         body: JSON.stringify({ action, note, actorId: u?.id })
                     });
                     if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.message || 'Failed to respond to extension'); }
@@ -861,14 +912,14 @@
                     const res = await fetch(`${HRMS_API}/tickets/${id}/escalate`, {
                         method: 'POST',
                         credentials: 'include',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: authHeaders(),
                         body: JSON.stringify({ escalateToUserId, reason, actorId: u?.id })
                     });
                     if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || 'Failed to escalate'); }
                     return res.json();
                 },
                 getEscalations: async (id) => {
-                    const res = await fetch(`${HRMS_API}/tickets/${id}/escalations`);
+                    const res = await fetch(`${HRMS_API}/tickets/${id}/escalations`, { headers: authHeaders() });
                     if (!res.ok) throw new Error('Failed to fetch escalations');
                     return res.json();
                 },
@@ -876,7 +927,7 @@
                     const res = await fetch(`${HRMS_API}/tickets/${id}/attachments`, {
                         method: 'POST',
                         credentials: 'include',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: authHeaders(),
                         body: JSON.stringify({ attachments })
                     });
                     if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || 'Failed to upload attachment'); }
@@ -887,7 +938,7 @@
                     const res = await fetch(`${HRMS_API}/tickets/${id}/complete`, {
                         method: 'POST',
                         credentials: 'include',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: authHeaders(),
                         body: JSON.stringify({ actorId: u?.id, resolutionNote })
                     });
                     if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || 'Failed to mark complete'); }
@@ -898,7 +949,7 @@
                     const res = await fetch(`${HRMS_API}/tickets/${id}/approve`, {
                         method: 'POST',
                         credentials: 'include',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: authHeaders(),
                         body: JSON.stringify({ actorId: u?.id })
                     });
                     if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || 'Failed to approve'); }
@@ -909,7 +960,7 @@
                     const res = await fetch(`${HRMS_API}/tickets/${id}/reject`, {
                         method: 'POST',
                         credentials: 'include',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: authHeaders(),
                         body: JSON.stringify({ justification, actorId: u?.id })
                     });
                     if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || 'Failed to reject'); }
@@ -918,7 +969,7 @@
             },
             users: {
                 getAll: async () => {
-                    const res = await fetch(`${API_BASE_URL}/users`);
+                    const res = await fetch(`${API_BASE_URL}/users`, { headers: authHeaders() });
                     if (!res.ok) throw new Error('Failed to fetch users');
                     return res.json();
                 }
@@ -942,7 +993,7 @@
             // Load real notifications from backend
             const loadNotifications = React.useCallback(() => {
                 setNotifLoading(true);
-                fetch(`${HRMS_API}/notifications`, { credentials:'include' })
+                fetch(`${HRMS_API}/notifications`, { credentials:'include', headers: authHeaders() })
                     .then(r => r.ok ? r.json() : { notifications: [] })
                     .then(d => setNotifications(Array.isArray(d.notifications) ? d.notifications : []))
                     .catch(() => {})
@@ -963,12 +1014,12 @@
             const unreadCount = notifications.filter(n => !n.read_at).length;
 
             const markAllRead = () => {
-                fetch(`${HRMS_API}/notifications/read-all`, { method:'POST', credentials:'include' })
+                fetch(`${HRMS_API}/notifications/read-all`, { method:'POST', credentials:'include', headers: authHeaders() })
                     .then(() => loadNotifications()).catch(() => {});
             };
 
             const markRead = (id) => {
-                fetch(`${HRMS_API}/notifications/${id}/read`, { method:'PATCH', credentials:'include' })
+                fetch(`${HRMS_API}/notifications/${id}/read`, { method:'PATCH', credentials:'include', headers: authHeaders() })
                     .then(() => loadNotifications()).catch(() => {});
             };
 
@@ -1093,7 +1144,7 @@
                                 <div style={{padding:'10px 16px', borderTop:`1px solid ${border}`, flexShrink:0, display:'flex', gap:8, alignItems:'center', justifyContent:'space-between'}}>
                                     <button onClick={async () => {
                                         try {
-                                            const r = await fetch(`${HRMS_API}/push/test`, { method:'POST', credentials:'include' });
+                                            const r = await fetch(`${HRMS_API}/push/test`, { method:'POST', credentials:'include', headers: authHeaders() });
                                             if (r.ok) { loadNotifications(); showToast('🔔 Demo notification sent!'); }
                                             else showToast('Push not set up yet — check VAPID keys');
                                         } catch { showToast('Failed to send test notification'); }
@@ -2833,7 +2884,7 @@
                                                 const u = getSessionUser();
                                                 await fetch(`${HRMS_API}/tickets/${selectedTicket._dbId}/comments`, {
                                                     method: 'POST', credentials: 'include',
-                                                    headers: { 'Content-Type': 'application/json' },
+                                                    headers: authHeaders(),
                                                     body: JSON.stringify({ body: workNote.trim(), isInternal: true, actorId: u?.id })
                                                 });
                                                 setWorkNote('');
@@ -5426,9 +5477,9 @@
                 try {
                     const uqp = getUserQueryParams(getSessionUser());
                     const [sR,dR,pR] = await Promise.all([
-                        fetch(`${HRMS_API}/users?limit=200${uqp}`, { credentials:'include' }),
-                        fetch(`${HRMS_API}/org/departments`,        { credentials:'include' }),
-                        fetch(`${HRMS_API}/org/positions`,          { credentials:'include' }),
+                        fetch(`${HRMS_API}/users?limit=200${uqp}`, { credentials:'include', headers: authHeaders() }),
+                        fetch(`${HRMS_API}/org/departments`,        { credentials:'include', headers: authHeaders() }),
+                        fetch(`${HRMS_API}/org/positions`,          { credentials:'include', headers: authHeaders() }),
                     ]);
                     const [sd,dd,pd] = await Promise.all([sR.json(),dR.json(),pR.json()]);
                     // backend-hrms returns { users } for /users and { departments } and { positions }
@@ -5497,11 +5548,11 @@
                     };
                     const url    = modalMode==='add' ? `${HRMS_API}/users` : `${HRMS_API}/users/${selStaff.id}`;
                     const method = modalMode==='add' ? 'POST' : 'PATCH';
-                    let res = await fetch(url, { method, credentials:'include', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+                    let res = await fetch(url, { method, credentials:'include', headers: authHeaders(), body:JSON.stringify(payload) });
                     // If 401, try one silent token refresh then retry
                     if (res.status === 401) {
-                        await fetch(`${HRMS_API}/auth/refresh`, { method:'POST', credentials:'include' }).catch(()=>{});
-                        res = await fetch(url, { method, credentials:'include', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+                        await refreshAccessToken();
+                        res = await fetch(url, { method, credentials:'include', headers: authHeaders(), body:JSON.stringify(payload) });
                     }
                     if (!res.ok) {
                         const e = await res.json().catch(()=>({}));
@@ -5518,7 +5569,7 @@
             const handleDelete = async () => {
                 if (!delConfirm) return;
                 try {
-                    const res  = await fetch(`${HRMS_API}/users/${delConfirm.id}`, { method:'DELETE', credentials:'include' });
+                    const res  = await fetch(`${HRMS_API}/users/${delConfirm.id}`, { method:'DELETE', credentials:'include', headers: authHeaders() });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || data.message || 'Delete failed');
                     setDelConfirm(null);
@@ -5537,12 +5588,12 @@
                         sortOrder:       0,
                     });
                     let res = await fetch(`${HRMS_API}/org/positions`, {
-                        method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body
+                        method:'POST', credentials:'include', headers: authHeaders(), body
                     });
                     if (res.status === 401) {
-                        await fetch(`${HRMS_API}/auth/refresh`, { method:'POST', credentials:'include' }).catch(()=>{});
+                        await refreshAccessToken();
                         res = await fetch(`${HRMS_API}/org/positions`, {
-                            method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body
+                            method:'POST', credentials:'include', headers: authHeaders(), body
                         });
                     }
                     if (!res.ok) { const e=await res.json(); throw new Error(e.error || e.message); }
@@ -6248,26 +6299,20 @@
                 try {
                     const { title, headers, rows } = buildReport();
                     const subject = emailSubject || `${title} — ${new Date().toLocaleDateString('en-AU')}`;
+                    const reportPayload = JSON.stringify({
+                        to: emailTo.split(',').map(e=>e.trim()).filter(Boolean),
+                        subject, reportTitle: title, period: period.replace(/_/g,' '),
+                        generatedBy: cu?.name || 'System', headers, rows,
+                    });
                     const res = await fetch(`${HRMS_API}/notifications/send-report-email`, {
-                        method: 'POST',
-                        credentials: 'include',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            to:          emailTo.split(',').map(e=>e.trim()).filter(Boolean),
-                            subject,
-                            reportTitle: title,
-                            period:      period.replace(/_/g,' '),
-                            generatedBy: cu?.name || 'System',
-                            headers,
-                            rows,
-                        }),
+                        method: 'POST', credentials: 'include',
+                        headers: authHeaders(), body: reportPayload,
                     });
                     if (res.status === 401) {
-                        await fetch(`${HRMS_API}/auth/refresh`, { method:'POST', credentials:'include' }).catch(()=>{});
+                        await refreshAccessToken();
                         const r2 = await fetch(`${HRMS_API}/notifications/send-report-email`, {
                             method: 'POST', credentials: 'include',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ to: emailTo.split(',').map(e=>e.trim()).filter(Boolean), subject, reportTitle: title, period: period.replace(/_/g,' '), generatedBy: cu?.name||'System', headers, rows }),
+                            headers: authHeaders(), body: reportPayload,
                         });
                         if (!r2.ok) throw new Error('Session expired — please sign out and sign back in.');
                         const d2 = await r2.json();
@@ -6652,16 +6697,12 @@
             };
 
             // ── Silent token refresh ─────────────────────────────────────────────
-            // yc_access cookie lives only 15 minutes. We silently refresh it every
-            // 12 minutes using the long-lived yc_refresh cookie so write operations
-            // (PATCH, DELETE, POST) never hit 401 due to an expired access token.
+            // Access token lives 15 minutes. Refresh every 13 min via cookie+Bearer.
+            // refreshAccessToken() also updates sessionStorage so Bearer header stays fresh.
             React.useEffect(() => {
                 if (!currentUser) return;
-                const doRefresh = () =>
-                    fetch(`${HRMS_API}/auth/refresh`, { method: 'POST', credentials: 'include' })
-                        .catch(() => {}); // silent — if it fails the user will see a normal 401
-                doRefresh(); // once immediately on login
-                const t = setInterval(doRefresh, 12 * 60 * 1000); // every 12 min
+                refreshAccessToken(); // once immediately on login
+                const t = setInterval(refreshAccessToken, 13 * 60 * 1000);
                 return () => clearInterval(t);
             }, [currentUser]);
 
@@ -6713,7 +6754,7 @@
                         if (existing) {
                             await fetch(`${HRMS_API}/push/subscribe`, {
                                 method: 'POST', credentials: 'include',
-                                headers: { 'Content-Type': 'application/json' },
+                                headers: authHeaders(),
                                 body: JSON.stringify({
                                     endpoint: existing.endpoint,
                                     keys: {
@@ -6739,7 +6780,7 @@
                         const subJson = sub.toJSON();
                         const saveRes = await fetch(`${HRMS_API}/push/subscribe`, {
                             method: 'POST', credentials: 'include',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: authHeaders(),
                             body: JSON.stringify({ endpoint: subJson.endpoint, keys: subJson.keys }),
                         });
                         if (saveRes.ok) console.info('[push] subscription registered ✓');
