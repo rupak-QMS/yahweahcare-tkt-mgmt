@@ -638,25 +638,32 @@
                 : 'https://yahweahcare-tkt-mgmt-hx48.vercel.app';
 
             var urlParams  = new URLSearchParams(window.location.search);
-            var loginError = urlParams.get('error');
+            var loginError = urlParams.get('error') || (urlParams.get('session_expired') ? 'session_expired' : null);
             var msUserB64  = urlParams.get('ms_user');
             var msTokenB64 = urlParams.get('_t');
+
+            // base64url → standard base64 with padding (atob requires padding)
+            function b64urlDecode(s) {
+                var b = s.replace(/-/g, '+').replace(/_/g, '/');
+                while (b.length % 4) b += '=';   // add missing padding
+                return atob(b);
+            }
 
             // Capture user info passed from backend redirect, store in sessionStorage
             if (msUserB64) {
                 try {
-                    var decoded = JSON.parse(atob(msUserB64.replace(/-/g,'+').replace(/_/g,'/')));
+                    var decoded = JSON.parse(b64urlDecode(msUserB64));
                     sessionStorage.setItem('ms_current_user', JSON.stringify(decoded));
-                } catch(e) {}
+                } catch(e) { console.warn('[auth] ms_user decode failed', e); }
             }
 
             // Capture access token (passed alongside ms_user after login)
             // Used as Authorization: Bearer header so cross-origin cookie issues don't break auth
             if (msTokenB64) {
                 try {
-                    var token = atob(msTokenB64.replace(/-/g,'+').replace(/_/g,'/'));
+                    var token = b64urlDecode(msTokenB64);
                     sessionStorage.setItem('ms_access_token', token);
-                } catch(e) {}
+                } catch(e) { console.warn('[auth] _t decode failed', e); }
             }
 
             // Clean URL so hash routing starts fresh
@@ -717,6 +724,23 @@
                 }
             } catch (_) {}
             return false;
+        }
+
+        // Authenticated fetch — on 401, auto-refresh token and retry once.
+        // On second 401, redirects to login page.
+        async function authFetch(url, opts = {}) {
+            const res = await fetch(url, { credentials: 'include', ...opts, headers: authHeaders(opts.headers || {}) });
+            if (res.status !== 401) return res;
+            // Try refreshing token once
+            const refreshed = await refreshAccessToken();
+            if (!refreshed) {
+                // Token and refresh both failed — bounce to login
+                sessionStorage.clear();
+                window.location.href = window.location.pathname + '?session_expired=1';
+                return res;
+            }
+            // Retry with fresh token
+            return fetch(url, { credentials: 'include', ...opts, headers: authHeaders(opts.headers || {}) });
         }
 
         // Schedule a token refresh 2 minutes before the 15-minute access token expiry
@@ -854,10 +878,8 @@
                     return res.json();
                 },
                 create: async (data) => {
-                    const res = await fetch(`${HRMS_API}/tickets`, {
+                    const res = await authFetch(`${HRMS_API}/tickets`, {
                         method: 'POST',
-                        credentials: 'include',
-                        headers: authHeaders(),
                         body: JSON.stringify(data)
                     });
                     if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.message || 'Failed to create ticket'); }
@@ -865,20 +887,16 @@
                 },
                 update: async (id, data) => {
                     const u = getSessionUser();
-                    const res = await fetch(`${HRMS_API}/tickets/${id}`, {
+                    const res = await authFetch(`${HRMS_API}/tickets/${id}`, {
                         method: 'PATCH',
-                        credentials: 'include',
-                        headers: authHeaders(),
                         body: JSON.stringify({ ...data, actorId: u?.id })
                     });
                     if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.message || 'Failed to update ticket'); }
                     return res.json();
                 },
                 setApprovers: async (id, approverIds) => {
-                    const res = await fetch(`${HRMS_API}/tickets/${id}/approvers`, {
+                    const res = await authFetch(`${HRMS_API}/tickets/${id}/approvers`, {
                         method: 'POST',
-                        credentials: 'include',
-                        headers: authHeaders(),
                         body: JSON.stringify({ approver_ids: approverIds })
                     });
                     if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.message || 'Failed to update approvers'); }
@@ -945,10 +963,8 @@
                 },
                 complete: async (id, resolutionNote) => {
                     const u = getSessionUser();
-                    const res = await fetch(`${HRMS_API}/tickets/${id}/complete`, {
+                    const res = await authFetch(`${HRMS_API}/tickets/${id}/complete`, {
                         method: 'POST',
-                        credentials: 'include',
-                        headers: authHeaders(),
                         body: JSON.stringify({ actorId: u?.id, resolutionNote })
                     });
                     if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || 'Failed to mark complete'); }
@@ -956,10 +972,8 @@
                 },
                 approve: async (id) => {
                     const u = getSessionUser();
-                    const res = await fetch(`${HRMS_API}/tickets/${id}/approve`, {
+                    const res = await authFetch(`${HRMS_API}/tickets/${id}/approve`, {
                         method: 'POST',
-                        credentials: 'include',
-                        headers: authHeaders(),
                         body: JSON.stringify({ actorId: u?.id })
                     });
                     if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || 'Failed to approve'); }
@@ -967,10 +981,8 @@
                 },
                 reject: async (id, justification) => {
                     const u = getSessionUser();
-                    const res = await fetch(`${HRMS_API}/tickets/${id}/reject`, {
+                    const res = await authFetch(`${HRMS_API}/tickets/${id}/reject`, {
                         method: 'POST',
-                        credentials: 'include',
-                        headers: authHeaders(),
                         body: JSON.stringify({ justification, actorId: u?.id })
                     });
                     if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || 'Failed to reject'); }
@@ -6798,6 +6810,7 @@
                         not_authorized:    'Your Microsoft account is not authorised for this app. Contact your administrator.',
                         disallowed_domain: 'Your email domain is not allowed. Contact your administrator.',
                         account_inactive:  'Your account is inactive. Contact your administrator.',
+                        session_expired:   'Your session has expired. Please sign in again.',
                     };
                     setAuthError(msgs[window.MicrosoftAuth.loginError] || ('Sign-in error: ' + window.MicrosoftAuth.loginError));
                     setSignedOut(true);
