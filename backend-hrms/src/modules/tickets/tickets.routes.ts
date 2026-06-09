@@ -1010,6 +1010,47 @@ router.get('/:id/escalations', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ── POST /tickets/:id/attachments — add file(s) to existing ticket ──
+router.post('/:id/attachments', requireAuth, async (req, res, next) => {
+  try {
+    const ticketId = Number(req.params.id);
+    const { attachments: newAtts } = req.body || {};
+    if (!Array.isArray(newAtts) || !newAtts.length) {
+      return res.status(400).json({ error: 'missing_attachments' });
+    }
+    const actorId = req.auth?.userId ?? null;
+
+    // Fetch current attachments
+    const { rows: tRows } = await pool.query(
+      `SELECT attachments FROM yc_tkt_mgmt.tickets WHERE id = $1`, [ticketId]
+    );
+    if (!tRows[0]) return res.status(404).json({ error: 'not_found' });
+
+    const existing: unknown[] = Array.isArray(tRows[0].attachments) ? tRows[0].attachments : [];
+    const sanitised = newAtts.slice(0, 10).map((a: Record<string, unknown>) => ({
+      name:    String(a.name    || 'file'),
+      type:    String(a.type    || 'application/octet-stream'),
+      size:    Number(a.size    || 0),
+      content: String(a.content || ''),
+    }));
+    const merged = [...existing, ...sanitised];
+
+    const { rows } = await pool.query(
+      `UPDATE yc_tkt_mgmt.tickets SET attachments = $1::jsonb, updated_at = NOW() WHERE id = $2 RETURNING *`,
+      [JSON.stringify(merged), ticketId]
+    );
+
+    // Activity log
+    await pool.query(
+      `INSERT INTO yc_tkt_mgmt.activity (ticket_id, user_id, action, details) VALUES ($1,$2,'attachment_added',$3)`,
+      [ticketId, actorId, JSON.stringify({ count: sanitised.length, names: sanitised.map(a => a.name) })]
+    );
+
+    const t = dbTicket(rows[0]);
+    res.json({ ticket: t, attachments: t.attachments });
+  } catch (err) { next(err); }
+});
+
 // ── GET /tickets/:id/comments ───────────────────────────────
 router.get('/:id/comments', async (req, res, next) => {
   try {

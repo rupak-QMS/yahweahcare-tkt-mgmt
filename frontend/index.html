@@ -872,6 +872,16 @@
                     if (!res.ok) throw new Error('Failed to fetch escalations');
                     return res.json();
                 },
+                addAttachments: async (id, attachments) => {
+                    const res = await fetch(`${HRMS_API}/tickets/${id}/attachments`, {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ attachments })
+                    });
+                    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || 'Failed to upload attachment'); }
+                    return res.json();
+                },
                 complete: async (id, resolutionNote) => {
                     const u = getSessionUser();
                     const res = await fetch(`${HRMS_API}/tickets/${id}/complete`, {
@@ -2364,6 +2374,9 @@
             // Work notes / steps taken state
             const [workNote, setWorkNote] = React.useState('');
             const [workNoteLoading, setWorkNoteLoading] = React.useState(false);
+            // Drawer attachment upload state
+            const [attUploadLoading, setAttUploadLoading] = React.useState(false);
+            const [attUploadError, setAttUploadError] = React.useState('');
 
             // Map API status IDs to display labels
             const toStatusLabel = s => ({ open:'Open', new:'New', in_progress:'In Progress', pending_approval:'Pending Approval', resolved:'Resolved', closed:'Closed', waiting:'Waiting', assigned:'Assigned' })[s] || (s||'').replace(/_/g,' ');
@@ -2633,7 +2646,7 @@
                             setEscalateMode(false); setEscalateTo(''); setEscalateReason(''); setEscalations([]);
                             setExtMode(false); setExtDate(''); setExtNote(''); setExtResNote('');
                             setDeleteMode(false); setDeleteJustification('');
-                            setResolutionNote(''); setWorkNote('');
+                            setResolutionNote(''); setWorkNote(''); setAttUploadError('');
                         };
                         const isAssignee   = selectedTicket.assigneeId === sessionUser?.id;
                         const isCreator    = selectedTicket.requesterId === sessionUser?.id;
@@ -2740,9 +2753,10 @@
                                         </div>
                                     )}
 
-                                    {/* ── Attachments — always shown ── */}
+                                    {/* ── Attachments — always shown, with upload for assignee/admin ── */}
                                     {(()=>{
                                         const atts = selectedTicket.attachments || [];
+                                        const canUpload = isAssignee || isBootAdmin || isCreator;
                                         const fileIcon = (type='') => type.startsWith('image/') ? '🖼️' : type.includes('pdf') ? '📄' : type.includes('sheet')||type.includes('excel') ? '📊' : type.includes('word')||type.includes('doc') ? '📝' : '📎';
                                         const downloadFile = (att) => {
                                             try {
@@ -2754,11 +2768,37 @@
                                                 setTimeout(()=>URL.revokeObjectURL(url), 2000);
                                             } catch(_) { alert('Could not download attachment'); }
                                         };
+                                        const handleAttachUpload = async (e) => {
+                                            const files = Array.from(e.target.files || []);
+                                            if (!files.length) return;
+                                            setAttUploadLoading(true); setAttUploadError('');
+                                            try {
+                                                const encoded = await Promise.all(files.map(f => new Promise((resolve, reject) => {
+                                                    const reader = new FileReader();
+                                                    reader.onload = ev => resolve({ name: f.name, type: f.type, size: f.size, content: ev.target.result.split(',')[1] });
+                                                    reader.onerror = reject;
+                                                    reader.readAsDataURL(f);
+                                                })));
+                                                await API.tickets.addAttachments(selectedTicket._dbId, encoded);
+                                                await refreshTicket(selectedTicket._dbId);
+                                            } catch(err) { setAttUploadError(err.message || 'Upload failed'); }
+                                            setAttUploadLoading(false);
+                                            e.target.value = '';
+                                        };
                                         return (
                                             <div style={{marginBottom:20,paddingBottom:20,borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
-                                                <p style={{fontSize:10,fontWeight:700,color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 10px'}}>📎 Attachments {atts.length > 0 ? `(${atts.length})` : ''}</p>
+                                                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+                                                    <p style={{fontSize:10,fontWeight:700,color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.06em',margin:0}}>📎 Attachments {atts.length > 0 ? `(${atts.length})` : ''}</p>
+                                                    {canUpload && (
+                                                        <label style={{display:'inline-flex',alignItems:'center',gap:5,padding:'4px 10px',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:dm?'#818cf8':'#4F46E5',border:`1px solid ${dm?'rgba(99,102,241,0.25)':'#C7D2FE'}`,borderRadius:6,fontSize:11,fontWeight:600,cursor:attUploadLoading?'not-allowed':'pointer',opacity:attUploadLoading?0.5:1}}>
+                                                            <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.rtf,.jpg,.jpeg,.png,.gif,.bmp,.heic" onChange={handleAttachUpload} style={{display:'none'}} disabled={attUploadLoading}/>
+                                                            {attUploadLoading ? '⏳ Uploading…' : '➕ Attach File'}
+                                                        </label>
+                                                    )}
+                                                </div>
+                                                {attUploadError && <p style={{fontSize:11,color:'#DC2626',margin:'0 0 8px'}}>{attUploadError}</p>}
                                                 {atts.length === 0 ? (
-                                                    <p style={{fontSize:12,color:dm?'#4a607f':'#94A3B8',fontStyle:'italic',margin:0,padding:'10px 14px',background:dm?'rgba(99,102,241,0.03)':'#F8FAFF',borderRadius:8,border:`1px dashed ${dm?'rgba(99,102,241,0.1)':'#E2E8F0'}`}}>No attachments on this ticket.</p>
+                                                    <p style={{fontSize:12,color:dm?'#4a607f':'#94A3B8',fontStyle:'italic',margin:0,padding:'10px 14px',background:dm?'rgba(99,102,241,0.03)':'#F8FAFF',borderRadius:8,border:`1px dashed ${dm?'rgba(99,102,241,0.1)':'#E2E8F0'}`}}>No attachments yet.{canUpload ? ' Use the button above to attach files.' : ''}</p>
                                                 ) : (
                                                     <div style={{display:'flex',flexDirection:'column',gap:6}}>
                                                         {atts.map((att,i)=>(
@@ -2785,7 +2825,7 @@
                                         const allComments = selectedTicket.comments || [];
                                         const workNotes = allComments.filter(c => c.isInternal);
                                         const fmtAt = ts => { try { return new Date(ts).toLocaleString('en-AU',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}); } catch(_){ return ''; } };
-                                        const canAddNote = !['Resolved','Closed'].includes(selectedTicket.status);
+                                        const canAddNote = true; // Work notes can be added at any stage for audit trail
                                         const addWorkNote = async () => {
                                             if (!workNote.trim()) return;
                                             setWorkNoteLoading(true);
