@@ -904,6 +904,8 @@
             const [notifOpen,    setNotifOpen]    = React.useState(false);
             const [notifications, setNotifications] = React.useState([]);
             const [notifLoading,  setNotifLoading]  = React.useState(false);
+            const [appToast,      setAppToast]      = React.useState('');
+            const showToast = (msg) => { setAppToast(msg); setTimeout(() => setAppToast(''), 3500); };
 
             // Load real notifications from backend
             const loadNotifications = React.useCallback(() => {
@@ -972,6 +974,13 @@
             });
 
             return (
+                <div style={{position:'relative'}}>
+                {/* TopBar toast — for test notification feedback */}
+                {appToast && (
+                    <div style={{position:'fixed',top:68,left:'50%',transform:'translateX(-50%)',zIndex:9999,background:'#1E1B4B',color:'#fff',padding:'10px 20px',borderRadius:10,fontSize:13,fontWeight:600,boxShadow:'0 4px 16px rgba(0,0,0,0.25)',pointerEvents:'none',whiteSpace:'nowrap'}}>
+                        {appToast}
+                    </div>
+                )}
                 <div style={{
                     height:56, background:bg,
                     borderBottom:`1px solid ${border}`,
@@ -1123,6 +1132,7 @@
                             </div>
                         )}
                     </div>
+                </div>
                 </div>
             );
         }
