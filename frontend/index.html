@@ -5048,8 +5048,17 @@
                     };
                     const url    = modalMode==='add' ? `${HRMS_API}/users` : `${HRMS_API}/users/${selStaff.id}`;
                     const method = modalMode==='add' ? 'POST' : 'PATCH';
-                    const res    = await fetch(url, { method, credentials:'include', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
-                    if (!res.ok) { const e=await res.json(); throw new Error(e.error || e.message || 'Save failed'); }
+                    let res = await fetch(url, { method, credentials:'include', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+                    // If 401, try one silent token refresh then retry
+                    if (res.status === 401) {
+                        await fetch(`${HRMS_API}/auth/refresh`, { method:'POST', credentials:'include' }).catch(()=>{});
+                        res = await fetch(url, { method, credentials:'include', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+                    }
+                    if (!res.ok) {
+                        const e = await res.json().catch(()=>({}));
+                        if (res.status === 401) throw new Error('Session expired — please sign out and sign back in.');
+                        throw new Error(e.error || e.message || 'Save failed');
+                    }
                     setShowModal(false);
                     showToast(modalMode==='add' ? '✅ Staff member added' : '✅ Staff member updated');
                     fetchAll();
@@ -6179,6 +6188,20 @@
                 setAuthError(null);
                 setSignedOut(true);
             };
+
+            // ── Silent token refresh ─────────────────────────────────────────────
+            // yc_access cookie lives only 15 minutes. We silently refresh it every
+            // 12 minutes using the long-lived yc_refresh cookie so write operations
+            // (PATCH, DELETE, POST) never hit 401 due to an expired access token.
+            React.useEffect(() => {
+                if (!currentUser) return;
+                const doRefresh = () =>
+                    fetch(`${HRMS_API}/auth/refresh`, { method: 'POST', credentials: 'include' })
+                        .catch(() => {}); // silent — if it fails the user will see a normal 401
+                doRefresh(); // once immediately on login
+                const t = setInterval(doRefresh, 12 * 60 * 1000); // every 12 min
+                return () => clearInterval(t);
+            }, [currentUser]);
 
             // Sign Back In — redirect to backend which handles PKCE with Microsoft
             const handleSignBackIn = () => {
