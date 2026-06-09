@@ -1870,6 +1870,8 @@
             const [lookups, setLookups] = React.useState(null);
             const [error, setError] = React.useState('');
             const [success, setSuccess] = React.useState(false);
+            const [attachments, setAttachments] = React.useState([]);
+            const [attachError, setAttachError] = React.useState('');
 
             React.useEffect(() => {
                 fetchLookups();
@@ -1919,6 +1921,37 @@
                 }));
             };
 
+            const ALLOWED_TYPES = [
+                'application/pdf','application/msword',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'application/vnd.ms-excel',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'text/plain','text/rtf','application/rtf',
+                'image/jpeg','image/png','image/gif','image/bmp','image/heic','image/heif',
+            ];
+            const MAX_TOTAL_MB = 8;
+
+            const handleFileChange = (e) => {
+                setAttachError('');
+                const files = Array.from(e.target.files || []);
+                if (!files.length) return;
+                const invalid = files.filter(f => !ALLOWED_TYPES.includes(f.type) && !f.name.match(/\.(pdf|doc|docx|xls|xlsx|txt|rtf|jpg|jpeg|png|gif|bmp|heic|heif)$/i));
+                if (invalid.length) { setAttachError(`Unsupported file type: ${invalid.map(f=>f.name).join(', ')}`); e.target.value=''; return; }
+                const totalMB = (attachments.reduce((s,a)=>s+a.size,0) + files.reduce((s,f)=>s+f.size,0)) / 1024 / 1024;
+                if (totalMB > MAX_TOTAL_MB) { setAttachError(`Total attachment size exceeds ${MAX_TOTAL_MB}MB limit`); e.target.value=''; return; }
+                files.forEach(file => {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        const base64 = ev.target.result.split(',')[1]; // strip data URI prefix
+                        setAttachments(prev => [...prev, { name: file.name, type: file.type, size: file.size, content: base64 }]);
+                    };
+                    reader.readAsDataURL(file);
+                });
+                e.target.value = '';
+            };
+
+            const removeAttachment = (idx) => setAttachments(prev => prev.filter((_,i)=>i!==idx));
+
             const handleSubmit = async (e) => {
                 e.preventDefault();
                 setLoading(true);
@@ -1950,7 +1983,7 @@
                         setLoading(false);
                         return;
                     }
-                    await API.tickets.create(formData);
+                    await API.tickets.create({ ...formData, attachments });
                     setSuccess(true);
                     setFormData({
                         title_type: 'Service Request',
@@ -1970,6 +2003,8 @@
                         created_by: sessionUser?.id || null,
                         assigned_to: null
                     });
+                    setAttachments([]);
+                    setAttachError('');
                     setTimeout(() => setSuccess(false), 5000);
                 } catch (err) {
                     setError('Failed to create ticket: ' + err.message);
@@ -2070,6 +2105,32 @@
                                         <div>
                                             <label className={labelCls}>Issue Details <span className="text-red-400">*</span></label>
                                             <textarea name="issue_details" value={formData.issue_details} onChange={handleChange} placeholder="Describe the issue in detail…" rows="4" className={inputCls + " resize-none"}></textarea>
+                                        </div>
+
+                                        {/* Attachments */}
+                                        <div>
+                                            <label className={labelCls}>Attachments <span style={{fontSize:10,fontWeight:400,color:dm?'#4a607f':'#94A3B8'}}>(PDF, DOC, DOCX, XLS, XLSX, TXT, JPG, PNG, GIF, BMP, HEIC — max 8 MB total)</span></label>
+                                            <label style={{display:'flex',alignItems:'center',gap:8,padding:'10px 14px',border:`2px dashed ${dm?'rgba(99,102,241,0.3)':'#C7D2FE'}`,borderRadius:8,cursor:'pointer',background:dm?'rgba(99,102,241,0.05)':'#F5F7FF',transition:'border-color 0.2s'}}
+                                                onDragOver={e=>{e.preventDefault();e.currentTarget.style.borderColor='#6366F1';}}
+                                                onDragLeave={e=>{e.currentTarget.style.borderColor=dm?'rgba(99,102,241,0.3)':'#C7D2FE';}}
+                                                onDrop={e=>{e.preventDefault();e.currentTarget.style.borderColor=dm?'rgba(99,102,241,0.3)':'#C7D2FE';const dt={target:{files:e.dataTransfer.files,value:''}};handleFileChange(dt);}}>
+                                                <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.rtf,.jpg,.jpeg,.png,.gif,.bmp,.heic,.heif" onChange={handleFileChange} style={{display:'none'}}/>
+                                                <span style={{fontSize:20}}>📎</span>
+                                                <span style={{fontSize:12,color:dm?'#8fa4cc':'#64748B'}}>Click to attach files or drag &amp; drop</span>
+                                            </label>
+                                            {attachError && <p style={{fontSize:11,color:'#DC2626',marginTop:4}}>{attachError}</p>}
+                                            {attachments.length > 0 && (
+                                                <div style={{marginTop:8,display:'flex',flexDirection:'column',gap:4}}>
+                                                    {attachments.map((a,i)=>(
+                                                        <div key={i} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 10px',background:dm?'rgba(99,102,241,0.08)':'#EEF2FF',borderRadius:6,fontSize:12}}>
+                                                            <span>{a.type.startsWith('image/')?'🖼️':a.type.includes('pdf')?'📄':a.type.includes('sheet')||a.type.includes('excel')?'📊':'📝'}</span>
+                                                            <span style={{flex:1,color:dm?'#c7d2fe':'#1E1B4B',fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{a.name}</span>
+                                                            <span style={{color:dm?'#4a607f':'#94A3B8',flexShrink:0}}>{(a.size/1024).toFixed(0)} KB</span>
+                                                            <button type="button" onClick={()=>removeAttachment(i)} style={{background:'none',border:'none',cursor:'pointer',color:'#DC2626',fontSize:14,lineHeight:1,padding:'0 2px',flexShrink:0}}>✕</button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
 
