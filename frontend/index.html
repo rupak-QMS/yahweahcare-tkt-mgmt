@@ -5977,14 +5977,6 @@
                                             <label style={labelStyle}>Phone Number</label>
                                             <input style={inputStyle} value={form.phone} onChange={e=>setForm(f=>({...f,phone:e.target.value}))} placeholder="+61 4xx xxx xxx"/>
                                         </div>
-                                        {/* Department */}
-                                        <div>
-                                            <label style={labelStyle}>Department</label>
-                                            <select style={inputStyle} value={form.department_id} onChange={e=>setForm(f=>({...f,department_id:e.target.value}))}>
-                                                <option value="">— Select department —</option>
-                                                {departments.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}
-                                            </select>
-                                        </div>
                                         {/* Positions */}
                                         <div style={{gridColumn:'1/-1'}}>
                                             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'6px'}}>
