@@ -5405,7 +5405,7 @@
                                 <div style={{padding:'16px 20px',display:'grid',gap:'12px'}}>
                                     <div>
                                         <label style={labelStyle}>Position Title <span style={{color:'#DC2626'}}>*</span></label>
-                                        <input style={inputStyle} value={posForm.title} onChange={e=>setPosForm(f=>({...f,title:e.target.value}))} placeholder="e.g. Community Support Worker"/>
+                                        <input style={inputStyle} value={posForm.title} onChange={e=>setPosForm(f=>({...f,title:e.target.value}))} placeholder="e.g. Community Support Worker" autoFocus/>
                                     </div>
                                     <div>
                                         <label style={labelStyle}>Department</label>
@@ -5415,21 +5415,11 @@
                                         </select>
                                     </div>
                                     <div>
-                                        <label style={labelStyle}>Position Type</label>
-                                        <select style={inputStyle} value={posForm.position_type} onChange={e=>setPosForm(f=>({...f,position_type:e.target.value}))}>
-                                            {POS_TYPES.map(t=><option key={t} value={t}>{t.charAt(0).toUpperCase()+t.slice(1)}</option>)}
-                                        </select>
-                                    </div>
-                                    <div>
                                         <label style={labelStyle}>Reports To (Parent Position)</label>
                                         <select style={inputStyle} value={posForm.parent_id} onChange={e=>setPosForm(f=>({...f,parent_id:e.target.value}))}>
                                             <option value="">— Root / Top Level —</option>
                                             {positions.map(p=><option key={p.id} value={p.id}>{p.title}</option>)}
                                         </select>
-                                    </div>
-                                    <div>
-                                        <label style={labelStyle}>Department Label for Org Chart <span style={{fontSize:'10px',color:dm?'#4a607f':'#94A3B8'}}>(optional — shows as header above box)</span></label>
-                                        <input style={inputStyle} value={posForm.dept_label} onChange={e=>setPosForm(f=>({...f,dept_label:e.target.value}))} placeholder="e.g. 👥 Operations Department"/>
                                     </div>
                                 </div>
                                 <div style={{padding:'12px 20px',borderTop:'1px solid #E0E7FF',display:'flex',justifyContent:'flex-end',gap:'8px',background:'#F8F9FF',borderRadius:'0 0 14px 14px'}}>
