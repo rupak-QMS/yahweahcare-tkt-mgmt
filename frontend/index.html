@@ -6229,55 +6229,79 @@
                 if (!currentUser) return;
                 if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
 
-                let swReg = null;
+                // Convert VAPID base64url public key → Uint8Array (required by PushManager.subscribe)
+                const urlBase64ToUint8Array = (b64) => {
+                    const pad = '='.repeat((4 - b64.length % 4) % 4);
+                    const base64 = (b64 + pad).replace(/-/g, '+').replace(/_/g, '/');
+                    const raw = atob(base64);
+                    const arr = new Uint8Array(raw.length);
+                    for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+                    return arr;
+                };
+
+                // Safe ArrayBuffer → base64 string
+                const bufToBase64 = (buf) => {
+                    const bytes = new Uint8Array(buf);
+                    let bin = '';
+                    for (let i = 0; i < bytes.byteLength; i++) bin += String.fromCharCode(bytes[i]);
+                    return btoa(bin);
+                };
 
                 const setupPush = async () => {
                     try {
-                        // 1. Register service worker
-                        swReg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+                        // 1. Register service worker and wait until active
+                        const swReg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+                        await navigator.serviceWorker.ready;
 
-                        // 2. Get VAPID public key
-                        const keyRes = await fetch(`${HRMS_API}/push/vapid-public-key`, { credentials:'include' });
-                        if (!keyRes.ok) return; // push not configured on backend
+                        // 2. Get VAPID public key from backend (unauthenticated endpoint)
+                        const keyRes = await fetch(`${HRMS_API}/push/vapid-public-key`);
+                        if (!keyRes.ok) { console.warn('[push] VAPID endpoint error', keyRes.status); return; }
                         const { publicKey } = await keyRes.json();
-                        if (!publicKey) return;
+                        if (!publicKey) { console.warn('[push] no VAPID public key configured'); return; }
 
-                        // 3. Check existing subscription
+                        // 3. If already subscribed, re-register with backend and exit
                         const existing = await swReg.pushManager.getSubscription();
                         if (existing) {
-                            // Re-send to backend in case it was lost
                             await fetch(`${HRMS_API}/push/subscribe`, {
-                                method:'POST', credentials:'include',
-                                headers:{'Content-Type':'application/json'},
-                                body: JSON.stringify({ endpoint: existing.endpoint, keys: { p256dh: btoa(String.fromCharCode(...new Uint8Array(existing.getKey('p256dh')))), auth: btoa(String.fromCharCode(...new Uint8Array(existing.getKey('auth')))) } }),
-                            }).catch(()=>{});
+                                method: 'POST', credentials: 'include',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    endpoint: existing.endpoint,
+                                    keys: {
+                                        p256dh: bufToBase64(existing.getKey('p256dh')),
+                                        auth:   bufToBase64(existing.getKey('auth')),
+                                    },
+                                }),
+                            }).catch(() => {});
                             return;
                         }
 
-                        // 4. Request permission
+                        // 4. Request notification permission
                         const permission = await Notification.requestPermission();
-                        if (permission !== 'granted') return;
+                        if (permission !== 'granted') { console.info('[push] permission not granted'); return; }
 
-                        // 5. Subscribe to push
+                        // 5. Subscribe — applicationServerKey MUST be Uint8Array, not a plain string
                         const sub = await swReg.pushManager.subscribe({
                             userVisibleOnly: true,
-                            applicationServerKey: publicKey,
+                            applicationServerKey: urlBase64ToUint8Array(publicKey),
                         });
 
-                        // 6. Send subscription to backend
+                        // 6. Save subscription to backend
                         const subJson = sub.toJSON();
-                        await fetch(`${HRMS_API}/push/subscribe`, {
-                            method:'POST', credentials:'include',
-                            headers:{'Content-Type':'application/json'},
+                        const saveRes = await fetch(`${HRMS_API}/push/subscribe`, {
+                            method: 'POST', credentials: 'include',
+                            headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ endpoint: subJson.endpoint, keys: subJson.keys }),
                         });
+                        if (saveRes.ok) console.info('[push] subscription registered ✓');
+                        else console.warn('[push] save failed', saveRes.status);
+
                     } catch(err) {
                         console.warn('[push] setup failed:', err);
                     }
                 };
 
-                // Small delay so page renders first
-                const t = setTimeout(setupPush, 2000);
+                const t = setTimeout(setupPush, 1500);
                 return () => clearTimeout(t);
             }, [currentUser]);
 
