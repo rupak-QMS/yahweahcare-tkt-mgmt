@@ -464,6 +464,11 @@ router.post('/', requireAuth, async (req, res, next) => {
     if (!resolvedApprovers.length) {
       return res.status(400).json({ error: 'missing_fields', message: 'At least one approver is required' });
     }
+    // Prevent the assignee from also being an approver
+    const assigneeNum = resolvedAssignee ? Number(resolvedAssignee) : null;
+    if (assigneeNum && resolvedApprovers.map(Number).includes(assigneeNum)) {
+      return res.status(400).json({ error: 'invalid_approvers', message: 'The assignee cannot also be an approver' });
+    }
 
     // Use the provided expected_completion as the due date
     const { rows: priRows } = await pool.query(`SELECT sla_hours FROM yc_tkt_mgmt.priorities WHERE id = $1`, [resolvedPriority]);

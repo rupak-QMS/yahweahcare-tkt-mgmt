@@ -2249,7 +2249,7 @@
 
                                     {/* Approvers — loaded from API */}
                                     {(() => {
-                                        const approverList = (lookups && lookups.users) ? lookups.users : [];
+                                        const approverList = (lookups && lookups.users) ? lookups.users.filter(u => u.id !== formData.assigneeId) : [];
                                         return (
                                         <div className={cardCls}>
                                             <div className={sectionHeadCls}>
@@ -2342,11 +2342,19 @@
                                             <label className={labelCls}>Assign To</label>
                                             <select
                                                 value={formData.assigneeId || ''}
-                                                onChange={e => setFormData(prev => ({ ...prev, assigneeId: e.target.value ? Number(e.target.value) : null }))}
+                                                onChange={e => {
+                                                    const newAssigneeId = e.target.value ? Number(e.target.value) : null;
+                                                    setFormData(prev => ({
+                                                        ...prev,
+                                                        assigneeId: newAssigneeId,
+                                                        // Remove assignee from approver_ids if they were selected
+                                                        approver_ids: newAssigneeId ? prev.approver_ids.filter(id => id !== newAssigneeId) : prev.approver_ids
+                                                    }));
+                                                }}
                                                 className={inputCls}
                                             >
                                                 <option value="">Unassigned</option>
-                                                {(lookups?.users || []).map(u => (
+                                                {(lookups?.users || []).filter(u => !(formData.approver_ids || []).includes(u.id)).map(u => (
                                                     <option key={u.id} value={u.id}>
                                                         {u.name}{String(u.id) === String(formData.created_by) ? ' (Me)' : ''}
                                                     </option>
