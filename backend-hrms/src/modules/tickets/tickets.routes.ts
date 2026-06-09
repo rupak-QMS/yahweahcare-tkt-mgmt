@@ -47,6 +47,12 @@ async function ensureAttachmentsColumn() {
       ALTER TABLE yc_tkt_mgmt.tickets
         ADD COLUMN IF NOT EXISTS resolution_note TEXT
     `);
+    await pool.query(`
+      ALTER TABLE yc_tkt_mgmt.tickets
+        ADD COLUMN IF NOT EXISTS title_type TEXT,
+        ADD COLUMN IF NOT EXISTS subtitle TEXT,
+        ADD COLUMN IF NOT EXISTS subcategory TEXT
+    `);
     attachmentsMigrated = true;
   } catch (err) {
     console.warn('[tickets] migration skipped:', err);
@@ -105,6 +111,10 @@ function dbTicket(row: Record<string, unknown>) {
     departmentName: row.department_name || null,
     // resolution note (set when assignee marks complete)
     resolutionNote: row.resolution_note || null,
+    // ticket type fields stored separately for display
+    titleType: row.title_type || null,
+    subtitle: row.subtitle || null,
+    subcategory: row.subcategory || null,
     // extension request fields
     extensionRequestedDue: row.extension_requested_due || null,
     extensionRequestStatus: row.extension_request_status || null,
@@ -137,6 +147,7 @@ function dbComment(row: Record<string, unknown>) {
     id: String(row.id),
     ticketId: row.ticket_id,
     userId: row.author_id,
+    authorName: row.author_name || null,
     text: row.body,
     isInternal: !!row.is_internal,
     at: row.created_at,
@@ -338,7 +349,7 @@ router.get('/:id', optionalAuth, async (req, res, next) => {
     const id = Number(req.params.id);
     const [{ rows: tRows }, { rows: cRows }, { rows: aRows }, { rows: apRows }] = await Promise.all([
       pool.query(`SELECT * FROM yc_tkt_mgmt.tickets WHERE id = $1`, [id]),
-      pool.query(`SELECT * FROM yc_tkt_mgmt.comments WHERE ticket_id = $1 ORDER BY created_at ASC`, [id]),
+      pool.query(`SELECT c.*, u.name AS author_name FROM yc_tkt_mgmt.comments c LEFT JOIN yc_tkt_mgmt.users u ON u.id = c.author_id WHERE c.ticket_id = $1 ORDER BY c.created_at ASC`, [id]),
       pool.query(`SELECT * FROM yc_tkt_mgmt.activity WHERE ticket_id = $1 ORDER BY created_at ASC`, [id]),
       pool.query(
         `SELECT ta.*, u.name AS user_name, u.email AS user_email
@@ -364,7 +375,7 @@ router.post('/', requireAuth, async (req, res, next) => {
       title, description, category, priority, status, site, assigneeId,
       approverIds, expectedCompletion,
       // frontend field aliases
-      title_type, subtitle, category_id, priority_id, initial_status, assign_to, approver_ids, expected_completion,
+      title_type, subtitle, subcategory, category_id, priority_id, initial_status, assign_to, approver_ids, expected_completion,
       attachments,
     } = req.body || {};
 
@@ -415,11 +426,12 @@ router.post('/', requireAuth, async (req, res, next) => {
     await ensureAttachmentsColumn();
     const { rows } = await pool.query(
       `INSERT INTO yc_tkt_mgmt.tickets
-         (title, description, category_id, priority_id, status,
+         (title, title_type, subtitle, subcategory, description, category_id, priority_id, status,
           created_by, assigned_to, due_date, expected_completion, attachments)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
        RETURNING *`,
-      [resolvedTitle, description || req.body.issue_details || '', resolvedCategory, resolvedPriority,
+      [resolvedTitle, title_type || null, subtitle || null, subcategory || null,
+       description || req.body.issue_details || '', resolvedCategory, resolvedPriority,
        finalStatus, req.auth?.userId || req.body.created_by || null, resolvedAssignee || null, dueDate, resolvedDueDate,
        JSON.stringify(resolvedAttachments)]
     );

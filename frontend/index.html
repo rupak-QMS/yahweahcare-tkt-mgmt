@@ -2361,6 +2361,9 @@
             // Delete state
             const [deleteMode, setDeleteMode] = React.useState(false);
             const [deleteJustification, setDeleteJustification] = React.useState('');
+            // Work notes / steps taken state
+            const [workNote, setWorkNote] = React.useState('');
+            const [workNoteLoading, setWorkNoteLoading] = React.useState(false);
 
             // Map API status IDs to display labels
             const toStatusLabel = s => ({ open:'Open', new:'New', in_progress:'In Progress', pending_approval:'Pending Approval', resolved:'Resolved', closed:'Closed', waiting:'Waiting', assigned:'Assigned' })[s] || (s||'').replace(/_/g,' ');
@@ -2572,6 +2575,8 @@
                                                                         API.tickets.getById(t._dbId),
                                                                         API.tickets.getEscalations(t._dbId).catch(()=>({escalations:[]}))
                                                                     ]);
+                                                                    // Update selectedTicket with full data (includes comments, attachments, subcategory, etc.)
+                                                                    if(ticketData.ticket) setSelectedTicket(normalise(ticketData.ticket));
                                                                     if(ticketData.ticket?.approvers) setApprovers(ticketData.ticket.approvers);
                                                                     if(escData.escalations) setEscalations(escData.escalations);
                                                                 } catch(_){}
@@ -2628,7 +2633,7 @@
                             setEscalateMode(false); setEscalateTo(''); setEscalateReason(''); setEscalations([]);
                             setExtMode(false); setExtDate(''); setExtNote(''); setExtResNote('');
                             setDeleteMode(false); setDeleteJustification('');
-                            setResolutionNote('');
+                            setResolutionNote(''); setWorkNote('');
                         };
                         const isAssignee   = selectedTicket.assigneeId === sessionUser?.id;
                         const isCreator    = selectedTicket.requesterId === sessionUser?.id;
@@ -2668,9 +2673,16 @@
                                     {(()=>{
                                         const raw = selectedTicket.dueAt||selectedTicket.expectedCompletion;
                                         const od  = isOD(selectedTicket);
+                                        // Derive ticket type / subject from stored fields or split from combined title
+                                        const rawTitle = selectedTicket.title || '';
+                                        const titleParts = rawTitle.includes(' — ') ? rawTitle.split(' — ') : [rawTitle, ''];
+                                        const ticketType = selectedTicket.titleType || titleParts[0] || '—';
+                                        const ticketSubject = selectedTicket.subtitle || titleParts.slice(1).join(' — ') || '—';
                                         const metaItems = [
                                             {label:'Priority',    node: <Badge text={selectedTicket.priority} st={pst(selectedTicket.priority)}/>},
                                             {label:'Status',      node: <Badge text={selectedTicket.status}   st={sst(selectedTicket.status)}/>},
+                                            {label:'Ticket Type', node: <span style={{fontSize:13,color:textP,fontWeight:500}}>{ticketType}</span>},
+                                            {label:'Subject',     node: <span style={{fontSize:13,color:textP}}>{ticketSubject}</span>},
                                             {label:'Assigned To', node: <div>
                                                 <span style={{fontSize:13,color:textP,fontWeight:500,display:'block'}}>{selectedTicket.assigned||'Unassigned'}</span>
                                                 {selectedTicket.assigneeEmail && <span style={{fontSize:11,color:textM}}>{selectedTicket.assigneeEmail}</span>}
@@ -2680,6 +2692,7 @@
                                                 {selectedTicket.requesterEmail && <span style={{fontSize:11,color:textM}}>{selectedTicket.requesterEmail}</span>}
                                             </div>},
                                             {label:'Category',    node: <span style={{fontSize:13,color:textP}}>{selectedTicket.categoryLabel||selectedTicket.category||'—'}</span>},
+                                            {label:'Sub-Category',node: <span style={{fontSize:13,color:selectedTicket.subcategory?(dm?'#c0cfec':'#334155'):(dm?'#4a607f':'#94A3B8'),fontStyle:selectedTicket.subcategory?'normal':'italic'}}>{selectedTicket.subcategory||'Not specified'}</span>},
                                             {label:'Created',     node: <span style={{fontSize:13,color:dm?'#c0cfec':'#334155'}}>{selectedTicket.date}</span>},
                                             {label:'Due Date',    node: raw
                                                 ? <span style={{fontSize:13,fontWeight:od?700:400,color:od?'#EF4444':(dm?'#c0cfec':'#334155')}}>{new Date(raw).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'})}{od?' ⚠️ Overdue':''}</span>
@@ -2700,15 +2713,22 @@
                                         );
                                     })()}
 
-                                    {/* ── Description / Issue Details ── */}
-                                    {(selectedTicket.description||selectedTicket.issueDetails||selectedTicket.issue_details) && (
-                                        <div style={{marginBottom:20,paddingBottom:20,borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
-                                            <p style={{fontSize:10,fontWeight:700,color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 8px'}}>Issue Details / Description</p>
-                                            <p style={{fontSize:13,color:dm?'#c0cfec':'#334155',lineHeight:1.7,margin:0,whiteSpace:'pre-wrap',background:dm?'rgba(99,102,241,0.04)':'#F8FAFF',padding:'12px 14px',borderRadius:8,border:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
-                                                {selectedTicket.description||selectedTicket.issueDetails||selectedTicket.issue_details}
-                                            </p>
-                                        </div>
-                                    )}
+                                    {/* ── Description / Issue Details — always shown ── */}
+                                    {(()=>{
+                                        const issueText = selectedTicket.description||selectedTicket.issueDetails||selectedTicket.issue_details||'';
+                                        return (
+                                            <div style={{marginBottom:20,paddingBottom:20,borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
+                                                <p style={{fontSize:10,fontWeight:700,color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 8px'}}>📋 Issue Details / Description</p>
+                                                {issueText ? (
+                                                    <p style={{fontSize:13,color:dm?'#c0cfec':'#334155',lineHeight:1.7,margin:0,whiteSpace:'pre-wrap',background:dm?'rgba(99,102,241,0.04)':'#F8FAFF',padding:'12px 14px',borderRadius:8,border:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
+                                                        {issueText}
+                                                    </p>
+                                                ) : (
+                                                    <p style={{fontSize:13,color:dm?'#4a607f':'#94A3B8',fontStyle:'italic',margin:0,padding:'12px 14px',background:dm?'rgba(99,102,241,0.03)':'#F8FAFF',borderRadius:8,border:`1px dashed ${dm?'rgba(99,102,241,0.1)':'#E2E8F0'}`}}>No description provided.</p>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
 
                                     {/* ── Resolution Note (set when marked complete) ── */}
                                     {selectedTicket.resolutionNote && (
@@ -2720,10 +2740,9 @@
                                         </div>
                                     )}
 
-                                    {/* ── Attachments ── */}
+                                    {/* ── Attachments — always shown ── */}
                                     {(()=>{
                                         const atts = selectedTicket.attachments || [];
-                                        if (!atts.length) return null;
                                         const fileIcon = (type='') => type.startsWith('image/') ? '🖼️' : type.includes('pdf') ? '📄' : type.includes('sheet')||type.includes('excel') ? '📊' : type.includes('word')||type.includes('doc') ? '📝' : '📎';
                                         const downloadFile = (att) => {
                                             try {
@@ -2737,22 +2756,80 @@
                                         };
                                         return (
                                             <div style={{marginBottom:20,paddingBottom:20,borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
-                                                <p style={{fontSize:10,fontWeight:700,color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 10px'}}>📎 Attachments ({atts.length})</p>
-                                                <div style={{display:'flex',flexDirection:'column',gap:6}}>
-                                                    {atts.map((att,i)=>(
-                                                        <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:dm?'rgba(99,102,241,0.06)':'#F8FAFF',borderRadius:8,border:`1px solid ${dm?'rgba(99,102,241,0.12)':'#E2E8F0'}`}}>
-                                                            <span style={{fontSize:18,flexShrink:0}}>{fileIcon(att.type)}</span>
-                                                            <div style={{flex:1,minWidth:0}}>
-                                                                <div style={{fontSize:12,fontWeight:600,color:textP,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{att.name}</div>
-                                                                <div style={{fontSize:11,color:textM}}>{att.size ? `${(att.size/1024).toFixed(0)} KB` : ''}</div>
+                                                <p style={{fontSize:10,fontWeight:700,color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 10px'}}>📎 Attachments {atts.length > 0 ? `(${atts.length})` : ''}</p>
+                                                {atts.length === 0 ? (
+                                                    <p style={{fontSize:12,color:dm?'#4a607f':'#94A3B8',fontStyle:'italic',margin:0,padding:'10px 14px',background:dm?'rgba(99,102,241,0.03)':'#F8FAFF',borderRadius:8,border:`1px dashed ${dm?'rgba(99,102,241,0.1)':'#E2E8F0'}`}}>No attachments on this ticket.</p>
+                                                ) : (
+                                                    <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                                                        {atts.map((att,i)=>(
+                                                            <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:dm?'rgba(99,102,241,0.06)':'#F8FAFF',borderRadius:8,border:`1px solid ${dm?'rgba(99,102,241,0.12)':'#E2E8F0'}`}}>
+                                                                <span style={{fontSize:18,flexShrink:0}}>{fileIcon(att.type)}</span>
+                                                                <div style={{flex:1,minWidth:0}}>
+                                                                    <div style={{fontSize:12,fontWeight:600,color:textP,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{att.name}</div>
+                                                                    <div style={{fontSize:11,color:textM}}>{att.size ? `${(att.size/1024).toFixed(0)} KB` : ''}</div>
+                                                                </div>
+                                                                <button onClick={()=>downloadFile(att)}
+                                                                    style={{padding:'5px 12px',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:dm?'#818cf8':'#4F46E5',border:`1px solid ${dm?'rgba(99,102,241,0.25)':'#C7D2FE'}`,borderRadius:6,fontSize:11,fontWeight:600,cursor:'pointer',flexShrink:0}}>
+                                                                    ⬇ Download
+                                                                </button>
                                                             </div>
-                                                            <button onClick={()=>downloadFile(att)}
-                                                                style={{padding:'5px 12px',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:dm?'#818cf8':'#4F46E5',border:`1px solid ${dm?'rgba(99,102,241,0.25)':'#C7D2FE'}`,borderRadius:6,fontSize:11,fontWeight:600,cursor:'pointer',flexShrink:0}}>
-                                                                ⬇ Download
-                                                            </button>
-                                                        </div>
-                                                    ))}
-                                                </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
+
+                                    {/* ── Work Notes / Steps Taken — audit trail ── */}
+                                    {(()=>{
+                                        const allComments = selectedTicket.comments || [];
+                                        const workNotes = allComments.filter(c => c.isInternal);
+                                        const fmtAt = ts => { try { return new Date(ts).toLocaleString('en-AU',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}); } catch(_){ return ''; } };
+                                        const canAddNote = !['Resolved','Closed'].includes(selectedTicket.status);
+                                        const addWorkNote = async () => {
+                                            if (!workNote.trim()) return;
+                                            setWorkNoteLoading(true);
+                                            try {
+                                                const u = getSessionUser();
+                                                await fetch(`${HRMS_API}/tickets/${selectedTicket._dbId}/comments`, {
+                                                    method: 'POST', credentials: 'include',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({ body: workNote.trim(), isInternal: true, actorId: u?.id })
+                                                });
+                                                setWorkNote('');
+                                                await refreshTicket(selectedTicket._dbId);
+                                            } catch(_){}
+                                            setWorkNoteLoading(false);
+                                        };
+                                        return (
+                                            <div style={{marginBottom:20,paddingBottom:20,borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
+                                                <p style={{fontSize:10,fontWeight:700,color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 10px'}}>🔧 Resolution Details / Steps Taken</p>
+                                                {workNotes.length === 0 ? (
+                                                    <p style={{fontSize:12,color:dm?'#4a607f':'#94A3B8',fontStyle:'italic',margin:'0 0 10px',padding:'10px 14px',background:dm?'rgba(99,102,241,0.03)':'#F8FAFF',borderRadius:8,border:`1px dashed ${dm?'rgba(99,102,241,0.1)':'#E2E8F0'}`}}>No work notes yet. Use the field below to document steps taken during resolution.</p>
+                                                ) : (
+                                                    <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:10}}>
+                                                        {workNotes.map((c,i)=>(
+                                                            <div key={c.id||i} style={{padding:'10px 12px',background:dm?'rgba(245,158,11,0.06)':'#FFFBEB',borderRadius:8,border:`1px solid ${dm?'rgba(245,158,11,0.15)':'#FDE68A'}`}}>
+                                                                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
+                                                                    <span style={{fontSize:11,fontWeight:700,color:dm?'#fcd34d':'#92400E'}}>{c.authorName || `Staff #${c.userId}`}</span>
+                                                                    <span style={{fontSize:10,color:dm?'#6b80a4':'#94A3B8'}}>{fmtAt(c.at)}</span>
+                                                                </div>
+                                                                <p style={{fontSize:13,color:dm?'#fef3c7':'#78350F',margin:0,lineHeight:1.6,whiteSpace:'pre-wrap'}}>{c.text}</p>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                {canAddNote && (
+                                                    <div>
+                                                        <textarea rows="3" value={workNote} onChange={e=>setWorkNote(e.target.value)}
+                                                            placeholder="Document a step taken, update, or note about the resolution process…"
+                                                            style={{width:'100%',border:`1px solid ${dm?'rgba(245,158,11,0.25)':'#FDE68A'}`,borderRadius:8,padding:'8px 10px',fontSize:13,resize:'vertical',boxSizing:'border-box',background:dm?'rgba(8,16,36,0.5)':'#FFFBEB',color:textP,outline:'none',marginBottom:8,fontFamily:'inherit',lineHeight:1.5}}/>
+                                                        <button disabled={workNoteLoading||!workNote.trim()} onClick={addWorkNote}
+                                                            style={{padding:'8px 16px',background:(workNoteLoading||!workNote.trim())?'#94A3B8':'#D97706',color:'white',border:'none',borderRadius:8,fontSize:12,fontWeight:600,cursor:(workNoteLoading||!workNote.trim())?'not-allowed':'pointer',opacity:workNoteLoading?0.5:1}}>
+                                                            {workNoteLoading?'Saving…':'📝 Add Work Note'}
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
                                         );
                                     })()}
