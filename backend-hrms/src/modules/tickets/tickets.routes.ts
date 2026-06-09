@@ -135,10 +135,11 @@ function dbApprover(row: Record<string, unknown>) {
     userId: row.approver_user_id,
     userName: row.user_name || null,
     userEmail: row.user_email || null,
-    status: row.approval_status,
+    status: row.approval_status || 'Pending',
     justification: row.comments || null,
     respondedAt: row.approval_date || null,
-    createdAt: row.created_date,
+    // support both created_date and created_at column names
+    createdAt: row.created_date || row.created_at || null,
   };
 }
 
@@ -347,19 +348,35 @@ router.get('/activity', optionalAuth, async (req, res, next) => {
 router.get('/:id', optionalAuth, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
-    const [{ rows: tRows }, { rows: cRows }, { rows: aRows }, { rows: apRows }] = await Promise.all([
+
+    // Run ticket + comments + activity together; isolate approvers query
+    // to prevent a schema mismatch (e.g. created_date vs created_at) from
+    // silently killing the whole response.
+    const [{ rows: tRows }, { rows: cRows }, { rows: aRows }] = await Promise.all([
       pool.query(`SELECT * FROM yc_tkt_mgmt.tickets WHERE id = $1`, [id]),
       pool.query(`SELECT c.*, u.name AS author_name FROM yc_tkt_mgmt.comments c LEFT JOIN yc_tkt_mgmt.users u ON u.id = c.author_id WHERE c.ticket_id = $1 ORDER BY c.created_at ASC`, [id]),
       pool.query(`SELECT * FROM yc_tkt_mgmt.activity WHERE ticket_id = $1 ORDER BY created_at ASC`, [id]),
-      pool.query(
-        `SELECT ta.*, u.name AS user_name, u.email AS user_email
-         FROM yc_tkt_mgmt.ticket_approvers ta
-         JOIN yc_tkt_mgmt.users u ON u.id = ta.approver_user_id
-         WHERE ta.ticket_id = $1 ORDER BY ta.created_date ASC`,
-        [id]
-      ),
     ]);
     if (!tRows[0]) return res.status(404).json({ error: 'not_found' });
+
+    // Approvers — defensive: try without ORDER BY first, then fall back
+    let apRows: Record<string, unknown>[] = [];
+    try {
+      const apQ = await pool.query(
+        `SELECT ta.id, ta.ticket_id, ta.approver_user_id,
+                COALESCE(ta.approval_status, 'Pending') AS approval_status,
+                ta.comments, ta.approval_date,
+                u.name AS user_name, u.email AS user_email
+           FROM yc_tkt_mgmt.ticket_approvers ta
+           JOIN yc_tkt_mgmt.users u ON u.id = ta.approver_user_id
+          WHERE ta.ticket_id = $1`,
+        [id]
+      );
+      apRows = apQ.rows;
+    } catch (apErr) {
+      console.warn('[GET /tickets/:id] approvers query failed:', apErr);
+    }
+
     const t = dbTicket(tRows[0]);
     t.comments  = cRows.map(dbComment);
     t.activity  = aRows.map(dbActivity);
