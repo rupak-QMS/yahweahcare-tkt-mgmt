@@ -5482,7 +5482,7 @@
                 if (tsp.scope)  tp.set('scope',  tsp.scope);
                 if (tsp.userId) tp.set('userId', String(tsp.userId));
                 if (tsp.deptId) tp.set('deptId', String(tsp.deptId));
-                fetch(`${HRMS_API}/tickets?${tp}`)
+                fetch(`${HRMS_API}/tickets?${tp}`, { credentials: 'include' })
                     .then(r => r.ok ? r.json() : {tickets:[]})
                     .then(d => setApiTickets(Array.isArray(d.tickets) ? d.tickets : []))
                     .catch(() => setApiTickets([]))
@@ -5518,6 +5518,23 @@
                 const cats = new Set();
                 allTickets.forEach(t => { if (t.category) cats.add(t.category); });
                 return ['all', ...Array.from(cats).sort()];
+            }, [allTickets]);
+
+            // ── dynamic priorities from actual data ───────────────────────────
+            const dynamicPriorities = React.useMemo(() => {
+                const pri = new Set();
+                allTickets.forEach(t => { if (t.priority) pri.add(t.priority); });
+                // Sort by severity order if known, else alphabetically
+                const order = ['critical','urgent','high','medium','low'];
+                const sorted = Array.from(pri).sort((a,b) => {
+                    const ai = order.indexOf((a+'').toLowerCase());
+                    const bi = order.indexOf((b+'').toLowerCase());
+                    if (ai === -1 && bi === -1) return (a+'').localeCompare(b+'');
+                    if (ai === -1) return 1;
+                    if (bi === -1) return -1;
+                    return ai - bi;
+                });
+                return ['all', ...sorted];
             }, [allTickets]);
 
             const showToast = (msg, type='success') => {
@@ -5867,24 +5884,23 @@
                         {/* ── Filters row ── */}
                         <div style={{...s.card, marginBottom:16}}>
                             <p style={{fontSize:12,fontWeight:700,color:dm?'#c0cfec':'#334155',marginBottom:12}}>🔍 Filters — applied to all exports</p>
-                            <div style={{display:'grid',gridTemplateColumns:'2fr 1fr 1fr 1fr 1fr',gap:12,alignItems:'end'}}>
+                            <div style={{display:'grid',gridTemplateColumns:period==='custom'?'2fr 1fr 1fr 1fr 1fr':'2fr 1fr 1fr',gap:12,alignItems:'end'}}>
                                 {/* Period */}
                                 <div>
                                     <span style={s.lbl}>Time Period</span>
-                                    <select value={period} onChange={e=>setPeriod(e.target.value)} style={s.sel}>
+                                    <select value={period} onChange={e=>{setPeriod(e.target.value);if(e.target.value!=='custom'){setDateFrom('');setDateTo('');}}} style={s.sel}>
                                         {PERIOD_OPTS.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
                                     </select>
                                 </div>
-                                {/* Date From */}
-                                <div>
+                                {/* Date From / To — only when custom */}
+                                {period==='custom'&&<div>
                                     <span style={s.lbl}>From Date</span>
-                                    <input type="date" value={dateFrom} onChange={e=>{setDateFrom(e.target.value);setPeriod('custom');}} style={s.inp}/>
-                                </div>
-                                {/* Date To */}
-                                <div>
+                                    <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)} style={s.inp}/>
+                                </div>}
+                                {period==='custom'&&<div>
                                     <span style={s.lbl}>To Date</span>
-                                    <input type="date" value={dateTo} onChange={e=>{setDateTo(e.target.value);setPeriod('custom');}} style={s.inp}/>
-                                </div>
+                                    <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)} style={s.inp}/>
+                                </div>}
                                 {/* Category */}
                                 <div>
                                     <span style={s.lbl}>Category</span>
@@ -5896,7 +5912,7 @@
                                 <div>
                                     <span style={s.lbl}>Priority</span>
                                     <select value={priorityFilter} onChange={e=>setPriorityFilter(e.target.value)} style={s.sel}>
-                                        {PRIORITY_OPTS.map(p=><option key={p} value={p}>{p==='all'?'All Priorities':p}</option>)}
+                                        {dynamicPriorities.map(p=><option key={p} value={p}>{p==='all'?'All Priorities':p}</option>)}
                                     </select>
                                 </div>
                             </div>
