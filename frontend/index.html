@@ -2486,7 +2486,7 @@
                 // Fetch real tickets and real staff in parallel
                 Promise.all([
                     API.tickets.getAll({ all: true, limit: 500 }).catch(() => ({ tickets: [] })),
-                    fetch(`${HRMS_API}/users?status=active&limit=200${getUserQueryParams(getSessionUser())}`).then(r => r.ok ? r.json() : { users: [] }).catch(() => ({ users: [] }))
+                    fetch(`${HRMS_API}/users?status=active&limit=200`, { credentials:'include', headers: authHeaders() }).then(r => r.ok ? r.json() : { users: [] }).catch(() => ({ users: [] }))
                 ]).then(([tickData, staffData]) => {
                     setTickets((tickData.tickets || []).map(normalise));
                     setStaffList(staffData.users || []);
