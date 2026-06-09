@@ -872,13 +872,13 @@
                     if (!res.ok) throw new Error('Failed to fetch escalations');
                     return res.json();
                 },
-                complete: async (id) => {
+                complete: async (id, resolutionNote) => {
                     const u = getSessionUser();
                     const res = await fetch(`${HRMS_API}/tickets/${id}/complete`, {
                         method: 'POST',
                         credentials: 'include',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ actorId: u?.id })
+                        body: JSON.stringify({ actorId: u?.id, resolutionNote })
                     });
                     if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || 'Failed to mark complete'); }
                     return res.json();
@@ -2350,6 +2350,8 @@
             const [escalateTo, setEscalateTo] = React.useState('');
             const [escalateReason, setEscalateReason] = React.useState('');
             const [escalations, setEscalations] = React.useState([]);
+            // Resolution note (required before Mark as Complete)
+            const [resolutionNote, setResolutionNote] = React.useState('');
             // Extension request state
             const [extMode, setExtMode] = React.useState(false);
             const [extDate, setExtDate] = React.useState('');
@@ -2562,6 +2564,7 @@
                                                             setEscalateMode(false); setEscalateTo(''); setEscalateReason('');
                                                             setExtMode(false); setExtDate(''); setExtNote(''); setExtResNote('');
                                                             setDeleteMode(false); setDeleteJustification('');
+                                                            setResolutionNote('');
                                                             setApprovers([]); setEscalations([]);
                                                             if(t._dbId){
                                                                 try {
@@ -2625,6 +2628,7 @@
                             setEscalateMode(false); setEscalateTo(''); setEscalateReason(''); setEscalations([]);
                             setExtMode(false); setExtDate(''); setExtNote(''); setExtResNote('');
                             setDeleteMode(false); setDeleteJustification('');
+                            setResolutionNote('');
                         };
                         const isAssignee   = selectedTicket.assigneeId === sessionUser?.id;
                         const isCreator    = selectedTicket.requesterId === sessionUser?.id;
@@ -2660,35 +2664,98 @@
                                 })()}
 
                                 <div style={{padding:'20px',flex:1}}>
-                                    {/* Meta grid */}
-                                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:'20px',paddingBottom:'20px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
-                                        {[
-                                            {label:'Priority', node: <Badge text={selectedTicket.priority} st={pst(selectedTicket.priority)}/>},
-                                            {label:'Status',   node: <Badge text={selectedTicket.status}   st={sst(selectedTicket.status)}/>},
-                                            {label:'Assigned To', node: <span style={{fontSize:13,color:textP,fontWeight:500}}>{selectedTicket.assigned||'Unassigned'}</span>},
+                                    {/* ── Full detail grid ── */}
+                                    {(()=>{
+                                        const raw = selectedTicket.dueAt||selectedTicket.expectedCompletion;
+                                        const od  = isOD(selectedTicket);
+                                        const metaItems = [
+                                            {label:'Priority',    node: <Badge text={selectedTicket.priority} st={pst(selectedTicket.priority)}/>},
+                                            {label:'Status',      node: <Badge text={selectedTicket.status}   st={sst(selectedTicket.status)}/>},
+                                            {label:'Assigned To', node: <div>
+                                                <span style={{fontSize:13,color:textP,fontWeight:500,display:'block'}}>{selectedTicket.assigned||'Unassigned'}</span>
+                                                {selectedTicket.assigneeEmail && <span style={{fontSize:11,color:textM}}>{selectedTicket.assigneeEmail}</span>}
+                                            </div>},
+                                            {label:'Reported By', node: <div>
+                                                <span style={{fontSize:13,color:textP,fontWeight:500,display:'block'}}>{selectedTicket.requesterName||'—'}</span>
+                                                {selectedTicket.requesterEmail && <span style={{fontSize:11,color:textM}}>{selectedTicket.requesterEmail}</span>}
+                                            </div>},
+                                            {label:'Category',    node: <span style={{fontSize:13,color:textP}}>{selectedTicket.categoryLabel||selectedTicket.category||'—'}</span>},
                                             {label:'Created',     node: <span style={{fontSize:13,color:dm?'#c0cfec':'#334155'}}>{selectedTicket.date}</span>},
-                                            {label:'Due Date', node: (()=>{
-                                                const raw=selectedTicket.dueAt||selectedTicket.expectedCompletion;
-                                                if(!raw) return <span style={{fontSize:13,color:dm?'#4a607f':'#94A3B8'}}>Not set</span>;
-                                                const od=isOD(selectedTicket);
-                                                return <span style={{fontSize:13,fontWeight:od?700:400,color:od?'#EF4444':(dm?'#c0cfec':'#334155')}}>{new Date(raw).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'})}{od?' ⚠️':''}</span>;
-                                            })()},
-                                            {label:'NDIS', node: <span style={{fontSize:13,color:dm?'#c0cfec':'#334155'}}>{selectedTicket.ndisRelated||selectedTicket.ndis_related?'Yes':'No'}</span>},
-                                        ].map(({label,node})=>(
-                                            <div key={label}>
-                                                <p style={{fontSize:10,fontWeight:700,color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 4px'}}>{label}</p>
-                                                {node}
+                                            {label:'Due Date',    node: raw
+                                                ? <span style={{fontSize:13,fontWeight:od?700:400,color:od?'#EF4444':(dm?'#c0cfec':'#334155')}}>{new Date(raw).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'})}{od?' ⚠️ Overdue':''}</span>
+                                                : <span style={{fontSize:13,color:dm?'#4a607f':'#94A3B8'}}>Not set</span>},
+                                            {label:'NDIS Related',node: <span style={{fontSize:13,color:dm?'#c0cfec':'#334155'}}>{selectedTicket.ndisRelated?'Yes':'No'}</span>},
+                                        ];
+                                        return (
+                                            <div style={{marginBottom:20,paddingBottom:20,borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
+                                                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'14px'}}>
+                                                    {metaItems.map(({label,node})=>(
+                                                        <div key={label}>
+                                                            <p style={{fontSize:10,fontWeight:700,color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 4px'}}>{label}</p>
+                                                            {node}
+                                                        </div>
+                                                    ))}
+                                                </div>
                                             </div>
-                                        ))}
-                                    </div>
+                                        );
+                                    })()}
 
-                                    {/* Description */}
-                                    {(selectedTicket.issueDetails||selectedTicket.issue_details) && (
-                                        <div style={{marginBottom:'20px',paddingBottom:'20px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
-                                            <p style={{fontSize:10,fontWeight:700,color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 8px'}}>Description</p>
-                                            <p style={{fontSize:13,color:dm?'#c0cfec':'#334155',lineHeight:1.6,margin:0,whiteSpace:'pre-wrap'}}>{selectedTicket.issueDetails||selectedTicket.issue_details}</p>
+                                    {/* ── Description / Issue Details ── */}
+                                    {(selectedTicket.description||selectedTicket.issueDetails||selectedTicket.issue_details) && (
+                                        <div style={{marginBottom:20,paddingBottom:20,borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
+                                            <p style={{fontSize:10,fontWeight:700,color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 8px'}}>Issue Details / Description</p>
+                                            <p style={{fontSize:13,color:dm?'#c0cfec':'#334155',lineHeight:1.7,margin:0,whiteSpace:'pre-wrap',background:dm?'rgba(99,102,241,0.04)':'#F8FAFF',padding:'12px 14px',borderRadius:8,border:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
+                                                {selectedTicket.description||selectedTicket.issueDetails||selectedTicket.issue_details}
+                                            </p>
                                         </div>
                                     )}
+
+                                    {/* ── Resolution Note (set when marked complete) ── */}
+                                    {selectedTicket.resolutionNote && (
+                                        <div style={{marginBottom:20,paddingBottom:20,borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
+                                            <p style={{fontSize:10,fontWeight:700,color:dm?'#34d399':'#065F46',textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 8px'}}>✅ Resolution Note</p>
+                                            <p style={{fontSize:13,color:dm?'#6ee7b7':'#065F46',lineHeight:1.7,margin:0,whiteSpace:'pre-wrap',background:dm?'rgba(16,185,129,0.06)':'#ECFDF5',padding:'12px 14px',borderRadius:8,border:`1px solid ${dm?'rgba(16,185,129,0.15)':'#A7F3D0'}`}}>
+                                                {selectedTicket.resolutionNote}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* ── Attachments ── */}
+                                    {(()=>{
+                                        const atts = selectedTicket.attachments || [];
+                                        if (!atts.length) return null;
+                                        const fileIcon = (type='') => type.startsWith('image/') ? '🖼️' : type.includes('pdf') ? '📄' : type.includes('sheet')||type.includes('excel') ? '📊' : type.includes('word')||type.includes('doc') ? '📝' : '📎';
+                                        const downloadFile = (att) => {
+                                            try {
+                                                const bytes = Uint8Array.from(atob(att.content), c=>c.charCodeAt(0));
+                                                const blob  = new Blob([bytes], {type: att.type||'application/octet-stream'});
+                                                const url   = URL.createObjectURL(blob);
+                                                const a     = document.createElement('a');
+                                                a.href = url; a.download = att.name; a.click();
+                                                setTimeout(()=>URL.revokeObjectURL(url), 2000);
+                                            } catch(_) { alert('Could not download attachment'); }
+                                        };
+                                        return (
+                                            <div style={{marginBottom:20,paddingBottom:20,borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
+                                                <p style={{fontSize:10,fontWeight:700,color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 10px'}}>📎 Attachments ({atts.length})</p>
+                                                <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                                                    {atts.map((att,i)=>(
+                                                        <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:dm?'rgba(99,102,241,0.06)':'#F8FAFF',borderRadius:8,border:`1px solid ${dm?'rgba(99,102,241,0.12)':'#E2E8F0'}`}}>
+                                                            <span style={{fontSize:18,flexShrink:0}}>{fileIcon(att.type)}</span>
+                                                            <div style={{flex:1,minWidth:0}}>
+                                                                <div style={{fontSize:12,fontWeight:600,color:textP,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{att.name}</div>
+                                                                <div style={{fontSize:11,color:textM}}>{att.size ? `${(att.size/1024).toFixed(0)} KB` : ''}</div>
+                                                            </div>
+                                                            <button onClick={()=>downloadFile(att)}
+                                                                style={{padding:'5px 12px',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:dm?'#818cf8':'#4F46E5',border:`1px solid ${dm?'rgba(99,102,241,0.25)':'#C7D2FE'}`,borderRadius:6,fontSize:11,fontWeight:600,cursor:'pointer',flexShrink:0}}>
+                                                                ⬇ Download
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
 
                                     {/* ── Assignee Actions ── */}
                                     {isAssignee && !['Resolved','Closed'].includes(selectedTicket.status) && (
@@ -2696,19 +2763,30 @@
                                             <p style={{fontSize:12,fontWeight:700,color:dm?'#818cf8':'#4338CA',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:4}}>Your Actions (Assignee)</p>
                                             {actionError && <div style={{fontSize:12,color:'#DC2626',background:'#FEF2F2',border:'1px solid #FECACA',borderRadius:8,padding:'8px 12px',marginBottom:10}}>{actionError}</div>}
 
-                                            {/* Mark Complete */}
+                                            {/* Mark Complete — with mandatory resolution note */}
                                             {selectedTicket.status !== 'Pending Approval' && (
-                                                <div style={{marginBottom: hasPendingExt ? 0 : 12}}>
-                                                    <p style={{fontSize:11,color:dm?'#8fa4cc':'#4338CA',marginBottom:8}}>Once your work is done, submit for approver review.</p>
-                                                    <button disabled={actionLoading||hasPendingExt} onClick={async()=>{
+                                                <div style={{marginBottom:12}}>
+                                                    <p style={{fontSize:11,color:dm?'#8fa4cc':'#4338CA',marginBottom:10}}>Once your work is done, describe the resolution and submit for approver review.</p>
+
+                                                    {/* Resolution note — required */}
+                                                    <label style={{display:'block',fontSize:11,fontWeight:700,color:dm?'#c0cfec':'#334155',marginBottom:5}}>
+                                                        Resolution Note <span style={{color:'#EF4444'}}>*</span>
+                                                        <span style={{fontWeight:400,color:textM,marginLeft:4}}>(required for audit trail)</span>
+                                                    </label>
+                                                    <textarea rows="3" value={resolutionNote} onChange={e=>setResolutionNote(e.target.value)}
+                                                        placeholder="Describe what was done to resolve this ticket…"
+                                                        style={{width:'100%',border:`1px solid ${dm?'rgba(99,102,241,0.25)':'#C7D2FE'}`,borderRadius:8,padding:'8px 10px',fontSize:13,resize:'vertical',boxSizing:'border-box',background:dm?'rgba(8,16,36,0.5)':'white',color:textP,outline:'none',marginBottom:10,fontFamily:'inherit',lineHeight:1.5}}/>
+
+                                                    <button disabled={actionLoading||hasPendingExt||!resolutionNote.trim()} onClick={async()=>{
                                                         setActionLoading(true); setActionError('');
-                                                        try { await API.tickets.complete(selectedTicket._dbId); await refreshTicket(selectedTicket._dbId); }
+                                                        try { await API.tickets.complete(selectedTicket._dbId, resolutionNote.trim()); setResolutionNote(''); await refreshTicket(selectedTicket._dbId); }
                                                         catch(e){ setActionError(e.message); }
                                                         finally{ setActionLoading(false); }
-                                                    }} style={{padding:'9px 18px',background:hasPendingExt?'#94A3B8':'#4F46E5',color:'white',border:'none',borderRadius:9,fontSize:13,fontWeight:600,cursor:hasPendingExt?'not-allowed':'pointer',opacity:actionLoading?0.5:1}}>
-                                                        {actionLoading?'⏳…':'✔ Mark as Complete'}
+                                                    }} style={{padding:'10px 20px',background:(hasPendingExt||!resolutionNote.trim())?'#94A3B8':'#4F46E5',color:'white',border:'none',borderRadius:9,fontSize:13,fontWeight:600,cursor:(hasPendingExt||!resolutionNote.trim())?'not-allowed':'pointer',opacity:actionLoading?0.5:1}}>
+                                                        {actionLoading?'⏳ Submitting…':'✔ Mark as Complete & Submit for Approval'}
                                                     </button>
-                                                    {hasPendingExt && <p style={{fontSize:11,color:'#D97706',marginTop:6}}>⏳ You cannot submit for approval while a time extension is pending the issuer's response.</p>}
+                                                    {hasPendingExt && <p style={{fontSize:11,color:'#D97706',marginTop:6}}>⏳ Cannot submit for approval while an extension request is pending.</p>}
+                                                    {!resolutionNote.trim() && !hasPendingExt && <p style={{fontSize:11,color:dm?'#6b80a4':'#94A3B8',marginTop:6}}>Enter a resolution note above to enable submission.</p>}
                                                 </div>
                                             )}
 
@@ -2941,7 +3019,9 @@
 
                                     {selectedTicket.status === 'Pending Approval' && isApprover && (
                                         <div style={{marginTop:16,padding:16,background:dm?'rgba(249,115,22,0.10)':'#FFF7ED',borderRadius:12,border:`1px solid ${dm?'rgba(249,115,22,0.25)':'#FED7AA'}`}}>
-                                            <p style={{fontSize:12,fontWeight:700,color:'#C2410C',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:12}}>⚖ Your Decision (Approver)</p>
+                                            <p style={{fontSize:12,fontWeight:700,color:'#C2410C',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:4}}>⚖ Your Decision (Approver)</p>
+                                            <p style={{fontSize:11,color:dm?'#fcd34d':'#92400E',marginBottom:12}}>Approve to close the ticket, or Reopen to send it back to the assignee for more work.</p>
+                                            {actionError && <div style={{fontSize:12,color:'#DC2626',background:'#FEF2F2',border:'1px solid #FECACA',borderRadius:8,padding:'8px 12px',marginBottom:10}}>{actionError}</div>}
                                             {!rejectMode ? (
                                                 <div style={{display:'flex',gap:'10px'}}>
                                                     <button disabled={actionLoading} onClick={async()=>{
@@ -2953,19 +3033,20 @@
                                                         } catch(e){ setActionError(e.message); }
                                                         finally{ setActionLoading(false); }
                                                     }} style={{flex:1,padding:'10px',background:'#059669',color:'white',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer',opacity:actionLoading?0.5:1}}>
-                                                        {actionLoading?'⏳…':'✅ Approve Resolution'}
+                                                        {actionLoading?'⏳…':'✅ Approve & Close Ticket'}
                                                     </button>
                                                     <button disabled={actionLoading} onClick={()=>{setRejectMode(true);setActionError('');}}
                                                         style={{flex:1,padding:'10px',background:'#DC2626',color:'white',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer',opacity:actionLoading?0.5:1}}>
-                                                        ❌ Reject &amp; Reopen
+                                                        🔄 Reopen Ticket
                                                     </button>
                                                 </div>
                                             ) : (
                                                 <div>
-                                                    <label style={{display:'block',fontSize:12,fontWeight:600,color:dm?'#c0cfec':'#334155',marginBottom:6}}>Justification <span style={{color:'#EF4444'}}>*</span></label>
+                                                    <p style={{fontSize:12,color:dm?'#c0cfec':'#374151',marginBottom:6}}>Provide a reason so the assignee knows what needs to be fixed:</p>
+                                                    <label style={{display:'block',fontSize:11,fontWeight:600,color:dm?'#c0cfec':'#334155',marginBottom:6}}>Reason for Reopening <span style={{color:'#EF4444'}}>*</span></label>
                                                     <textarea rows="3" value={justification} onChange={e=>setJustification(e.target.value)}
-                                                        placeholder="Explain why the resolution is not acceptable…"
-                                                        style={{width:'100%',border:`1px solid ${borderC}`,borderRadius:8,padding:'8px 10px',fontSize:13,resize:'none',outline:'none',marginBottom:10,boxSizing:'border-box'}}/>
+                                                        placeholder="What needs to be fixed or improved before this ticket can be approved?"
+                                                        style={{width:'100%',border:`1px solid ${dm?'rgba(239,68,68,0.3)':'#FECACA'}`,borderRadius:8,padding:'8px 10px',fontSize:13,resize:'none',outline:'none',marginBottom:10,boxSizing:'border-box',background:dm?'rgba(8,16,36,0.6)':'white',color:textP,fontFamily:'inherit'}}/>
                                                     <div style={{display:'flex',gap:'8px'}}>
                                                         <button disabled={actionLoading||!justification.trim()} onClick={async()=>{
                                                             setActionLoading(true); setActionError('');
@@ -2977,7 +3058,7 @@
                                                             } catch(e){ setActionError(e.message); }
                                                             finally{ setActionLoading(false); }
                                                         }} style={{flex:1,padding:'9px',background:'#DC2626',color:'white',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer',opacity:(actionLoading||!justification.trim())?0.5:1}}>
-                                                            {actionLoading?'⏳…':'❌ Confirm Reject & Reopen'}
+                                                            {actionLoading?'⏳…':'🔄 Confirm Reopen'}
                                                         </button>
                                                         <button onClick={()=>{setRejectMode(false);setJustification('');setActionError('');}}
                                                             style={{padding:'9px 16px',background:dm?'rgba(6,9,22,0.7)':'#F5F7FF',color:dm?'#c0cfec':'#334155',border:'none',borderRadius:10,fontSize:13,fontWeight:600,cursor:'pointer'}}>

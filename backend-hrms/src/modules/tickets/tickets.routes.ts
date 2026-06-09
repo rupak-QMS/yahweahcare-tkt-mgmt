@@ -43,6 +43,10 @@ async function ensureAttachmentsColumn() {
         ADD COLUMN IF NOT EXISTS extension_requested_at TIMESTAMPTZ,
         ADD COLUMN IF NOT EXISTS extension_request_note TEXT
     `);
+    await pool.query(`
+      ALTER TABLE yc_tkt_mgmt.tickets
+        ADD COLUMN IF NOT EXISTS resolution_note TEXT
+    `);
     attachmentsMigrated = true;
   } catch (err) {
     console.warn('[tickets] migration skipped:', err);
@@ -99,6 +103,8 @@ function dbTicket(row: Record<string, unknown>) {
     assigneeName:   row.assignee_name   || null,
     assigneeEmail:  row.assignee_email  || null,
     departmentName: row.department_name || null,
+    // resolution note (set when assignee marks complete)
+    resolutionNote: row.resolution_note || null,
     // extension request fields
     extensionRequestedDue: row.extension_requested_due || null,
     extensionRequestStatus: row.extension_request_status || null,
@@ -472,6 +478,12 @@ router.post('/:id/complete', requireAuth, async (req, res, next) => {
   try {
     const id      = Number(req.params.id);
     const actorId = req.auth?.userId ?? (req.body.actorId ? Number(req.body.actorId) : null);
+    const resolutionNote = (req.body.resolutionNote || '').trim();
+
+    if (!resolutionNote) {
+      return res.status(400).json({ error: 'resolution_required', message: 'A resolution note is required before marking the ticket as complete' });
+    }
+
     const { rows: tRows } = await pool.query(`SELECT * FROM yc_tkt_mgmt.tickets WHERE id = $1`, [id]);
     if (!tRows[0]) return res.status(404).json({ error: 'not_found' });
 
@@ -488,17 +500,18 @@ router.post('/:id/complete', requireAuth, async (req, res, next) => {
       [id]
     );
 
+    await ensureAttachmentsColumn();
     const { rows } = await pool.query(
       `UPDATE yc_tkt_mgmt.tickets
-       SET status='pending_approval', pending_approval_at=NOW(), updated_at=NOW()
+       SET status='pending_approval', pending_approval_at=NOW(), resolution_note=$2, updated_at=NOW()
        WHERE id=$1 RETURNING *`,
-      [id]
+      [id, resolutionNote]
     );
 
     await pool.query(
       `INSERT INTO yc_tkt_mgmt.activity (ticket_id, user_id, action, details)
        VALUES ($1,$2,'status_changed',$3)`,
-      [id, actorId, JSON.stringify({ to: 'pending_approval' })]
+      [id, actorId, JSON.stringify({ to: 'pending_approval', resolutionNote })]
     );
 
     await logAudit({ userId: actorId ?? undefined, actorEmail: req.auth?.email, action: 'ticket.complete', module: 'tickets', targetType: 'ticket', targetId: id, metadata: {}, req });
