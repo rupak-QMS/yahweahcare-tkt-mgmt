@@ -5048,7 +5048,7 @@
                     };
                     const url    = modalMode==='add' ? `${HRMS_API}/users` : `${HRMS_API}/users/${selStaff.id}`;
                     const method = modalMode==='add' ? 'POST' : 'PATCH';
-                    const res    = await fetch(url, { method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+                    const res    = await fetch(url, { method, credentials:'include', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
                     if (!res.ok) { const e=await res.json(); throw new Error(e.error || e.message || 'Save failed'); }
                     setShowModal(false);
                     showToast(modalMode==='add' ? '✅ Staff member added' : '✅ Staff member updated');
@@ -5060,7 +5060,7 @@
             const handleDelete = async () => {
                 if (!delConfirm) return;
                 try {
-                    const res  = await fetch(`${HRMS_API}/users/${delConfirm.id}`, { method:'DELETE' });
+                    const res  = await fetch(`${HRMS_API}/users/${delConfirm.id}`, { method:'DELETE', credentials:'include' });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || data.message || 'Delete failed');
                     setDelConfirm(null);
