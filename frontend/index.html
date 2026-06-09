@@ -4977,9 +4977,9 @@
                 try {
                     const uqp = getUserQueryParams(getSessionUser());
                     const [sR,dR,pR] = await Promise.all([
-                        fetch(`${HRMS_API}/users?limit=200${uqp}`),
-                        fetch(`${HRMS_API}/org/departments`),
-                        fetch(`${HRMS_API}/org/positions`),
+                        fetch(`${HRMS_API}/users?limit=200${uqp}`, { credentials:'include' }),
+                        fetch(`${HRMS_API}/org/departments`,        { credentials:'include' }),
+                        fetch(`${HRMS_API}/org/positions`,          { credentials:'include' }),
                     ]);
                     const [sd,dd,pd] = await Promise.all([sR.json(),dR.json(),pR.json()]);
                     // backend-hrms returns { users } for /users and { departments } and { positions }
@@ -5081,15 +5081,21 @@
             const handleAddPosition = async () => {
                 if (!posForm.title.trim()) return;
                 try {
-                    const res = await fetch(`${HRMS_API}/org/positions`, {
-                        method:'POST', headers:{'Content-Type':'application/json'},
-                        body:JSON.stringify({
-                            title:           posForm.title.trim(),
-                            departmentId:    posForm.department_id || null,
-                            parentPositionId:posForm.parent_id     || null,
-                            sortOrder:       0,
-                        })
+                    const body = JSON.stringify({
+                        title:           posForm.title.trim(),
+                        departmentId:    posForm.department_id || null,
+                        parentPositionId:posForm.parent_id     || null,
+                        sortOrder:       0,
                     });
+                    let res = await fetch(`${HRMS_API}/org/positions`, {
+                        method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body
+                    });
+                    if (res.status === 401) {
+                        await fetch(`${HRMS_API}/auth/refresh`, { method:'POST', credentials:'include' }).catch(()=>{});
+                        res = await fetch(`${HRMS_API}/org/positions`, {
+                            method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body
+                        });
+                    }
                     if (!res.ok) { const e=await res.json(); throw new Error(e.error || e.message); }
                     const data = await res.json();
                     setPositions(prev=>[...prev, data.position]);
