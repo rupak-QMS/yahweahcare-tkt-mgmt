@@ -27,6 +27,29 @@ async function getTicketDept(creatorId: number | null, assigneeId: number | null
 
 const router = Router();
 
+// ── Auto-migrate: add attachments + extension columns ──────
+let attachmentsMigrated = false;
+async function ensureAttachmentsColumn() {
+  if (attachmentsMigrated) return;
+  try {
+    await pool.query(`
+      ALTER TABLE yc_tkt_mgmt.tickets
+        ADD COLUMN IF NOT EXISTS attachments JSONB NOT NULL DEFAULT '[]'::jsonb
+    `);
+    await pool.query(`
+      ALTER TABLE yc_tkt_mgmt.tickets
+        ADD COLUMN IF NOT EXISTS extension_requested_due DATE,
+        ADD COLUMN IF NOT EXISTS extension_request_status TEXT,
+        ADD COLUMN IF NOT EXISTS extension_requested_at TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS extension_request_note TEXT
+    `);
+    attachmentsMigrated = true;
+  } catch (err) {
+    console.warn('[tickets] migration skipped:', err);
+  }
+}
+ensureAttachmentsColumn();
+
 // ── Mapper: DB row → frontend shape ────────────────────────
 // Actual table columns (schema yc_tkt_mgmt.tickets):
 //   status (not status_id), assigned_to (not assignee_id),
@@ -76,10 +99,16 @@ function dbTicket(row: Record<string, unknown>) {
     assigneeName:   row.assignee_name   || null,
     assigneeEmail:  row.assignee_email  || null,
     departmentName: row.department_name || null,
+    // extension request fields
+    extensionRequestedDue: row.extension_requested_due || null,
+    extensionRequestStatus: row.extension_request_status || null,
+    extensionRequestedAt: row.extension_requested_at || null,
+    extensionRequestNote: row.extension_request_note || null,
     // activity + comments + approvers fetched separately
     activity: row.activity || [],
     comments: row.comments || [],
     approvers: row.approvers || [],
+    attachments: Array.isArray(row.attachments) ? row.attachments : [],
   };
 }
 
@@ -329,7 +358,8 @@ router.post('/', requireAuth, async (req, res, next) => {
       title, description, category, priority, status, site, assigneeId,
       approverIds, expectedCompletion,
       // frontend field aliases
-      title_type, subtitle, category_id, priority_id, initial_status, assign_to, approver_ids, expected_completion
+      title_type, subtitle, category_id, priority_id, initial_status, assign_to, approver_ids, expected_completion,
+      attachments,
     } = req.body || {};
 
     // Normalise field names (frontend may use snake_case or camelCase)
@@ -366,14 +396,26 @@ router.post('/', requireAuth, async (req, res, next) => {
       // statuses table doesn't exist; use the provided status value as-is
     }
 
+    // Validate and sanitise attachments (strip data URIs to keep only metadata + base64 content)
+    const resolvedAttachments = Array.isArray(attachments)
+      ? attachments.slice(0, 10).map((a: Record<string, unknown>) => ({
+          name:    String(a.name    || 'file'),
+          type:    String(a.type    || 'application/octet-stream'),
+          size:    Number(a.size    || 0),
+          content: String(a.content || ''), // base64
+        }))
+      : [];
+
+    await ensureAttachmentsColumn();
     const { rows } = await pool.query(
       `INSERT INTO yc_tkt_mgmt.tickets
          (title, description, category_id, priority_id, status,
-          created_by, assigned_to, due_date, expected_completion)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+          created_by, assigned_to, due_date, expected_completion, attachments)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
        RETURNING *`,
       [resolvedTitle, description || req.body.issue_details || '', resolvedCategory, resolvedPriority,
-       finalStatus, req.auth?.userId || req.body.created_by || null, resolvedAssignee || null, dueDate, resolvedDueDate]
+       finalStatus, req.auth?.userId || req.body.created_by || null, resolvedAssignee || null, dueDate, resolvedDueDate,
+       JSON.stringify(resolvedAttachments)]
     );
     const ticketId = rows[0].id;
 
@@ -417,7 +459,8 @@ router.post('/', requireAuth, async (req, res, next) => {
     notify({
       type: 'ticket.created', ticketId, ticketTitle: resolvedTitle,
       actorId: actorId!, actorName, creatorId: actorId ?? undefined,
-      assigneeId: resolvedAssignee ? Number(resolvedAssignee) : undefined, deptId,
+      assigneeId: resolvedAssignee ? Number(resolvedAssignee) : undefined,
+      approverIds: resolvedApprovers, deptId,
     }).catch(() => {});
   } catch (err) { next(err); }
 });
@@ -464,10 +507,14 @@ router.post('/:id/complete', requireAuth, async (req, res, next) => {
     // Notify
     const actorName = await getActorName(actorId);
     const deptId    = await getTicketDept(tRows[0].created_by, tRows[0].assigned_to);
+    const { rows: apIdsC } = await pool.query(
+      `SELECT approver_user_id FROM yc_tkt_mgmt.ticket_approvers WHERE ticket_id=$1`, [id]
+    );
     notify({
       type: 'ticket.completed', ticketId: id, ticketTitle: tRows[0].title,
       actorId: actorId!, actorName, creatorId: tRows[0].created_by ?? undefined,
-      assigneeId: tRows[0].assigned_to ?? undefined, deptId,
+      assigneeId: tRows[0].assigned_to ?? undefined,
+      approverIds: apIdsC.map(r => r.approver_user_id), deptId,
     }).catch(() => {});
   } catch (err) { next(err); }
 });
@@ -678,16 +725,158 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// ── DELETE /tickets/:id ─────────────────────────────────────
+// ── DELETE /tickets/:id — bootstrap admin only ──────────────
 router.delete('/:id', requireAuth, async (req, res, next) => {
   try {
     const id      = Number(req.params.id);
     const actorId = req.auth?.userId ?? (req.body?.actorId ? Number(req.body.actorId) : null);
+    const justification = (req.body?.justification || '').trim();
+
+    // Check bootstrap admin
+    const { rows: adminRows } = await pool.query(
+      `SELECT is_bootstrap_admin FROM yc_tkt_mgmt.users WHERE id=$1`, [actorId]
+    );
+    if (!adminRows[0]?.is_bootstrap_admin) {
+      return res.status(403).json({ error: 'forbidden', message: 'Only bootstrap admins can delete tickets' });
+    }
+    if (!justification) {
+      return res.status(400).json({ error: 'justification_required', message: 'A justification is required to delete a ticket' });
+    }
+
     const { rows } = await pool.query(`SELECT id, title FROM yc_tkt_mgmt.tickets WHERE id = $1`, [id]);
     if (!rows[0]) return res.status(404).json({ error: 'not_found' });
     await pool.query(`DELETE FROM yc_tkt_mgmt.tickets WHERE id = $1`, [id]);
-    await logAudit({ userId: actorId ?? undefined, actorEmail: req.auth?.email, action: 'ticket.delete', module: 'tickets', targetType: 'ticket', targetId: id, metadata: { title: rows[0].title }, req });
+    await logAudit({ userId: actorId ?? undefined, actorEmail: req.auth?.email, action: 'ticket.delete', module: 'tickets', targetType: 'ticket', targetId: id, metadata: { title: rows[0].title, justification }, req });
     res.json({ ok: true });
+  } catch (err) { next(err); }
+});
+
+// ── POST /tickets/:id/request-extension — assignee requests new due date ──
+router.post('/:id/request-extension', requireAuth, async (req, res, next) => {
+  try {
+    const id      = Number(req.params.id);
+    const actorId = req.auth?.userId ?? (req.body.actorId ? Number(req.body.actorId) : null);
+    const { newDueDate, note } = req.body || {};
+
+    if (!newDueDate) {
+      return res.status(400).json({ error: 'missing_fields', message: 'newDueDate is required' });
+    }
+
+    const { rows: tRows } = await pool.query(`SELECT * FROM yc_tkt_mgmt.tickets WHERE id=$1`, [id]);
+    if (!tRows[0]) return res.status(404).json({ error: 'not_found' });
+
+    // Only the assignee may request an extension
+    if (tRows[0].assigned_to !== actorId) {
+      return res.status(403).json({ error: 'forbidden', message: 'Only the assigned person can request a time extension' });
+    }
+    if (['resolved','closed'].includes(tRows[0].status)) {
+      return res.status(400).json({ error: 'invalid_status', message: 'Cannot request extension on a closed/resolved ticket' });
+    }
+
+    await ensureAttachmentsColumn();
+    const { rows } = await pool.query(
+      `UPDATE yc_tkt_mgmt.tickets
+         SET extension_requested_due=$2,
+             extension_request_status='pending',
+             extension_requested_at=NOW(),
+             extension_request_note=$3,
+             updated_at=NOW()
+       WHERE id=$1 RETURNING *`,
+      [id, newDueDate, note?.trim() || null]
+    );
+
+    await pool.query(
+      `INSERT INTO yc_tkt_mgmt.activity (ticket_id, user_id, action, details)
+       VALUES ($1,$2,'extension_requested',$3)`,
+      [id, actorId, JSON.stringify({ newDueDate, note: note?.trim() || null })]
+    );
+
+    const { rows: allAp } = await pool.query(
+      `SELECT ta.*, u.name AS user_name, u.email AS user_email
+       FROM yc_tkt_mgmt.ticket_approvers ta JOIN yc_tkt_mgmt.users u ON u.id=ta.approver_user_id
+       WHERE ta.ticket_id=$1`, [id]
+    );
+    const t = dbTicket(rows[0]);
+    t.approvers = allAp.map(dbApprover);
+    res.json({ ticket: t });
+
+    const actorName = await getActorName(actorId);
+    const deptId    = await getTicketDept(tRows[0].created_by, tRows[0].assigned_to);
+    notify({
+      type: 'ticket.extension_requested', ticketId: id, ticketTitle: tRows[0].title,
+      actorId: actorId!, actorName, creatorId: tRows[0].created_by ?? undefined,
+      assigneeId: tRows[0].assigned_to ?? undefined,
+      approverIds: allAp.map(r => r.approver_user_id), deptId, extra: newDueDate,
+    }).catch(() => {});
+  } catch (err) { next(err); }
+});
+
+// ── POST /tickets/:id/respond-extension — creator approves/denies ──
+router.post('/:id/respond-extension', requireAuth, async (req, res, next) => {
+  try {
+    const id      = Number(req.params.id);
+    const actorId = req.auth?.userId ?? (req.body.actorId ? Number(req.body.actorId) : null);
+    const { action, note } = req.body || {};
+
+    if (!['approve','deny'].includes(action)) {
+      return res.status(400).json({ error: 'invalid_action', message: 'action must be "approve" or "deny"' });
+    }
+
+    const { rows: tRows } = await pool.query(`SELECT * FROM yc_tkt_mgmt.tickets WHERE id=$1`, [id]);
+    if (!tRows[0]) return res.status(404).json({ error: 'not_found' });
+
+    // Only the ticket creator may respond to extension requests
+    if (tRows[0].created_by !== actorId) {
+      return res.status(403).json({ error: 'forbidden', message: 'Only the ticket creator can respond to extension requests' });
+    }
+    if (tRows[0].extension_request_status !== 'pending') {
+      return res.status(400).json({ error: 'no_pending_request', message: 'No pending extension request on this ticket' });
+    }
+
+    let updateSql: string;
+    const newStatus = action === 'approve' ? 'approved' : 'denied';
+
+    if (action === 'approve') {
+      updateSql = `UPDATE yc_tkt_mgmt.tickets
+         SET due_date=extension_requested_due,
+             expected_completion=extension_requested_due,
+             extension_request_status='approved',
+             updated_at=NOW()
+       WHERE id=$1 RETURNING *`;
+    } else {
+      updateSql = `UPDATE yc_tkt_mgmt.tickets
+         SET extension_request_status='denied',
+             updated_at=NOW()
+       WHERE id=$1 RETURNING *`;
+    }
+
+    const { rows } = await pool.query(updateSql, [id]);
+
+    await pool.query(
+      `INSERT INTO yc_tkt_mgmt.activity (ticket_id, user_id, action, details)
+       VALUES ($1,$2,'extension_responded',$3)`,
+      [id, actorId, JSON.stringify({ action: newStatus, note: note?.trim() || null })]
+    );
+
+    const { rows: allAp } = await pool.query(
+      `SELECT ta.*, u.name AS user_name, u.email AS user_email
+       FROM yc_tkt_mgmt.ticket_approvers ta JOIN yc_tkt_mgmt.users u ON u.id=ta.approver_user_id
+       WHERE ta.ticket_id=$1`, [id]
+    );
+    const t = dbTicket(rows[0]);
+    t.approvers = allAp.map(dbApprover);
+    res.json({ ticket: t });
+
+    const actorName = await getActorName(actorId);
+    const deptId    = await getTicketDept(tRows[0].created_by, tRows[0].assigned_to);
+    const evType = action === 'approve' ? 'ticket.extension_approved' : 'ticket.extension_denied';
+    notify({
+      type: evType, ticketId: id, ticketTitle: tRows[0].title,
+      actorId: actorId!, actorName, creatorId: tRows[0].created_by ?? undefined,
+      assigneeId: tRows[0].assigned_to ?? undefined,
+      approverIds: allAp.map(r => r.approver_user_id), deptId,
+      extra: action === 'approve' ? tRows[0].extension_requested_due : undefined,
+    }).catch(() => {});
   } catch (err) { next(err); }
 });
 

@@ -46,7 +46,7 @@ app.use(cors({
 }));
 
 // ─── Parsers ───────────────────────────────────────────────
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '12mb' })); // increased for file attachments (base64)
 app.use(cookieParser(env.SESSION_SECRET));
 
 // ─── Request logging ───────────────────────────────────────

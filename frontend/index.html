@@ -793,7 +793,7 @@
                     if (scope.scope)  params.set('scope',  scope.scope);
                     if (scope.userId) params.set('userId', scope.userId);
                     if (scope.deptId) params.set('deptId', scope.deptId);
-                    const res = await fetch(`${HRMS_API}/tickets?${params}`);
+                    const res = await fetch(`${HRMS_API}/tickets?${params}`, { credentials: 'include' });
                     if (!res.ok) throw new Error('Failed to fetch tickets');
                     return res.json();
                 },
@@ -823,15 +823,37 @@
                     if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.message || 'Failed to update ticket'); }
                     return res.json();
                 },
-                delete: async (id) => {
+                delete: async (id, justification) => {
                     const u = getSessionUser();
                     const res = await fetch(`${HRMS_API}/tickets/${id}`, {
                         method: 'DELETE',
                         credentials: 'include',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ actorId: u?.id })
+                        body: JSON.stringify({ actorId: u?.id, justification })
                     });
-                    if (!res.ok) throw new Error('Failed to delete ticket');
+                    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.message || 'Failed to delete ticket'); }
+                    return res.json();
+                },
+                requestExtension: async (id, newDueDate, note) => {
+                    const u = getSessionUser();
+                    const res = await fetch(`${HRMS_API}/tickets/${id}/request-extension`, {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ newDueDate, note, actorId: u?.id })
+                    });
+                    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.message || 'Failed to request extension'); }
+                    return res.json();
+                },
+                respondExtension: async (id, action, note) => {
+                    const u = getSessionUser();
+                    const res = await fetch(`${HRMS_API}/tickets/${id}/respond-extension`, {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action, note, actorId: u?.id })
+                    });
+                    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.message || 'Failed to respond to extension'); }
                     return res.json();
                 },
                 escalate: async (id, escalateToUserId, reason) => {
@@ -2328,6 +2350,15 @@
             const [escalateTo, setEscalateTo] = React.useState('');
             const [escalateReason, setEscalateReason] = React.useState('');
             const [escalations, setEscalations] = React.useState([]);
+            // Extension request state
+            const [extMode, setExtMode] = React.useState(false);
+            const [extDate, setExtDate] = React.useState('');
+            const [extNote, setExtNote] = React.useState('');
+            // Extension response state
+            const [extResNote, setExtResNote] = React.useState('');
+            // Delete state
+            const [deleteMode, setDeleteMode] = React.useState(false);
+            const [deleteJustification, setDeleteJustification] = React.useState('');
 
             // Map API status IDs to display labels
             const toStatusLabel = s => ({ open:'Open', new:'New', in_progress:'In Progress', pending_approval:'Pending Approval', resolved:'Resolved', closed:'Closed', waiting:'Waiting', assigned:'Assigned' })[s] || (s||'').replace(/_/g,' ');
@@ -2429,13 +2460,15 @@
 
             // Status filter counts
             const STATUS_GROUPS = [
-                {key:'all',          label:'All',             match: ()=>true},
-                {key:'open',         label:'New / Open',      match: t=>['New','Open','Assigned'].includes(t.status)},
-                {key:'in_progress',  label:'In Progress',     match: t=>['In Progress','Waiting'].includes(t.status)},
-                {key:'pending',      label:'Pending Approval',match: t=>t.status==='Pending Approval'},
-                {key:'resolved',     label:'Resolved',        match: t=>t.status==='Resolved'},
-                {key:'closed',       label:'Closed',          match: t=>t.status==='Closed'},
-                {key:'overdue',      label:'Overdue',         match: t=>isOD(t)},
+                {key:'all',            label:'All',                match: ()=>true},
+                {key:'mine',           label:'Assigned to Me',     match: t=>t.assigneeId===sessionUser?.id, color:'#6366F1'},
+                {key:'my_approvals',   label:'Pending My Approval',match: t=>t.status==='Pending Approval', color:'#D97706'},
+                {key:'open',           label:'New / Open',         match: t=>['New','Open','Assigned'].includes(t.status)},
+                {key:'in_progress',    label:'In Progress',        match: t=>['In Progress','Waiting'].includes(t.status)},
+                {key:'pending',        label:'Pending Approval',   match: t=>t.status==='Pending Approval'},
+                {key:'resolved',       label:'Resolved',           match: t=>t.status==='Resolved'},
+                {key:'closed',         label:'Closed',             match: t=>t.status==='Closed'},
+                {key:'overdue',        label:'Overdue',            match: t=>isOD(t)},
             ];
             const filteredNew = tickets.filter(t => {
                 const grp = STATUS_GROUPS.find(g=>g.key===filter);
@@ -2527,6 +2560,8 @@
                                                             setSelectedTicket(t);
                                                             setRejectMode(false); setJustification(''); setActionError('');
                                                             setEscalateMode(false); setEscalateTo(''); setEscalateReason('');
+                                                            setExtMode(false); setExtDate(''); setExtNote(''); setExtResNote('');
+                                                            setDeleteMode(false); setDeleteJustification('');
                                                             setApprovers([]); setEscalations([]);
                                                             if(t._dbId){
                                                                 try {
@@ -2584,9 +2619,21 @@
                     </div>
 
                     {/* ── Ticket Detail Drawer ── */}
-                    {selectedTicket && (
+                    {selectedTicket && (()=>{
+                        const closeDrawer = () => {
+                            setSelectedTicket(null); setRejectMode(false); setJustification(''); setActionError('');
+                            setEscalateMode(false); setEscalateTo(''); setEscalateReason(''); setEscalations([]);
+                            setExtMode(false); setExtDate(''); setExtNote(''); setExtResNote('');
+                            setDeleteMode(false); setDeleteJustification('');
+                        };
+                        const isAssignee   = selectedTicket.assigneeId === sessionUser?.id;
+                        const isCreator    = selectedTicket.requesterId === sessionUser?.id;
+                        const isBootAdmin  = sessionUser?.isBootstrapAdmin === true;
+                        const isApprover   = approvers.some(ap => ap.userId === sessionUser?.id && (ap.status||'').toLowerCase() === 'pending');
+                        const hasPendingExt = selectedTicket.extensionRequestStatus === 'pending';
+                        return (
                         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',display:'flex',alignItems:'flex-start',justifyContent:'flex-end',zIndex:50}}
-                            onClick={e=>{if(e.target===e.currentTarget){setSelectedTicket(null);setRejectMode(false);setJustification('');setActionError('');setEscalateMode(false);setEscalateTo('');setEscalateReason('');setEscalations([]);}}}>
+                            onClick={e=>{if(e.target===e.currentTarget) closeDrawer();}}>
                             <div style={{background:cardBg,width:'100%',maxWidth:'520px',height:'100vh',overflowY:'auto',display:'flex',flexDirection:'column',boxShadow:'-4px 0 24px rgba(0,0,0,0.12)'}}>
 
                                 {/* Header band */}
@@ -2600,11 +2647,12 @@
                                                         <span style={{fontSize:11,fontWeight:700,color:ps.color,background:cardBg,borderRadius:6,padding:'2px 8px',border:`1px solid ${ps.border}`}}>{selectedTicket.id}</span>
                                                         <Badge text={selectedTicket.status} st={sst(selectedTicket.status)}/>
                                                         {selectedTicket.isEscalated && <span style={{fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:20,background:'#FFF7ED',color:'#C2410C',border:'1px solid #FED7AA'}}>⬆ Escalated</span>}
+                                                        {hasPendingExt && <span style={{fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:20,background:'#FFF7ED',color:'#92400E',border:'1px solid #FDE68A'}}>⏳ Extension Requested</span>}
                                                     </div>
                                                     <h2 style={{fontSize:'15px',fontWeight:'700',color:textP,margin:0,lineHeight:1.3}}>{selectedTicket.title}</h2>
                                                     {selectedTicket.category && <p style={{fontSize:'12px',color:textM,margin:'4px 0 0'}}>{selectedTicket.category}</p>}
                                                 </div>
-                                                <button onClick={()=>{setSelectedTicket(null);setRejectMode(false);setJustification('');setActionError('');setEscalateMode(false);setEscalateTo('');setEscalateReason('');setEscalations([]);}}
+                                                <button onClick={closeDrawer}
                                                     style={{background:dm?'rgba(99,102,241,0.08)':'white',border:`1px solid ${borderC}`,borderRadius:'8px',width:32,height:32,fontSize:18,cursor:'pointer',color:textM,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>×</button>
                                             </div>
                                         </div>
@@ -2642,25 +2690,113 @@
                                         </div>
                                     )}
 
-                                    {/* Assignee action: Mark Complete */}
-                                    {selectedTicket.status !== 'Resolved' && selectedTicket.status !== 'Closed' && selectedTicket.status !== 'Pending Approval' && (
-                                        <div className="mb-6 p-4 bg-blue-50 rounded-xl border border-blue-100">
-                                            <p className="text-sm font-semibold text-blue-800 mb-1">Assignee Action</p>
-                                            <p className="text-xs text-blue-600 mb-3">Once your work is done, mark the ticket complete. This sends it to approvers for review.</p>
-                                            <button
-                                                disabled={actionLoading}
-                                                onClick={async () => {
+                                    {/* ── Assignee Actions ── */}
+                                    {isAssignee && !['Resolved','Closed'].includes(selectedTicket.status) && (
+                                        <div style={{marginBottom:20,padding:16,background:dm?'rgba(99,102,241,0.08)':'#EEF2FF',borderRadius:12,border:`1px solid ${dm?'rgba(99,102,241,0.2)':'#C7D2FE'}`}}>
+                                            <p style={{fontSize:12,fontWeight:700,color:dm?'#818cf8':'#4338CA',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:4}}>Your Actions (Assignee)</p>
+                                            {actionError && <div style={{fontSize:12,color:'#DC2626',background:'#FEF2F2',border:'1px solid #FECACA',borderRadius:8,padding:'8px 12px',marginBottom:10}}>{actionError}</div>}
+
+                                            {/* Mark Complete */}
+                                            {selectedTicket.status !== 'Pending Approval' && (
+                                                <div style={{marginBottom: hasPendingExt ? 0 : 12}}>
+                                                    <p style={{fontSize:11,color:dm?'#8fa4cc':'#4338CA',marginBottom:8}}>Once your work is done, submit for approver review.</p>
+                                                    <button disabled={actionLoading||hasPendingExt} onClick={async()=>{
+                                                        setActionLoading(true); setActionError('');
+                                                        try { await API.tickets.complete(selectedTicket._dbId); await refreshTicket(selectedTicket._dbId); }
+                                                        catch(e){ setActionError(e.message); }
+                                                        finally{ setActionLoading(false); }
+                                                    }} style={{padding:'9px 18px',background:hasPendingExt?'#94A3B8':'#4F46E5',color:'white',border:'none',borderRadius:9,fontSize:13,fontWeight:600,cursor:hasPendingExt?'not-allowed':'pointer',opacity:actionLoading?0.5:1}}>
+                                                        {actionLoading?'⏳…':'✔ Mark as Complete'}
+                                                    </button>
+                                                    {hasPendingExt && <p style={{fontSize:11,color:'#D97706',marginTop:6}}>⏳ You cannot submit for approval while a time extension is pending the issuer's response.</p>}
+                                                </div>
+                                            )}
+
+                                            {/* Request Extension */}
+                                            {selectedTicket.status !== 'Pending Approval' && !hasPendingExt && (
+                                                <div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${dm?'rgba(99,102,241,0.15)':'#C7D2FE'}`}}>
+                                                    {!extMode ? (
+                                                        <button onClick={()=>{setExtMode(true);setActionError('');}}
+                                                            style={{padding:'8px 16px',background:'none',border:`1px solid ${dm?'rgba(99,102,241,0.3)':'#C7D2FE'}`,color:dm?'#818cf8':'#4338CA',borderRadius:8,fontSize:12,fontWeight:600,cursor:'pointer'}}>
+                                                            📅 Request Time Extension
+                                                        </button>
+                                                    ) : (
+                                                        <div>
+                                                            <p style={{fontSize:12,fontWeight:600,color:dm?'#c0cfec':'#334155',marginBottom:8}}>Request new due date</p>
+                                                            <div style={{marginBottom:10}}>
+                                                                <label style={{display:'block',fontSize:11,fontWeight:600,color:textM,marginBottom:4}}>Proposed New Due Date <span style={{color:'#EF4444'}}>*</span></label>
+                                                                <input type="date" value={extDate} onChange={e=>setExtDate(e.target.value)} min={new Date().toISOString().slice(0,10)}
+                                                                    style={{width:'100%',border:`1px solid ${borderC}`,borderRadius:8,padding:'8px 10px',fontSize:13,boxSizing:'border-box',background:dm?'rgba(8,16,36,0.6)':'white',color:textP,outline:'none'}}/>
+                                                            </div>
+                                                            <div style={{marginBottom:10}}>
+                                                                <label style={{display:'block',fontSize:11,fontWeight:600,color:textM,marginBottom:4}}>Reason</label>
+                                                                <textarea rows="2" value={extNote} onChange={e=>setExtNote(e.target.value)} placeholder="Why do you need more time?"
+                                                                    style={{width:'100%',border:`1px solid ${borderC}`,borderRadius:8,padding:'8px 10px',fontSize:13,resize:'none',boxSizing:'border-box',background:dm?'rgba(8,16,36,0.6)':'white',color:textP,outline:'none'}}/>
+                                                            </div>
+                                                            <div style={{display:'flex',gap:8}}>
+                                                                <button disabled={actionLoading||!extDate} onClick={async()=>{
+                                                                    setActionLoading(true); setActionError('');
+                                                                    try { await API.tickets.requestExtension(selectedTicket._dbId,extDate,extNote); setExtMode(false); setExtDate(''); setExtNote(''); await refreshTicket(selectedTicket._dbId); }
+                                                                    catch(e){ setActionError(e.message); }
+                                                                    finally{ setActionLoading(false); }
+                                                                }} style={{flex:1,padding:'9px',background:'#D97706',color:'white',border:'none',borderRadius:9,fontSize:13,fontWeight:600,cursor:'pointer',opacity:(actionLoading||!extDate)?0.5:1}}>
+                                                                    {actionLoading?'⏳…':'📅 Submit Extension Request'}
+                                                                </button>
+                                                                <button onClick={()=>{setExtMode(false);setExtDate('');setExtNote('');setActionError('');}}
+                                                                    style={{padding:'9px 14px',background:dm?'rgba(6,9,22,0.7)':'#F5F7FF',color:dm?'#c0cfec':'#334155',border:'none',borderRadius:9,fontSize:13,fontWeight:600,cursor:'pointer'}}>Cancel</button>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {/* Show pending extension status to assignee */}
+                                            {hasPendingExt && (
+                                                <div style={{marginTop:12,padding:12,background:dm?'rgba(245,158,11,0.08)':'#FFFBEB',borderRadius:10,border:`1px solid ${dm?'rgba(245,158,11,0.2)':'#FDE68A'}`}}>
+                                                    <p style={{fontSize:12,fontWeight:600,color:'#92400E',margin:'0 0 4px'}}>⏳ Extension Request Pending</p>
+                                                    <p style={{fontSize:11,color:dm?'#fcd34d':'#D97706',margin:0}}>Proposed: <strong>{selectedTicket.extensionRequestedDue ? new Date(selectedTicket.extensionRequestedDue).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}) : '—'}</strong></p>
+                                                    {selectedTicket.extensionRequestNote && <p style={{fontSize:11,color:dm?'#8fa4cc':'#64748B',margin:'4px 0 0'}}>Note: {selectedTicket.extensionRequestNote}</p>}
+                                                    <p style={{fontSize:11,color:dm?'#4a607f':'#94A3B8',margin:'4px 0 0'}}>Waiting for the ticket issuer to respond.</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* ── Creator: Extension Response Panel ── */}
+                                    {isCreator && hasPendingExt && (
+                                        <div style={{marginBottom:20,padding:16,background:dm?'rgba(245,158,11,0.08)':'#FFFBEB',borderRadius:12,border:`1px solid ${dm?'rgba(245,158,11,0.25)':'#FDE68A'}`}}>
+                                            <p style={{fontSize:12,fontWeight:700,color:'#92400E',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:10}}>📅 Extension Request — Your Decision</p>
+                                            <p style={{fontSize:13,color:dm?'#c0cfec':'#374151',marginBottom:4}}>
+                                                The assignee <strong>{selectedTicket.assigned||'Assignee'}</strong> is requesting an extension.
+                                            </p>
+                                            <p style={{fontSize:13,marginBottom:4,color:dm?'#c0cfec':'#374151'}}>
+                                                Proposed new date: <strong>{selectedTicket.extensionRequestedDue ? new Date(selectedTicket.extensionRequestedDue).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}) : '—'}</strong>
+                                            </p>
+                                            {selectedTicket.extensionRequestNote && <p style={{fontSize:12,color:dm?'#8fa4cc':'#64748B',marginBottom:12}}>Reason: "{selectedTicket.extensionRequestNote}"</p>}
+                                            <div style={{marginBottom:10}}>
+                                                <label style={{display:'block',fontSize:11,fontWeight:600,color:textM,marginBottom:4}}>Optional note to assignee</label>
+                                                <textarea rows="2" value={extResNote} onChange={e=>setExtResNote(e.target.value)} placeholder="Comment (optional)…"
+                                                    style={{width:'100%',border:`1px solid ${borderC}`,borderRadius:8,padding:'8px 10px',fontSize:13,resize:'none',boxSizing:'border-box',background:dm?'rgba(8,16,36,0.6)':'white',color:textP,outline:'none'}}/>
+                                            </div>
+                                            {actionError && <div style={{fontSize:12,color:'#DC2626',background:'#FEF2F2',border:'1px solid #FECACA',borderRadius:8,padding:'8px 12px',marginBottom:10}}>{actionError}</div>}
+                                            <div style={{display:'flex',gap:10}}>
+                                                <button disabled={actionLoading} onClick={async()=>{
                                                     setActionLoading(true); setActionError('');
-                                                    try {
-                                                        await API.tickets.complete(selectedTicket._dbId);
-                                                        await refreshTicket(selectedTicket._dbId);
-                                                    } catch(e) { setActionError(e.message); }
-                                                    finally { setActionLoading(false); }
-                                                }}
-                                                className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
-                                            >
-                                                {actionLoading ? '⏳ Please wait…' : '✔ Mark as Complete'}
-                                            </button>
+                                                    try { await API.tickets.respondExtension(selectedTicket._dbId,'approve',extResNote); setExtResNote(''); await refreshTicket(selectedTicket._dbId); }
+                                                    catch(e){ setActionError(e.message); }
+                                                    finally{ setActionLoading(false); }
+                                                }} style={{flex:1,padding:'10px',background:'#059669',color:'white',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer',opacity:actionLoading?0.5:1}}>
+                                                    {actionLoading?'⏳…':'✅ Approve Extension'}
+                                                </button>
+                                                <button disabled={actionLoading} onClick={async()=>{
+                                                    setActionLoading(true); setActionError('');
+                                                    try { await API.tickets.respondExtension(selectedTicket._dbId,'deny',extResNote); setExtResNote(''); await refreshTicket(selectedTicket._dbId); }
+                                                    catch(e){ setActionError(e.message); }
+                                                    finally{ setActionLoading(false); }
+                                                }} style={{flex:1,padding:'10px',background:'#DC2626',color:'white',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer',opacity:actionLoading?0.5:1}}>
+                                                    {actionLoading?'⏳…':'❌ Deny Extension'}
+                                                </button>
+                                            </div>
                                         </div>
                                     )}
 
@@ -2803,9 +2939,9 @@
                                         </div>
                                     )}
 
-                                    {selectedTicket.status === 'Pending Approval' && (
+                                    {selectedTicket.status === 'Pending Approval' && isApprover && (
                                         <div style={{marginTop:16,padding:16,background:dm?'rgba(249,115,22,0.10)':'#FFF7ED',borderRadius:12,border:`1px solid ${dm?'rgba(249,115,22,0.25)':'#FED7AA'}`}}>
-                                            <p style={{fontSize:12,fontWeight:700,color:'#C2410C',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:12}}>⚖ Your Decision</p>
+                                            <p style={{fontSize:12,fontWeight:700,color:'#C2410C',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:12}}>⚖ Your Decision (Approver)</p>
                                             {!rejectMode ? (
                                                 <div style={{display:'flex',gap:'10px'}}>
                                                     <button disabled={actionLoading} onClick={async()=>{
@@ -2852,10 +2988,46 @@
                                             )}
                                         </div>
                                     )}
+                                    {/* ── Bootstrap Admin: Delete Ticket ── */}
+                                    {isBootAdmin && !['Resolved','Closed'].includes(selectedTicket.status) && (
+                                        <div style={{marginTop:20,paddingTop:16,borderTop:`1px solid ${dm?'rgba(239,68,68,0.15)':'#FEE2E2'}`}}>
+                                            {!deleteMode ? (
+                                                <button onClick={()=>{setDeleteMode(true);setDeleteJustification('');setActionError('');}}
+                                                    style={{width:'100%',padding:'9px',background:'none',border:'1px solid #FCA5A5',color:'#DC2626',borderRadius:9,fontSize:12,fontWeight:600,cursor:'pointer'}}>
+                                                    🗑 Delete Ticket (Admin Only)
+                                                </button>
+                                            ) : (
+                                                <div style={{padding:14,background:dm?'rgba(239,68,68,0.08)':'#FEF2F2',borderRadius:10,border:'1px solid #FECACA'}}>
+                                                    <p style={{fontSize:12,fontWeight:700,color:'#991B1B',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>🗑 Confirm Ticket Deletion</p>
+                                                    <p style={{fontSize:12,color:dm?'#fca5a5':'#DC2626',marginBottom:10}}>This action is permanent and cannot be undone. A justification is required.</p>
+                                                    <textarea rows="3" value={deleteJustification} onChange={e=>setDeleteJustification(e.target.value)}
+                                                        placeholder="Justification for deleting this ticket…"
+                                                        style={{width:'100%',border:'1px solid #FECACA',borderRadius:8,padding:'8px 10px',fontSize:13,resize:'none',boxSizing:'border-box',background:dm?'rgba(8,16,36,0.6)':'white',color:textP,outline:'none',marginBottom:10}}/>
+                                                    {actionError && <div style={{fontSize:12,color:'#DC2626',marginBottom:8}}>{actionError}</div>}
+                                                    <div style={{display:'flex',gap:8}}>
+                                                        <button disabled={actionLoading||!deleteJustification.trim()} onClick={async()=>{
+                                                            setActionLoading(true); setActionError('');
+                                                            try {
+                                                                await API.tickets.delete(selectedTicket._dbId, deleteJustification.trim());
+                                                                setTickets(prev=>prev.filter(t=>t._dbId!==selectedTicket._dbId));
+                                                                closeDrawer();
+                                                            } catch(e){ setActionError(e.message); }
+                                                            finally{ setActionLoading(false); }
+                                                        }} style={{flex:1,padding:'9px',background:'#DC2626',color:'white',border:'none',borderRadius:9,fontSize:13,fontWeight:700,cursor:'pointer',opacity:(actionLoading||!deleteJustification.trim())?0.5:1}}>
+                                                            {actionLoading?'⏳…':'🗑 Permanently Delete'}
+                                                        </button>
+                                                        <button onClick={()=>{setDeleteMode(false);setDeleteJustification('');setActionError('');}}
+                                                            style={{padding:'9px 14px',background:dm?'rgba(6,9,22,0.7)':'#F5F7FF',color:dm?'#c0cfec':'#334155',border:'none',borderRadius:9,fontSize:13,fontWeight:600,cursor:'pointer'}}>Cancel</button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
-                    )}
+                        );
+                    })()}
                 </main>
             );
         }

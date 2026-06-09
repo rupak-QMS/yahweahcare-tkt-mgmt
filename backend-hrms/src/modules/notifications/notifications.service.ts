@@ -70,15 +70,19 @@ export interface TicketEvent {
     | 'ticket.escalated'
     | 'ticket.completed'
     | 'ticket.approved'
-    | 'ticket.rejected';
-  ticketId:   number;
+    | 'ticket.rejected'
+    | 'ticket.extension_requested'
+    | 'ticket.extension_approved'
+    | 'ticket.extension_denied';
+  ticketId:    number;
   ticketTitle: string;
-  actorId:    number;
-  actorName?: string;
-  creatorId?: number;
+  actorId:     number;
+  actorName?:  string;
+  creatorId?:  number;
   assigneeId?: number;
-  deptId?:    number;
-  extra?:     string; // e.g. new status value
+  approverIds?: number[]; // all approver user IDs for the ticket
+  deptId?:     number;
+  extra?:      string; // e.g. new status / new due date
 }
 
 export interface UserEvent {
@@ -135,6 +139,9 @@ async function resolveRecipients(ev: NotifyEvent): Promise<number[]> {
   // Direct participants
   if ('creatorId' in ev && ev.creatorId)   set.add(ev.creatorId);
   if ('assigneeId' in ev && ev.assigneeId) set.add(ev.assigneeId);
+  if ('approverIds' in ev && Array.isArray(ev.approverIds)) {
+    ev.approverIds.forEach(id => { if (id) set.add(id); });
+  }
   if ('targetUserId' in ev && ev.targetUserId) set.add(ev.targetUserId);
   // actor who triggered the event also gets the notification (as issuer)
   if (ev.actorId) set.add(ev.actorId);
@@ -175,6 +182,21 @@ function buildMessage(ev: NotifyEvent): { subject: string; body: string } {
       return {
         subject: `Ticket #${(ev as TicketEvent).ticketId} rejected`,
         body:    `${actor} rejected "${(ev as TicketEvent).ticketTitle}"`,
+      };
+    case 'ticket.extension_requested':
+      return {
+        subject: `Extension requested: Ticket #${(ev as TicketEvent).ticketId}`,
+        body:    `${actor} requested a deadline extension for "${(ev as TicketEvent).ticketTitle}"${(ev as TicketEvent).extra ? ` — new proposed date: ${(ev as TicketEvent).extra}` : ''}`,
+      };
+    case 'ticket.extension_approved':
+      return {
+        subject: `Extension approved: Ticket #${(ev as TicketEvent).ticketId}`,
+        body:    `${actor} approved the deadline extension for "${(ev as TicketEvent).ticketTitle}"${(ev as TicketEvent).extra ? ` — new due date: ${(ev as TicketEvent).extra}` : ''}`,
+      };
+    case 'ticket.extension_denied':
+      return {
+        subject: `Extension denied: Ticket #${(ev as TicketEvent).ticketId}`,
+        body:    `${actor} denied the deadline extension for "${(ev as TicketEvent).ticketTitle}"`,
       };
     case 'user.created':
       return {
