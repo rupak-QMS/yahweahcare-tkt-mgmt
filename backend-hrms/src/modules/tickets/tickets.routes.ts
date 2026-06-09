@@ -753,6 +753,65 @@ router.post('/:id/reject', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ── POST /tickets/:id/approvers — set/replace approvers ──────
+// Creator or bootstrap admin can call this to assign/change approvers
+// on an existing ticket (e.g. tickets created before approver table existed).
+router.post('/:id/approvers', requireAuth, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    const actorId = req.auth?.userId!;
+    const { approver_ids } = req.body || {};
+
+    if (!Array.isArray(approver_ids) || approver_ids.length === 0) {
+      return res.status(400).json({ error: 'missing_fields', message: 'At least one approver is required' });
+    }
+
+    const { rows: tRows } = await pool.query(`SELECT * FROM yc_tkt_mgmt.tickets WHERE id=$1`, [id]);
+    if (!tRows[0]) return res.status(404).json({ error: 'not_found' });
+    const ticket = tRows[0];
+
+    // Only creator, assignee, or bootstrap admin can update approvers
+    const { rows: adminRows } = await pool.query(
+      `SELECT is_bootstrap_admin FROM yc_tkt_mgmt.users WHERE id=$1`, [actorId]
+    );
+    const isAdmin = adminRows[0]?.is_bootstrap_admin;
+    if (!isAdmin && ticket.created_by !== actorId && ticket.assigned_to !== actorId) {
+      return res.status(403).json({ error: 'forbidden', message: 'Only the ticket creator, assignee, or admin can update approvers' });
+    }
+
+    // Prevent assignee being an approver
+    if (ticket.assigned_to && approver_ids.map(Number).includes(Number(ticket.assigned_to))) {
+      return res.status(400).json({ error: 'invalid_approvers', message: 'The assignee cannot also be an approver' });
+    }
+
+    await ensureApproversTable();
+
+    // Replace all approvers for this ticket
+    await pool.query(`DELETE FROM yc_tkt_mgmt.ticket_approvers WHERE ticket_id=$1`, [id]);
+    for (const uid of approver_ids) {
+      await pool.query(
+        `INSERT INTO yc_tkt_mgmt.ticket_approvers (ticket_id, approver_user_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
+        [id, Number(uid)]
+      );
+    }
+
+    await pool.query(
+      `INSERT INTO yc_tkt_mgmt.activity (ticket_id, user_id, action, details) VALUES ($1,$2,'approvers_updated',$3)`,
+      [id, actorId, JSON.stringify({ approver_count: approver_ids.length })]
+    );
+
+    const { rows: apRows } = await pool.query(
+      `SELECT ta.*, u.name AS user_name, u.email AS user_email
+       FROM yc_tkt_mgmt.ticket_approvers ta
+       JOIN yc_tkt_mgmt.users u ON u.id = ta.approver_user_id
+       WHERE ta.ticket_id=$1 ORDER BY ta.created_at ASC`, [id]
+    );
+    const t = dbTicket(tRows[0]);
+    t.approvers = apRows.map(dbApprover);
+    res.json({ ticket: t });
+  } catch (err) { next(err); }
+});
+
 // ── PATCH /tickets/:id — update ─────────────────────────────
 router.patch('/:id', requireAuth, async (req, res, next) => {
   try {
