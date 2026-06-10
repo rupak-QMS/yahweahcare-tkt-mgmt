@@ -987,6 +987,15 @@
                     });
                     if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || 'Failed to reject'); }
                     return res.json();
+                },
+                reopen: async (id, justification) => {
+                    const u = getSessionUser();
+                    const res = await authFetch(`${HRMS_API}/tickets/${id}/reopen`, {
+                        method: 'POST',
+                        body: JSON.stringify({ justification, actorId: u?.id })
+                    });
+                    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || 'Failed to reopen ticket'); }
+                    return res.json();
                 }
             },
             users: {
@@ -2435,6 +2444,8 @@
             const [actionLoading, setActionLoading] = React.useState(false);
             const [actionError, setActionError] = React.useState('');
             const [rejectMode, setRejectMode] = React.useState(false);
+            const [reopenMode, setReopenMode] = React.useState(false);
+            const [reopenJustification, setReopenJustification] = React.useState('');
             const [justification, setJustification] = React.useState('');
             const [acceptanceNote, setAcceptanceNote] = React.useState('');
             const [escalateMode, setEscalateMode] = React.useState(false);
@@ -2608,15 +2619,22 @@
                             {STATUS_GROUPS.map(g=>{
                                 const cnt = g.key==='all' ? tickets.length : tickets.filter(g.match).length;
                                 const active = filter===g.key;
+                                const isMyApprovals = g.key === 'my_approvals';
+                                const hasApprovals = isMyApprovals && cnt > 0;
+                                // Amber highlight for pending approvals tab when there are items
+                                const tabBg = active ? (isMyApprovals ? '#D97706' : '#6366F1') : hasApprovals ? (dm?'rgba(217,119,6,0.12)':'#FFFBEB') : (dm?'rgba(6,9,22,0.0)':'white');
+                                const tabBorder = active ? (isMyApprovals ? '#D97706' : '#6366F1') : hasApprovals ? '#FDE68A' : (dm?'rgba(99,102,241,0.15)':'#E5E7EB');
+                                const tabColor = active ? 'white' : hasApprovals ? (dm?'#fcd34d':'#92400E') : (dm?'#8fa4cc':'#64748B');
                                 return (
                                     <button key={g.key} onClick={()=>setFilter(g.key)}
-                                        style={{display:'flex',alignItems:'center',gap:'6px',padding:'6px 14px',borderRadius:'8px',border:'1px solid',fontSize:'12px',fontWeight:'600',cursor:'pointer',transition:'all 0.1s',
-                                            borderColor:active?'#6366F1':'#E5E7EB',
-                                            background:active?'#6366F1':'white',
-                                            color:active?'white':(dm?'#8fa4cc':'#64748B'),
+                                        style={{display:'flex',alignItems:'center',gap:'6px',padding:'6px 14px',borderRadius:'8px',border:'1px solid',fontSize:'12px',fontWeight:'600',cursor:'pointer',transition:'all 0.15s',
+                                            borderColor:tabBorder,
+                                            background:tabBg,
+                                            color:tabColor,
+                                            boxShadow: hasApprovals && !active ? '0 0 0 2px rgba(217,119,6,0.15)' : 'none',
                                         }}>
-                                        {g.label}
-                                        <span style={{fontSize:'10px',fontWeight:'700',background:active?'rgba(255,255,255,0.25)':(dm?'rgba(99,102,241,0.1)':'#EEF2F8'),color:active?'white':(dm?'#6b80a4':'#94A3B8'),borderRadius:'10px',padding:'1px 6px',minWidth:'18px',textAlign:'center'}}>{cnt}</span>
+                                        {isMyApprovals && hasApprovals && '🔔 '}{g.label}
+                                        <span style={{fontSize:'10px',fontWeight:'700',background:active?'rgba(255,255,255,0.25)':hasApprovals?(dm?'rgba(217,119,6,0.2)':'#FEF3C7'):( dm?'rgba(99,102,241,0.1)':'#EEF2F8'),color:active?'white':hasApprovals?(dm?'#fcd34d':'#92400E'):(dm?'#6b80a4':'#94A3B8'),borderRadius:'10px',padding:'1px 6px',minWidth:'18px',textAlign:'center'}}>{cnt}</span>
                                     </button>
                                 );
                             })}
@@ -2668,7 +2686,7 @@
                                                         onMouseLeave={e=>e.currentTarget.style.background=''}
                                                         onClick={async()=>{
                                                             setSelectedTicket(t);
-                                                            setRejectMode(false); setJustification(''); setActionError('');
+                                                            setRejectMode(false); setReopenMode(false); setReopenJustification(''); setJustification(''); setActionError('');
                                                             setEscalateMode(false); setEscalateTo(''); setEscalateReason('');
                                                             setExtMode(false); setExtDate(''); setExtNote(''); setExtResNote('');
                                                             setDeleteMode(false); setDeleteJustification('');
@@ -2734,17 +2752,21 @@
                     {/* ── Ticket Detail Drawer ── */}
                     {selectedTicket && (()=>{
                         const closeDrawer = () => {
-                            setSelectedTicket(null); setRejectMode(false); setJustification(''); setAcceptanceNote(''); setActionError('');
+                            setSelectedTicket(null); setRejectMode(false); setReopenMode(false); setReopenJustification(''); setJustification(''); setAcceptanceNote(''); setActionError('');
                             setEscalateMode(false); setEscalateTo(''); setEscalateReason(''); setEscalations([]);
                             setExtMode(false); setExtDate(''); setExtNote(''); setExtResNote('');
                             setDeleteMode(false); setDeleteJustification('');
                             setManageApproversMode(false); setPendingApproverIds([]);
+                            setReopenMode(false); setReopenJustification('');
                             setResolutionNote(''); setWorkNote(''); setAttUploadError('');
                         };
                         const isAssignee   = selectedTicket.assigneeId === sessionUser?.id;
                         const isCreator    = selectedTicket.requesterId === sessionUser?.id;
                         const isBootAdmin  = sessionUser?.isBootstrapAdmin === true;
+                        // isApprover: user has a PENDING decision (can approve/reject)
                         const isApprover   = approvers.some(ap => ap.userId === sessionUser?.id && (ap.status||'').toLowerCase() === 'pending');
+                        // isAnyApprover: user is assigned as approver regardless of current decision status (can reopen resolved tickets)
+                        const isAnyApprover = approvers.some(ap => ap.userId === sessionUser?.id);
                         const hasPendingExt = selectedTicket.extensionRequestStatus === 'pending';
                         return (
                         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',display:'flex',alignItems:'flex-start',justifyContent:'flex-end',zIndex:50}}
@@ -3352,6 +3374,47 @@
                                             )}
                                         </div>
                                     )}
+                                    {/* ── Reopen panel — any approver can reopen a resolved/closed ticket ── */}
+                                    {['Resolved','Closed'].includes(selectedTicket.status) && isAnyApprover && (
+                                        <div style={{marginTop:16,padding:16,background:dm?'rgba(59,130,246,0.10)':'#EFF6FF',borderRadius:12,border:`1px solid ${dm?'rgba(59,130,246,0.25)':'#BFDBFE'}`}}>
+                                            <p style={{fontSize:12,fontWeight:700,color:dm?'#93c5fd':'#1E40AF',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:4}}>🔄 Reopen Ticket</p>
+                                            <p style={{fontSize:11,color:dm?'#93c5fd':'#1D4ED8',marginBottom:12}}>As an approver, you can reopen this ticket if further work is needed. This will reset all approver decisions and send the ticket back to the assignee.</p>
+                                            {actionError && <div style={{fontSize:12,color:'#DC2626',background:'#FEF2F2',border:'1px solid #FECACA',borderRadius:8,padding:'8px 12px',marginBottom:10}}>{actionError}</div>}
+                                            {!reopenMode ? (
+                                                <button onClick={()=>{setReopenMode(true);setReopenJustification('');setActionError('');}}
+                                                    style={{width:'100%',padding:'10px',background:'#1D4ED8',color:'white',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer'}}>
+                                                    🔄 Reopen This Ticket
+                                                </button>
+                                            ) : (
+                                                <div>
+                                                    <p style={{fontSize:12,color:dm?'#c0cfec':'#374151',marginBottom:6}}>Provide a reason so the assignee knows what needs to be addressed:</p>
+                                                    <label style={{display:'block',fontSize:11,fontWeight:600,color:dm?'#c0cfec':'#334155',marginBottom:6}}>Reason for Reopening <span style={{color:'#EF4444'}}>*</span></label>
+                                                    <textarea rows="3" value={reopenJustification} onChange={e=>setReopenJustification(e.target.value)}
+                                                        placeholder="What needs to be fixed or revisited before this ticket can be closed?"
+                                                        style={{width:'100%',border:`1px solid ${dm?'rgba(59,130,246,0.3)':'#BFDBFE'}`,borderRadius:8,padding:'8px 10px',fontSize:13,resize:'none',outline:'none',marginBottom:10,boxSizing:'border-box',background:dm?'rgba(8,16,36,0.6)':'white',color:textP,fontFamily:'inherit'}}/>
+                                                    <div style={{display:'flex',gap:'8px'}}>
+                                                        <button disabled={actionLoading||!reopenJustification.trim()} onClick={async()=>{
+                                                            setActionLoading(true); setActionError('');
+                                                            try {
+                                                                const data = await API.tickets.reopen(selectedTicket._dbId, reopenJustification.trim());
+                                                                if(data.ticket?.approvers) setApprovers(data.ticket.approvers);
+                                                                setReopenMode(false); setReopenJustification('');
+                                                                await refreshTicket(selectedTicket._dbId);
+                                                            } catch(e){ setActionError(e.message); }
+                                                            finally{ setActionLoading(false); }
+                                                        }} style={{flex:1,padding:'9px',background:'#1D4ED8',color:'white',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer',opacity:(actionLoading||!reopenJustification.trim())?0.5:1}}>
+                                                            {actionLoading?'⏳…':'🔄 Confirm Reopen'}
+                                                        </button>
+                                                        <button onClick={()=>{setReopenMode(false);setReopenJustification('');setActionError('');}}
+                                                            style={{padding:'9px 16px',background:dm?'rgba(6,9,22,0.7)':'#F5F7FF',color:dm?'#c0cfec':'#334155',border:'none',borderRadius:10,fontSize:13,fontWeight:600,cursor:'pointer'}}>
+                                                            Cancel
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
                                     {/* ── Approval History (immutable audit trail) ── */}
                                     {Array.isArray(selectedTicket.approvalHistory) && selectedTicket.approvalHistory.length > 0 && (
                                         <div style={{marginBottom:20,paddingBottom:20,borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
@@ -3360,10 +3423,11 @@
                                                 {selectedTicket.approvalHistory.map((h,i) => {
                                                     const isApproved = (h.action||'').toLowerCase() === 'approved';
                                                     const isRejected = (h.action||'').toLowerCase() === 'rejected';
-                                                    const bg = isApproved ? (dm?'rgba(16,185,129,0.07)':'#ECFDF5') : isRejected ? (dm?'rgba(239,68,68,0.07)':'#FEF2F2') : (dm?'rgba(99,102,241,0.05)':'#F8FAFF');
-                                                    const border = isApproved ? (dm?'rgba(16,185,129,0.18)':'#A7F3D0') : isRejected ? (dm?'rgba(239,68,68,0.18)':'#FECACA') : (dm?'rgba(99,102,241,0.12)':'#E0E7FF');
-                                                    const col = isApproved ? (dm?'#34d399':'#065F46') : isRejected ? (dm?'#fca5a5':'#991B1B') : (dm?'#818cf8':'#4338CA');
-                                                    const icon = isApproved ? '✅' : isRejected ? '❌' : '⏳';
+                                                    const isReopened = (h.action||'').toLowerCase() === 'reopened';
+                                                    const bg = isApproved ? (dm?'rgba(16,185,129,0.07)':'#ECFDF5') : isRejected ? (dm?'rgba(239,68,68,0.07)':'#FEF2F2') : isReopened ? (dm?'rgba(59,130,246,0.07)':'#EFF6FF') : (dm?'rgba(99,102,241,0.05)':'#F8FAFF');
+                                                    const border = isApproved ? (dm?'rgba(16,185,129,0.18)':'#A7F3D0') : isRejected ? (dm?'rgba(239,68,68,0.18)':'#FECACA') : isReopened ? (dm?'rgba(59,130,246,0.2)':'#BFDBFE') : (dm?'rgba(99,102,241,0.12)':'#E0E7FF');
+                                                    const col = isApproved ? (dm?'#34d399':'#065F46') : isRejected ? (dm?'#fca5a5':'#991B1B') : isReopened ? (dm?'#93c5fd':'#1E40AF') : (dm?'#818cf8':'#4338CA');
+                                                    const icon = isApproved ? '✅' : isRejected ? '❌' : isReopened ? '🔄' : '⏳';
                                                     return (
                                                         <div key={h.id||i} style={{padding:'9px 12px',borderRadius:9,background:bg,border:`1px solid ${border}`}}>
                                                             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>

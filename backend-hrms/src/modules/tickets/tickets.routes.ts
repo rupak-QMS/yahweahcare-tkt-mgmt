@@ -263,11 +263,12 @@ router.get('/', optionalAuth, async (req, res, next) => {
       );
       params.push(deptId, deptId);
     } else if (scope === 'mine' && userId) {
-      // Own tickets + any tickets pending this user's approval
+      // Own tickets + any tickets this user is an approver on (any status)
+      // Removing approval_status='Pending' so resolved tickets remain visible for reopen
       where.push(
         `(v.created_by = $${i} OR v.assigned_to = $${i}` +
         ` OR EXISTS (SELECT 1 FROM yc_tkt_mgmt.ticket_approvers ta` +
-        `  WHERE ta.ticket_id = v.id AND ta.approver_user_id = $${i} AND ta.approval_status = 'Pending'))`
+        `  WHERE ta.ticket_id = v.id AND ta.approver_user_id = $${i}))`
       );
       params.push(userId); i++;
     }
@@ -886,6 +887,84 @@ router.post('/:id/reject', requireAuth, async (req, res, next) => {
       type: 'ticket.rejected', ticketId: id, ticketTitle: tInfo3[0]?.title ?? `Ticket #${id}`,
       actorId: userId, actorName: actorName3, creatorId: tInfo3[0]?.created_by ?? undefined,
       assigneeId: tInfo3[0]?.assigned_to ?? undefined, deptId: deptId3,
+    }).catch(() => {});
+  } catch (err) { next(err); }
+});
+
+// ── POST /tickets/:id/reopen — approver reopens a resolved/closed ticket ──
+// Any assigned approver can reopen a resolved or closed ticket with a justification.
+// Resets all approver decisions to Pending and moves ticket back to in_progress.
+router.post('/:id/reopen', requireAuth, async (req, res, next) => {
+  try {
+    const id     = Number(req.params.id);
+    const userId = req.auth?.userId ?? (req.body.actorId ? Number(req.body.actorId) : null);
+    const { justification } = req.body || {};
+    if (!userId) return res.status(400).json({ error: 'missing_actor', message: 'actorId is required' });
+    if (!justification?.trim()) {
+      return res.status(400).json({ error: 'justification_required', message: 'A justification is required to reopen the ticket' });
+    }
+
+    const { rows: tRows } = await pool.query(`SELECT * FROM yc_tkt_mgmt.tickets WHERE id = $1`, [id]);
+    if (!tRows[0]) return res.status(404).json({ error: 'not_found' });
+    if (!['resolved', 'closed'].includes(tRows[0].status)) {
+      return res.status(400).json({ error: 'invalid_status', message: 'Only resolved or closed tickets can be reopened via this endpoint' });
+    }
+
+    // Check the user is an approver on this ticket
+    const { rows: apRow } = await pool.query(
+      `SELECT * FROM yc_tkt_mgmt.ticket_approvers WHERE ticket_id=$1 AND approver_user_id=$2`, [id, userId]
+    );
+    if (!apRow[0]) return res.status(403).json({ error: 'not_approver', message: 'You are not an approver for this ticket' });
+
+    // Log to approval history before resetting
+    await ensureApprovalHistoryTable();
+    const reopenerName = await getActorName(userId);
+    await pool.query(`
+      INSERT INTO yc_tkt_mgmt.ticket_approval_history
+        (ticket_id, approver_user_id, approver_name, action, comments, resolution_note, round, acted_at)
+      VALUES ($1,$2,$3,'Reopened',$4,$5,$6,NOW())
+    `, [id, userId, reopenerName, justification.trim(), tRows[0].resolution_note, tRows[0].approval_round ?? 1]);
+
+    // Reset all approver decisions to Pending
+    await pool.query(
+      `UPDATE yc_tkt_mgmt.ticket_approvers SET approval_status='Pending', comments=NULL, approval_date=NULL WHERE ticket_id=$1`,
+      [id]
+    );
+
+    // Move ticket back to in_progress
+    const { rows } = await pool.query(
+      `UPDATE yc_tkt_mgmt.tickets
+       SET status='in_progress', closed_date=NULL, pending_approval_at=NULL, updated_at=NOW()
+       WHERE id=$1 RETURNING *`,
+      [id]
+    );
+
+    await pool.query(
+      `INSERT INTO yc_tkt_mgmt.activity (ticket_id, user_id, action, details)
+       VALUES ($1,$2,'reopened',$3)`,
+      [id, userId, JSON.stringify({ from: tRows[0].status, to: 'in_progress', justification: justification.trim() })]
+    );
+
+    const { rows: allAp } = await pool.query(
+      `SELECT ta.*, u.name AS user_name, u.email AS user_email
+       FROM yc_tkt_mgmt.ticket_approvers ta
+       JOIN yc_tkt_mgmt.users u ON u.id = ta.approver_user_id
+       WHERE ta.ticket_id=$1`, [id]
+    );
+    const t = dbTicket(rows[0]);
+    t.approvers = allAp.map(dbApprover);
+
+    await logAudit({ userId, actorEmail: req.auth?.email, action: 'ticket.reopen', module: 'tickets', targetType: 'ticket', targetId: id, metadata: { justification }, req });
+    res.json({ ticket: t });
+
+    // Notify (reuse 'rejected' notification type — ticket is sent back to assignee)
+    const actorNameR = await getActorName(userId);
+    const { rows: tInfoR } = await pool.query(`SELECT title, created_by, assigned_to FROM yc_tkt_mgmt.tickets WHERE id=$1`, [id]);
+    const deptIdR = await getTicketDept(tInfoR[0]?.created_by, tInfoR[0]?.assigned_to);
+    notify({
+      type: 'ticket.rejected', ticketId: id, ticketTitle: tInfoR[0]?.title ?? `Ticket #${id}`,
+      actorId: userId, actorName: actorNameR, creatorId: tInfoR[0]?.created_by ?? undefined,
+      assigneeId: tInfoR[0]?.assigned_to ?? undefined, deptId: deptIdR,
     }).catch(() => {});
   } catch (err) { next(err); }
 });
