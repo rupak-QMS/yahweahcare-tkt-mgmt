@@ -492,10 +492,29 @@ router.get('/:id', optionalAuth, async (req, res, next) => {
       }));
     } catch (_) {}
 
+    // Enrich ticket row with assignee name (single-ticket query has no JOIN)
+    if (tRows[0].assigned_to) {
+      try {
+        const { rows: uRows } = await pool.query(
+          `SELECT name, email FROM yc_tkt_mgmt.users WHERE id = $1`, [tRows[0].assigned_to]
+        );
+        if (uRows[0]) {
+          (tRows[0] as Record<string, unknown>).assignee_name  = uRows[0].name;
+          (tRows[0] as Record<string, unknown>).assignee_email = uRows[0].email;
+        }
+      } catch (_) {}
+    }
+
     const t = dbTicket(tRows[0]);
     t.comments  = cRows.map(dbComment);
     t.activity  = aRows.map(dbActivity);
     t.approvers = apRows.map(dbApprover);
+
+    // Compute pendingApproverIds from live apRows (not stored on the ticket row itself)
+    const pendingApproverUserIds = apRows
+      .filter(ap => (ap.approval_status as string) === 'Pending')
+      .map(ap => ap.approver_user_id as number);
+    (t as Record<string, unknown>).pendingApproverIds = pendingApproverUserIds;
     (t as Record<string, unknown>).approvalHistory = approvalHistory;
     res.json({ ticket: t });
   } catch (err) { next(err); }

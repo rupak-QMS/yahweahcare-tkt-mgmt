@@ -2497,6 +2497,12 @@
                 try {
                     const data = await API.tickets.getById(dbId);
                     if (data.ticket) {
+                        // Ensure pendingApproverIds is always populated from live approvers
+                        if (!data.ticket.pendingApproverIds || data.ticket.pendingApproverIds.length === 0) {
+                            data.ticket.pendingApproverIds = (data.ticket.approvers || [])
+                                .filter(a => (a.status || '').toLowerCase() === 'pending')
+                                .map(a => a.userId);
+                        }
                         const updated = normalise(data.ticket);
                         setTickets(prev => prev.map(t => t._dbId === dbId ? updated : t));
                         setSelectedTicket(updated);
