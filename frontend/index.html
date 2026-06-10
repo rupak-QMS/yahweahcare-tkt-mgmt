@@ -6546,7 +6546,7 @@
             const [emailTo,        setEmailTo]        = React.useState('');
             const [emailSubject,   setEmailSubject]   = React.useState('');
             // schedule modal
-            const [schedules,         setSchedules]         = React.useState(() => { try { return JSON.parse(localStorage.getItem('yc_schedules')||'[]'); } catch(e){return[];} });
+            const [schedules,         setSchedules]         = React.useState([]);
             const [showSchedModal,    setShowSchedModal]    = React.useState(false);
             const [schedReportType,   setSchedReportType]   = React.useState('activity_log');
             const [schedFreq,         setSchedFreq]         = React.useState('weekly');
@@ -6554,6 +6554,8 @@
             const [schedTime,         setSchedTime]         = React.useState('08:00');
             const [schedEmail,        setSchedEmail]        = React.useState('');
             const [schedPeriod,       setSchedPeriod]       = React.useState('last_30');
+            const [schedRecipients,   setSchedRecipients]   = React.useState([]);
+            const [allUsers,          setAllUsers]          = React.useState([]);
 
             // ── fetch tickets — same scope logic as Dashboard ──────────────────
             React.useEffect(() => {
@@ -6563,11 +6565,23 @@
                 if (tsp.scope)  tp.set('scope',  tsp.scope);
                 if (tsp.userId) tp.set('userId', String(tsp.userId));
                 if (tsp.deptId) tp.set('deptId', String(tsp.deptId));
-                fetch(`${HRMS_API}/tickets?${tp}`, { credentials: 'include' })
+                authFetch(`${HRMS_API}/tickets?${tp}`)
                     .then(r => r.ok ? r.json() : {tickets:[]})
                     .then(d => setApiTickets(Array.isArray(d.tickets) ? d.tickets : []))
                     .catch(() => setApiTickets([]))
                     .finally(() => setLoading(false));
+            }, []);
+
+            // ── load schedules + users from backend ────────────────────────────
+            React.useEffect(() => {
+                authFetch(`${HRMS_API}/schedules`)
+                    .then(r => r.ok ? r.json() : { schedules: [] })
+                    .then(d => setSchedules(Array.isArray(d.schedules) ? d.schedules : []))
+                    .catch(() => {});
+                authFetch(`${HRMS_API}/users`)
+                    .then(r => r.ok ? r.json() : { users: [] })
+                    .then(d => setAllUsers(Array.isArray(d.users) ? d.users : []))
+                    .catch(() => {});
             }, []);
 
             // ── All tickets — normalize API field names for reports ───────────
@@ -6902,19 +6916,26 @@
             };
 
             // ── Save schedule ──────────────────────────────────────────────────
-            const handleSaveSchedule = () => {
-                if (!schedEmail.trim()) { showToast('Enter a recipient email for the schedule.', 'error'); return; }
+            const handleSaveSchedule = async () => {
+                if (!schedRecipients.length) { showToast('Select at least one recipient.', 'error'); return; }
                 const label = REPORT_TYPES.find(r=>r.id===schedReportType)?.label || schedReportType;
-                const newSched = { id:Date.now(), reportType:schedReportType, label, period:schedPeriod, frequency:schedFreq, day:schedDay, time:schedTime, email:schedEmail, createdAt:new Date().toISOString(), active:true };
-                const updated = [newSched, ...schedules];
-                setSchedules(updated);
-                try { localStorage.setItem('yc_schedules', JSON.stringify(updated)); } catch(e) {}
-                setShowSchedModal(false); setSchedEmail('');
-                showToast(`✅ Schedule saved — ${label} ${schedFreq}`);
+                const freq = schedFreq === 'fortnightly' ? 'weekly' : schedFreq;
+                const body = { name: label, description: schedPeriod, frequency: freq,
+                    day_of_week: (schedFreq==='weekly'||schedFreq==='fortnightly') ? schedDay : undefined,
+                    time: schedTime, report_types: [schedReportType], recipient_ids: schedRecipients.map(Number) };
+                try {
+                    const r = await authFetch(`${HRMS_API}/schedules`, { method:'POST', body:JSON.stringify(body) });
+                    const data = await r.json();
+                    if (!r.ok) { showToast(data.message || 'Failed to save schedule.', 'error'); return; }
+                    setSchedules(prev => [data.schedule, ...prev]);
+                    setShowSchedModal(false); setSchedRecipients([]);
+                    showToast(`✅ Schedule saved — ${label} ${schedFreq}`);
+                } catch(e) { showToast('Error saving schedule.', 'error'); }
             };
 
-            const deleteSchedule = id => { const u=schedules.filter(s=>s.id!==id); setSchedules(u); try{localStorage.setItem('yc_schedules',JSON.stringify(u));}catch(e){} };
-            const toggleSchedule = id => { const u=schedules.map(s=>s.id===id?{...s,active:!s.active}:s); setSchedules(u); try{localStorage.setItem('yc_schedules',JSON.stringify(u));}catch(e){} };
+            const deleteSchedule = async id => { const r=await authFetch(`${HRMS_API}/schedules/${id}`,{method:'DELETE'}); if(r.ok) setSchedules(p=>p.filter(s=>s.id!==id)); else showToast('Failed to delete schedule.','error'); };
+            const toggleSchedule = async id => { const sc=schedules.find(s=>s.id===id); if(!sc) return; const r=await authFetch(`${HRMS_API}/schedules/${id}`,{method:'PATCH',body:JSON.stringify({active:!sc.active})}); if(r.ok){const d=await r.json();setSchedules(p=>p.map(s=>s.id===id?d.schedule:s));} else showToast('Failed to update schedule.','error'); };
+            const sendScheduleNow = async id => { const r=await authFetch(`${HRMS_API}/schedules/${id}/send`,{method:'POST'}); const d=await r.json(); if(r.ok){setSchedules(p=>p.map(s=>s.id===id?d.schedule:s));showToast(`✅ Report sent to ${d.emailsSent} recipient(s)`);} else showToast(d.message||'Failed to send report.','error'); };
 
             // ── UI helpers ─────────────────────────────────────────────────────
             const PERIOD_OPTS = [
@@ -7093,9 +7114,10 @@
                                             {schedules.map(sc=>(
                                                 <div key={sc.id} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 10px',borderRadius:8,background:sc.active?'#F0FDF4':'#F9FAFB',border:`1px solid ${sc.active?'#BBF7D0':'#E5E7EB'}`}}>
                                                     <div style={{flex:1,minWidth:0}}>
-                                                        <p style={{fontSize:12,fontWeight:600,color:textP,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{sc.label}</p>
-                                                        <p style={{fontSize:11,color:textM}}>{sc.frequency==='daily'?`Daily`:`Every ${sc.day}`} at {sc.time} → {sc.email}</p>
+                                                        <p style={{fontSize:12,fontWeight:600,color:textP,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{sc.name}</p>
+                                                        <p style={{fontSize:11,color:textM}}>{sc.frequency==='daily'?'Daily':`Every ${sc.dayOfWeek}`} at {sc.time}{sc.lastSentAt?` · Sent ${new Date(sc.lastSentAt).toLocaleDateString('en-AU')}`:''}</p>
                                                     </div>
+                                                    <button onClick={()=>sendScheduleNow(sc.id)} title="Send now" style={{fontSize:10,fontWeight:700,padding:'3px 8px',borderRadius:5,border:'none',cursor:'pointer',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:dm?'#a5b4fc':'#4F46E5'}}>▶</button>
                                                     <button onClick={()=>toggleSchedule(sc.id)} style={{fontSize:10,fontWeight:700,padding:'3px 8px',borderRadius:5,border:'none',cursor:'pointer',background:sc.active?'#DCFCE7':(dm?'rgba(99,102,241,0.08)':'#EEF2F8'),color:sc.active?'#166534':(dm?'#8fa4cc':'#64748B')}}>{sc.active?'Active':'Paused'}</button>
                                                     <button onClick={()=>deleteSchedule(sc.id)} style={{width:24,height:24,borderRadius:5,border:'none',cursor:'pointer',background:'#FEF2F2',color:'#DC2626',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center'}}>×</button>
                                                 </div>
@@ -7110,7 +7132,7 @@
 
                     {/* ── Schedule Modal ── */}
                     {showSchedModal&&(
-                        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={()=>setShowSchedModal(false)}>
+                        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={()=>{setShowSchedModal(false);setSchedRecipients([]);}}>
                             <div style={{background:cardBg,borderRadius:16,padding:28,width:480,maxWidth:'92vw',boxShadow:'0 20px 60px rgba(0,0,0,0.2)',maxHeight:'90vh',overflowY:'auto'}} onClick={e=>e.stopPropagation()}>
                                 <h3 style={{fontSize:16,fontWeight:700,color:textP,marginBottom:20}}>🕐 Schedule a Report</h3>
 
@@ -7158,13 +7180,16 @@
                                 </div>
 
                                 <div style={{marginBottom:20}}>
-                                    <span style={s.lbl}>Send To (email)</span>
-                                    <input type="email" value={schedEmail} onChange={e=>setSchedEmail(e.target.value)} placeholder="recipient@company.com" style={s.inp}/>
+                                    <span style={s.lbl}>Send To (select recipients)</span>
+                                    <select multiple value={schedRecipients} onChange={e=>setSchedRecipients(Array.from(e.target.selectedOptions,o=>o.value))} style={{...s.inp,height:84,padding:4}}>
+                                        {allUsers.map(u=><option key={u.id} value={String(u.id)}>{u.display_name||u.name||u.email}</option>)}
+                                    </select>
+                                    <p style={{fontSize:11,color:textM,marginTop:4}}>Hold Ctrl / ⌘ to select multiple</p>
                                 </div>
 
                                 <div style={{display:'flex',gap:10}}>
                                     <button onClick={handleSaveSchedule} style={{...s.btnPri,flex:1}}>✅ Save Schedule</button>
-                                    <button onClick={()=>setShowSchedModal(false)} style={{...s.btnOut,flex:1}}>Cancel</button>
+                                    <button onClick={()=>{setShowSchedModal(false);setSchedRecipients([]);}} style={{...s.btnOut,flex:1}}>Cancel</button>
                                 </div>
                             </div>
                         </div>

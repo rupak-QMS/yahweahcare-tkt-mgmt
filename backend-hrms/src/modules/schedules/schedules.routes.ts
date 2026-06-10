@@ -12,7 +12,7 @@ import { sendEmail, buildScheduledReportHtml, type ReportData } from '../notific
 const router = Router();
 router.use(requireAuth);
 
-const isManagerOrAdmin = (role: string) => ['super_admin', 'manager'].includes(role);
+const isManagerOrAdmin = (role: string) => ['super_admin', 'manager', 'director'].includes(role);
 
 // GET /schedules
 router.get('/', async (req, res, next) => {
