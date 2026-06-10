@@ -800,7 +800,7 @@
         //   HR Manager             → + staff-management  (also gets manager pages)
         //   Director / Bootstrap   → all pages
         const STAFF_PAGES    = ['dashboard','create-ticket','tickets','calendar','analytics'];
-        const MANAGER_PAGES  = [...STAFF_PAGES, 'org-chart','staff-performance','team-comparison'];
+        const MANAGER_PAGES  = [...STAFF_PAGES, 'org-chart','staff-performance','team-comparison','ticket-log'];
         const HR_PAGES       = [...MANAGER_PAGES, 'staff-management'];
         const DIRECTOR_PAGES = [...HR_PAGES, 'scheduled-reports'];
 
@@ -996,7 +996,12 @@
                     });
                     if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || 'Failed to reopen ticket'); }
                     return res.json();
-                }
+                },
+                log: async (id) => {
+                    const res = await authFetch(`${HRMS_API}/tickets/${id}/log`);
+                    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || 'Failed to fetch ticket log'); }
+                    return res.json();
+                },
             },
             users: {
                 getAll: async () => {
@@ -1269,6 +1274,7 @@
                 { id: 'staff-performance', label: 'Staff Performance', icon: '⭐' },
                 { id: 'team-comparison',   label: 'Team Comparison',   icon: '🔄' },
                 { id: 'staff-management',  label: 'Staff Management',  icon: '👥' },
+                { id: 'ticket-log',        label: 'Ticket Log',        icon: '📜' },
                 { id: 'scheduled-reports', label: 'Scheduled Reports', icon: '📧' },
             ].filter(p => allowedPages.includes(p.id));
 
@@ -6132,6 +6138,399 @@
             );
         }
 
+        // ── Ticket Log Page ───────────────────────────────────────────────────────
+        function TicketLogPage() {
+            const dm = useDark();
+            const sessionUser = React.useMemo(() => getSessionUser(), []);
+
+            // Palette
+            const pageBg  = dm ? 'transparent' : '#F5F7FF';
+            const cardBg  = dm ? 'rgba(15,23,42,0.85)' : '#FFFFFF';
+            const borderC = dm ? 'rgba(99,102,241,0.18)' : '#E8ECFF';
+            const textP   = dm ? '#e2e8f0' : '#1e293b';
+            const textM   = dm ? '#94a3b8' : '#64748B';
+            const textS   = dm ? '#64748b' : '#94a3b8';
+
+            // State
+            const [tickets, setTickets]         = React.useState([]);
+            const [loading, setLoading]         = React.useState(true);
+            const [search, setSearch]           = React.useState('');
+            const [statusFilter, setStatusFilter] = React.useState('');
+            const [selected, setSelected]       = React.useState(null);
+            const [logData, setLogData]         = React.useState(null);  // { ticket, timeline }
+            const [logLoading, setLogLoading]   = React.useState(false);
+            const [logError, setLogError]       = React.useState('');
+
+            // Fetch all tickets (scope=all for admin/director, scope=dept for manager)
+            React.useEffect(() => {
+                const scopeP = getTicketScopeParams(sessionUser);
+                const params = new URLSearchParams({ ...scopeP, all: '1', limit: '500' });
+                authFetch(`${HRMS_API}/tickets?${params}`)
+                    .then(r => r.json())
+                    .then(d => { setTickets(d.tickets || []); setLoading(false); })
+                    .catch(() => setLoading(false));
+            }, []);
+
+            // Fetch log when ticket selected
+            const selectTicket = async (t) => {
+                setSelected(t);
+                setLogData(null);
+                setLogError('');
+                setLogLoading(true);
+                try {
+                    const data = await API.tickets.log(t._dbId || t.id);
+                    setLogData(data);
+                } catch (e) {
+                    setLogError(e.message || 'Failed to load log');
+                } finally {
+                    setLogLoading(false);
+                }
+            };
+
+            // Filtered ticket list
+            const filtered = tickets.filter(t => {
+                const q = search.toLowerCase();
+                const matchSearch = !q || (t.title||'').toLowerCase().includes(q)
+                    || (t.ticketNumber||'').toLowerCase().includes(q)
+                    || (t.requesterName||'').toLowerCase().includes(q)
+                    || (t.assigneeName||'').toLowerCase().includes(q);
+                const matchStatus = !statusFilter || (t.status||'').toLowerCase() === statusFilter.toLowerCase();
+                return matchSearch && matchStatus;
+            });
+
+            // Status color helper
+            const statusColor = (s) => {
+                const m = { open:'#6366F1', in_progress:'#0EA5E9', pending_approval:'#D97706', resolved:'#10B981', closed:'#64748B' };
+                return m[(s||'').toLowerCase().replace(' ','_')] || '#6366F1';
+            };
+            const statusBg = (s) => {
+                const m = { open:'rgba(99,102,241,0.1)', in_progress:'rgba(14,165,233,0.1)', pending_approval:'rgba(217,119,6,0.1)', resolved:'rgba(16,185,129,0.1)', closed:'rgba(100,116,139,0.1)' };
+                return m[(s||'').toLowerCase().replace(' ','_')] || 'rgba(99,102,241,0.1)';
+            };
+
+            // Timeline entry config
+            const entryConfig = (entry) => {
+                const { type, action } = entry;
+                if (type === 'approval') {
+                    if ((action||'').toLowerCase() === 'approved') return { icon:'✅', color:'#10B981', bg:dm?'rgba(16,185,129,0.1)':'#ECFDF5', label:'Approved' };
+                    if ((action||'').toLowerCase() === 'rejected') return { icon:'❌', color:'#EF4444', bg:dm?'rgba(239,68,68,0.1)':'#FEF2F2', label:'Rejected' };
+                    return { icon:'🔓', color:'#D97706', bg:dm?'rgba(217,119,6,0.1)':'#FFFBEB', label:'Reopened' };
+                }
+                if (type === 'comment') return { icon:'💬', color:'#64748B', bg:dm?'rgba(100,116,139,0.1)':'#F8FAFC', label:'Comment' };
+                const map = {
+                    created:              { icon:'🎫', color:'#6366F1', bg:dm?'rgba(99,102,241,0.1)':'#EEF2FF', label:'Created' },
+                    assigned:             { icon:'👤', color:'#0EA5E9', bg:dm?'rgba(14,165,233,0.1)':'#F0F9FF', label:'Assigned' },
+                    status_changed:       { icon:'🔄', color:'#8B5CF6', bg:dm?'rgba(139,92,246,0.1)':'#F5F3FF', label:'Status Changed' },
+                    priority_changed:     { icon:'⚡', color:'#F59E0B', bg:dm?'rgba(245,158,11,0.1)':'#FFFBEB', label:'Priority Changed' },
+                    approvers_updated:    { icon:'👥', color:'#6366F1', bg:dm?'rgba(99,102,241,0.1)':'#EEF2FF', label:'Approvers Updated' },
+                    extension_requested:  { icon:'📅', color:'#D97706', bg:dm?'rgba(217,119,6,0.1)':'#FFFBEB', label:'Extension Requested' },
+                    extension_responded:  { icon:'📋', color:'#0EA5E9', bg:dm?'rgba(14,165,233,0.1)':'#F0F9FF', label:'Extension Responded' },
+                    reopened:             { icon:'🔓', color:'#D97706', bg:dm?'rgba(217,119,6,0.1)':'#FFFBEB', label:'Reopened' },
+                    commented:            { icon:'💬', color:'#64748B', bg:dm?'rgba(100,116,139,0.1)':'#F8FAFC', label:'Comment' },
+                    attachment_added:     { icon:'📎', color:'#64748B', bg:dm?'rgba(100,116,139,0.1)':'#F8FAFC', label:'Attachment Added' },
+                    escalated:            { icon:'🚨', color:'#EF4444', bg:dm?'rgba(239,68,68,0.1)':'#FEF2F2', label:'Escalated' },
+                    'pending_approval':   { icon:'⏳', color:'#D97706', bg:dm?'rgba(217,119,6,0.1)':'#FFFBEB', label:'Sent for Approval' },
+                };
+                return map[action] || { icon:'📝', color:'#6366F1', bg:dm?'rgba(99,102,241,0.1)':'#EEF2FF', label: (action||'').replace(/_/g,' ') };
+            };
+
+            // Human-readable description of an entry
+            const entryDesc = (entry) => {
+                const d = entry.details || {};
+                const actor = entry.actorName || 'System';
+                switch (entry.action) {
+                    case 'created':             return `Ticket created by ${actor}`;
+                    case 'assigned':            return `Assigned to ${d.to || d.assigneeName || 'someone'} by ${actor}`;
+                    case 'status_changed':      return `Status changed: ${d.from || '—'} → ${d.to || '—'}`;
+                    case 'priority_changed':    return `Priority changed: ${d.from || '—'} → ${d.to || '—'}`;
+                    case 'approvers_updated':   return `Approvers updated by ${actor}`;
+                    case 'extension_requested': return `Time extension requested by ${actor} — new due: ${d.newDue ? new Date(d.newDue).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}) : '—'}`;
+                    case 'extension_responded': {
+                        const resp = (d.action||'').toLowerCase() === 'approve' ? 'approved' : 'denied';
+                        return `Extension ${resp} by ${actor}`;
+                    }
+                    case 'reopened':            return `Ticket reopened by ${actor}`;
+                    case 'commented':           return `Comment by ${actor}`;
+                    case 'attachment_added':    return `Attachment added by ${actor}`;
+                    case 'escalated':           return `Escalated by ${actor}`;
+                    case 'Approved':            return `Approved by ${actor}${d.comments ? ` — "${d.comments}"` : ''}`;
+                    case 'Rejected':            return `Rejected by ${actor}${d.comments ? ` — "${d.comments}"` : ''}`;
+                    case 'Reopened':            return `Reopened by ${actor}${d.comments ? ` — "${d.comments}"` : ''}`;
+                    default:                    return `${(entry.action||'').replace(/_/g,' ')} by ${actor}`;
+                }
+            };
+
+            // Phase timeline — derive reached phases from the log
+            const PHASES = [
+                { key: 'created',          label: 'Created',     icon: '🎫' },
+                { key: 'open',             label: 'Open',        icon: '📬' },
+                { key: 'in_progress',      label: 'In Progress', icon: '⚙️' },
+                { key: 'pending_approval', label: 'Approval',    icon: '⏳' },
+                { key: 'resolved',         label: 'Resolved',    icon: '✅' },
+                { key: 'closed',           label: 'Closed',      icon: '🔒' },
+            ];
+            const getReachedPhases = (timeline, ticket) => {
+                const reached = new Set(['created']);
+                if (ticket) {
+                    const s = (ticket.status || '').toLowerCase().replace(' ','_');
+                    if (['open','in_progress','pending_approval','resolved','closed'].includes(s)) reached.add('open');
+                    if (['in_progress','pending_approval','resolved','closed'].includes(s)) reached.add('in_progress');
+                    if (['pending_approval','resolved','closed'].includes(s)) reached.add('pending_approval');
+                    if (['resolved','closed'].includes(s)) reached.add('resolved');
+                    if (s === 'closed') reached.add('closed');
+                }
+                (timeline||[]).forEach(e => {
+                    if (e.action === 'status_changed' && e.details?.to) {
+                        const to = (e.details.to||'').toLowerCase().replace(' ','_');
+                        reached.add(to);
+                    }
+                });
+                return reached;
+            };
+
+            const fmtTime = (iso) => {
+                if (!iso) return '—';
+                const d = new Date(iso);
+                return d.toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}) + ' ' +
+                    d.toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit'});
+            };
+            const fmtRelative = (iso) => {
+                if (!iso) return '';
+                const diff = Date.now() - new Date(iso).getTime();
+                const m = Math.floor(diff/60000);
+                if (m < 1) return 'just now';
+                if (m < 60) return `${m}m ago`;
+                const h = Math.floor(m/60);
+                if (h < 24) return `${h}h ago`;
+                const days = Math.floor(h/24);
+                if (days < 30) return `${days}d ago`;
+                return new Date(iso).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'});
+            };
+
+            const statuses = ['Open','In Progress','Pending Approval','Resolved','Closed'];
+
+            return (
+                <main style={{flex:1,overflowY:'auto',padding:'24px',background:pageBg}}>
+                    {/* Header */}
+                    <div style={{marginBottom:24}}>
+                        <h1 style={{fontSize:22,fontWeight:700,color:textP,margin:0}}>📜 Ticket Log</h1>
+                        <p style={{fontSize:13,color:textM,marginTop:4}}>Full lifecycle audit of every ticket — phase by phase, event by event.</p>
+                    </div>
+
+                    <div style={{display:'flex',gap:16,height:'calc(100vh - 160px)'}}>
+                        {/* ── Left panel: ticket list ── */}
+                        <div style={{width:320,flexShrink:0,display:'flex',flexDirection:'column',gap:10}}>
+                            {/* Search + filter */}
+                            <input
+                                value={search} onChange={e=>setSearch(e.target.value)}
+                                placeholder="Search tickets…"
+                                style={{width:'100%',border:`1px solid ${borderC}`,borderRadius:10,padding:'9px 12px',
+                                    fontSize:13,background:cardBg,color:textP,outline:'none',boxSizing:'border-box'}}
+                            />
+                            <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}
+                                style={{width:'100%',border:`1px solid ${borderC}`,borderRadius:10,padding:'9px 12px',
+                                    fontSize:13,background:cardBg,color:textM,outline:'none',boxSizing:'border-box'}}>
+                                <option value="">All Statuses</option>
+                                {statuses.map(s=><option key={s} value={s}>{s}</option>)}
+                            </select>
+
+                            {/* Ticket list */}
+                            <div style={{flex:1,overflowY:'auto',display:'flex',flexDirection:'column',gap:6}}>
+                                {loading ? (
+                                    <div style={{textAlign:'center',padding:32,color:textM,fontSize:13}}>Loading tickets…</div>
+                                ) : filtered.length === 0 ? (
+                                    <div style={{textAlign:'center',padding:32,color:textM,fontSize:13}}>No tickets found</div>
+                                ) : filtered.map(t => {
+                                    const isActive = selected && (selected._dbId||selected.id) === (t._dbId||t.id);
+                                    const sc = statusColor(t.status);
+                                    const sb = statusBg(t.status);
+                                    return (
+                                        <div key={t._dbId||t.id} onClick={()=>selectTicket(t)}
+                                            style={{padding:'10px 12px',borderRadius:10,cursor:'pointer',
+                                                background: isActive ? (dm?'rgba(99,102,241,0.18)':'#EEF2FF') : cardBg,
+                                                border:`1px solid ${isActive ? '#6366F1' : borderC}`,
+                                                transition:'all 0.15s'}}>
+                                            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:6}}>
+                                                <span style={{fontSize:11,fontWeight:700,color:'#6366F1'}}>{t.ticketNumber||`TKT-${String(t._dbId||t.id).padStart(6,'0')}`}</span>
+                                                <span style={{fontSize:10,fontWeight:600,padding:'2px 7px',borderRadius:20,
+                                                    background:sb,color:sc,whiteSpace:'nowrap'}}>{t.status||t.statusLabel||'Open'}</span>
+                                            </div>
+                                            <p style={{fontSize:12,fontWeight:600,color:textP,margin:'4px 0 2px',
+                                                overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'100%'}}>{t.title}</p>
+                                            <p style={{fontSize:11,color:textM,margin:0}}>
+                                                {t.requesterName||'—'} → {t.assigneeName||'Unassigned'}
+                                            </p>
+                                            <p style={{fontSize:10,color:textS,margin:'2px 0 0'}}>{fmtRelative(t.createdAt)}</p>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* ── Right panel: timeline ── */}
+                        <div style={{flex:1,overflowY:'auto',background:cardBg,borderRadius:14,border:`1px solid ${borderC}`,padding:0}}>
+                            {!selected ? (
+                                <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
+                                    height:'100%',gap:12,color:textM}}>
+                                    <span style={{fontSize:48}}>📜</span>
+                                    <p style={{fontSize:14,margin:0}}>Select a ticket to view its full log</p>
+                                </div>
+                            ) : logLoading ? (
+                                <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:textM,fontSize:14}}>
+                                    ⏳ Loading log…
+                                </div>
+                            ) : logError ? (
+                                <div style={{padding:24,color:'#EF4444',fontSize:13}}>{logError}</div>
+                            ) : logData ? (()=>{
+                                const { ticket, timeline } = logData;
+                                const reachedPhases = getReachedPhases(timeline, ticket);
+                                const sc = statusColor(ticket.status);
+                                const sb = statusBg(ticket.status);
+
+                                return (
+                                    <div>
+                                        {/* Ticket header */}
+                                        <div style={{padding:'20px 24px',borderBottom:`1px solid ${borderC}`}}>
+                                            <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12,marginBottom:8}}>
+                                                <div>
+                                                    <span style={{fontSize:11,fontWeight:700,color:'#6366F1',marginRight:8}}>{ticket.ticketNumber||`TKT-${String(ticket._dbId||ticket.id).padStart(6,'0')}`}</span>
+                                                    <span style={{fontSize:10,fontWeight:600,padding:'3px 9px',borderRadius:20,background:sb,color:sc}}>{ticket.status}</span>
+                                                </div>
+                                                {ticket.priorityLabel && (
+                                                    <span style={{fontSize:11,color:textM}}>🔥 {ticket.priorityLabel}</span>
+                                                )}
+                                            </div>
+                                            <h2 style={{fontSize:16,fontWeight:700,color:textP,margin:'0 0 6px'}}>{ticket.title}</h2>
+                                            <div style={{display:'flex',gap:16,flexWrap:'wrap',fontSize:11,color:textM}}>
+                                                <span>👤 Raised by: <strong>{ticket.requesterName||'—'}</strong></span>
+                                                <span>🛠 Assigned to: <strong>{ticket.assigneeName||'Unassigned'}</strong></span>
+                                                {ticket.categoryLabel && <span>🏷 {ticket.categoryLabel}</span>}
+                                                <span>📅 Created: <strong>{fmtTime(ticket.createdAt)}</strong></span>
+                                                {ticket.closedAt && <span>🔒 Closed: <strong>{fmtTime(ticket.closedAt)}</strong></span>}
+                                            </div>
+                                        </div>
+
+                                        {/* Phase tracker */}
+                                        <div style={{padding:'16px 24px',borderBottom:`1px solid ${borderC}`,background:dm?'rgba(8,16,36,0.4)':'#F8FAFF'}}>
+                                            <p style={{fontSize:10,fontWeight:700,letterSpacing:'0.08em',textTransform:'uppercase',color:textM,margin:'0 0 12px'}}>Lifecycle Phases</p>
+                                            <div style={{display:'flex',alignItems:'center',gap:0,flexWrap:'nowrap',overflowX:'auto'}}>
+                                                {PHASES.map((ph, i) => {
+                                                    const reached = reachedPhases.has(ph.key);
+                                                    const isCurrent = (ticket.status||'').toLowerCase().replace(' ','_') === ph.key
+                                                        || (ph.key === 'open' && (ticket.status||'').toLowerCase() === 'open');
+                                                    return (
+                                                        <React.Fragment key={ph.key}>
+                                                            <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4,minWidth:70}}>
+                                                                <div style={{width:34,height:34,borderRadius:'50%',display:'flex',alignItems:'center',
+                                                                    justifyContent:'center',fontSize:16,
+                                                                    background: isCurrent ? '#6366F1' : reached ? (dm?'rgba(16,185,129,0.2)':'#ECFDF5') : (dm?'rgba(255,255,255,0.05)':'#F1F5F9'),
+                                                                    border: isCurrent ? '2px solid #6366F1' : reached ? '2px solid #10B981' : `2px solid ${borderC}`,
+                                                                    boxShadow: isCurrent ? '0 0 0 3px rgba(99,102,241,0.25)' : 'none'}}>
+                                                                    {ph.icon}
+                                                                </div>
+                                                                <span style={{fontSize:10,fontWeight: isCurrent||reached ? 700 : 400,
+                                                                    color: isCurrent ? '#6366F1' : reached ? '#10B981' : textS,
+                                                                    whiteSpace:'nowrap'}}>{ph.label}</span>
+                                                            </div>
+                                                            {i < PHASES.length - 1 && (
+                                                                <div style={{flex:1,height:2,minWidth:16,
+                                                                    background: reachedPhases.has(PHASES[i+1].key) ? '#10B981' : (dm?'rgba(255,255,255,0.08)':'#E2E8F0'),
+                                                                    margin:'0 0 20px'}}/>
+                                                            )}
+                                                        </React.Fragment>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+
+                                        {/* Timeline entries */}
+                                        <div style={{padding:'20px 24px'}}>
+                                            <p style={{fontSize:10,fontWeight:700,letterSpacing:'0.08em',textTransform:'uppercase',color:textM,margin:'0 0 16px'}}>
+                                                Event Log — {timeline.length} event{timeline.length !== 1 ? 's' : ''}
+                                            </p>
+                                            {timeline.length === 0 ? (
+                                                <p style={{color:textM,fontSize:13}}>No events recorded yet.</p>
+                                            ) : (
+                                                <div style={{position:'relative',paddingLeft:32}}>
+                                                    {/* Vertical line */}
+                                                    <div style={{position:'absolute',left:11,top:0,bottom:0,width:2,
+                                                        background:dm?'rgba(99,102,241,0.15)':'#E8ECFF',borderRadius:2}}/>
+
+                                                    {timeline.map((entry, idx) => {
+                                                        const cfg = entryConfig(entry);
+                                                        const desc = entryDesc(entry);
+                                                        const d = entry.details || {};
+                                                        const isLast = idx === timeline.length - 1;
+
+                                                        return (
+                                                            <div key={idx} style={{position:'relative',marginBottom: isLast?0:20}}>
+                                                                {/* Dot */}
+                                                                <div style={{position:'absolute',left:-32,top:3,width:24,height:24,borderRadius:'50%',
+                                                                    background:cfg.bg,border:`2px solid ${cfg.color}`,
+                                                                    display:'flex',alignItems:'center',justifyContent:'center',fontSize:11}}>
+                                                                    {cfg.icon}
+                                                                </div>
+
+                                                                {/* Card */}
+                                                                <div style={{background: dm?'rgba(15,23,42,0.6)':'#FAFBFF',
+                                                                    border:`1px solid ${borderC}`,borderRadius:10,padding:'10px 14px'}}>
+                                                                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8,marginBottom:4}}>
+                                                                        <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                                                                            <span style={{fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:20,
+                                                                                background:cfg.bg,color:cfg.color}}>{cfg.label}</span>
+                                                                            <span style={{fontSize:12,color:textP,fontWeight:500}}>{desc}</span>
+                                                                        </div>
+                                                                        <span style={{fontSize:10,color:textS,whiteSpace:'nowrap',flexShrink:0}} title={fmtTime(entry.at)}>
+                                                                            {fmtRelative(entry.at)}
+                                                                        </span>
+                                                                    </div>
+                                                                    <p style={{fontSize:10,color:textS,margin:0}}>{fmtTime(entry.at)}</p>
+
+                                                                    {/* Extra detail rows */}
+                                                                    {entry.type === 'comment' && d.text && (
+                                                                        <div style={{marginTop:6,padding:'6px 10px',background:dm?'rgba(255,255,255,0.03)':'#F8FAFC',
+                                                                            borderRadius:7,fontSize:12,color:textM,borderLeft:`3px solid ${cfg.color}`}}>
+                                                                            "{d.text}"
+                                                                            {d.isInternal && <span style={{fontSize:10,color:'#D97706',marginLeft:8}}>🔒 Internal</span>}
+                                                                        </div>
+                                                                    )}
+                                                                    {entry.type === 'approval' && d.comments && (
+                                                                        <div style={{marginTop:6,padding:'6px 10px',background:dm?'rgba(255,255,255,0.03)':'#F8FAFC',
+                                                                            borderRadius:7,fontSize:12,color:textM,borderLeft:`3px solid ${cfg.color}`}}>
+                                                                            "{d.comments}"
+                                                                        </div>
+                                                                    )}
+                                                                    {entry.action === 'extension_requested' && d.note && (
+                                                                        <div style={{marginTop:6,padding:'6px 10px',background:dm?'rgba(255,255,255,0.03)':'#F8FAFC',
+                                                                            borderRadius:7,fontSize:12,color:textM,borderLeft:`3px solid ${cfg.color}`}}>
+                                                                            Reason: "{d.note}"
+                                                                        </div>
+                                                                    )}
+                                                                    {entry.action === 'reopened' && d.justification && (
+                                                                        <div style={{marginTop:6,padding:'6px 10px',background:dm?'rgba(255,255,255,0.03)':'#F8FAFC',
+                                                                            borderRadius:7,fontSize:12,color:textM,borderLeft:`3px solid ${cfg.color}`}}>
+                                                                            Reason: "{d.justification}"
+                                                                        </div>
+                                                                    )}
+                                                                    {entry.type === 'approval' && d.round > 1 && (
+                                                                        <span style={{fontSize:10,color:'#D97706',marginTop:4,display:'block'}}>Round {d.round}</span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })() : null}
+                        </div>
+                    </div>
+                </main>
+            );
+        }
+
         // Scheduled Reports Page
         function ScheduledReportsPage() {
             const dm = useDark();
@@ -7009,6 +7408,7 @@
                     case 'staff-performance': return <StaffPerformancePage />;
                     case 'team-comparison': return <TeamComparisonPage />;
                     case 'staff-management': return <StaffManagementPage />;
+                    case 'ticket-log': return <TicketLogPage />;
                     case 'scheduled-reports': return <ScheduledReportsPage />;
                     default: return <Dashboard />;
                 }

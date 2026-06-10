@@ -1442,6 +1442,94 @@ router.post('/:id/comments', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ── GET /tickets/:id/log — unified audit timeline ────────────────────────────
+router.get('/:id/log', requireAuth, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+
+    // Ticket metadata with user + category + priority labels
+    const { rows: tRows } = await pool.query(
+      `SELECT t.*,
+         cr.name  AS requester_name,  cr.email AS requester_email,
+         as2.name AS assignee_name,   as2.email AS assignee_email,
+         cat.label AS category_label,
+         p.label   AS priority_label
+       FROM yc_tkt_mgmt.tickets t
+       LEFT JOIN yc_tkt_mgmt.users cr  ON cr.id  = t.created_by
+       LEFT JOIN yc_tkt_mgmt.users as2 ON as2.id = t.assigned_to
+       LEFT JOIN yc_tkt_mgmt.categories cat ON cat.id = t.category_id
+       LEFT JOIN yc_tkt_mgmt.priorities   p   ON p.id   = t.priority_id
+       WHERE t.id = $1`, [id]
+    );
+    if (!tRows[0]) return res.status(404).json({ error: 'not_found' });
+
+    // Activity with actor names
+    const { rows: actRows } = await pool.query(
+      `SELECT a.id, a.ticket_id, a.user_id, a.action, a.details, a.created_at,
+              u.name AS actor_name
+         FROM yc_tkt_mgmt.activity a
+         LEFT JOIN yc_tkt_mgmt.users u ON u.id = a.user_id
+        WHERE a.ticket_id = $1
+        ORDER BY a.created_at ASC`, [id]
+    );
+
+    // Approval history (immutable audit log)
+    await ensureApprovalHistoryTable();
+    const { rows: ahRows } = await pool.query(
+      `SELECT id, approver_user_id, approver_name, action, comments, resolution_note, round, acted_at
+         FROM yc_tkt_mgmt.ticket_approval_history
+        WHERE ticket_id = $1
+        ORDER BY acted_at ASC`, [id]
+    );
+
+    // Comments with author names
+    let cmtRows: Record<string, unknown>[] = [];
+    try {
+      const { rows } = await pool.query(
+        `SELECT c.id, COALESCE(c.user_id, c.author_id) AS user_id,
+                COALESCE(c.content, c.body) AS body,
+                c.created_at,
+                COALESCE(c.is_internal, false) AS is_internal,
+                u.name AS actor_name
+           FROM yc_tkt_mgmt.comments c
+           LEFT JOIN yc_tkt_mgmt.users u ON u.id = COALESCE(c.user_id, c.author_id)
+          WHERE c.ticket_id = $1
+          ORDER BY c.created_at ASC`, [id]
+      );
+      cmtRows = rows;
+    } catch (_) { /* schema mismatch — skip */ }
+
+    // Build unified timeline
+    const timeline: Record<string, unknown>[] = [];
+
+    for (const row of actRows) {
+      const details = row.details
+        ? (typeof row.details === 'string' ? JSON.parse(row.details as string) : row.details) as Record<string, unknown>
+        : {};
+      timeline.push({ type: 'activity', action: row.action, actorId: row.user_id,
+        actorName: row.actor_name || 'System', details, at: row.created_at });
+    }
+    for (const row of ahRows) {
+      timeline.push({ type: 'approval', action: row.action,
+        actorId: row.approver_user_id, actorName: row.approver_name || 'Approver',
+        details: { comments: row.comments, resolutionNote: row.resolution_note, round: row.round },
+        at: row.acted_at });
+    }
+    for (const row of cmtRows) {
+      timeline.push({ type: 'comment', action: 'commented', actorId: row.user_id,
+        actorName: row.actor_name || 'User',
+        details: { text: row.body, isInternal: row.is_internal }, at: row.created_at });
+    }
+
+    // Sort ascending by timestamp
+    timeline.sort((a, b) =>
+      new Date(a.at as string).getTime() - new Date(b.at as string).getTime()
+    );
+
+    res.json({ ticket: dbTicket(tRows[0]), timeline });
+  } catch (err) { next(err); }
+});
+
 // ── GET /tickets/:id/activity ───────────────────────────────
 router.get('/:id/activity', async (req, res, next) => {
   try {
