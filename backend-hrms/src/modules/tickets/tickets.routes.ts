@@ -271,6 +271,12 @@ router.get('/', optionalAuth, async (req, res, next) => {
         `  WHERE ta.ticket_id = v.id AND ta.approver_user_id = $${i}))`
       );
       params.push(userId); i++;
+    } else if (scope === 'assigned_to_me' && userId) {
+      // Strictly "assigned to me" — ONLY tickets where assigned_to = userId
+      // No creator or approver expansion. Used to enforce the "Assigned to Me" tab
+      // so only the actual assignee ever sees a ticket under that scope.
+      where.push(`v.assigned_to = $${i}`);
+      params.push(userId); i++;
     }
     // scope=all or no scope → no additional filter
 

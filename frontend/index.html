@@ -2578,7 +2578,7 @@
             // Status filter counts
             const STATUS_GROUPS = [
                 {key:'all',            label:'All',                match: ()=>true},
-                {key:'mine',           label:'Assigned to Me',     match: t=>t.assigneeId===sessionUser?.id, color:'#6366F1'},
+                {key:'mine',           label:'Assigned to Me',     match: t=>t.assigneeId!=null && Number(t.assigneeId)===Number(sessionUser?.id), color:'#6366F1'},
                 {key:'my_approvals',   label:'Pending My Approval',match: t=>!['Resolved','Closed'].includes(t.status) && (t.pendingApproverIds||[]).map(Number).includes(Number(sessionUser?.id)), color:'#D97706'},
                 {key:'open',           label:'New / Open',         match: t=>['New','Open','Assigned'].includes(t.status)},
                 {key:'in_progress',    label:'In Progress',        match: t=>['In Progress','Waiting'].includes(t.status)},
@@ -2756,13 +2756,13 @@
                             setReopenMode(false); setReopenJustification('');
                             setResolutionNote(''); setWorkNote(''); setAttUploadError('');
                         };
-                        const isAssignee   = selectedTicket.assigneeId === sessionUser?.id;
-                        const isCreator    = selectedTicket.requesterId === sessionUser?.id;
+                        const isAssignee   = selectedTicket.assigneeId != null && Number(selectedTicket.assigneeId) === Number(sessionUser?.id);
+                        const isCreator    = selectedTicket.requesterId != null && Number(selectedTicket.requesterId) === Number(sessionUser?.id);
                         const isBootAdmin  = sessionUser?.isBootstrapAdmin === true;
                         // isApprover: user has a PENDING decision (can approve/reject)
-                        const isApprover   = approvers.some(ap => ap.userId === sessionUser?.id && (ap.status||'').toLowerCase() === 'pending');
+                        const isApprover   = approvers.some(ap => Number(ap.userId) === Number(sessionUser?.id) && (ap.status||'').toLowerCase() === 'pending');
                         // isAnyApprover: user is assigned as approver regardless of current decision status (can reopen resolved tickets)
-                        const isAnyApprover = approvers.some(ap => ap.userId === sessionUser?.id);
+                        const isAnyApprover = approvers.some(ap => Number(ap.userId) === Number(sessionUser?.id));
                         const hasPendingExt = selectedTicket.extensionRequestStatus === 'pending';
                         return (
                         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',display:'flex',alignItems:'flex-start',justifyContent:'flex-end',zIndex:50}}
@@ -4103,7 +4103,7 @@
 
                         // ── Per-staff metrics ──────────────────────────────
                         const metrics = users.map(u => {
-                            const mine        = tickets.filter(t => t.assigneeId === u.id);
+                            const mine        = tickets.filter(t => t.assigneeId != null && Number(t.assigneeId) === Number(u.id));
                             const resolved    = mine.filter(isResolved);
                             const pending     = mine.filter(t => !isResolved(t));
                             const withinSla   = resolved.filter(t => !t.slaBreached);
