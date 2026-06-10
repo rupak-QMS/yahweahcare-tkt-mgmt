@@ -6194,18 +6194,23 @@
                     || (t.ticketNumber||'').toLowerCase().includes(q)
                     || (t.requesterName||'').toLowerCase().includes(q)
                     || (t.assigneeName||'').toLowerCase().includes(q);
-                const matchStatus = !statusFilter || (t.status||'').toLowerCase() === statusFilter.toLowerCase();
+                const matchStatus = !statusFilter || (t.status||'').toLowerCase().replace(/ /g,'_') === statusFilter.toLowerCase().replace(/ /g,'_');
                 return matchSearch && matchStatus;
             });
 
+            // Normalise raw DB status to phase key (new/waiting/assigned → open)
+            const normStatus = (s) => {
+                const k = (s||'').toLowerCase().replace(/ /g,'_');
+                return { new:'open', waiting:'open', assigned:'open' }[k] || k;
+            };
             // Status color helper
             const statusColor = (s) => {
-                const m = { open:'#6366F1', in_progress:'#0EA5E9', pending_approval:'#D97706', resolved:'#10B981', closed:'#64748B' };
-                return m[(s||'').toLowerCase().replace(' ','_')] || '#6366F1';
+                const m = { open:'#6366F1', new:'#6366F1', waiting:'#6366F1', assigned:'#0EA5E9', in_progress:'#0EA5E9', pending_approval:'#D97706', resolved:'#10B981', closed:'#64748B' };
+                return m[(s||'').toLowerCase().replace(/ /g,'_')] || '#6366F1';
             };
             const statusBg = (s) => {
-                const m = { open:'rgba(99,102,241,0.1)', in_progress:'rgba(14,165,233,0.1)', pending_approval:'rgba(217,119,6,0.1)', resolved:'rgba(16,185,129,0.1)', closed:'rgba(100,116,139,0.1)' };
-                return m[(s||'').toLowerCase().replace(' ','_')] || 'rgba(99,102,241,0.1)';
+                const m = { open:'rgba(99,102,241,0.1)', new:'rgba(99,102,241,0.1)', waiting:'rgba(99,102,241,0.1)', assigned:'rgba(14,165,233,0.1)', in_progress:'rgba(14,165,233,0.1)', pending_approval:'rgba(217,119,6,0.1)', resolved:'rgba(16,185,129,0.1)', closed:'rgba(100,116,139,0.1)' };
+                return m[(s||'').toLowerCase().replace(/ /g,'_')] || 'rgba(99,102,241,0.1)';
             };
 
             // Timeline entry config
@@ -6230,6 +6235,9 @@
                     attachment_added:     { icon:'📎', color:'#64748B', bg:dm?'rgba(100,116,139,0.1)':'#F8FAFC', label:'Attachment Added' },
                     escalated:            { icon:'🚨', color:'#EF4444', bg:dm?'rgba(239,68,68,0.1)':'#FEF2F2', label:'Escalated' },
                     'pending_approval':   { icon:'⏳', color:'#D97706', bg:dm?'rgba(217,119,6,0.1)':'#FFFBEB', label:'Sent for Approval' },
+                    // activity entries from approve/reject endpoints
+                    approved:             { icon:'✅', color:'#10B981', bg:dm?'rgba(16,185,129,0.1)':'#ECFDF5', label:'Approved' },
+                    rejected:             { icon:'❌', color:'#EF4444', bg:dm?'rgba(239,68,68,0.1)':'#FEF2F2', label:'Rejected' },
                 };
                 return map[action] || { icon:'📝', color:'#6366F1', bg:dm?'rgba(99,102,241,0.1)':'#EEF2FF', label: (action||'').replace(/_/g,' ') };
             };
@@ -6244,15 +6252,17 @@
                     case 'status_changed':      return `Status changed: ${d.from || '—'} → ${d.to || '—'}`;
                     case 'priority_changed':    return `Priority changed: ${d.from || '—'} → ${d.to || '—'}`;
                     case 'approvers_updated':   return `Approvers updated by ${actor}`;
-                    case 'extension_requested': return `Time extension requested by ${actor} — new due: ${d.newDue ? new Date(d.newDue).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}) : '—'}`;
+                    case 'extension_requested': { const due = d.newDueDate || d.newDue; return `Time extension requested by ${actor} — new due: ${due ? new Date(due).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}) : '—'}`; }
                     case 'extension_responded': {
-                        const resp = (d.action||'').toLowerCase() === 'approve' ? 'approved' : 'denied';
+                        const resp = ['approved','approve'].includes((d.action||'').toLowerCase()) ? 'approved' : 'denied';
                         return `Extension ${resp} by ${actor}`;
                     }
                     case 'reopened':            return `Ticket reopened by ${actor}`;
                     case 'commented':           return `Comment by ${actor}`;
                     case 'attachment_added':    return `Attachment added by ${actor}`;
                     case 'escalated':           return `Escalated by ${actor}`;
+                    case 'approved':            return `Approved by ${actor}${d.acceptanceNote ? ` — "${d.acceptanceNote}"` : ''}`;
+                    case 'rejected':            return `Rejected by ${actor}${d.justification ? ` — "${d.justification}"` : ''}`;
                     case 'Approved':            return `Approved by ${actor}${d.comments ? ` — "${d.comments}"` : ''}`;
                     case 'Rejected':            return `Rejected by ${actor}${d.comments ? ` — "${d.comments}"` : ''}`;
                     case 'Reopened':            return `Reopened by ${actor}${d.comments ? ` — "${d.comments}"` : ''}`;
@@ -6272,7 +6282,7 @@
             const getReachedPhases = (timeline, ticket) => {
                 const reached = new Set(['created']);
                 if (ticket) {
-                    const s = (ticket.status || '').toLowerCase().replace(' ','_');
+                    const s = normStatus(ticket.status);
                     if (['open','in_progress','pending_approval','resolved','closed'].includes(s)) reached.add('open');
                     if (['in_progress','pending_approval','resolved','closed'].includes(s)) reached.add('in_progress');
                     if (['pending_approval','resolved','closed'].includes(s)) reached.add('pending_approval');
@@ -6307,7 +6317,7 @@
                 return new Date(iso).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'});
             };
 
-            const statuses = ['Open','In Progress','Pending Approval','Resolved','Closed'];
+            const statuses = ['Open','New','Waiting','Assigned','In Progress','Pending Approval','Resolved','Closed'];
 
             return (
                 <main style={{flex:1,overflowY:'auto',padding:'24px',background:pageBg}}>
@@ -6353,7 +6363,7 @@
                                             <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:6}}>
                                                 <span style={{fontSize:11,fontWeight:700,color:'#6366F1'}}>{t.ticketNumber||`TKT-${String(t._dbId||t.id).padStart(6,'0')}`}</span>
                                                 <span style={{fontSize:10,fontWeight:600,padding:'2px 7px',borderRadius:20,
-                                                    background:sb,color:sc,whiteSpace:'nowrap'}}>{t.status||t.statusLabel||'Open'}</span>
+                                                    background:sb,color:sc,whiteSpace:'nowrap'}}>{({'new':'New','waiting':'Waiting','assigned':'Assigned','open':'Open','in_progress':'In Progress','pending_approval':'Pending Approval','resolved':'Resolved','closed':'Closed'}[(t.status||'').toLowerCase()])||t.statusLabel||t.status||'Open'}</span>
                                             </div>
                                             <p style={{fontSize:12,fontWeight:600,color:textP,margin:'4px 0 2px',
                                                 overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'100%'}}>{t.title}</p>
@@ -6416,8 +6426,7 @@
                                             <div style={{display:'flex',alignItems:'center',gap:0,flexWrap:'nowrap',overflowX:'auto'}}>
                                                 {PHASES.map((ph, i) => {
                                                     const reached = reachedPhases.has(ph.key);
-                                                    const isCurrent = (ticket.status||'').toLowerCase().replace(' ','_') === ph.key
-                                                        || (ph.key === 'open' && (ticket.status||'').toLowerCase() === 'open');
+                                                    const isCurrent = normStatus(ticket.status) === ph.key;
                                                     return (
                                                         <React.Fragment key={ph.key}>
                                                             <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4,minWidth:70}}>
