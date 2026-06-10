@@ -1196,9 +1196,13 @@ router.post('/:id/respond-extension', requireAuth, async (req, res, next) => {
     const { rows: tRows } = await pool.query(`SELECT * FROM yc_tkt_mgmt.tickets WHERE id=$1`, [id]);
     if (!tRows[0]) return res.status(404).json({ error: 'not_found' });
 
-    // Only the ticket creator may respond to extension requests
-    if (tRows[0].created_by !== actorId) {
-      return res.status(403).json({ error: 'forbidden', message: 'Only the ticket creator can respond to extension requests' });
+    // Only an approver may respond to extension requests
+    const { rows: apCheck } = await pool.query(
+      `SELECT 1 FROM yc_tkt_mgmt.ticket_approvers WHERE ticket_id=$1 AND approver_user_id=$2`,
+      [id, actorId]
+    );
+    if (!apCheck[0]) {
+      return res.status(403).json({ error: 'forbidden', message: 'Only an approver can respond to extension requests' });
     }
     if (tRows[0].extension_request_status !== 'pending') {
       return res.status(400).json({ error: 'no_pending_request', message: 'No pending extension request on this ticket' });

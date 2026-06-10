@@ -3120,19 +3120,19 @@
                                                     <p style={{fontSize:12,fontWeight:600,color:'#92400E',margin:'0 0 4px'}}>⏳ Extension Request Pending</p>
                                                     <p style={{fontSize:11,color:dm?'#fcd34d':'#D97706',margin:0}}>Proposed: <strong>{selectedTicket.extensionRequestedDue ? new Date(selectedTicket.extensionRequestedDue).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}) : '—'}</strong></p>
                                                     {selectedTicket.extensionRequestNote && <p style={{fontSize:11,color:dm?'#8fa4cc':'#64748B',margin:'4px 0 0'}}>Note: {selectedTicket.extensionRequestNote}</p>}
-                                                    <p style={{fontSize:11,color:dm?'#4a607f':'#94A3B8',margin:'4px 0 0'}}>Waiting for the ticket issuer to respond.</p>
+                                                    <p style={{fontSize:11,color:dm?'#4a607f':'#94A3B8',margin:'4px 0 0'}}>Waiting for an approver to respond.</p>
                                                 </div>
                                             )}
                                         </div>
                                         );
                                     })()}
 
-                                    {/* ── Creator: Extension Response Panel ── */}
-                                    {isCreator && hasPendingExt && (
+                                    {/* ── Approver: Extension Response Panel ── */}
+                                    {isAnyApprover && hasPendingExt && (
                                         <div style={{marginBottom:20,padding:16,background:dm?'rgba(245,158,11,0.08)':'#FFFBEB',borderRadius:12,border:`1px solid ${dm?'rgba(245,158,11,0.25)':'#FDE68A'}`}}>
                                             <p style={{fontSize:12,fontWeight:700,color:'#92400E',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:10}}>📅 Extension Request — Your Decision</p>
                                             <p style={{fontSize:13,color:dm?'#c0cfec':'#374151',marginBottom:4}}>
-                                                The assignee <strong>{selectedTicket.assigned||'Assignee'}</strong> is requesting an extension.
+                                                The assignee <strong>{selectedTicket.assigned||'Assignee'}</strong> is requesting a time extension.
                                             </p>
                                             <p style={{fontSize:13,marginBottom:4,color:dm?'#c0cfec':'#374151'}}>
                                                 Proposed new date: <strong>{selectedTicket.extensionRequestedDue ? new Date(selectedTicket.extensionRequestedDue).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}) : '—'}</strong>
