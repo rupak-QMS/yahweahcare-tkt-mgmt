@@ -46,7 +46,6 @@ async function ensureApproversTable() {
     `);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_ticket_approvers_ticket ON yc_tkt_mgmt.ticket_approvers(ticket_id)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_ticket_approvers_approver ON yc_tkt_mgmt.ticket_approvers(approver_user_id)`);
-    // If table already existed with created_date instead of created_at, add the column
     await pool.query(`ALTER TABLE yc_tkt_mgmt.ticket_approvers ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`);
     approverTableMigrated = true;
   } catch (err) {
@@ -54,6 +53,35 @@ async function ensureApproversTable() {
   }
 }
 ensureApproversTable();
+
+// ── Auto-migrate: approval history table ────────────────────
+let approvalHistoryMigrated = false;
+async function ensureApprovalHistoryTable() {
+  if (approvalHistoryMigrated) return;
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS yc_tkt_mgmt.ticket_approval_history (
+        id                SERIAL PRIMARY KEY,
+        ticket_id         INTEGER NOT NULL REFERENCES yc_tkt_mgmt.tickets(id) ON DELETE CASCADE,
+        approver_user_id  INTEGER NOT NULL REFERENCES yc_tkt_mgmt.users(id),
+        approver_name     TEXT,
+        action            TEXT NOT NULL,          -- 'Approved' | 'Rejected'
+        comments          TEXT,                   -- acceptance note or rejection reason
+        resolution_note   TEXT,                   -- snapshot of the resolution being acted on
+        round             INTEGER NOT NULL DEFAULT 1,  -- increments each time ticket is resubmitted
+        acted_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_tah_ticket ON yc_tkt_mgmt.ticket_approval_history(ticket_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_tah_approver ON yc_tkt_mgmt.ticket_approval_history(approver_user_id)`);
+    // Track resubmission round on tickets table
+    await pool.query(`ALTER TABLE yc_tkt_mgmt.tickets ADD COLUMN IF NOT EXISTS approval_round INTEGER NOT NULL DEFAULT 1`);
+    approvalHistoryMigrated = true;
+  } catch (err) {
+    console.warn('[tickets] approval_history migration skipped:', err);
+  }
+}
+ensureApprovalHistoryTable();
 
 // ── Auto-migrate: add attachments + extension columns ──────
 let attachmentsMigrated = false;
@@ -425,10 +453,34 @@ router.get('/:id', optionalAuth, async (req, res, next) => {
       console.error('[GET /tickets/:id] approvers query failed:', apErr);
     }
 
+    // Approval history (immutable audit log)
+    let approvalHistory: Record<string, unknown>[] = [];
+    try {
+      await ensureApprovalHistoryTable();
+      const ahQ = await pool.query(
+        `SELECT id, approver_user_id, approver_name, action, comments, resolution_note, round, acted_at
+           FROM yc_tkt_mgmt.ticket_approval_history
+          WHERE ticket_id = $1
+          ORDER BY acted_at ASC`,
+        [id]
+      );
+      approvalHistory = ahQ.rows.map(r => ({
+        id: r.id,
+        approverId: r.approver_user_id,
+        approverName: r.approver_name,
+        action: r.action,
+        comments: r.comments,
+        resolutionNote: r.resolution_note,
+        round: r.round,
+        actedAt: r.acted_at,
+      }));
+    } catch (_) {}
+
     const t = dbTicket(tRows[0]);
     t.comments  = cRows.map(dbComment);
     t.activity  = aRows.map(dbActivity);
     t.approvers = apRows.map(dbApprover);
+    (t as Record<string, unknown>).approvalHistory = approvalHistory;
     res.json({ ticket: t });
   } catch (err) { next(err); }
 });
@@ -461,11 +513,19 @@ router.post('/', requireAuth, async (req, res, next) => {
     if (!resolvedDueDate) {
       return res.status(400).json({ error: 'missing_fields', message: 'expected_completion is required' });
     }
+    if (!resolvedAssignee) {
+      return res.status(400).json({ error: 'missing_fields', message: 'An assignee is required' });
+    }
     if (!resolvedApprovers.length) {
       return res.status(400).json({ error: 'missing_fields', message: 'At least one approver is required' });
     }
+    // Prevent assignee == creator
+    const creatorId = req.auth?.userId || req.body.created_by || null;
+    const assigneeNum = Number(resolvedAssignee);
+    if (creatorId && assigneeNum === Number(creatorId)) {
+      return res.status(400).json({ error: 'invalid_assignee', message: 'You cannot assign a ticket to yourself' });
+    }
     // Prevent the assignee from also being an approver
-    const assigneeNum = resolvedAssignee ? Number(resolvedAssignee) : null;
     if (assigneeNum && resolvedApprovers.map(Number).includes(assigneeNum)) {
       return res.status(400).json({ error: 'invalid_approvers', message: 'The assignee cannot also be an approver' });
     }
@@ -577,7 +637,28 @@ router.post('/:id/complete', requireAuth, async (req, res, next) => {
       return res.status(400).json({ error: 'no_approvers', message: 'Ticket has no approvers assigned' });
     }
 
-    // Reset any previous approver decisions back to Pending
+    // Snapshot any existing approval/rejection decisions to history before resetting
+    await ensureApprovalHistoryTable();
+    await pool.query(`
+      INSERT INTO yc_tkt_mgmt.ticket_approval_history
+        (ticket_id, approver_user_id, approver_name, action, comments, resolution_note, round, acted_at)
+      SELECT
+        ta.ticket_id, ta.approver_user_id, u.name,
+        ta.approval_status, ta.comments,
+        t.resolution_note,
+        COALESCE(t.approval_round, 1),
+        COALESCE(ta.approval_date, NOW())
+      FROM yc_tkt_mgmt.ticket_approvers ta
+      JOIN yc_tkt_mgmt.users u ON u.id = ta.approver_user_id
+      JOIN yc_tkt_mgmt.tickets t ON t.id = ta.ticket_id
+      WHERE ta.ticket_id = $1 AND ta.approval_status != 'Pending'
+    `, [id]);
+
+    // Increment the approval round and reset approver decisions
+    await pool.query(
+      `UPDATE yc_tkt_mgmt.tickets SET approval_round = COALESCE(approval_round,1) + 1 WHERE id=$1`,
+      [id]
+    );
     await pool.query(
       `UPDATE yc_tkt_mgmt.ticket_approvers SET approval_status='Pending', comments=NULL, approval_date=NULL WHERE ticket_id=$1`,
       [id]
@@ -621,6 +702,7 @@ router.post('/:id/approve', requireAuth, async (req, res, next) => {
   try {
     const id     = Number(req.params.id);
     const userId = req.auth?.userId ?? (req.body.actorId ? Number(req.body.actorId) : null);
+    const acceptanceNote = (req.body.acceptanceNote || '').trim() || null;
     if (!userId) return res.status(400).json({ error: 'missing_actor', message: 'actorId is required' });
 
     const { rows: apRow } = await pool.query(
@@ -630,16 +712,26 @@ router.post('/:id/approve', requireAuth, async (req, res, next) => {
 
     await pool.query(
       `UPDATE yc_tkt_mgmt.ticket_approvers
-       SET approval_status='Approved', approval_date=NOW(), comments=NULL
+       SET approval_status='Approved', approval_date=NOW(), comments=$3
        WHERE ticket_id=$1 AND approver_user_id=$2`,
-      [id, userId]
+      [id, userId, acceptanceNote]
     );
+
+    // Log to approval history
+    await ensureApprovalHistoryTable();
+    const { rows: tSnap } = await pool.query(`SELECT resolution_note, approval_round FROM yc_tkt_mgmt.tickets WHERE id=$1`, [id]);
+    const approverName = await getActorName(userId);
+    await pool.query(`
+      INSERT INTO yc_tkt_mgmt.ticket_approval_history
+        (ticket_id, approver_user_id, approver_name, action, comments, resolution_note, round, acted_at)
+      VALUES ($1,$2,$3,'Approved',$4,$5,$6,NOW())
+    `, [id, userId, approverName, acceptanceNote, tSnap[0]?.resolution_note, tSnap[0]?.approval_round ?? 1]);
 
     const actorEmail = req.auth?.email ?? apRow[0].user_email ?? String(userId);
     await pool.query(
       `INSERT INTO yc_tkt_mgmt.activity (ticket_id, user_id, action, details)
        VALUES ($1,$2,'approved',$3)`,
-      [id, userId, JSON.stringify({ approvedBy: actorEmail })]
+      [id, userId, JSON.stringify({ approvedBy: actorEmail, acceptanceNote })]
     );
 
     // Check if ALL approvers have now approved
@@ -714,6 +806,16 @@ router.post('/:id/reject', requireAuth, async (req, res, next) => {
        WHERE ticket_id=$1 AND approver_user_id=$2`,
       [id, userId, justification.trim()]
     );
+
+    // Log to approval history
+    await ensureApprovalHistoryTable();
+    const { rows: tSnapR } = await pool.query(`SELECT resolution_note, approval_round FROM yc_tkt_mgmt.tickets WHERE id=$1`, [id]);
+    const rejectorName = await getActorName(userId);
+    await pool.query(`
+      INSERT INTO yc_tkt_mgmt.ticket_approval_history
+        (ticket_id, approver_user_id, approver_name, action, comments, resolution_note, round, acted_at)
+      VALUES ($1,$2,$3,'Rejected',$4,$5,$6,NOW())
+    `, [id, userId, rejectorName, justification.trim(), tSnapR[0]?.resolution_note, tSnapR[0]?.approval_round ?? 1]);
 
     const actorEmail = req.auth?.email ?? String(userId);
     // Reopen ticket — back to in_progress
