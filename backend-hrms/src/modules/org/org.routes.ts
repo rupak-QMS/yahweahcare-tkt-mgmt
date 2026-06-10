@@ -45,7 +45,7 @@ router.get('/chart', optionalAuth, async (req, res, next) => {
       FROM yc_tkt_mgmt.positions p
       LEFT JOIN yc_tkt_mgmt.departments d ON d.id = p.department_id
       LEFT JOIN yc_tkt_mgmt.staff_positions sp ON sp.position_id = p.id
-      LEFT JOIN yc_tkt_mgmt.users u ON u.id = sp.user_id AND u.is_active = TRUE
+      LEFT JOIN yc_tkt_mgmt.users u ON u.id = sp.user_id AND u.is_active = TRUE AND u.is_bootstrap_admin = FALSE
       GROUP BY p.id, p.title, p.parent_position_id, p.sort_order, p.department_id, p.position_type, p.dept_label, d.name
       ORDER BY p.department_id NULLS FIRST, p.sort_order, p.id
     `);
