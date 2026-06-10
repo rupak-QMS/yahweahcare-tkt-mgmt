@@ -206,9 +206,9 @@ function dbComment(row: Record<string, unknown>) {
   return {
     id: String(row.id),
     ticketId: row.ticket_id,
-    userId: row.author_id,
+    userId: row.user_id ?? row.author_id,
     authorName: row.author_name || null,
-    text: row.body,
+    text: (row.content ?? row.body) as string || '',
     isInternal: !!row.is_internal,
     at: row.created_at,
   };
@@ -426,11 +426,27 @@ router.get('/:id', optionalAuth, async (req, res, next) => {
     // Run ticket + comments + activity together; isolate approvers query
     // to prevent a schema mismatch (e.g. created_date vs created_at) from
     // silently killing the whole response.
-    const [{ rows: tRows }, { rows: cRows }, { rows: aRows }] = await Promise.all([
+    const [{ rows: tRows }, { rows: aRows }] = await Promise.all([
       pool.query(`SELECT * FROM yc_tkt_mgmt.tickets WHERE id = $1`, [id]),
-      pool.query(`SELECT c.*, u.name AS author_name FROM yc_tkt_mgmt.comments c LEFT JOIN yc_tkt_mgmt.users u ON u.id = c.author_id WHERE c.ticket_id = $1 ORDER BY c.created_at ASC`, [id]),
       pool.query(`SELECT * FROM yc_tkt_mgmt.activity WHERE ticket_id = $1 ORDER BY created_at ASC`, [id]),
     ]);
+    // Comments: handle both schema versions (user_id/content vs author_id/body)
+    let cRows: Record<string, unknown>[] = [];
+    try {
+      const cQ = await pool.query(
+        `SELECT c.id, c.ticket_id,
+                COALESCE(c.user_id, c.author_id) AS author_id,
+                COALESCE(c.content, c.body) AS body,
+                c.created_at,
+                COALESCE(c.is_internal, false) AS is_internal,
+                u.name AS author_name
+           FROM yc_tkt_mgmt.comments c
+           LEFT JOIN yc_tkt_mgmt.users u ON u.id = COALESCE(c.user_id, c.author_id)
+          WHERE c.ticket_id = $1
+          ORDER BY c.created_at ASC`, [id]
+      );
+      cRows = cQ.rows;
+    } catch (_) { /* comments table schema mismatch — skip */ }
     if (!tRows[0]) return res.status(404).json({ error: 'not_found' });
 
     // Approvers — ensure table exists then query
@@ -1302,10 +1318,19 @@ router.post('/:id/comments', requireAuth, async (req, res, next) => {
     if (!body?.trim()) return res.status(400).json({ error: 'missing_body' });
     const actorId = req.auth?.userId ?? (req.body.actorId ? Number(req.body.actorId) : null);
 
-    const { rows } = await pool.query(
-      `INSERT INTO yc_tkt_mgmt.comments (ticket_id, author_id, body, is_internal) VALUES ($1,$2,$3,$4) RETURNING *`,
-      [ticketId, actorId, body.trim(), !!isInternal]
-    );
+    // Try new schema (user_id/content) first, fall back to old (author_id/body)
+    let rows: Record<string, unknown>[];
+    try {
+      ({ rows } = await pool.query(
+        `INSERT INTO yc_tkt_mgmt.comments (ticket_id, user_id, content) VALUES ($1,$2,$3) RETURNING *`,
+        [ticketId, actorId, body.trim()]
+      ));
+    } catch (_) {
+      ({ rows } = await pool.query(
+        `INSERT INTO yc_tkt_mgmt.comments (ticket_id, author_id, body, is_internal) VALUES ($1,$2,$3,$4) RETURNING *`,
+        [ticketId, actorId, body.trim(), !!isInternal]
+      ));
+    }
     // Activity log
     await pool.query(
       `INSERT INTO yc_tkt_mgmt.activity (ticket_id, user_id, action) VALUES ($1,$2,'commented')`,
