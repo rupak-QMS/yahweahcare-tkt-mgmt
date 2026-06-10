@@ -868,12 +868,12 @@
                     if (scope.scope)  params.set('scope',  scope.scope);
                     if (scope.userId) params.set('userId', scope.userId);
                     if (scope.deptId) params.set('deptId', scope.deptId);
-                    const res = await fetch(`${HRMS_API}/tickets?${params}`, { credentials: 'include', headers: authHeaders() });
+                    const res = await authFetch(`${HRMS_API}/tickets?${params}`);
                     if (!res.ok) throw new Error('Failed to fetch tickets');
                     return res.json();
                 },
                 getById: async (id) => {
-                    const res = await fetch(`${HRMS_API}/tickets/${id}`, { headers: authHeaders() });
+                    const res = await authFetch(`${HRMS_API}/tickets/${id}`);
                     if (!res.ok) throw new Error('Ticket not found');
                     return res.json();
                 },
@@ -904,10 +904,8 @@
                 },
                 delete: async (id, justification) => {
                     const u = getSessionUser();
-                    const res = await fetch(`${HRMS_API}/tickets/${id}`, {
+                    const res = await authFetch(`${HRMS_API}/tickets/${id}`, {
                         method: 'DELETE',
-                        credentials: 'include',
-                        headers: authHeaders(),
                         body: JSON.stringify({ actorId: u?.id, justification })
                     });
                     if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.message || 'Failed to delete ticket'); }
@@ -915,10 +913,8 @@
                 },
                 requestExtension: async (id, newDueDate, note) => {
                     const u = getSessionUser();
-                    const res = await fetch(`${HRMS_API}/tickets/${id}/request-extension`, {
+                    const res = await authFetch(`${HRMS_API}/tickets/${id}/request-extension`, {
                         method: 'POST',
-                        credentials: 'include',
-                        headers: authHeaders(),
                         body: JSON.stringify({ newDueDate, note, actorId: u?.id })
                     });
                     if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.message || 'Failed to request extension'); }
@@ -926,10 +922,8 @@
                 },
                 respondExtension: async (id, action, note) => {
                     const u = getSessionUser();
-                    const res = await fetch(`${HRMS_API}/tickets/${id}/respond-extension`, {
+                    const res = await authFetch(`${HRMS_API}/tickets/${id}/respond-extension`, {
                         method: 'POST',
-                        credentials: 'include',
-                        headers: authHeaders(),
                         body: JSON.stringify({ action, note, actorId: u?.id })
                     });
                     if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.message || 'Failed to respond to extension'); }
@@ -937,25 +931,21 @@
                 },
                 escalate: async (id, escalateToUserId, reason) => {
                     const u = getSessionUser();
-                    const res = await fetch(`${HRMS_API}/tickets/${id}/escalate`, {
+                    const res = await authFetch(`${HRMS_API}/tickets/${id}/escalate`, {
                         method: 'POST',
-                        credentials: 'include',
-                        headers: authHeaders(),
                         body: JSON.stringify({ escalateToUserId, reason, actorId: u?.id })
                     });
                     if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || 'Failed to escalate'); }
                     return res.json();
                 },
                 getEscalations: async (id) => {
-                    const res = await fetch(`${HRMS_API}/tickets/${id}/escalations`, { headers: authHeaders() });
+                    const res = await authFetch(`${HRMS_API}/tickets/${id}/escalations`);
                     if (!res.ok) throw new Error('Failed to fetch escalations');
                     return res.json();
                 },
                 addAttachments: async (id, attachments) => {
-                    const res = await fetch(`${HRMS_API}/tickets/${id}/attachments`, {
+                    const res = await authFetch(`${HRMS_API}/tickets/${id}/attachments`, {
                         method: 'POST',
-                        credentials: 'include',
-                        headers: authHeaders(),
                         body: JSON.stringify({ attachments })
                     });
                     if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || 'Failed to upload attachment'); }
@@ -1005,7 +995,7 @@
             },
             users: {
                 getAll: async () => {
-                    const res = await fetch(`${API_BASE_URL}/users`, { headers: authHeaders() });
+                    const res = await authFetch(`${API_BASE_URL}/users`);
                     if (!res.ok) throw new Error('Failed to fetch users');
                     return res.json();
                 }
@@ -1029,7 +1019,7 @@
             // Load real notifications from backend
             const loadNotifications = React.useCallback(() => {
                 setNotifLoading(true);
-                fetch(`${HRMS_API}/notifications`, { credentials:'include', headers: authHeaders() })
+                authFetch(`${HRMS_API}/notifications`)
                     .then(r => r.ok ? r.json() : { notifications: [] })
                     .then(d => setNotifications(Array.isArray(d.notifications) ? d.notifications : []))
                     .catch(() => {})
@@ -1050,12 +1040,12 @@
             const unreadCount = notifications.filter(n => !n.read_at).length;
 
             const markAllRead = () => {
-                fetch(`${HRMS_API}/notifications/read-all`, { method:'POST', credentials:'include', headers: authHeaders() })
+                authFetch(`${HRMS_API}/notifications/read-all`, { method:'POST' })
                     .then(() => loadNotifications()).catch(() => {});
             };
 
             const markRead = (id) => {
-                fetch(`${HRMS_API}/notifications/${id}/read`, { method:'PATCH', credentials:'include', headers: authHeaders() })
+                authFetch(`${HRMS_API}/notifications/${id}/read`, { method:'PATCH' })
                     .then(() => loadNotifications()).catch(() => {});
             };
 
@@ -1180,7 +1170,7 @@
                                 <div style={{padding:'10px 16px', borderTop:`1px solid ${border}`, flexShrink:0, display:'flex', gap:8, alignItems:'center', justifyContent:'space-between'}}>
                                     <button onClick={async () => {
                                         try {
-                                            const r = await fetch(`${HRMS_API}/push/test`, { method:'POST', credentials:'include', headers: authHeaders() });
+                                            const r = await authFetch(`${HRMS_API}/push/test`, { method:'POST' });
                                             if (r.ok) { loadNotifications(); showToast('🔔 Demo notification sent!'); }
                                             else showToast('Push not set up yet — check VAPID keys');
                                         } catch { showToast('Failed to send test notification'); }
@@ -2952,9 +2942,8 @@
                                             setWorkNoteLoading(true);
                                             try {
                                                 const u = getSessionUser();
-                                                await fetch(`${HRMS_API}/tickets/${selectedTicket._dbId}/comments`, {
-                                                    method: 'POST', credentials: 'include',
-                                                    headers: authHeaders(),
+                                                await authFetch(`${HRMS_API}/tickets/${selectedTicket._dbId}/comments`, {
+                                                    method: 'POST',
                                                     body: JSON.stringify({ body: workNote.trim(), isInternal: true, actorId: u?.id })
                                                 });
                                                 setWorkNote('');
@@ -5757,12 +5746,7 @@
                     };
                     const url    = modalMode==='add' ? `${HRMS_API}/users` : `${HRMS_API}/users/${selStaff.id}`;
                     const method = modalMode==='add' ? 'POST' : 'PATCH';
-                    let res = await fetch(url, { method, credentials:'include', headers: authHeaders(), body:JSON.stringify(payload) });
-                    // If 401, try one silent token refresh then retry
-                    if (res.status === 401) {
-                        await refreshAccessToken();
-                        res = await fetch(url, { method, credentials:'include', headers: authHeaders(), body:JSON.stringify(payload) });
-                    }
+                    const res = await authFetch(url, { method, body:JSON.stringify(payload) });
                     if (!res.ok) {
                         const e = await res.json().catch(()=>({}));
                         if (res.status === 401) throw new Error('Session expired — please sign out and sign back in.');
@@ -5778,7 +5762,7 @@
             const handleDelete = async () => {
                 if (!delConfirm) return;
                 try {
-                    const res  = await fetch(`${HRMS_API}/users/${delConfirm.id}`, { method:'DELETE', credentials:'include', headers: authHeaders() });
+                    const res  = await authFetch(`${HRMS_API}/users/${delConfirm.id}`, { method:'DELETE' });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || data.message || 'Delete failed');
                     setDelConfirm(null);
@@ -5796,15 +5780,9 @@
                         parentPositionId:posForm.parent_id     || null,
                         sortOrder:       0,
                     });
-                    let res = await fetch(`${HRMS_API}/org/positions`, {
-                        method:'POST', credentials:'include', headers: authHeaders(), body
+                    const res = await authFetch(`${HRMS_API}/org/positions`, {
+                        method:'POST', body
                     });
-                    if (res.status === 401) {
-                        await refreshAccessToken();
-                        res = await fetch(`${HRMS_API}/org/positions`, {
-                            method:'POST', credentials:'include', headers: authHeaders(), body
-                        });
-                    }
                     if (!res.ok) { const e=await res.json(); throw new Error(e.error || e.message); }
                     const data = await res.json();
                     setPositions(prev=>[...prev, data.position]);
@@ -6907,21 +6885,9 @@
                         subject, reportTitle: title, period: period.replace(/_/g,' '),
                         generatedBy: cu?.name || 'System', headers, rows,
                     });
-                    const res = await fetch(`${HRMS_API}/notifications/send-report-email`, {
-                        method: 'POST', credentials: 'include',
-                        headers: authHeaders(), body: reportPayload,
+                    const res = await authFetch(`${HRMS_API}/notifications/send-report-email`, {
+                        method: 'POST', body: reportPayload,
                     });
-                    if (res.status === 401) {
-                        await refreshAccessToken();
-                        const r2 = await fetch(`${HRMS_API}/notifications/send-report-email`, {
-                            method: 'POST', credentials: 'include',
-                            headers: authHeaders(), body: reportPayload,
-                        });
-                        if (!r2.ok) throw new Error('Session expired — please sign out and sign back in.');
-                        const d2 = await r2.json();
-                        showToast(`✅ Report emailed to ${d2.recipients?.join(', ')} (${d2.count} records)`);
-                        return;
-                    }
                     if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error || 'Send failed'); }
                     const data = await res.json();
                     showToast(`✅ Report emailed to ${data.recipients?.join(', ')} (${data.count} records)`);
@@ -7356,9 +7322,8 @@
                         // 3. If already subscribed, re-register with backend and exit
                         const existing = await swReg.pushManager.getSubscription();
                         if (existing) {
-                            await fetch(`${HRMS_API}/push/subscribe`, {
-                                method: 'POST', credentials: 'include',
-                                headers: authHeaders(),
+                            await authFetch(`${HRMS_API}/push/subscribe`, {
+                                method: 'POST',
                                 body: JSON.stringify({
                                     endpoint: existing.endpoint,
                                     keys: {
@@ -7382,9 +7347,8 @@
 
                         // 6. Save subscription to backend
                         const subJson = sub.toJSON();
-                        const saveRes = await fetch(`${HRMS_API}/push/subscribe`, {
-                            method: 'POST', credentials: 'include',
-                            headers: authHeaders(),
+                        const saveRes = await authFetch(`${HRMS_API}/push/subscribe`, {
+                            method: 'POST',
                             body: JSON.stringify({ endpoint: subJson.endpoint, keys: subJson.keys }),
                         });
                         if (saveRes.ok) console.info('[push] subscription registered ✓');
