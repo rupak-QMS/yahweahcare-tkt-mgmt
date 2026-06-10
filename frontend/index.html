@@ -3140,7 +3140,6 @@
                                     {/* Approvers panel */}
                                     {(()=>{
                                         const displayApprovers = approvers.length > 0 ? approvers : (selectedTicket.approvers || []);
-                                        const canManageApprovers = (isBootAdmin || isCreator) && !['Pending Approval','Resolved','Closed'].includes(selectedTicket.status);
                                         // staffList from outer scope; filter out assignee
                                         const availableForApproval = staffList.filter(u => u.id !== selectedTicket.assigneeId);
                                         return (
@@ -3153,66 +3152,12 @@
                                                     {selectedTicket.status === 'Pending Approval' && (
                                                         <span style={{fontSize:11,fontWeight:600,color:'#D97706',background:'#FFFBEB',padding:'2px 8px',borderRadius:20,border:'1px solid #FDE68A'}}>Awaiting approval</span>
                                                     )}
-                                                    {canManageApprovers && !manageApproversMode && (
-                                                        <button onClick={()=>{
-                                                            setPendingApproverIds(displayApprovers.map(ap=>ap.userId||ap.id));
-                                                            setManageApproversMode(true);
-                                                            setActionError('');
-                                                        }} style={{padding:'3px 10px',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:dm?'#818cf8':'#4F46E5',border:`1px solid ${dm?'rgba(99,102,241,0.25)':'#C7D2FE'}`,borderRadius:6,fontSize:11,fontWeight:600,cursor:'pointer'}}>
-                                                            {displayApprovers.length === 0 ? '+ Add Approvers' : '✏️ Edit'}
-                                                        </button>
-                                                    )}
                                                 </div>
                                             </div>
 
-                                            {/* Manage approvers mode */}
-                                            {manageApproversMode ? (
-                                                <div>
-                                                    <p style={{fontSize:11,color:dm?'#8fa4cc':'#64748B',marginBottom:10}}>Select who must approve the resolution. Cannot include the assignee.</p>
-                                                    <div style={{maxHeight:200,overflowY:'auto',display:'flex',flexDirection:'column',gap:6,marginBottom:12}}>
-                                                        {availableForApproval.map(u => {
-                                                            const sel = pendingApproverIds.includes(u.id);
-                                                            return (
-                                                                <label key={u.id} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 10px',borderRadius:8,border:`1px solid ${sel?(dm?'rgba(99,102,241,0.4)':'#A5B4FC'):(dm?'rgba(99,102,241,0.12)':'#E2E8F2')}`,background:sel?(dm?'rgba(99,102,241,0.1)':'#EEF2FF'):'transparent',cursor:'pointer'}}>
-                                                                    <input type="checkbox" className="sr-only" checked={sel}
-                                                                        onChange={()=>setPendingApproverIds(prev=>sel?prev.filter(id=>id!==u.id):[...prev,u.id])}/>
-                                                                    <div style={{width:16,height:16,borderRadius:4,border:`2px solid ${sel?'#6366F1':'#D1D5DB'}`,background:sel?'#6366F1':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                                                                        {sel && <span style={{color:'white',fontSize:10,lineHeight:1}}>✓</span>}
-                                                                    </div>
-                                                                    <div style={{width:26,height:26,borderRadius:'50%',background:dm?'rgba(99,102,241,0.2)':'#EEF2FF',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:dm?'#818cf8':'#4F46E5',flexShrink:0}}>
-                                                                        {(u.name||'?').charAt(0).toUpperCase()}
-                                                                    </div>
-                                                                    <div style={{flex:1,minWidth:0}}>
-                                                                        <p style={{fontSize:12,fontWeight:600,color:textP,margin:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{u.name}</p>
-                                                                        <p style={{fontSize:10,color:textM,margin:0}}>{u.role||u.department_name||''}</p>
-                                                                    </div>
-                                                                </label>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                    {actionError && <div style={{fontSize:12,color:'#DC2626',background:'#FEF2F2',border:'1px solid #FECACA',borderRadius:8,padding:'8px 12px',marginBottom:10}}>{actionError}</div>}
-                                                    <div style={{display:'flex',gap:8}}>
-                                                        <button disabled={actionLoading||pendingApproverIds.length===0} onClick={async()=>{
-                                                            setActionLoading(true); setActionError('');
-                                                            try {
-                                                                const data = await API.tickets.setApprovers(selectedTicket._dbId, pendingApproverIds);
-                                                                if (data.ticket?.approvers) setApprovers(data.ticket.approvers);
-                                                                setManageApproversMode(false);
-                                                                await refreshTicket(selectedTicket._dbId);
-                                                            } catch(e){ setActionError(e.message); }
-                                                            finally{ setActionLoading(false); }
-                                                        }} style={{flex:1,padding:'9px',background:pendingApproverIds.length===0?'#94A3B8':'#4F46E5',color:'white',border:'none',borderRadius:9,fontSize:13,fontWeight:700,cursor:pendingApproverIds.length===0?'not-allowed':'pointer',opacity:actionLoading?0.5:1}}>
-                                                            {actionLoading?'⏳ Saving…':`Save Approvers (${pendingApproverIds.length})`}
-                                                        </button>
-                                                        <button onClick={()=>{setManageApproversMode(false);setPendingApproverIds([]);setActionError('');}}
-                                                            style={{padding:'9px 14px',background:dm?'rgba(6,9,22,0.7)':'#F5F7FF',color:dm?'#c0cfec':'#334155',border:'none',borderRadius:9,fontSize:13,fontWeight:600,cursor:'pointer'}}>
-                                                            Cancel
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            ) : displayApprovers.length === 0 ? (
+                                            {displayApprovers.length === 0 ? (
                                                 <p style={{fontSize:12,color:dm?'#4a607f':'#94A3B8',fontStyle:'italic',margin:0,padding:'10px 14px',background:dm?'rgba(99,102,241,0.03)':'#F8FAFF',borderRadius:8,border:`1px dashed ${dm?'rgba(99,102,241,0.1)':'#E2E8F0'}`}}>
-                                                    No approvers assigned.{canManageApprovers?' Use "Add Approvers" above to assign them.':''}
+                                                    No approvers assigned to this ticket.
                                                 </p>
                                             ) : (
                                                 <div style={{display:'flex',flexDirection:'column',gap:8}}>
