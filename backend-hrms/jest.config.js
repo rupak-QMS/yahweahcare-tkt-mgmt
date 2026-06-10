@@ -13,6 +13,6 @@ module.exports = {
   transform: {
     '^.+\\.tsx?$': ['ts-jest', { tsconfig: { strict: false } }],
   },
-  clearMocks: true,
+  resetMocks: true,
   collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts', '!src/db/**'],
 };
