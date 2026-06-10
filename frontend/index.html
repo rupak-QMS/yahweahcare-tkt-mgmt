@@ -1078,7 +1078,9 @@
 
             const displayName = currentUser?.name || 'User';
             const initials    = displayName.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
-            const deptLabel   = currentUser?.department_name || currentUser?.dept || '';
+            const deptLabel   = currentUser?.isBootstrapAdmin
+                ? 'System Administrator'
+                : (currentUser?.department_name || currentUser?.dept || '');
 
             const pageLabels = {
                 'dashboard':'Dashboard','create-ticket':'Create Ticket','tickets':'Tickets',
@@ -1288,7 +1290,9 @@
             const [profileOpen, setProfileOpen] = React.useState(false);
             const displayName = currentUser?.name || 'User';
             const initials = displayName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-            const deptLabel = currentUser?.dept || currentUser?.department_name || currentUser?.employment_type || '';
+            const deptLabel = currentUser?.isBootstrapAdmin
+                ? 'System Administrator'
+                : (currentUser?.dept || currentUser?.department_name || currentUser?.employment_type || '');
 
             const allowedPages = getAccessiblePages(currentUser);
             const pages = [
