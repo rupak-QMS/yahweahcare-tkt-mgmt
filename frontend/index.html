@@ -818,6 +818,28 @@
             return STAFF_PAGES;
         }
 
+        // Returns badge config that visually distinguishes Bootstrap Admin from Director
+        // Bootstrap Admin = system role (not in org hierarchy); Director = org leadership role
+        function getRoleBadgeInfo(user) {
+            if (!user) return null;
+            if (user.isBootstrapAdmin)
+                return { label:'⭐ Bootstrap Admin', desc:'System Administration — not part of org hierarchy',
+                         bg:'#FEF3C7', color:'#D97706', border:'#FDE68A', dot:'#F59E0B' };
+            const pt = (user.positionType || '').toLowerCase();
+            const r  = (user.role || '').toLowerCase();
+            if (pt === 'director' || r === 'director')
+                return { label:'🏢 Director', desc:'Organisational Leadership — part of org hierarchy',
+                         bg:'#DCFCE7', color:'#15803D', border:'#86EFAC', dot:'#22C55E' };
+            if (r === 'hr')
+                return { label:'📋 HR Manager', desc:'Human Resources Department',
+                         bg:'#F3E8FF', color:'#7E22CE', border:'#C4B5FD', dot:'#A855F7' };
+            if (r === 'manager' || ['ops','finance','strategic'].includes(pt))
+                return { label:'👔 Manager', desc:'Department Manager',
+                         bg:'#DBEAFE', color:'#1D4ED8', border:'#93C5FD', dot:'#3B82F6' };
+            return { label:'👤 Staff', desc:'Staff Member',
+                     bg:'#EEF2FF', color:'#4338CA', border:'#C7D2FE', dot:'#6366F1' };
+        }
+
         // Fallback mock data — IDs must match actual DB seed values
         const LOOKUPS_MOCK = {
             categories: [
@@ -1220,9 +1242,19 @@
                                     <div style={{width:34,height:34,borderRadius:'50%',background:'#F97316',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:700,fontSize:13,flexShrink:0}}>
                                         {initials}
                                     </div>
-                                    <div>
-                                        <p style={{fontSize:13, fontWeight:700, color:textC}}>{displayName}</p>
-                                        <p style={{fontSize:11, color:subC, marginTop:1}}>{deptLabel}</p>
+                                    <div style={{flex:1,minWidth:0}}>
+                                        <p style={{fontSize:13, fontWeight:700, color:textC, margin:0}}>{displayName}</p>
+                                        <p style={{fontSize:11, color:subC, margin:'1px 0 3px'}}>{deptLabel}</p>
+                                        {(()=>{
+                                            const rb = getRoleBadgeInfo(currentUser);
+                                            if (!rb) return null;
+                                            return (
+                                                <div style={{display:'flex',flexDirection:'column',gap:1}}>
+                                                    <span style={{display:'inline-block',fontSize:'9px',fontWeight:700,padding:'2px 8px',borderRadius:10,background:rb.bg,color:rb.color,border:`1px solid ${rb.border}`}}>{rb.label}</span>
+                                                    <span style={{fontSize:'9px',color:subC,fontStyle:'italic'}}>{rb.desc}</span>
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
                                 </div>
                                 {getAccessiblePages(currentUser).includes('staff-management') && (
@@ -1370,6 +1402,11 @@
                             <div style={{flex:1, minWidth:0, textAlign:'left'}}>
                                 <p style={{fontSize:13,fontWeight:600,color:logoText,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{displayName}</p>
                                 <p style={{fontSize:11,color:logoSub,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{deptLabel}</p>
+                                {(()=>{
+                                    const rb = getRoleBadgeInfo(currentUser);
+                                    if (!rb) return null;
+                                    return <span style={{display:'inline-block',fontSize:'9px',fontWeight:700,padding:'1px 7px',borderRadius:10,background:rb.bg,color:rb.color,border:`1px solid ${rb.border}`,marginTop:3,letterSpacing:'0.03em'}}>{rb.label}</span>;
+                                })()}
                             </div>
                             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{flexShrink:0,transform:profileOpen?'rotate(0deg)':'rotate(180deg)',transition:'transform 0.2s'}}>
                                 <path d="M2 4l4 4 4-4" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -5883,9 +5920,10 @@
                                                     <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
                                                         <Avatar name={m.name} size={34}/>
                                                         <div>
-                                                            <div style={{fontSize:'13px',fontWeight:'700',color:textP,display:'flex',alignItems:'center',gap:'6px'}}>
+                                                            <div style={{fontSize:'13px',fontWeight:'700',color:textP,display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}>
                                                                 {m.name}
-                                                                {m.is_bootstrap_admin && <span style={{fontSize:'9px',fontWeight:'700',background:dm?'rgba(234,179,8,0.15)':'#FEF3C7',color:dm?'#fcd34d':'#D97706',padding:'1px 6px',borderRadius:'10px',border:'1px solid #FDE68A'}}>⭐ Bootstrap Admin</span>}
+                                                                {m.is_bootstrap_admin && <span title="System Administration — not part of org hierarchy" style={{fontSize:'9px',fontWeight:'700',background:dm?'rgba(234,179,8,0.15)':'#FEF3C7',color:dm?'#fcd34d':'#D97706',padding:'1px 6px',borderRadius:'10px',border:'1px solid #FDE68A'}}>⭐ Bootstrap Admin</span>}
+                                                                {!m.is_bootstrap_admin && (m.positions||[]).some(p=>(p.type||p.position_type||'').toLowerCase()==='director') && <span title="Organisational Leadership — part of org hierarchy" style={{fontSize:'9px',fontWeight:'700',background:dm?'rgba(22,163,74,0.15)':'#DCFCE7',color:dm?'#4ade80':'#15803D',padding:'1px 6px',borderRadius:'10px',border:'1px solid #86EFAC'}}>🏢 Director</span>}
                                                             </div>
                                                             <div style={{fontSize:'11px',color:textM}}>{m.email}</div>
                                                             {m.phone && <div style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8'}}>{m.phone}</div>}
