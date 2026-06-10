@@ -1009,6 +1009,11 @@
                     if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || 'Failed to reopen ticket'); }
                     return res.json();
                 },
+                close: async (id) => {
+                    const res = await authFetch(`${HRMS_API}/tickets/${id}/close`, { method: 'POST' });
+                    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || 'Failed to close ticket'); }
+                    return res.json();
+                },
                 log: async (id) => {
                     const res = await authFetch(`${HRMS_API}/tickets/${id}/log`);
                     if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || 'Failed to fetch ticket log'); }
@@ -3406,6 +3411,31 @@
                                             )}
                                         </div>
                                     )}
+                                    {/* ── Close Ticket panel — requester confirms resolution → Closed ── */}
+                                    {selectedTicket.status === 'Resolved' && (isCreator || isBootAdmin) && (
+                                        <div style={{marginTop:16,padding:16,background:dm?'rgba(16,185,129,0.10)':'#ECFDF5',borderRadius:12,border:`1px solid ${dm?'rgba(16,185,129,0.25)':'#6EE7B7'}`}}>
+                                            <p style={{fontSize:12,fontWeight:700,color:dm?'#34d399':'#065F46',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:4}}>✅ Confirm & Close Ticket</p>
+                                            <p style={{fontSize:11,color:dm?'#6ee7b7':'#047857',marginBottom:12}}>
+                                                Are you satisfied with the resolution? Closing the ticket finalises it permanently.
+                                            </p>
+                                            {actionError && <div style={{fontSize:12,color:'#DC2626',background:'#FEF2F2',border:'1px solid #FECACA',borderRadius:8,padding:'8px 12px',marginBottom:10}}>{actionError}</div>}
+                                            <button
+                                                disabled={actionLoading}
+                                                onClick={async()=>{
+                                                    if (!window.confirm('Close this ticket? This action is permanent.')) return;
+                                                    setActionLoading(true); setActionError('');
+                                                    try {
+                                                        await API.tickets.close(selectedTicket._dbId);
+                                                        await refreshTicket(selectedTicket._dbId);
+                                                    } catch(e){ setActionError(e.message); }
+                                                    finally{ setActionLoading(false); }
+                                                }}
+                                                style={{width:'100%',padding:'10px',background:actionLoading?'#6EE7B7':'#059669',color:'white',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:actionLoading?'not-allowed':'pointer',opacity:actionLoading?0.6:1}}>
+                                                {actionLoading ? '⏳ Closing…' : '🔒 Close Ticket'}
+                                            </button>
+                                        </div>
+                                    )}
+
                                     {/* ── Reopen panel — any approver can reopen a resolved/closed ticket ── */}
                                     {['Resolved','Closed'].includes(selectedTicket.status) && isAnyApprover && (
                                         <div style={{marginTop:16,padding:16,background:dm?'rgba(59,130,246,0.10)':'#EFF6FF',borderRadius:12,border:`1px solid ${dm?'rgba(59,130,246,0.25)':'#BFDBFE'}`}}>
@@ -4069,6 +4099,8 @@
             escalated:        { label: 'Escalated',         bg: '#FEF3C7', color: '#92400E' },
             commented:        { label: 'Comment',           bg: '#EEF2F8', color: '#475569' },
             priority_changed: { label: 'Priority Changed',  bg: '#FFF7ED', color: '#C2410C' },
+            reopened:         { label: 'Reopened',          bg: '#DBEAFE', color: '#1E40AF' },
+            closed:           { label: 'Closed',            bg: '#F0FDF4', color: '#14532D' },
         };
 
         const PRIORITY_META = {
@@ -6273,6 +6305,7 @@
                         const resp = ['approved','approve'].includes((d.action||'').toLowerCase()) ? 'approved' : 'denied';
                         return `Extension ${resp} by ${actor}`;
                     }
+                    case 'closed':              return `Ticket closed by ${actor} — resolution confirmed`;
                     case 'reopened':            return `Ticket reopened by ${actor}`;
                     case 'commented':           return `Comment by ${actor}`;
                     case 'attachment_added':    return `Attachment added by ${actor}`;

@@ -975,6 +975,57 @@ router.post('/:id/reopen', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ── POST /tickets/:id/close — requester confirms resolution → Closed ─────────
+// Only the ticket creator can close a resolved ticket.
+// Once closed, it is terminal: cannot be reopened except by an admin.
+router.post('/:id/close', requireAuth, async (req, res, next) => {
+  try {
+    const id     = Number(req.params.id);
+    const userId = req.auth!.userId;
+    const isAdmin = req.auth!.bootstrapAdmin || ['super_admin','admin'].includes(req.auth!.role);
+
+    const { rows: tRows } = await pool.query(
+      `SELECT id, title, status, created_by, assigned_to FROM yc_tkt_mgmt.tickets WHERE id = $1`, [id]
+    );
+    if (!tRows[0]) return res.status(404).json({ error: 'not_found' });
+
+    // Only creator (or admin) may close
+    if (tRows[0].created_by !== userId && !isAdmin) {
+      return res.status(403).json({ error: 'forbidden', message: 'Only the ticket creator can close a resolved ticket' });
+    }
+
+    if (tRows[0].status !== 'resolved') {
+      return res.status(400).json({ error: 'invalid_status', message: 'Only resolved tickets can be closed' });
+    }
+
+    // Move to closed
+    const { rows } = await pool.query(
+      `UPDATE yc_tkt_mgmt.tickets SET status='closed', updated_at=NOW() WHERE id=$1 RETURNING *`, [id]
+    );
+
+    // Activity log
+    const closerName = await getActorName(userId);
+    await pool.query(
+      `INSERT INTO yc_tkt_mgmt.activity (ticket_id, user_id, action, details)
+       VALUES ($1,$2,'closed',$3)`,
+      [id, userId, JSON.stringify({ note: 'Requester confirmed resolution' })]
+    );
+
+    // Re-fetch approvers
+    const { rows: allAp } = await pool.query(
+      `SELECT ta.*, u.name AS user_name, u.email AS user_email
+       FROM yc_tkt_mgmt.ticket_approvers ta
+       JOIN yc_tkt_mgmt.users u ON u.id = ta.approver_user_id
+       WHERE ta.ticket_id=$1`, [id]
+    );
+    const t = dbTicket(rows[0]);
+    t.approvers = allAp.map(dbApprover);
+
+    await logAudit({ userId, actorEmail: req.auth?.email, action: 'ticket.close', module: 'tickets', targetType: 'ticket', targetId: id, metadata: { title: tRows[0].title }, req });
+    res.json({ ticket: t });
+  } catch (err) { next(err); }
+});
+
 // ── POST /tickets/:id/approvers — set/replace approvers ──────
 // Creator or bootstrap admin can call this to assign/change approvers
 // on an existing ticket (e.g. tickets created before approver table existed).
