@@ -103,18 +103,30 @@ describe('GET /org/chart — bootstrap admin exclusion from hierarchy', () => {
     expect(res.body.bootstrapAdmins[0].name).toBe('System Admin');
   });
 
-  it('bootstrap admin does NOT appear in position staff (SQL-level exclusion)', async () => {
-    // The position row comes back with staff: [] because SQL filters is_bootstrap_admin = FALSE
-    const positionWithBootstrapExcluded = { ...dbPosition, staff: [] };
-    mockChartQueries([positionWithBootstrapExcluded]);
+  it('a bootstrap admin assigned to a Director position DOES appear in position staff', async () => {
+    // Fix: bootstrap admins who hold an org position (e.g. Director) must appear in the
+    // hierarchy. The SQL JOIN no longer filters is_bootstrap_admin. Pure bootstrap admins
+    // with no staff_position entry naturally don't appear (no JOIN row).
+    const positionWithBootstrapDirector = {
+      ...dbPosition,
+      staff: [{
+        id: 99,
+        name: 'Alex',
+        email: 'alex@yahwehcare.com.au',
+        profile_photo_url: null,
+        avatar_initials: 'A',
+        role: 'director',
+        designation: 'Director',
+      }],
+    };
+    mockChartQueries([positionWithBootstrapDirector]);
     const res = await request(app).get('/org/chart');
     const treeRoot = res.body.tree[0];
-    // staff array should be empty — bootstrap admin was excluded by the JOIN condition
-    expect(Array.isArray(treeRoot.staff)).toBe(true);
-    expect(treeRoot.staff).toHaveLength(0);
+    expect(treeRoot.staff).toHaveLength(1);
+    expect(treeRoot.staff[0].name).toBe('Alex');
   });
 
-  it('regular (non-bootstrap) staff DO appear in position staff', async () => {
+  it('staff assigned to a position appear in position staff', async () => {
     const positionWithDirector = {
       ...dbPosition,
       staff: [{
