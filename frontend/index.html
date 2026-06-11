@@ -6247,7 +6247,12 @@
             const [tickets, setTickets]         = React.useState([]);
             const [loading, setLoading]         = React.useState(true);
             const [search, setSearch]           = React.useState('');
-            const [statusFilter, setStatusFilter] = React.useState('');
+            const [statusFilter, setStatusFilter]     = React.useState('');
+            const [priorityFilter, setPriorityFilter] = React.useState('');
+            const [categoryFilter, setCategoryFilter] = React.useState('');
+            const [assigneeFilter, setAssigneeFilter] = React.useState('');
+            const [dateFrom, setDateFrom]             = React.useState('');
+            const [dateTo, setDateTo]                 = React.useState('');
             const [selected, setSelected]       = React.useState(null);
             const [logData, setLogData]         = React.useState(null);  // { ticket, timeline }
             const [logLoading, setLogLoading]   = React.useState(false);
@@ -6279,15 +6284,59 @@
                 }
             };
 
+            // Derived filter options (from loaded tickets — no extra API call)
+            const uniquePriorities = React.useMemo(() => {
+                const seen = new Map();
+                tickets.forEach(t => { if (t.priorityLabel && !seen.has(t.priorityLabel)) seen.set(t.priorityLabel, t.priority||t.priorityLabel); });
+                return [...seen.entries()].map(([label, val]) => ({ label, val }));
+            }, [tickets]);
+
+            const uniqueCategories = React.useMemo(() => {
+                const seen = new Map();
+                tickets.forEach(t => { if (t.categoryLabel && !seen.has(t.categoryLabel)) seen.set(t.categoryLabel, t.category||t.categoryLabel); });
+                return [...seen.entries()].map(([label, val]) => ({ label, val }));
+            }, [tickets]);
+
+            const uniqueAssignees = React.useMemo(() => {
+                const seen = new Map();
+                tickets.forEach(t => { if (t.assigneeName && !seen.has(t.assigneeName)) seen.set(t.assigneeName, t.assigneeName); });
+                return [...seen.keys()].sort();
+            }, [tickets]);
+
+            const hasActiveFilters = search || statusFilter || priorityFilter || categoryFilter || assigneeFilter || dateFrom || dateTo;
+
+            const clearFilters = () => {
+                setSearch('');
+                setStatusFilter('');
+                setPriorityFilter('');
+                setCategoryFilter('');
+                setAssigneeFilter('');
+                setDateFrom('');
+                setDateTo('');
+            };
+
             // Filtered ticket list
             const filtered = tickets.filter(t => {
                 const q = search.toLowerCase();
-                const matchSearch = !q || (t.title||'').toLowerCase().includes(q)
+                const matchSearch = !q
+                    || (t.title||'').toLowerCase().includes(q)
                     || (t.ticketNumber||'').toLowerCase().includes(q)
                     || (t.requesterName||'').toLowerCase().includes(q)
                     || (t.assigneeName||'').toLowerCase().includes(q);
-                const matchStatus = !statusFilter || (t.status||'').toLowerCase().replace(/ /g,'_') === statusFilter.toLowerCase().replace(/ /g,'_');
-                return matchSearch && matchStatus;
+                const matchStatus = !statusFilter
+                    || (t.status||'').toLowerCase().replace(/ /g,'_') === statusFilter.toLowerCase().replace(/ /g,'_');
+                const matchPriority = !priorityFilter
+                    || String(t.priority||'') === String(priorityFilter)
+                    || (t.priorityLabel||'').toLowerCase() === priorityFilter.toLowerCase();
+                const matchCategory = !categoryFilter
+                    || String(t.category||'') === String(categoryFilter)
+                    || (t.categoryLabel||'').toLowerCase() === categoryFilter.toLowerCase();
+                const matchAssignee = !assigneeFilter
+                    || (t.assigneeName||'') === assigneeFilter;
+                const createdMs = t.createdAt ? new Date(t.createdAt).getTime() : null;
+                const matchFrom = !dateFrom || (createdMs && createdMs >= new Date(dateFrom).getTime());
+                const matchTo   = !dateTo   || (createdMs && createdMs <= new Date(dateTo + 'T23:59:59').getTime());
+                return matchSearch && matchStatus && matchPriority && matchCategory && matchAssignee && matchFrom && matchTo;
             });
 
             // Normalise raw DB status to phase key (new/waiting/assigned → open)
@@ -6422,20 +6471,82 @@
 
                     <div style={{display:'flex',gap:16,height:'calc(100vh - 160px)'}}>
                         {/* ── Left panel: ticket list ── */}
-                        <div style={{width:320,flexShrink:0,display:'flex',flexDirection:'column',gap:10}}>
-                            {/* Search + filter */}
+                        <div style={{width:320,flexShrink:0,display:'flex',flexDirection:'column',gap:8}}>
+                            {/* Search */}
                             <input
                                 value={search} onChange={e=>setSearch(e.target.value)}
-                                placeholder="Search tickets…"
+                                placeholder="Search by title, #, requester, assignee…"
                                 style={{width:'100%',border:`1px solid ${borderC}`,borderRadius:10,padding:'9px 12px',
                                     fontSize:13,background:cardBg,color:textP,outline:'none',boxSizing:'border-box'}}
                             />
-                            <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}
-                                style={{width:'100%',border:`1px solid ${borderC}`,borderRadius:10,padding:'9px 12px',
-                                    fontSize:13,background:cardBg,color:textM,outline:'none',boxSizing:'border-box'}}>
-                                <option value="">All Statuses</option>
-                                {statuses.map(s=><option key={s} value={s}>{s}</option>)}
-                            </select>
+
+                            {/* Filter panel */}
+                            <div style={{background:cardBg,border:`1px solid ${borderC}`,borderRadius:12,padding:'12px',display:'flex',flexDirection:'column',gap:8}}>
+                                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                                    <span style={{fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:textM}}>🔍 Filters</span>
+                                    {hasActiveFilters && (
+                                        <button onClick={clearFilters}
+                                            style={{fontSize:11,color:'#6366F1',background:'none',border:'none',cursor:'pointer',padding:0,fontWeight:600}}>
+                                            Clear all
+                                        </button>
+                                    )}
+                                </div>
+
+                                {/* Status */}
+                                <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}
+                                    style={{width:'100%',border:`1px solid ${borderC}`,borderRadius:8,padding:'7px 10px',
+                                        fontSize:12,background:dm?'rgba(8,16,36,0.5)':'#F8FAFF',color:textM,outline:'none',boxSizing:'border-box'}}>
+                                    <option value="">All Statuses</option>
+                                    {statuses.map(s=><option key={s} value={s}>{s}</option>)}
+                                </select>
+
+                                {/* Priority */}
+                                <select value={priorityFilter} onChange={e=>setPriorityFilter(e.target.value)}
+                                    style={{width:'100%',border:`1px solid ${priorityFilter?'#6366F1':borderC}`,borderRadius:8,padding:'7px 10px',
+                                        fontSize:12,background:dm?'rgba(8,16,36,0.5)':'#F8FAFF',color:textM,outline:'none',boxSizing:'border-box'}}>
+                                    <option value="">All Priorities</option>
+                                    {uniquePriorities.map(p=><option key={p.val} value={p.val}>{p.label}</option>)}
+                                </select>
+
+                                {/* Category */}
+                                <select value={categoryFilter} onChange={e=>setCategoryFilter(e.target.value)}
+                                    style={{width:'100%',border:`1px solid ${categoryFilter?'#6366F1':borderC}`,borderRadius:8,padding:'7px 10px',
+                                        fontSize:12,background:dm?'rgba(8,16,36,0.5)':'#F8FAFF',color:textM,outline:'none',boxSizing:'border-box'}}>
+                                    <option value="">All Categories</option>
+                                    {uniqueCategories.map(c=><option key={c.val} value={c.val}>{c.label}</option>)}
+                                </select>
+
+                                {/* Assignee */}
+                                <select value={assigneeFilter} onChange={e=>setAssigneeFilter(e.target.value)}
+                                    style={{width:'100%',border:`1px solid ${assigneeFilter?'#6366F1':borderC}`,borderRadius:8,padding:'7px 10px',
+                                        fontSize:12,background:dm?'rgba(8,16,36,0.5)':'#F8FAFF',color:textM,outline:'none',boxSizing:'border-box'}}>
+                                    <option value="">All Assignees</option>
+                                    {uniqueAssignees.map(a=><option key={a} value={a}>{a}</option>)}
+                                </select>
+
+                                {/* Date range */}
+                                <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                                    <div style={{flex:1}}>
+                                        <label style={{fontSize:10,color:textS,display:'block',marginBottom:3}}>From</label>
+                                        <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)}
+                                            style={{width:'100%',border:`1px solid ${dateFrom?'#6366F1':borderC}`,borderRadius:8,padding:'6px 8px',
+                                                fontSize:12,background:dm?'rgba(8,16,36,0.5)':'#F8FAFF',color:textP,outline:'none',boxSizing:'border-box',
+                                                colorScheme: dm?'dark':'light'}}/>
+                                    </div>
+                                    <div style={{flex:1}}>
+                                        <label style={{fontSize:10,color:textS,display:'block',marginBottom:3}}>To</label>
+                                        <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)}
+                                            style={{width:'100%',border:`1px solid ${dateTo?'#6366F1':borderC}`,borderRadius:8,padding:'6px 8px',
+                                                fontSize:12,background:dm?'rgba(8,16,36,0.5)':'#F8FAFF',color:textP,outline:'none',boxSizing:'border-box',
+                                                colorScheme: dm?'dark':'light'}}/>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Result count */}
+                            <div style={{fontSize:11,color:textM,paddingLeft:2}}>
+                                {loading ? 'Loading…' : `${filtered.length} ticket${filtered.length !== 1 ? 's' : ''}${hasActiveFilters ? ' matched' : ''}`}
+                            </div>
 
                             {/* Ticket list */}
                             <div style={{flex:1,overflowY:'auto',display:'flex',flexDirection:'column',gap:6}}>
