@@ -588,8 +588,7 @@
 
             /* Ticket/table controls: wrap on small screens */
             .yc-toolbar { flex-wrap: wrap !important; }
-            .yc-toolbar-filters { flex-wrap: nowrap !important; gap: 6px !important; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
-            .yc-toolbar-filters::-webkit-scrollbar { display: none; }
+            .yc-toolbar-filters { flex-wrap: wrap !important; gap: 8px !important; }
 
             /* Modals: full-width, anchored to bottom */
             .yc-modal-wrap {
@@ -2659,49 +2658,47 @@
                             </button>
                         </div>
 
-                        {/* ── Status filter tabs ── */}
-                        <div className='yc-toolbar-filters' style={{display:'flex',gap:'6px',marginBottom:'16px',flexWrap:'nowrap',overflowX:'auto',paddingBottom:'4px',scrollbarWidth:'none',msOverflowStyle:'none'}}>
-                            {STATUS_GROUPS.map(g=>{
+                        {/* ── Status filter tabs — two-group professional layout ── */}
+                        {(()=>{
+                            const MY_QUEUE   = ['all','mine','my_approvals','ready_to_close'];
+                            const BY_STATUS  = ['open','in_progress','pending','resolved','closed','overdue'];
+                            const renderTab  = (g) => {
                                 const cnt = g.key==='all' ? tickets.length : tickets.filter(g.match).length;
                                 const active = filter===g.key;
-                                const isMyApprovals   = g.key === 'my_approvals';
-                                const isReadyToClose  = g.key === 'ready_to_close';
-                                const hasApprovals    = isMyApprovals  && cnt > 0;
-                                const hasReadyToClose = isReadyToClose && cnt > 0;
-                                // Amber for pending approvals, green for ready-to-close, indigo for others
-                                const tabBg = active
-                                    ? (isMyApprovals ? '#D97706' : isReadyToClose ? '#059669' : '#6366F1')
-                                    : hasApprovals    ? (dm?'rgba(217,119,6,0.12)':'#FFFBEB')
-                                    : hasReadyToClose ? (dm?'rgba(5,150,105,0.12)':'#ECFDF5')
-                                    : (dm?'rgba(6,9,22,0.0)':'white');
-                                const tabBorder = active
-                                    ? (isMyApprovals ? '#D97706' : isReadyToClose ? '#059669' : '#6366F1')
-                                    : hasApprovals    ? '#FDE68A'
-                                    : hasReadyToClose ? '#6EE7B7'
-                                    : (dm?'rgba(99,102,241,0.15)':'#E5E7EB');
-                                const tabColor = active ? 'white'
-                                    : hasApprovals    ? (dm?'#fcd34d':'#92400E')
-                                    : hasReadyToClose ? (dm?'#34d399':'#065F46')
-                                    : (dm?'#8fa4cc':'#64748B');
+                                const isMyApprovals  = g.key==='my_approvals';
+                                const isRTC          = g.key==='ready_to_close';
+                                const hasAlert       = (isMyApprovals||isRTC) && cnt>0;
+                                const accentColor    = isMyApprovals ? '#D97706' : isRTC ? '#059669' : '#6366F1';
+                                const bg   = active ? accentColor : hasAlert ? (dm?`rgba(${isMyApprovals?'217,119,6':'5,150,105'},0.1)`:(isMyApprovals?'#FFFBEB':'#ECFDF5')) : 'transparent';
+                                const border= active ? accentColor : hasAlert ? (isMyApprovals?'#FDE68A':'#6EE7B7') : (dm?'rgba(99,102,241,0.12)':'#E5E7EB');
+                                const color = active ? 'white' : hasAlert ? (dm?(isMyApprovals?'#fcd34d':'#34d399'):(isMyApprovals?'#92400E':'#065F46')) : (dm?'#8fa4cc':'#64748B');
+                                const badge_bg = active?'rgba(255,255,255,0.22)':hasAlert?(dm?`rgba(${isMyApprovals?'217,119,6':'5,150,105'},0.18)`:isMyApprovals?'#FEF3C7':'#D1FAE5'):(dm?'rgba(99,102,241,0.1)':'#EEF2F8');
+                                const badge_color = active?'white':hasAlert?(dm?(isMyApprovals?'#fcd34d':'#34d399'):(isMyApprovals?'#92400E':'#065F46')):(dm?'#6b80a4':'#94A3B8');
                                 return (
                                     <button key={g.key} onClick={()=>setFilter(g.key)}
-                                        style={{display:'flex',alignItems:'center',gap:'6px',padding:'6px 14px',borderRadius:'8px',border:'1px solid',fontSize:'12px',fontWeight:'600',cursor:'pointer',transition:'all 0.15s',flexShrink:0,whiteSpace:'nowrap',
-                                            borderColor:tabBorder,
-                                            background:tabBg,
-                                            color:tabColor,
-                                            boxShadow: hasApprovals && !active ? '0 0 0 2px rgba(217,119,6,0.15)' : hasReadyToClose && !active ? '0 0 0 2px rgba(5,150,105,0.15)' : 'none',
-                                        }}>
-                                        {isMyApprovals && hasApprovals && '🔔 '}
-                                        {isReadyToClose && hasReadyToClose && '🔒 '}
+                                        style={{display:'inline-flex',alignItems:'center',gap:'5px',padding:'5px 11px',borderRadius:'7px',border:`1px solid ${border}`,fontSize:'11.5px',fontWeight:'600',cursor:'pointer',transition:'all 0.15s',flexShrink:0,whiteSpace:'nowrap',background:bg,color,
+                                            boxShadow:active?`0 1px 4px ${accentColor}44`:'none'}}>
+                                        {isMyApprovals&&hasAlert&&<span style={{fontSize:'11px'}}>🔔</span>}
+                                        {isRTC&&hasAlert&&<span style={{fontSize:'11px'}}>🔒</span>}
                                         {g.label}
-                                        <span style={{fontSize:'10px',fontWeight:'700',
-                                            background:active?'rgba(255,255,255,0.25)':hasApprovals?(dm?'rgba(217,119,6,0.2)':'#FEF3C7'):hasReadyToClose?(dm?'rgba(5,150,105,0.2)':'#D1FAE5'):(dm?'rgba(99,102,241,0.1)':'#EEF2F8'),
-                                            color:active?'white':hasApprovals?(dm?'#fcd34d':'#92400E'):hasReadyToClose?(dm?'#34d399':'#065F46'):(dm?'#6b80a4':'#94A3B8'),
-                                            borderRadius:'10px',padding:'1px 6px',minWidth:'18px',textAlign:'center'}}>{cnt}</span>
+                                        <span style={{fontSize:'10px',fontWeight:'700',borderRadius:'10px',padding:'1px 5px',minWidth:'16px',textAlign:'center',background:badge_bg,color:badge_color}}>{cnt}</span>
                                     </button>
                                 );
-                            })}
-                        </div>
+                            };
+                            const groupWrap = (label, keys, borderColor) => (
+                                <div style={{display:'flex',alignItems:'center',gap:'4px',background:dm?'rgba(2,6,16,0.35)':'#F8FAFF',border:`1px solid ${dm?'rgba(99,102,241,0.1)':borderColor||'#EEF2F8'}`,borderRadius:'10px',padding:'4px 6px'}}>
+                                    <span style={{fontSize:'10px',fontWeight:'700',color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.06em',paddingRight:'6px',borderRight:`1px solid ${dm?'rgba(99,102,241,0.12)':'#E5E7EB'}`,marginRight:'2px',whiteSpace:'nowrap'}}>{label}</span>
+                                    {STATUS_GROUPS.filter(g=>keys.includes(g.key)).map(renderTab)}
+                                </div>
+                            );
+                            return (
+                                <div className='yc-toolbar-filters' style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'16px',flexWrap:'wrap'}}>
+                                    {groupWrap('My Queue', MY_QUEUE)}
+                                    <div style={{width:'1px',height:'28px',background:dm?'rgba(99,102,241,0.15)':'#E5E7EB',flexShrink:0}}/>
+                                    {groupWrap('By Status', BY_STATUS)}
+                                </div>
+                            );
+                        })()}
 
                         {/* ── Search + table card ── */}
                         <div style={{background:cardBg,borderRadius:'14px',border:`1px solid ${borderC}`,overflow:'hidden',boxShadow:dm?'0 4px 6px rgba(0,0,0,0.4),0 16px 48px rgba(0,0,0,0.55),0 1px 0 rgba(255,255,255,0.04) inset':'0 1px 4px rgba(0,0,0,0.05)'}}>
