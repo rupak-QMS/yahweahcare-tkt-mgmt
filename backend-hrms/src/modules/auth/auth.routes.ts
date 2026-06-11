@@ -104,10 +104,8 @@ router.get('/microsoft/callback', async (req, res, next) => {
     // Provision or sync the user
     const user = await provisionFromGraph(profile, photo, tenantId, req);
 
-    // Mint our own session + JWTs
-    const { accessToken, refreshToken, sessionToken } = await createSession({ user, rememberMe: rememberMe, req });
-
-    // Fetch department name, dept_id, primary position type, and role for the user profile
+    // Fetch department name, dept_id, primary position type, and role BEFORE minting the JWT
+    // so positionType can be embedded in the access token for backend authorization checks.
     let deptName = '';
     let deptId: number | null = null;
     let positionType = 'staff';
@@ -128,6 +126,9 @@ router.get('/microsoft/callback', async (req, res, next) => {
       positionType = profileRow.rows[0]?.position_type || 'staff';
       userRole     = profileRow.rows[0]?.user_role     || 'staff';
     } catch { /* not critical */ }
+
+    // Mint our own session + JWTs (positionType now embedded in access token)
+    const { accessToken, refreshToken, sessionToken } = await createSession({ user, rememberMe: rememberMe, req, positionType });
 
     // Set HTTP-only cookies
     res.cookie('yc_access',  accessToken,  cookieOpts(15 * 60_000));

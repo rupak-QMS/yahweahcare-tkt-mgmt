@@ -119,8 +119,9 @@ export async function createSession(opts: {
   user: UserRecord;
   rememberMe: boolean;
   req: Request;
+  positionType?: string;
 }): Promise<{ accessToken: string; refreshToken: string; sessionToken: string; sessionId: number }> {
-  const { user, rememberMe, req } = opts;
+  const { user, rememberMe, req, positionType } = opts;
 
   // Lookup permissions for the JWT payload
   // DB uses role TEXT (not role_id FK) — look up via roles.name join if available,
@@ -163,6 +164,7 @@ export async function createSession(opts: {
     sub: String(user.id),
     email: user.email,
     role: user.role,
+    ...(positionType ? { positionType } : {}),
     permissions,
     sid: String(sessionId),
   });

@@ -10,6 +10,7 @@ export interface AccessTokenPayload extends JwtPayload {
   sub: string;            // user id
   email: string;
   role: string;
+  positionType?: string;  // primary position type (e.g. 'director', 'staff')
   permissions: string[];
   sid: string;            // session id
   jti: string;

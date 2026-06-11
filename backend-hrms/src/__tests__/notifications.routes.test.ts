@@ -22,6 +22,18 @@ function makeApp(userId = 7) {
   return app;
 }
 
+// ── Module warm-up: run ensurePushTable() once so migrationDone=true ─────────
+// After this beforeAll the module-level migrationDone flag stays true for the
+// entire file; individual tests only need to mock their own query, not the 3
+// CREATE TABLE / ALTER TABLE queries that ensurePushTable() fires.
+beforeAll(async () => {
+  for (let i = 0; i < 3; i++) {
+    mockPool.query.mockResolvedValueOnce({ rows: [], rowCount: 0 } as any);
+  }
+  const { ensurePushTable } = require('../modules/notifications/notifications.service');
+  await ensurePushTable();
+});
+
 const notifRows = [
   { id: 1, recipient_id: 7, subject: 'New ticket', body: 'Ticket created', status: 'pending', read_at: null, created_at: new Date().toISOString() },
   { id: 2, recipient_id: 7, subject: 'Ticket closed', body: 'Ticket closed', status: 'read',    read_at: new Date().toISOString(), created_at: new Date().toISOString() },

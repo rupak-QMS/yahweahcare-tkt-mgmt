@@ -7,6 +7,7 @@ import * as XLSX from 'xlsx';
 import { Resend } from 'resend';
 import { pool } from '../../db/pool';
 import { requireAuth } from '../../middleware/auth.middleware';
+import { ensurePushTable } from './notifications.service';
 
 const router = Router();
 router.use(requireAuth);
@@ -14,6 +15,7 @@ router.use(requireAuth);
 // GET /notifications — current user's notifications
 router.get('/', async (req, res, next) => {
   try {
+    await ensurePushTable(); // guarantee notifications table exists before querying
     const { rows } = await pool.query(
       `SELECT * FROM yc_tkt_mgmt.notifications
        WHERE recipient_id = $1

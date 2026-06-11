@@ -17,6 +17,7 @@ declare module 'express-serve-static-core' {
       userId: number;
       email: string;
       role: string;
+      positionType: string;
       permissions: string[];
       sessionId: number;
       microsoftId?: string | null;
@@ -42,11 +43,13 @@ async function getSession(sid: string) {
 
 function buildAuth(payload: AccessTokenPayload, session: { id: number; user_id: number }) {
   const role = payload.role || 'staff';
+  const positionType = payload.positionType || 'staff';
   const isAdmin = ['admin', 'super_admin', 'manager'].includes(role.toLowerCase());
   return {
     userId:         session.user_id,
     email:          payload.email,
     role,
+    positionType,
     permissions:    Array.isArray(payload.permissions) ? payload.permissions : [],
     sessionId:      session.id,
     microsoftId:    null,

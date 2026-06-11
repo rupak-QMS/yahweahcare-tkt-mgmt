@@ -12,13 +12,16 @@ import { sendEmail, buildScheduledReportHtml, type ReportData } from '../notific
 const router = Router();
 router.use(requireAuth);
 
-const isManagerOrAdmin = (role: string) => ['super_admin', 'manager', 'director'].includes(role);
+/** Allow access if role OR positionType grants it (positionType is now embedded in JWT). */
+const isManagerOrAdmin = (role: string, positionType = 'staff') =>
+  ['super_admin', 'admin', 'manager', 'director'].includes(role) ||
+  positionType === 'director';
 
 // GET /schedules
 router.get('/', async (req, res, next) => {
   try {
     const role = req.auth!.role;
-    if (!isManagerOrAdmin(role)) return res.status(403).json({ error: 'forbidden' });
+    if (!isManagerOrAdmin(role, req.auth!.positionType)) return res.status(403).json({ error: 'forbidden' });
     const { rows } = role === 'super_admin'
       ? await pool.query(`SELECT * FROM yc_tkt_mgmt.scheduled_reports ORDER BY created_at DESC`)
       : await pool.query(`SELECT * FROM yc_tkt_mgmt.scheduled_reports WHERE created_by = $1 ORDER BY created_at DESC`, [req.auth!.userId]);
@@ -30,7 +33,7 @@ router.get('/', async (req, res, next) => {
 router.post('/', async (req, res, next) => {
   try {
     const role = req.auth!.role;
-    if (!isManagerOrAdmin(role)) return res.status(403).json({ error: 'forbidden' });
+    if (!isManagerOrAdmin(role, req.auth!.positionType)) return res.status(403).json({ error: 'forbidden' });
     const { name, description, frequency, day_of_week, day_of_month, time, report_types, recipient_ids } = req.body || {};
     if (!name || !frequency || !time) return res.status(400).json({ error: 'missing_fields', message: 'name, frequency and time are required' });
     if (!['daily','weekly','monthly'].includes(frequency)) return res.status(400).json({ error: 'invalid_frequency' });
@@ -53,7 +56,7 @@ router.patch('/:id', async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     const role = req.auth!.role;
-    if (!isManagerOrAdmin(role)) return res.status(403).json({ error: 'forbidden' });
+    if (!isManagerOrAdmin(role, req.auth!.positionType)) return res.status(403).json({ error: 'forbidden' });
     const { rows: existing } = await pool.query(`SELECT * FROM yc_tkt_mgmt.scheduled_reports WHERE id = $1`, [id]);
     if (!existing[0]) return res.status(404).json({ error: 'not_found' });
     if (role !== 'super_admin' && existing[0].created_by !== req.auth!.userId) {
@@ -87,7 +90,7 @@ router.delete('/:id', async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     const role = req.auth!.role;
-    if (!isManagerOrAdmin(role)) return res.status(403).json({ error: 'forbidden' });
+    if (!isManagerOrAdmin(role, req.auth!.positionType)) return res.status(403).json({ error: 'forbidden' });
     const { rows } = await pool.query(`SELECT * FROM yc_tkt_mgmt.scheduled_reports WHERE id = $1`, [id]);
     if (!rows[0]) return res.status(404).json({ error: 'not_found' });
     if (role !== 'super_admin' && rows[0].created_by !== req.auth!.userId) {
@@ -103,7 +106,7 @@ router.delete('/:id', async (req, res, next) => {
 router.post('/:id/send', async (req, res, next) => {
   try {
     const id = Number(req.params.id);
-    if (!isManagerOrAdmin(req.auth!.role)) return res.status(403).json({ error: 'forbidden' });
+    if (!isManagerOrAdmin(req.auth!.role, req.auth!.positionType)) return res.status(403).json({ error: 'forbidden' });
 
     // Load the schedule
     const { rows: schedRows } = await pool.query(
