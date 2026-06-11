@@ -1,31 +1,30 @@
 <!DOCTYPE html>
 <html lang="en-AU" data-v="2">
 <head>
-    <!-- Preload critical scripts — browser fetches these before it parses <body> -->
-    <link rel="preload" as="script" href="react.production.min.js">
-    <link rel="preload" as="script" href="react-dom.production.min.js">
+    <!-- Preload critical scripts — browser fetches these in parallel during HTML parse -->
+    <link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js" crossorigin>
+    <link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin>
     <link rel="preload" as="script" href="app.js">
-    <!-- CDN resource hints (still needed for Tailwind + Chart.js) -->
+    <!-- CDN connection hints -->
     <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="preconnect" href="https://yahweahcare-tkt-mgmt-hx48.vercel.app" crossorigin>
-    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Yahweh Care - Ticket Management System</title>
     <!--
       Script loading strategy:
-        • Tailwind — kept blocking (no defer) so CSS is generated before React mounts (no FOUC)
-        • Chart.js, React, ReactDOM, app.js — deferred: download in parallel, execute in
-          document order after HTML is parsed; Chart.js runs before app.js so window.Chart
-          is ready when useEffect hooks fire
-        • React/ReactDOM served from same origin (downloaded by build.js at Vercel deploy time)
-          → no external DNS/TLS round-trip, served with 1-year immutable cache
+        • Tailwind — blocking (no defer) so CSS is generated before React mounts (prevents FOUC)
+        • Chart.js, React, ReactDOM, app.js — deferred: download in parallel during HTML parse,
+          execute in document order after parsing; Chart.js first so window.Chart is ready
+          when React useEffect hooks fire
+        • React/ReactDOM pinned to 18.3.1 on jsDelivr — same CDN as Chart.js,
+          immutably cached, no extra DNS round-trip
     -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
-    <script defer src="react.production.min.js"></script>
-    <script defer src="react-dom.production.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js" crossorigin></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin></script>
     <script defer src="app.js"></script>
     <script defer src="enterprise-components-compiled.js"></script>
     <style>
