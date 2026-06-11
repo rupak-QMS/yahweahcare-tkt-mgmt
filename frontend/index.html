@@ -2627,7 +2627,7 @@
                 {key:'all',            label:'All',                match: ()=>true},
                 {key:'mine',           label:'Assigned to Me',     match: t=>t.assigneeId!=null && Number(t.assigneeId)===Number(sessionUser?.id), color:'#6366F1'},
                 {key:'my_approvals',   label:'Pending My Approval',match: t=>!['Resolved','Closed'].includes(t.status) && (t.pendingApproverIds||[]).map(Number).includes(Number(sessionUser?.id)), color:'#D97706'},
-                {key:'ready_to_close', label:'Ready to Close',     match: t=>t.status==='Resolved' && Number(t.requesterId)===Number(sessionUser?.id), color:'#059669'},
+                {key:'ready_to_close', label:'Pending Closure',     match: t=>t.status==='Resolved' && Number(t.requesterId)===Number(sessionUser?.id), color:'#059669'},
                 {key:'open',           label:'New / Open',         match: t=>['New','Open','Assigned'].includes(t.status)},
                 {key:'in_progress',    label:'In Progress',        match: t=>['In Progress','Waiting'].includes(t.status)},
                 {key:'pending',        label:'Pending Approval',   match: t=>t.status==='Pending Approval'},

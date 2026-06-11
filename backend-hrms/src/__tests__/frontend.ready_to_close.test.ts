@@ -19,8 +19,8 @@ describe('index.html — Ready to Close tab (code integrity)', () => {
     expect(html).toContain("key:'ready_to_close'");
   });
 
-  it('ready_to_close label is "Ready to Close"', () => {
-    expect(html).toContain("label:'Ready to Close'");
+  it('ready_to_close label is "Pending Closure"', () => {
+    expect(html).toContain("label:'Pending Closure'");
   });
 
   it('ready_to_close match uses Resolved status check', () => {
