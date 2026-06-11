@@ -2485,6 +2485,7 @@
             const [approvers, setApprovers] = React.useState([]);
             const [actionLoading, setActionLoading] = React.useState(false);
             const [actionError, setActionError] = React.useState('');
+            const [closingTicketId, setClosingTicketId] = React.useState(null); // tracks inline-close in progress
             const [rejectMode, setRejectMode] = React.useState(false);
             const [reopenMode, setReopenMode] = React.useState(false);
             const [reopenJustification, setReopenJustification] = React.useState('');
@@ -2626,6 +2627,7 @@
                 {key:'all',            label:'All',                match: ()=>true},
                 {key:'mine',           label:'Assigned to Me',     match: t=>t.assigneeId!=null && Number(t.assigneeId)===Number(sessionUser?.id), color:'#6366F1'},
                 {key:'my_approvals',   label:'Pending My Approval',match: t=>!['Resolved','Closed'].includes(t.status) && (t.pendingApproverIds||[]).map(Number).includes(Number(sessionUser?.id)), color:'#D97706'},
+                {key:'ready_to_close', label:'Ready to Close',     match: t=>t.status==='Resolved' && Number(t.requesterId)===Number(sessionUser?.id), color:'#059669'},
                 {key:'open',           label:'New / Open',         match: t=>['New','Open','Assigned'].includes(t.status)},
                 {key:'in_progress',    label:'In Progress',        match: t=>['In Progress','Waiting'].includes(t.status)},
                 {key:'pending',        label:'Pending Approval',   match: t=>t.status==='Pending Approval'},
@@ -2661,22 +2663,40 @@
                             {STATUS_GROUPS.map(g=>{
                                 const cnt = g.key==='all' ? tickets.length : tickets.filter(g.match).length;
                                 const active = filter===g.key;
-                                const isMyApprovals = g.key === 'my_approvals';
-                                const hasApprovals = isMyApprovals && cnt > 0;
-                                // Amber highlight for pending approvals tab when there are items
-                                const tabBg = active ? (isMyApprovals ? '#D97706' : '#6366F1') : hasApprovals ? (dm?'rgba(217,119,6,0.12)':'#FFFBEB') : (dm?'rgba(6,9,22,0.0)':'white');
-                                const tabBorder = active ? (isMyApprovals ? '#D97706' : '#6366F1') : hasApprovals ? '#FDE68A' : (dm?'rgba(99,102,241,0.15)':'#E5E7EB');
-                                const tabColor = active ? 'white' : hasApprovals ? (dm?'#fcd34d':'#92400E') : (dm?'#8fa4cc':'#64748B');
+                                const isMyApprovals   = g.key === 'my_approvals';
+                                const isReadyToClose  = g.key === 'ready_to_close';
+                                const hasApprovals    = isMyApprovals  && cnt > 0;
+                                const hasReadyToClose = isReadyToClose && cnt > 0;
+                                // Amber for pending approvals, green for ready-to-close, indigo for others
+                                const tabBg = active
+                                    ? (isMyApprovals ? '#D97706' : isReadyToClose ? '#059669' : '#6366F1')
+                                    : hasApprovals    ? (dm?'rgba(217,119,6,0.12)':'#FFFBEB')
+                                    : hasReadyToClose ? (dm?'rgba(5,150,105,0.12)':'#ECFDF5')
+                                    : (dm?'rgba(6,9,22,0.0)':'white');
+                                const tabBorder = active
+                                    ? (isMyApprovals ? '#D97706' : isReadyToClose ? '#059669' : '#6366F1')
+                                    : hasApprovals    ? '#FDE68A'
+                                    : hasReadyToClose ? '#6EE7B7'
+                                    : (dm?'rgba(99,102,241,0.15)':'#E5E7EB');
+                                const tabColor = active ? 'white'
+                                    : hasApprovals    ? (dm?'#fcd34d':'#92400E')
+                                    : hasReadyToClose ? (dm?'#34d399':'#065F46')
+                                    : (dm?'#8fa4cc':'#64748B');
                                 return (
                                     <button key={g.key} onClick={()=>setFilter(g.key)}
                                         style={{display:'flex',alignItems:'center',gap:'6px',padding:'6px 14px',borderRadius:'8px',border:'1px solid',fontSize:'12px',fontWeight:'600',cursor:'pointer',transition:'all 0.15s',
                                             borderColor:tabBorder,
                                             background:tabBg,
                                             color:tabColor,
-                                            boxShadow: hasApprovals && !active ? '0 0 0 2px rgba(217,119,6,0.15)' : 'none',
+                                            boxShadow: hasApprovals && !active ? '0 0 0 2px rgba(217,119,6,0.15)' : hasReadyToClose && !active ? '0 0 0 2px rgba(5,150,105,0.15)' : 'none',
                                         }}>
-                                        {isMyApprovals && hasApprovals && '🔔 '}{g.label}
-                                        <span style={{fontSize:'10px',fontWeight:'700',background:active?'rgba(255,255,255,0.25)':hasApprovals?(dm?'rgba(217,119,6,0.2)':'#FEF3C7'):( dm?'rgba(99,102,241,0.1)':'#EEF2F8'),color:active?'white':hasApprovals?(dm?'#fcd34d':'#92400E'):(dm?'#6b80a4':'#94A3B8'),borderRadius:'10px',padding:'1px 6px',minWidth:'18px',textAlign:'center'}}>{cnt}</span>
+                                        {isMyApprovals && hasApprovals && '🔔 '}
+                                        {isReadyToClose && hasReadyToClose && '🔒 '}
+                                        {g.label}
+                                        <span style={{fontSize:'10px',fontWeight:'700',
+                                            background:active?'rgba(255,255,255,0.25)':hasApprovals?(dm?'rgba(217,119,6,0.2)':'#FEF3C7'):hasReadyToClose?(dm?'rgba(5,150,105,0.2)':'#D1FAE5'):(dm?'rgba(99,102,241,0.1)':'#EEF2F8'),
+                                            color:active?'white':hasApprovals?(dm?'#fcd34d':'#92400E'):hasReadyToClose?(dm?'#34d399':'#065F46'):(dm?'#6b80a4':'#94A3B8'),
+                                            borderRadius:'10px',padding:'1px 6px',minWidth:'18px',textAlign:'center'}}>{cnt}</span>
                                     </button>
                                 );
                             })}
@@ -2708,7 +2728,7 @@
                                     <table style={{width:'100%',borderCollapse:'collapse'}}>
                                         <thead>
                                             <tr style={{background:dm?'rgba(2,6,16,0.4)':'#F8FAFF',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
-                                                {['Ticket ID','Title','Category','Priority','Status','Assigned To','Due Date','Created'].map(h=>(
+                                                {['Ticket ID','Title','Category','Priority','Status','Assigned To','Due Date','Created',...(filter==='ready_to_close'?['Action']:[])].map(h=>(
                                                     <th key={h} style={{textAlign:'left',padding:'10px 14px',fontSize:'11px',fontWeight:'700',color:textM,textTransform:'uppercase',letterSpacing:'0.05em',whiteSpace:'nowrap'}}>{h}</th>
                                                 ))}
                                             </tr>
@@ -2781,6 +2801,28 @@
                                                             {dueStr || <span style={{color:'#D1D5DB'}}>—</span>}
                                                         </td>
                                                         <td style={{padding:'12px 14px',fontSize:12,color:dm?'#4a607f':'#94A3B8',whiteSpace:'nowrap'}}>{t.date}</td>
+                                                        {filter==='ready_to_close' && (
+                                                            <td style={{padding:'12px 14px',whiteSpace:'nowrap'}} onClick={e=>e.stopPropagation()}>
+                                                                <button
+                                                                    disabled={closingTicketId===t._dbId}
+                                                                    onClick={async()=>{
+                                                                        setClosingTicketId(t._dbId);
+                                                                        setActionError('');
+                                                                        try {
+                                                                            await API.tickets.close(t._dbId);
+                                                                            setTickets(prev=>prev.map(x=>x._dbId===t._dbId ? {...x, status:'Closed', isClosed:true} : x));
+                                                                        } catch(err) {
+                                                                            setActionError('Failed to close ticket. Please try again.');
+                                                                        } finally {
+                                                                            setClosingTicketId(null);
+                                                                        }
+                                                                    }}
+                                                                    style={{display:'inline-flex',alignItems:'center',gap:'5px',padding:'5px 12px',borderRadius:'7px',border:'1px solid #059669',background:closingTicketId===t._dbId?'#D1FAE5':'#059669',color:closingTicketId===t._dbId?'#065F46':'white',fontSize:'12px',fontWeight:'600',cursor:closingTicketId===t._dbId?'wait':'pointer',transition:'all 0.15s',opacity:closingTicketId===t._dbId?0.7:1}}
+                                                                >
+                                                                    {closingTicketId===t._dbId ? '⏳ Closing…' : '🔒 Close'}
+                                                                </button>
+                                                            </td>
+                                                        )}
                                                     </tr>
                                                 );
                                             })}
