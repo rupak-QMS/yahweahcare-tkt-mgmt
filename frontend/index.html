@@ -588,7 +588,8 @@
 
             /* Ticket/table controls: wrap on small screens */
             .yc-toolbar { flex-wrap: wrap !important; }
-            .yc-toolbar-filters { flex-wrap: wrap !important; gap: 6px !important; }
+            .yc-toolbar-filters { flex-wrap: nowrap !important; gap: 6px !important; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+            .yc-toolbar-filters::-webkit-scrollbar { display: none; }
 
             /* Modals: full-width, anchored to bottom */
             .yc-modal-wrap {
@@ -2659,7 +2660,7 @@
                         </div>
 
                         {/* ── Status filter tabs ── */}
-                        <div className='yc-toolbar-filters' style={{display:'flex',gap:'6px',marginBottom:'16px',flexWrap:'wrap'}}>
+                        <div className='yc-toolbar-filters' style={{display:'flex',gap:'6px',marginBottom:'16px',flexWrap:'nowrap',overflowX:'auto',paddingBottom:'4px',scrollbarWidth:'none',msOverflowStyle:'none'}}>
                             {STATUS_GROUPS.map(g=>{
                                 const cnt = g.key==='all' ? tickets.length : tickets.filter(g.match).length;
                                 const active = filter===g.key;
@@ -2684,7 +2685,7 @@
                                     : (dm?'#8fa4cc':'#64748B');
                                 return (
                                     <button key={g.key} onClick={()=>setFilter(g.key)}
-                                        style={{display:'flex',alignItems:'center',gap:'6px',padding:'6px 14px',borderRadius:'8px',border:'1px solid',fontSize:'12px',fontWeight:'600',cursor:'pointer',transition:'all 0.15s',
+                                        style={{display:'flex',alignItems:'center',gap:'6px',padding:'6px 14px',borderRadius:'8px',border:'1px solid',fontSize:'12px',fontWeight:'600',cursor:'pointer',transition:'all 0.15s',flexShrink:0,whiteSpace:'nowrap',
                                             borderColor:tabBorder,
                                             background:tabBg,
                                             color:tabColor,
