@@ -257,11 +257,19 @@ router.get('/', optionalAuth, async (req, res, next) => {
 
     // Apply role scope
     if (scope === 'dept' && deptId) {
+      // Dept managers see all tickets in their department PLUS any ticket they are
+      // personally assigned as an approver on (even if from another department).
+      const deptI1 = i++; const deptI2 = i++;
+      const approverClause = userId
+        ? ` OR EXISTS (SELECT 1 FROM yc_tkt_mgmt.ticket_approvers ta WHERE ta.ticket_id = v.id AND ta.approver_user_id = $${i++})`
+        : '';
       where.push(
-        `(v.assigned_to IN (SELECT id FROM yc_tkt_mgmt.users WHERE department_id = $${i++})` +
-        ` OR v.created_by IN (SELECT id FROM yc_tkt_mgmt.users WHERE department_id = $${i++}))`
+        `(v.assigned_to IN (SELECT id FROM yc_tkt_mgmt.users WHERE department_id = $${deptI1})` +
+        ` OR v.created_by IN (SELECT id FROM yc_tkt_mgmt.users WHERE department_id = $${deptI2})` +
+        `${approverClause})`
       );
       params.push(deptId, deptId);
+      if (userId) params.push(userId);
     } else if (scope === 'mine' && userId) {
       // Own tickets + any tickets this user is an approver on (any status)
       // Removing approval_status='Pending' so resolved tickets remain visible for reopen
