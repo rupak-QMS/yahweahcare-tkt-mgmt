@@ -261,8 +261,8 @@ export async function notify(ev: NotifyEvent): Promise<void> {
     const pushPayload = {
       title: subject,
       body,
-      icon:  '/favicon.ico',
-      badge: '/favicon.ico',
+      icon:  '/favicon.svg',
+      badge: '/favicon.svg',
       data:  { ticketId, type: ev.type, url: '/' },
     };
 

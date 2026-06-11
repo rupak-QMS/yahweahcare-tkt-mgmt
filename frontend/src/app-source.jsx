@@ -6909,16 +6909,22 @@
                         // 1. Register service worker and wait until active
                         const swReg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
                         await navigator.serviceWorker.ready;
+                        console.info('[push] service worker ready ✓');
 
                         // 2. Get VAPID public key from backend (unauthenticated endpoint)
                         const keyRes = await fetch(`${HRMS_API}/push/vapid-public-key`);
-                        if (!keyRes.ok) { console.warn('[push] VAPID endpoint error', keyRes.status); return; }
+                        if (!keyRes.ok) {
+                            console.error('[push] VAPID keys not configured on server (HTTP', keyRes.status + '). Add VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY to Vercel env vars. Run: cd backend-hrms && npm run generate-vapid');
+                            return;
+                        }
                         const { publicKey } = await keyRes.json();
-                        if (!publicKey) { console.warn('[push] no VAPID public key configured'); return; }
+                        if (!publicKey) { console.error('[push] server returned empty VAPID public key'); return; }
+                        console.info('[push] VAPID public key received ✓');
 
                         // 3. If already subscribed, re-register with backend and exit
                         const existing = await swReg.pushManager.getSubscription();
                         if (existing) {
+                            console.info('[push] existing subscription found — refreshing with backend ✓');
                             await authFetch(`${HRMS_API}/push/subscribe`, {
                                 method: 'POST',
                                 body: JSON.stringify({
@@ -6928,20 +6934,27 @@
                                         auth:   bufToBase64(existing.getKey('auth')),
                                     },
                                 }),
-                            }).catch(() => {});
+                            }).catch(e => console.warn('[push] refresh failed:', e));
                             return;
                         }
 
                         // 4. Request notification permission — skip silently if already denied
-                        if (Notification.permission === 'denied') return;
+                        if (Notification.permission === 'denied') {
+                            console.info('[push] notifications blocked by user — skipping');
+                            return;
+                        }
                         const permission = await Notification.requestPermission();
-                        if (permission !== 'granted') return; // user dismissed or denied
+                        if (permission !== 'granted') {
+                            console.info('[push] notification permission not granted:', permission);
+                            return;
+                        }
 
                         // 5. Subscribe — applicationServerKey MUST be Uint8Array, not a plain string
                         const sub = await swReg.pushManager.subscribe({
                             userVisibleOnly: true,
                             applicationServerKey: urlBase64ToUint8Array(publicKey),
                         });
+                        console.info('[push] browser subscription created ✓');
 
                         // 6. Save subscription to backend
                         const subJson = sub.toJSON();
@@ -6949,11 +6962,11 @@
                             method: 'POST',
                             body: JSON.stringify({ endpoint: subJson.endpoint, keys: subJson.keys }),
                         });
-                        if (saveRes.ok) console.info('[push] subscription registered ✓');
-                        else console.warn('[push] save failed', saveRes.status);
+                        if (saveRes.ok) console.info('[push] subscription saved to backend ✓ — push notifications active');
+                        else console.error('[push] subscription save failed:', saveRes.status);
 
                     } catch(err) {
-                        console.warn('[push] setup failed:', err);
+                        console.error('[push] setup failed:', err);
                     }
                 };
 

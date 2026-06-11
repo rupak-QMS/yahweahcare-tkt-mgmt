@@ -10,6 +10,7 @@
     "init-db": "ts-node src/db/init.ts",
     "seed": "ts-node src/db/seed.ts",
     "reset": "npm run init-db && npm run seed",
+    "generate-vapid": "node -e \"const wp=require('web-push');const k=wp.generateVAPIDKeys();console.log('\\nAdd these to Vercel → Settings → Environment Variables:\\n');console.log('VAPID_PUBLIC_KEY=' + k.publicKey);console.log('VAPID_PRIVATE_KEY=' + k.privateKey);console.log('VAPID_SUBJECT=mailto:admin@yahwehcare.com.au\\n');\"",
     "lint": "eslint 'src/**/*.ts'",
     "test": "jest"
   },
