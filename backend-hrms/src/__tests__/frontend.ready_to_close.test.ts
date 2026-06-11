@@ -9,7 +9,7 @@ import * as path from 'path';
 
 // __dirname = .../Yahweahcare/backend-hrms/src/__tests__
 // 3 levels up  = .../Yahweahcare/
-const HTML_PATH = path.resolve(__dirname, '../../../frontend/index.html');
+const HTML_PATH = path.resolve(__dirname, '../../../frontend/src/app-source.jsx');
 const html = fs.readFileSync(HTML_PATH, 'utf-8');
 
 // ── 1. Code-integrity checks ──────────────────────────────────────────────────

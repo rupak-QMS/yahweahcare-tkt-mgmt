@@ -1,0 +1,13 @@
+{
+  "name": "yahweahcare-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node build.js",
+    "build:watch": "node -e \"const {execSync}=require('child_process'),fs=require('fs');fs.watch('src/app-source.jsx',()=>{console.log('Rebuilding...');try{execSync('node build.js',{stdio:'inherit'})}catch(e){}});console.log('Watching src/app-source.jsx...');\""
+  },
+  "devDependencies": {
+    "@babel/core": "^7.24.0",
+    "@babel/preset-react": "^7.24.0"
+  }
+}

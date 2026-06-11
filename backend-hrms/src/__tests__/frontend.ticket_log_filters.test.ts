@@ -21,7 +21,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-const HTML_PATH = path.resolve(__dirname, '../../../frontend/index.html');
+const HTML_PATH = path.resolve(__dirname, '../../../frontend/src/app-source.jsx');
 const html = fs.readFileSync(HTML_PATH, 'utf-8');
 
 // ── 1. Code-integrity checks ──────────────────────────────────────────────────

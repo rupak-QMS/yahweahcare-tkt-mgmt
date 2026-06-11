@@ -1,0 +1,7042 @@
+
+        // All data sourced from API — no hardcoded fallbacks
+
+        // API Service Layer — all routes go to backend-hrms (HRMS_API)
+        // API_BASE_URL kept for legacy references; both point to the same deployed backend.
+        const HRMS_API = window.location.hostname === 'localhost'
+            ? 'http://localhost:4001'
+            : 'https://yahweahcare-tkt-mgmt-hx48.vercel.app';
+        const API_BASE_URL = HRMS_API; // alias — old code used API_BASE_URL
+
+        // Helper: read the logged-in user from sessionStorage
+        function getSessionUser() {
+            try { return JSON.parse(sessionStorage.getItem('ms_current_user') || 'null'); } catch { return null; }
+        }
+
+        // ── Auth helpers: Bearer token for cross-origin API calls ──────────────
+        function getAccessToken() {
+            return sessionStorage.getItem('ms_access_token') || null;
+        }
+
+        // Build headers with Authorization: Bearer for authenticated requests
+        function authHeaders(extra = {}) {
+            const token = getAccessToken();
+            const h = { 'Content-Type': 'application/json', ...extra };
+            if (token) h['Authorization'] = `Bearer ${token}`;
+            return h;
+        }
+
+        // Refresh the access token using the refresh cookie; update sessionStorage
+        // Returns true if successful. Called automatically before expiry.
+        async function refreshAccessToken() {
+            try {
+                const res = await fetch(`${HRMS_API}/auth/refresh`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.accessToken) {
+                        sessionStorage.setItem('ms_access_token', data.accessToken);
+                        return true;
+                    }
+                }
+            } catch (_) {}
+            return false;
+        }
+
+        // Authenticated fetch — on 401, auto-refresh token and retry once.
+        // On second 401, redirects to login page.
+        async function authFetch(url, opts = {}) {
+            const res = await fetch(url, { credentials: 'include', ...opts, headers: authHeaders(opts.headers || {}) });
+            if (res.status !== 401) return res;
+            // Try refreshing token once
+            const refreshed = await refreshAccessToken();
+            if (!refreshed) {
+                // Token and refresh both failed — bounce to login
+                sessionStorage.clear();
+                window.location.href = window.location.pathname + '?session_expired=1';
+                return res;
+            }
+            // Retry with fresh token
+            return fetch(url, { credentials: 'include', ...opts, headers: authHeaders(opts.headers || {}) });
+        }
+
+        // Schedule a token refresh 2 minutes before the 15-minute access token expiry
+        (function scheduleTokenRefresh() {
+            const REFRESH_INTERVAL_MS = 13 * 60 * 1000; // 13 min (token lasts 15 min)
+            setInterval(async () => {
+                if (getAccessToken()) await refreshAccessToken();
+            }, REFRESH_INTERVAL_MS);
+        })();
+
+        // Role-based scope for ticket queries
+        // Returns query params to append to any /tickets fetch
+        function getTicketScopeParams(sessionUser) {
+            if (!sessionUser) return {};
+            const { id, isBootstrapAdmin, positionType, deptId } = sessionUser;
+            // Bootstrap admin or Director → see everything
+            if (isBootstrapAdmin || positionType === 'director') {
+                return { scope: 'all', userId: id };
+            }
+            // Management positions → see all tickets in their department
+            if (['ops', 'finance', 'strategic'].includes(positionType)) {
+                const p = { scope: 'dept', userId: id };
+                if (deptId) p.deptId = deptId;
+                return p;
+            }
+            // Everyone else (staff, external, approver by ticket) → own + pending-approval tickets
+            return { scope: 'mine', userId: id };
+        }
+
+        // Returns query params for /users fetch based on role
+        // Admin/Director → no filter (all users)
+        // Manager        → ?dept_id=N  (their department only)
+        // Staff/external → ?dept_id=N  (their department, so they can see colleagues)
+        function getUserQueryParams(sessionUser) {
+            if (!sessionUser) return '';
+            const { isBootstrapAdmin, positionType, deptId } = sessionUser;
+            if (isBootstrapAdmin || positionType === 'director') return '';
+            if (deptId) return `&dept_id=${deptId}`;
+            return '';
+        }
+
+        // Build URLSearchParams string for /tickets/activity scope
+        function getActivityScopeParams(sessionUser) {
+            if (!sessionUser) return '';
+            const sp = getTicketScopeParams(sessionUser);
+            const p = new URLSearchParams();
+            if (sp.scope)  p.set('scope',  sp.scope);
+            if (sp.userId) p.set('userId', String(sp.userId));
+            if (sp.deptId) p.set('deptId', String(sp.deptId));
+            return p.toString() ? `&${p.toString()}` : '';
+        }
+
+        // ── Page access control ────────────────────────────────────────────────
+        // Returns the set of page IDs the current user may visit.
+        //   Staff (default)        → dashboard, create-ticket, tickets, calendar, analytics
+        //   Dept Manager           → + org-chart, staff-performance, team-comparison
+        //   HR Manager             → + staff-management  (also gets manager pages)
+        //   Director / Bootstrap   → all pages
+        const STAFF_PAGES    = ['dashboard','create-ticket','tickets','calendar','analytics'];
+        const MANAGER_PAGES  = [...STAFF_PAGES, 'org-chart','staff-performance','team-comparison','ticket-log'];
+        const HR_PAGES       = [...MANAGER_PAGES, 'staff-management'];
+        const DIRECTOR_PAGES = [...HR_PAGES, 'scheduled-reports'];
+
+        function getAccessiblePages(sessionUser) {
+            if (!sessionUser) return STAFF_PAGES;
+            const { isBootstrapAdmin, positionType, role } = sessionUser;
+            // Director level: bootstrap admin, director position, or admin/super_admin role
+            if (isBootstrapAdmin || positionType === 'director'
+                || role === 'super_admin' || role === 'admin') return DIRECTOR_PAGES;
+            // HR Manager: hr role
+            if (role === 'hr')                                   return HR_PAGES;
+            // Department Manager: ops/finance/strategic position, or manager role
+            if (['ops','finance','strategic'].includes(positionType)
+                || role === 'manager')                           return MANAGER_PAGES;
+            return STAFF_PAGES;
+        }
+
+        // Returns badge config that visually distinguishes Bootstrap Admin from Director
+        // Bootstrap Admin = system role (not in org hierarchy); Director = org leadership role
+        function getRoleBadgeInfo(user) {
+            if (!user) return null;
+            if (user.isBootstrapAdmin)
+                return { label:'⭐ Bootstrap Admin', desc:'System Administration — not part of org hierarchy',
+                         bg:'#FEF3C7', color:'#D97706', border:'#FDE68A', dot:'#F59E0B' };
+            const pt = (user.positionType || '').toLowerCase();
+            const r  = (user.role || '').toLowerCase();
+            if (pt === 'director' || r === 'director')
+                return { label:'🏢 Director', desc:'Organisational Leadership — part of org hierarchy',
+                         bg:'#DCFCE7', color:'#15803D', border:'#86EFAC', dot:'#22C55E' };
+            if (r === 'hr')
+                return { label:'📋 HR Manager', desc:'Human Resources Department',
+                         bg:'#F3E8FF', color:'#7E22CE', border:'#C4B5FD', dot:'#A855F7' };
+            if (r === 'manager' || ['ops','finance','strategic'].includes(pt))
+                return { label:'👔 Manager', desc:'Department Manager',
+                         bg:'#DBEAFE', color:'#1D4ED8', border:'#93C5FD', dot:'#3B82F6' };
+            return { label:'👤 Staff', desc:'Staff Member',
+                     bg:'#EEF2FF', color:'#4338CA', border:'#C7D2FE', dot:'#6366F1' };
+        }
+
+        // Fallback mock data — IDs must match actual DB seed values
+        const LOOKUPS_MOCK = {
+            categories: [
+                { id: 'client',    label: 'Client Issue',     icon: 'user' },
+                { id: 'account',   label: 'Account Issue',    icon: 'key' },
+                { id: 'hr',        label: 'HR Issue',         icon: 'users' },
+                { id: 'cleaning',  label: 'Cleaning Quality', icon: 'star' },
+                { id: 'safety',    label: 'Safety Concern',   icon: 'shield' },
+                { id: 'equipment', label: 'Equipment Issue',  icon: 'tool' },
+                { id: 'ndis',      label: 'NDIS Compliance',  icon: 'clipboard' }
+            ],
+            priorities: [
+                { id: 'urgent', label: 'Urgent', sla_hours: 2 },
+                { id: 'high',   label: 'High',   sla_hours: 8 },
+                { id: 'medium', label: 'Medium', sla_hours: 24 },
+                { id: 'low',    label: 'Low',    sla_hours: 72 }
+            ],
+            statuses: [
+                { id: 'open',             label: 'Open' },
+                { id: 'in_progress',      label: 'In Progress' },
+                { id: 'pending_approval', label: 'Pending Approval' },
+                { id: 'resolved',         label: 'Resolved' },
+                { id: 'closed',           label: 'Closed' }
+            ]
+        };
+
+        const API = {
+            lookups: {
+                get: async () => {
+                    // Cache in sessionStorage for 5 minutes — lookups are static per session
+                    const CACHE_KEY = 'yc_lookups';
+                    const CACHE_TTL = 5 * 60 * 1000;
+                    try {
+                        const cached = sessionStorage.getItem(CACHE_KEY);
+                        if (cached) {
+                            const { data, ts } = JSON.parse(cached);
+                            if (Date.now() - ts < CACHE_TTL) return data;
+                        }
+                    } catch(_) {}
+                    try {
+                        const res = await fetch(`${HRMS_API}/lookup/all`);
+                        if (!res.ok) throw new Error('lookup not responding');
+                        const data = await res.json();
+                        try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ data, ts: Date.now() })); } catch(_) {}
+                        return data;
+                    } catch (err) {
+                        console.log('Using mock lookups data');
+                        return LOOKUPS_MOCK;
+                    }
+                }
+            },
+            tickets: {
+                getAll: async (opts = {}) => {
+                    const params = new URLSearchParams();
+                    if (opts.all)    params.set('all', '1');
+                    if (opts.status) params.set('status', opts.status);
+                    if (opts.limit)  params.set('limit', String(opts.limit));
+                    // Role-based scope
+                    const scope = opts.scope || getTicketScopeParams(getSessionUser());
+                    if (scope.scope)  params.set('scope',  scope.scope);
+                    if (scope.userId) params.set('userId', scope.userId);
+                    if (scope.deptId) params.set('deptId', scope.deptId);
+                    const res = await authFetch(`${HRMS_API}/tickets?${params}`);
+                    if (!res.ok) throw new Error('Failed to fetch tickets');
+                    return res.json();
+                },
+                getById: async (id) => {
+                    const res = await authFetch(`${HRMS_API}/tickets/${id}`);
+                    if (!res.ok) throw new Error('Ticket not found');
+                    return res.json();
+                },
+                create: async (data) => {
+                    const res = await authFetch(`${HRMS_API}/tickets`, {
+                        method: 'POST',
+                        body: JSON.stringify(data)
+                    });
+                    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.message || 'Failed to create ticket'); }
+                    return res.json();
+                },
+                update: async (id, data) => {
+                    const u = getSessionUser();
+                    const res = await authFetch(`${HRMS_API}/tickets/${id}`, {
+                        method: 'PATCH',
+                        body: JSON.stringify({ ...data, actorId: u?.id })
+                    });
+                    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.message || 'Failed to update ticket'); }
+                    return res.json();
+                },
+                setApprovers: async (id, approverIds) => {
+                    const res = await authFetch(`${HRMS_API}/tickets/${id}/approvers`, {
+                        method: 'POST',
+                        body: JSON.stringify({ approver_ids: approverIds })
+                    });
+                    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.message || 'Failed to update approvers'); }
+                    return res.json();
+                },
+                delete: async (id, justification) => {
+                    const u = getSessionUser();
+                    const res = await authFetch(`${HRMS_API}/tickets/${id}`, {
+                        method: 'DELETE',
+                        body: JSON.stringify({ actorId: u?.id, justification })
+                    });
+                    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.message || 'Failed to delete ticket'); }
+                    return res.json();
+                },
+                requestExtension: async (id, newDueDate, note) => {
+                    const u = getSessionUser();
+                    const res = await authFetch(`${HRMS_API}/tickets/${id}/request-extension`, {
+                        method: 'POST',
+                        body: JSON.stringify({ newDueDate, note, actorId: u?.id })
+                    });
+                    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.message || 'Failed to request extension'); }
+                    return res.json();
+                },
+                respondExtension: async (id, action, note) => {
+                    const u = getSessionUser();
+                    const res = await authFetch(`${HRMS_API}/tickets/${id}/respond-extension`, {
+                        method: 'POST',
+                        body: JSON.stringify({ action, note, actorId: u?.id })
+                    });
+                    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.message || 'Failed to respond to extension'); }
+                    return res.json();
+                },
+                escalate: async (id, escalateToUserId, reason) => {
+                    const u = getSessionUser();
+                    const res = await authFetch(`${HRMS_API}/tickets/${id}/escalate`, {
+                        method: 'POST',
+                        body: JSON.stringify({ escalateToUserId, reason, actorId: u?.id })
+                    });
+                    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || 'Failed to escalate'); }
+                    return res.json();
+                },
+                getEscalations: async (id) => {
+                    const res = await authFetch(`${HRMS_API}/tickets/${id}/escalations`);
+                    if (!res.ok) throw new Error('Failed to fetch escalations');
+                    return res.json();
+                },
+                addAttachments: async (id, attachments) => {
+                    const res = await authFetch(`${HRMS_API}/tickets/${id}/attachments`, {
+                        method: 'POST',
+                        body: JSON.stringify({ attachments })
+                    });
+                    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || 'Failed to upload attachment'); }
+                    return res.json();
+                },
+                complete: async (id, resolutionNote) => {
+                    const u = getSessionUser();
+                    const res = await authFetch(`${HRMS_API}/tickets/${id}/complete`, {
+                        method: 'POST',
+                        body: JSON.stringify({ actorId: u?.id, resolutionNote })
+                    });
+                    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || 'Failed to mark complete'); }
+                    return res.json();
+                },
+                approve: async (id, acceptanceNote) => {
+                    const u = getSessionUser();
+                    const res = await authFetch(`${HRMS_API}/tickets/${id}/approve`, {
+                        method: 'POST',
+                        body: JSON.stringify({ actorId: u?.id, acceptanceNote: acceptanceNote || '' })
+                    });
+                    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || 'Failed to approve'); }
+                    return res.json();
+                },
+                reject: async (id, justification) => {
+                    const u = getSessionUser();
+                    const res = await authFetch(`${HRMS_API}/tickets/${id}/reject`, {
+                        method: 'POST',
+                        body: JSON.stringify({ justification, actorId: u?.id })
+                    });
+                    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || 'Failed to reject'); }
+                    return res.json();
+                },
+                reopen: async (id, justification) => {
+                    const u = getSessionUser();
+                    const res = await authFetch(`${HRMS_API}/tickets/${id}/reopen`, {
+                        method: 'POST',
+                        body: JSON.stringify({ justification, actorId: u?.id })
+                    });
+                    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || 'Failed to reopen ticket'); }
+                    return res.json();
+                },
+                close: async (id) => {
+                    const res = await authFetch(`${HRMS_API}/tickets/${id}/close`, { method: 'POST' });
+                    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || 'Failed to close ticket'); }
+                    return res.json();
+                },
+                log: async (id) => {
+                    const res = await authFetch(`${HRMS_API}/tickets/${id}/log`);
+                    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || 'Failed to fetch ticket log'); }
+                    return res.json();
+                },
+            },
+            users: {
+                getAll: async () => {
+                    const res = await authFetch(`${API_BASE_URL}/users`);
+                    if (!res.ok) throw new Error('Failed to fetch users');
+                    return res.json();
+                }
+            }
+        };
+
+        // ── Dark Mode Context (consumed by all page components) ────────────────
+        const DarkModeContext = React.createContext(false);
+        const useDark = () => React.useContext(DarkModeContext);
+
+        // Navigation Component
+        // ── Top Header Bar ──────────────────────────────────────────────────────
+        function TopBar({ sidebarOpen, setSidebarOpen, darkMode, setDarkMode, currentUser, currentPage, onSignOut, setCurrentPage }) {
+            const [userMenuOpen, setUserMenuOpen] = React.useState(false);
+            const [notifOpen,    setNotifOpen]    = React.useState(false);
+            const [notifications, setNotifications] = React.useState([]);
+            const [notifLoading,  setNotifLoading]  = React.useState(false);
+            const [appToast,      setAppToast]      = React.useState('');
+            const showToast = (msg) => { setAppToast(msg); setTimeout(() => setAppToast(''), 3500); };
+
+            // Load real notifications from backend
+            const loadNotifications = React.useCallback(() => {
+                setNotifLoading(true);
+                authFetch(`${HRMS_API}/notifications`)
+                    .then(r => r.ok ? r.json() : { notifications: [] })
+                    .then(d => setNotifications(Array.isArray(d.notifications) ? d.notifications : []))
+                    .catch(() => {})
+                    .finally(() => setNotifLoading(false));
+            }, []);
+
+            React.useEffect(() => {
+                if (currentUser) loadNotifications();
+            }, [currentUser]);
+
+            // Poll every 30 s for new notifications
+            React.useEffect(() => {
+                if (!currentUser) return;
+                const t = setInterval(loadNotifications, 30_000);
+                return () => clearInterval(t);
+            }, [currentUser]);
+
+            const unreadCount = notifications.filter(n => !n.read_at).length;
+
+            const markAllRead = () => {
+                authFetch(`${HRMS_API}/notifications/read-all`, { method:'POST' })
+                    .then(() => loadNotifications()).catch(() => {});
+            };
+
+            const markRead = (id) => {
+                authFetch(`${HRMS_API}/notifications/${id}/read`, { method:'PATCH' })
+                    .then(() => loadNotifications()).catch(() => {});
+            };
+
+            const displayName = currentUser?.name || 'User';
+            const initials    = displayName.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+            const deptLabel   = currentUser?.isBootstrapAdmin
+                ? 'System Administrator'
+                : (currentUser?.department_name || currentUser?.dept || '');
+
+            const pageLabels = {
+                'dashboard':'Dashboard','create-ticket':'Create Ticket','tickets':'Tickets',
+                'calendar':'Calendar','analytics':'Analytics','org-chart':'Org Chart',
+                'staff-performance':'Staff Performance','team-comparison':'Team Comparison',
+                'staff-management':'Staff Management','scheduled-reports':'Scheduled Reports',
+            };
+
+            React.useEffect(() => {
+                if (!userMenuOpen && !notifOpen) return;
+                const close = () => { setUserMenuOpen(false); setNotifOpen(false); };
+                document.addEventListener('click', close);
+                return () => document.removeEventListener('click', close);
+            }, [userMenuOpen, notifOpen]);
+
+            const bg      = darkMode ? 'linear-gradient(90deg,#04080f 0%,#060d1e 100%)' : '#FFFFFF';
+            const border  = darkMode ? 'rgba(99,102,241,0.14)' : '#E2E8F2';
+            const textC   = darkMode ? '#f0f4ff'  : '#0F172A';
+            const subC    = darkMode ? '#8fa4cc'  : '#64748B';
+            const iconBg  = darkMode ? 'rgba(99,102,241,0.12)'  : '#F5F7FF';
+
+            const iconBtn = (extra={}) => ({
+                width:36, height:36, borderRadius:8, background:iconBg,
+                border:`1px solid ${border}`, cursor:'pointer',
+                display:'flex', alignItems:'center', justifyContent:'center',
+                fontSize:16, flexShrink:0,
+                boxShadow: darkMode ? '0 0 8px rgba(99,102,241,0.08)' : 'none',
+                ...extra,
+            });
+
+            return (
+                <div style={{position:'relative'}}>
+                {/* TopBar toast — for test notification feedback */}
+                {appToast && (
+                    <div style={{position:'fixed',top:68,left:'50%',transform:'translateX(-50%)',zIndex:9999,background:'#1E1B4B',color:'#fff',padding:'10px 20px',borderRadius:10,fontSize:13,fontWeight:600,boxShadow:'0 4px 16px rgba(0,0,0,0.25)',pointerEvents:'none',whiteSpace:'nowrap'}}>
+                        {appToast}
+                    </div>
+                )}
+                <div style={{
+                    height:56, background:bg,
+                    borderBottom:`1px solid ${border}`,
+                    boxShadow: darkMode ? '0 4px 32px rgba(0,0,0,0.7), 0 1px 0 rgba(99,102,241,0.14), inset 0 -1px 0 rgba(99,102,241,0.08)' : '0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0  0 0 1px rgba(15,23,42,0.03)',
+                    display:'flex', alignItems:'center', padding:'0 20px', gap:10,
+                    flexShrink:0, position:'relative', zIndex:30,
+                }}>
+                    {/* Sidebar toggle */}
+                    <button onClick={() => setSidebarOpen(o => !o)} style={iconBtn()} title={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}>
+                        {sidebarOpen
+                            ? <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M4 4l10 10M14 4L4 14" stroke={textC} strokeWidth="2" strokeLinecap="round"/></svg>
+                            : <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M2 4h14M2 9h14M2 14h14" stroke={textC} strokeWidth="2" strokeLinecap="round"/></svg>
+                        }
+                    </button>
+
+                    {/* Page title — span wrapper keeps flex:1 on mobile even when text hidden */}
+                    <span style={{flex:1, minWidth:0}}>
+                        <span className="yc-topbar-title" style={{fontSize:15, fontWeight:700, color:textC, letterSpacing:'-0.01em'}}>
+                            {pageLabels[currentPage] || 'Dashboard'}
+                        </span>
+                    </span>
+
+                    {/* Notifications */}
+                    <div style={{position:'relative'}}>
+                        <button onClick={e => { e.stopPropagation(); setNotifOpen(o => !o); if (!notifOpen) loadNotifications(); }}
+                            style={iconBtn({background: notifOpen ? '#EEF2FF' : iconBg, position:'relative'})}
+                            title="Notifications">
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+                                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" stroke={textC} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                            {unreadCount > 0 && (
+                                <span style={{position:'absolute',top:4,right:4,minWidth:16,height:16,background:'#EF4444',borderRadius:8,border:`2px solid ${bg}`,fontSize:9,fontWeight:700,color:'white',display:'flex',alignItems:'center',justifyContent:'center',padding:'0 3px'}}>
+                                    {unreadCount > 9 ? '9+' : unreadCount}
+                                </span>
+                            )}
+                        </button>
+                        {notifOpen && (
+                            <div onClick={e => e.stopPropagation()} style={{
+                                position:'absolute', top:'calc(100% + 8px)', right:0, width:320,
+                                background:bg, borderRadius:12, boxShadow:'0 8px 32px rgba(0,0,0,0.15)',
+                                border:`1px solid ${border}`, zIndex:50, overflow:'hidden', maxHeight:460, display:'flex', flexDirection:'column',
+                            }}>
+                                <div style={{padding:'12px 16px', borderBottom:`1px solid ${border}`, display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0}}>
+                                    <p style={{fontSize:13, fontWeight:700, color:textC, margin:0}}>
+                                        Notifications {unreadCount > 0 && <span style={{background:'#EF4444',color:'white',borderRadius:10,fontSize:10,padding:'1px 6px',marginLeft:6}}>{unreadCount}</span>}
+                                    </p>
+                                    {unreadCount > 0 && (
+                                        <button onClick={markAllRead} style={{fontSize:11,color:darkMode?'#818cf8':'#4F46E5',background:'none',border:'none',cursor:'pointer',padding:0}}>Mark all read</button>
+                                    )}
+                                </div>
+                                <div style={{overflowY:'auto', flex:1}}>
+                                    {notifLoading && <div style={{padding:'16px',textAlign:'center',fontSize:12,color:subC}}>Loading…</div>}
+                                    {!notifLoading && notifications.length === 0 && (
+                                        <div style={{padding:'24px 16px', textAlign:'center'}}>
+                                            <div style={{fontSize:28, marginBottom:8}}>🔔</div>
+                                            <p style={{fontSize:13, color:subC, margin:0}}>No notifications yet</p>
+                                        </div>
+                                    )}
+                                    {!notifLoading && notifications.slice(0,20).map(n => (
+                                        <div key={n.id} onClick={() => markRead(n.id)} style={{
+                                            padding:'10px 16px', borderBottom:`1px solid ${border}`,
+                                            background: n.read_at ? 'transparent' : (darkMode ? '#1E3A5F22' : '#EEF2FF55'),
+                                            cursor:'pointer', display:'flex', gap:10, alignItems:'flex-start',
+                                        }}>
+                                            <span style={{fontSize:16,flexShrink:0,marginTop:1}}>
+                                                {n.subject?.includes('escalat') ? '⬆️' : n.subject?.includes('creat') ? '📋' : n.subject?.includes('approv') ? '✅' : n.subject?.includes('reject') ? '❌' : n.subject?.includes('member') || n.subject?.includes('position') ? '👤' : '🔔'}
+                                            </span>
+                                            <div style={{flex:1,minWidth:0}}>
+                                                <p style={{fontSize:12,fontWeight:n.read_at ? 400 : 700,color:textC,margin:'0 0 2px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{n.subject}</p>
+                                                <p style={{fontSize:11,color:subC,margin:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{n.body}</p>
+                                                <p style={{fontSize:10,color:subC,margin:'3px 0 0'}}>{n.created_at ? new Date(n.created_at).toLocaleString() : ''}</p>
+                                            </div>
+                                            {!n.read_at && <span style={{width:7,height:7,borderRadius:'50%',background:'#6366F1',flexShrink:0,marginTop:5}}/>}
+                                        </div>
+                                    ))}
+                                </div>
+                                {/* Footer: test notification button */}
+                                <div style={{padding:'10px 16px', borderTop:`1px solid ${border}`, flexShrink:0, display:'flex', gap:8, alignItems:'center', justifyContent:'space-between'}}>
+                                    <button onClick={async () => {
+                                        try {
+                                            const r = await authFetch(`${HRMS_API}/push/test`, { method:'POST' });
+                                            if (r.ok) { loadNotifications(); showToast('🔔 Demo notification sent!'); }
+                                            else showToast('Push not set up yet — check VAPID keys');
+                                        } catch { showToast('Failed to send test notification'); }
+                                    }} style={{fontSize:11,fontWeight:600,color:darkMode?'#818cf8':'#4F46E5',background:darkMode?'rgba(99,102,241,0.1)':'#EEF2FF',border:`1px solid ${darkMode?'rgba(99,102,241,0.3)':'#C7D2FE'}`,borderRadius:6,padding:'5px 10px',cursor:'pointer'}}>
+                                        🔔 Send test notification
+                                    </button>
+                                    <span style={{fontSize:10,color:subC}}>Demo only</span>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Dark / Light toggle */}
+                    <button onClick={() => setDarkMode(d => !d)} style={iconBtn()} title={darkMode ? 'Light mode' : 'Dark mode'}>
+                        {darkMode
+                            ? <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="5" stroke="#FCD34D" strokeWidth="2"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="#FCD34D" strokeWidth="2" strokeLinecap="round"/></svg>
+                            : <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke={textC} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        }
+                    </button>
+
+                    {/* User menu */}
+                    <div style={{position:'relative'}}>
+                        <button onClick={e => { e.stopPropagation(); setUserMenuOpen(o => !o); }}
+                            style={{
+                                height:36, borderRadius:8, background: userMenuOpen ? '#EEF2FF' : iconBg,
+                                border:`1px solid ${userMenuOpen ? '#818CF8' : border}`,
+                                cursor:'pointer', display:'flex', alignItems:'center', gap:8, padding:'0 10px',
+                            }}>
+                            <div style={{width:26,height:26,borderRadius:'50%',background:'#F97316',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:700,fontSize:11,flexShrink:0}}>
+                                {initials}
+                            </div>
+                            <span className="yc-user-label" style={{fontSize:13,fontWeight:600,color:textC,maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                                {displayName}
+                            </span>
+                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{transform: userMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition:'transform 0.15s'}}>
+                                <path d="M2 3.5l3 3 3-3" stroke={subC} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                        </button>
+
+                        {userMenuOpen && (
+                            <div onClick={e => e.stopPropagation()} style={{
+                                position:'absolute', top:'calc(100% + 8px)', right:0, minWidth:210,
+                                background:bg, borderRadius:12, boxShadow:'0 8px 32px rgba(0,0,0,0.15)',
+                                border:`1px solid ${border}`, zIndex:50, overflow:'hidden',
+                            }}>
+                                <div style={{padding:'12px 16px', borderBottom:`1px solid ${border}`, display:'flex', alignItems:'center', gap:10}}>
+                                    <div style={{width:34,height:34,borderRadius:'50%',background:'#F97316',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:700,fontSize:13,flexShrink:0}}>
+                                        {initials}
+                                    </div>
+                                    <div style={{flex:1,minWidth:0}}>
+                                        <p style={{fontSize:13, fontWeight:700, color:textC, margin:0}}>{displayName}</p>
+                                        <p style={{fontSize:11, color:subC, margin:'1px 0 3px'}}>{deptLabel}</p>
+                                        {(()=>{
+                                            const rb = getRoleBadgeInfo(currentUser);
+                                            if (!rb) return null;
+                                            return (
+                                                <div style={{display:'flex',flexDirection:'column',gap:1}}>
+                                                    <span style={{display:'inline-block',fontSize:'9px',fontWeight:700,padding:'2px 8px',borderRadius:10,background:rb.bg,color:rb.color,border:`1px solid ${rb.border}`}}>{rb.label}</span>
+                                                    <span style={{fontSize:'9px',color:subC,fontStyle:'italic'}}>{rb.desc}</span>
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
+                                </div>
+                                {getAccessiblePages(currentUser).includes('staff-management') && (
+                                <button onClick={() => { setUserMenuOpen(false); setCurrentPage('staff-management'); }}
+                                    style={{width:'100%',textAlign:'left',display:'flex',alignItems:'center',gap:10,padding:'10px 16px',background:'none',border:'none',cursor:'pointer',fontSize:13,color:textC}}>
+                                    <span style={{fontSize:15}}>⚙️</span>
+                                    <span style={{fontWeight:500}}>Settings</span>
+                                </button>
+                                )}
+                                <div style={{height:1, background:border, margin:'0 12px'}}/>
+                                <button onClick={() => { setUserMenuOpen(false); onSignOut(); }}
+                                    style={{width:'100%',textAlign:'left',display:'flex',alignItems:'center',gap:10,padding:'10px 16px',background:'none',border:'none',cursor:'pointer',fontSize:13,color:'#DC2626',fontWeight:600}}>
+                                    <span style={{fontSize:15}}>↪️</span>
+                                    <span>Sign Out</span>
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+                </div>
+            );
+        }
+
+        // ── Sidebar Navigation ───────────────────────────────────────────────────
+        function Navigation({ currentPage, setCurrentPage, onSignOut, currentUser, darkMode }) {
+            const [profileOpen, setProfileOpen] = React.useState(false);
+            const displayName = currentUser?.name || 'User';
+            const initials = displayName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+            const deptLabel = currentUser?.isBootstrapAdmin
+                ? 'System Administrator'
+                : (currentUser?.dept || currentUser?.department_name || currentUser?.employment_type || '');
+
+            const allowedPages = getAccessiblePages(currentUser);
+            const pages = [
+                { id: 'dashboard',         label: 'Dashboard',         icon: '📊' },
+                { id: 'create-ticket',     label: 'Create Ticket',     icon: '➕' },
+                { id: 'tickets',           label: 'Tickets',           icon: '📋' },
+                { id: 'calendar',          label: 'Calendar',          icon: '📅' },
+                { id: 'analytics',         label: 'Analytics',         icon: '📈' },
+                { id: 'org-chart',         label: 'Org Chart',         icon: '🏢' },
+                { id: 'staff-performance', label: 'Staff Performance', icon: '⭐' },
+                { id: 'team-comparison',   label: 'Team Comparison',   icon: '🔄' },
+                { id: 'staff-management',  label: 'Staff Management',  icon: '👥' },
+                { id: 'ticket-log',        label: 'Ticket Log',        icon: '📜' },
+                { id: 'scheduled-reports', label: 'Scheduled Reports', icon: '📧' },
+            ].filter(p => allowedPages.includes(p.id));
+
+            // Close dropdown when clicking outside
+            React.useEffect(() => {
+                if (!profileOpen) return;
+                const close = () => setProfileOpen(false);
+                document.addEventListener('click', close);
+                return () => document.removeEventListener('click', close);
+            }, [profileOpen]);
+
+            const handleSettings = () => {
+                setProfileOpen(false);
+                setCurrentPage('staff-management');
+            };
+
+            const handleSignOut = () => {
+                setProfileOpen(false);
+                onSignOut();
+            };
+
+            const sidebarBg     = darkMode ? 'linear-gradient(180deg,#060d1e 0%,#030913 100%)' : '#FFFFFF';
+            const sidebarBorder = darkMode ? 'rgba(99,102,241,0.14)' : '#E2E8F2';
+            const sidebarText   = darkMode ? '#8fa4cc' : '#475569';
+            const logoText      = darkMode ? '#d0d9ff' : '#0F172A';
+            const logoSub       = darkMode ? '#4a607f' : '#94A3B8';
+
+            return (
+                <aside style={{width:256, background:sidebarBg, borderRight:`1px solid ${sidebarBorder}`, display:'flex', flexDirection:'column', height:'100vh', flexShrink:0, boxShadow: darkMode ? '4px 0 40px rgba(0,0,0,0.75), 1px 0 0 rgba(99,102,241,0.10)' : '2px 0 12px rgba(15,23,42,0.06), 1px 0 0 #E2E8F2'}}>
+                    {/* Logo — fixed */}
+                    <div style={{padding:'20px 16px 12px', flexShrink:0}}>
+                        <h1 style={{fontWeight:900, color:logoText, fontSize:18, lineHeight:1.2, letterSpacing:'0.02em',
+                            textShadow: darkMode ? '0 0 20px rgba(199,210,254,0.3)' : 'none'
+                        }}>YAHWEH<br/><span style={{fontSize:11, color:logoSub, fontWeight:600, letterSpacing:'0.12em'}}>CARE ™</span></h1>
+                    </div>
+
+                    {/* Nav — scrolls independently */}
+                    <nav style={{flex:1, overflowY:'auto', padding:'8px 12px', display:'flex', flexDirection:'column', gap:2}}>
+                        {pages.map((page) => {
+                            const active = currentPage === page.id;
+                            return (
+                                <button
+                                    key={page.id}
+                                    onClick={() => setCurrentPage(page.id)}
+                                    style={{
+                                        width:'100%', textAlign:'left', padding:'9px 14px',
+                                        borderRadius:8, border:'none', cursor:'pointer',
+                                        display:'flex', alignItems:'center', gap:10,
+                                        background: active
+                                            ? (darkMode ? 'linear-gradient(90deg,rgba(99,102,241,0.28) 0%,rgba(99,102,241,0.04) 100%)' : '#4F46E5')
+                                            : 'transparent',
+                                        borderLeft: active && darkMode ? '3px solid rgba(129,140,248,0.9)' : '3px solid transparent',
+                                        boxShadow: active && darkMode ? '0 2px 20px rgba(99,102,241,0.28), inset 0 1px 0 rgba(255,255,255,0.04)' : 'none',
+                                        color: active ? (darkMode ? '#d0d9ff' : '#FFFFFF') : sidebarText,
+                                        fontWeight: active ? 700 : 400,
+                                        fontSize:13,
+                                        transition:'all 0.18s',
+                                    }}
+                                    onMouseEnter={e => {
+                                        if(!active) e.currentTarget.style.background = darkMode
+                                            ? 'rgba(99,102,241,0.08)'
+                                            : '#F3F4F6';
+                                    }}
+                                    onMouseLeave={e => { if(!active) e.currentTarget.style.background = 'transparent'; }}
+                                >
+                                    <span style={{fontSize:15}}>{page.icon}</span>
+                                    <span>{page.label}</span>
+                                </button>
+                            );
+                        })}
+                    </nav>
+
+                    {/* Profile — fixed at bottom */}
+                    <div style={{flexShrink:0, borderTop:`1px solid ${sidebarBorder}`, padding:'10px 12px', position:'relative'}}>
+                        {profileOpen && (
+                            <div onClick={e => e.stopPropagation()} style={{
+                                position:'absolute', bottom:'100%', left:12, right:12, marginBottom:6,
+                                background:sidebarBg, borderRadius:12, boxShadow:'0 -4px 24px rgba(0,0,0,0.15)',
+                                border:`1px solid ${sidebarBorder}`, overflow:'hidden', zIndex:50,
+                            }}>
+                                {allowedPages.includes('staff-management') && (
+                                <button onClick={handleSettings} style={{width:'100%',textAlign:'left',display:'flex',alignItems:'center',gap:10,padding:'10px 14px',background:'none',border:'none',cursor:'pointer',fontSize:13,color:sidebarText}}>
+                                    <span style={{fontSize:15}}>⚙️</span>
+                                    <span style={{fontWeight:500}}>Settings</span>
+                                </button>
+                                )}
+                                <div style={{height:1, background:sidebarBorder, margin:'0 12px'}}/>
+                                <button onClick={handleSignOut} style={{width:'100%',textAlign:'left',display:'flex',alignItems:'center',gap:10,padding:'10px 14px',background:'none',border:'none',cursor:'pointer',fontSize:13,color:'#DC2626',fontWeight:600}}>
+                                    <span style={{fontSize:15}}>↪️</span>
+                                    <span>Sign Out</span>
+                                </button>
+                            </div>
+                        )}
+                        <button onClick={e => { e.stopPropagation(); setProfileOpen(o => !o); }}
+                            style={{
+                                width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 12px',
+                                borderRadius:8, border:'none', cursor:'pointer',
+                                background: darkMode ? '#374151' : '#FFF7ED',
+                            }}>
+                            <div style={{width:36,height:36,borderRadius:'50%',background:'#F97316',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:700,fontSize:13,flexShrink:0}}>
+                                {initials}
+                            </div>
+                            <div style={{flex:1, minWidth:0, textAlign:'left'}}>
+                                <p style={{fontSize:13,fontWeight:600,color:logoText,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{displayName}</p>
+                                <p style={{fontSize:11,color:logoSub,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{deptLabel}</p>
+                                {(()=>{
+                                    const rb = getRoleBadgeInfo(currentUser);
+                                    if (!rb) return null;
+                                    return <span style={{display:'inline-block',fontSize:'9px',fontWeight:700,padding:'1px 7px',borderRadius:10,background:rb.bg,color:rb.color,border:`1px solid ${rb.border}`,marginTop:3,letterSpacing:'0.03em'}}>{rb.label}</span>;
+                                })()}
+                            </div>
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{flexShrink:0,transform:profileOpen?'rotate(0deg)':'rotate(180deg)',transition:'transform 0.2s'}}>
+                                <path d="M2 4l4 4 4-4" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                        </button>
+                    </div>
+                </aside>
+            );
+        }
+
+        // Signed-Out / Login Screen
+        function SignedOutScreen({ onSignBackIn, onEmailLogin, authError }) {
+
+            return (
+                <div style={{minHeight: '100vh', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#F0F2F8'}}>
+                    <div style={{background: 'white', borderRadius: 20, padding: '40px 36px', textAlign: 'center', boxShadow: '0 8px 32px rgba(99,102,241,0.12)', border: '2px solid #E0E7FF', maxWidth: 400, width: '90%'}}>
+
+                        {/* Logo / avatar */}
+                        <div style={{width: 60, height: 60, borderRadius: '50%', background: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, margin: '0 auto 16px'}}>👤</div>
+                        <h2 style={{fontSize: 20, fontWeight: 800, color: '#0F172A', margin: '0 0 6px'}}>You've been signed out</h2>
+                        <p style={{fontSize: 13, color: '#64748B', margin: '0 0 24px', lineHeight: 1.5}}>
+                            Your app session has ended. Your Microsoft Entra account remains active.
+                        </p>
+
+                        {/* Error banner */}
+                        {authError && (
+                            <div style={{background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '9px 13px', marginBottom: 18, fontSize: 13, color: '#991B1B', textAlign: 'left'}}>
+                                ⚠️ {authError}
+                            </div>
+                        )}
+
+                        {/* Microsoft sign-in */}
+                        <button
+                            onClick={onSignBackIn}
+                            style={{background: 'linear-gradient(135deg,#6366F1,#8B5CF6)', color: 'white', border: 'none', borderRadius: 10, padding: '12px 0', fontSize: 14, fontWeight: 700, cursor: 'pointer', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 12}}
+                        >
+                            <svg width="17" height="17" viewBox="0 0 21 21" fill="none">
+                                <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
+                                <rect x="11" y="1" width="9" height="9" fill="#7FBA00"/>
+                                <rect x="1" y="11" width="9" height="9" fill="#00A4EF"/>
+                                <rect x="11" y="11" width="9" height="9" fill="#FFB900"/>
+                            </svg>
+                            Sign in with Microsoft
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        // ── InsightDrawer — professional slide-in insight panel ──────────────────
+        function InsightDrawer({ data, onClose }) {
+            const dm = useDark();
+            const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E2E8F2';
+            const textP   = dm ? '#f0f4ff' : '#0F172A';
+            const textM   = dm ? '#8fa4cc' : '#64748B';
+            React.useEffect(() => {
+                const fn = e => { if (e.key === 'Escape') onClose(); };
+                document.addEventListener('keydown', fn);
+                return () => document.removeEventListener('keydown', fn);
+            }, []);
+            if (!data) return null;
+            const TS = {
+                good: { bg: dm?'rgba(16,185,129,0.08)':'#F0FDF4', b: dm?'rgba(16,185,129,0.2)':'#BBF7D0' },
+                warn: { bg: dm?'rgba(245,158,11,0.08)':'#FFFBEB', b: dm?'rgba(245,158,11,0.2)':'#FDE68A' },
+                bad:  { bg: dm?'rgba(239,68,68,0.08)':'#FFF5F5',  b: dm?'rgba(239,68,68,0.2)':'#FCA5A5'  },
+                info: { bg: dm?'rgba(99,102,241,0.08)':'#F5F3FF',  b: dm?'rgba(99,102,241,0.2)':'#DDD6FE' },
+            };
+            return (
+                <div style={{position:'fixed',inset:0,zIndex:2000,display:'flex'}}>
+                    <div style={{flex:1,background:'rgba(0,0,0,0.45)',cursor:'pointer',backdropFilter:'blur(2px)'}} onClick={onClose}/>
+                    <div style={{width:'500px',maxWidth:'96vw',background:dm?'linear-gradient(180deg,rgba(6,12,32,0.99) 0%,rgba(3,7,20,1) 100%)':'#fff',overflowY:'auto',display:'flex',flexDirection:'column',boxShadow:dm?'-12px 0 64px rgba(0,0,0,0.85)':'-4px 0 40px rgba(15,23,42,0.14)',borderLeft:`1px solid ${borderC}`}}>
+                        {/* Header */}
+                        <div style={{padding:'20px 24px 16px',borderBottom:`1px solid ${borderC}`,position:'sticky',top:0,background:dm?'rgba(6,12,32,0.98)':'rgba(255,255,255,0.98)',zIndex:1,backdropFilter:'blur(8px)',display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:'12px'}}>
+                            <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
+                                <div style={{width:44,height:44,borderRadius:'12px',background:data.iconBg||(dm?'rgba(99,102,241,0.15)':'#EEF2FF'),display:'flex',alignItems:'center',justifyContent:'center',fontSize:'22px',flexShrink:0}}>{data.icon}</div>
+                                <div>
+                                    <h2 style={{fontSize:'16px',fontWeight:'800',color:textP,margin:'0 0 2px'}}>{data.title}</h2>
+                                    <p style={{fontSize:'11px',color:textM,margin:0}}>{data.subtitle}</p>
+                                </div>
+                            </div>
+                            <button onClick={onClose} style={{background:dm?'rgba(255,255,255,0.06)':'#F3F4F6',border:'none',borderRadius:'8px',width:'30px',height:'30px',cursor:'pointer',color:textM,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:'16px',lineHeight:1}}>✕</button>
+                        </div>
+                        <div style={{padding:'20px 24px',flex:1}}>
+                            {/* KPI chips */}
+                            {data.metrics?.length > 0 && (
+                                <div style={{display:'grid',gridTemplateColumns:`repeat(${Math.min(data.metrics.length,3)},1fr)`,gap:'10px',marginBottom:'22px'}}>
+                                    {data.metrics.map((m,i) => (
+                                        <div key={i} style={{background:dm?'rgba(99,102,241,0.06)':'#F8FAFF',border:`1px solid ${borderC}`,borderRadius:'10px',padding:'14px 10px',textAlign:'center'}}>
+                                            <div style={{fontSize:'21px',fontWeight:'800',color:m.color||textP,lineHeight:1}}>{m.value}</div>
+                                            <div style={{fontSize:'10px',color:textM,marginTop:'4px',fontWeight:'600',textTransform:'uppercase',letterSpacing:'0.05em'}}>{m.label}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            {/* Business Insights */}
+                            {data.insights?.length > 0 && (
+                                <div style={{marginBottom:'22px'}}>
+                                    <p style={{fontSize:'10px',fontWeight:'700',color:dm?'#818cf8':'#4F46E5',textTransform:'uppercase',letterSpacing:'0.07em',margin:'0 0 10px'}}>💡 Business Insights</p>
+                                    <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
+                                        {data.insights.map((ins,i) => {
+                                            const s = TS[ins.type]||TS.info;
+                                            return (
+                                                <div key={i} style={{display:'flex',gap:'10px',alignItems:'flex-start',padding:'11px 13px',borderRadius:'9px',background:s.bg,border:`1px solid ${s.b}`}}>
+                                                    <span style={{fontSize:'15px',flexShrink:0,marginTop:'1px'}}>{ins.icon}</span>
+                                                    <div>
+                                                        {ins.title && <p style={{fontSize:'12px',fontWeight:'700',color:textP,margin:'0 0 2px'}}>{ins.title}</p>}
+                                                        <p style={{fontSize:'12px',color:dm?'#c0cfec':'#374151',margin:0,lineHeight:'1.55'}}>{ins.text}</p>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                            {/* Breakdown bars */}
+                            {data.breakdown?.length > 0 && (
+                                <div style={{marginBottom:'22px'}}>
+                                    <p style={{fontSize:'10px',fontWeight:'700',color:dm?'#818cf8':'#4F46E5',textTransform:'uppercase',letterSpacing:'0.07em',margin:'0 0 10px'}}>{data.breakdownTitle||'Breakdown'}</p>
+                                    <div style={{borderRadius:'10px',border:`1px solid ${borderC}`,overflow:'hidden'}}>
+                                        {data.breakdown.map((row,i) => (
+                                            <div key={i} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'9px 14px',background:i%2===0?(dm?'rgba(255,255,255,0.02)':'#fff'):(dm?'rgba(99,102,241,0.03)':'#FAFBFF'),borderBottom:i<data.breakdown.length-1?`1px solid ${borderC}`:'none'}}>
+                                                <div style={{display:'flex',alignItems:'center',gap:'8px',flex:1,minWidth:0}}>
+                                                    {row.dot && <span style={{width:'8px',height:'8px',borderRadius:'50%',background:row.dot,flexShrink:0,display:'inline-block'}}/>}
+                                                    <span style={{fontSize:'12px',fontWeight:'600',color:textP,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{row.label}</span>
+                                                </div>
+                                                <div style={{display:'flex',alignItems:'center',gap:'10px',flexShrink:0}}>
+                                                    {row.bar !== undefined && (
+                                                        <div style={{width:'70px',height:'5px',borderRadius:'3px',background:dm?'rgba(99,102,241,0.12)':'#E5E7EB'}}>
+                                                            <div style={{height:'100%',width:`${Math.min(row.bar,100)}%`,background:row.dot||'#6366F1',borderRadius:'3px'}}/>
+                                                        </div>
+                                                    )}
+                                                    <span style={{fontSize:'12px',fontWeight:'700',color:row.valueColor||textP,minWidth:'28px',textAlign:'right'}}>{row.value}</span>
+                                                    {row.sub && <span style={{fontSize:'10px',color:textM,minWidth:'38px'}}>{row.sub}</span>}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            {/* Ticket rows */}
+                            {data.rows?.length > 0 && (
+                                <div>
+                                    <p style={{fontSize:'10px',fontWeight:'700',color:dm?'#818cf8':'#4F46E5',textTransform:'uppercase',letterSpacing:'0.07em',margin:'0 0 10px',display:'flex',alignItems:'center',gap:'6px'}}>
+                                        {data.rowsTitle||'Tickets'}
+                                        <span style={{background:dm?'rgba(99,102,241,0.2)':'#EEF2FF',color:dm?'#818cf8':'#4F46E5',padding:'1px 8px',borderRadius:'20px',fontSize:'10px',fontWeight:'700',letterSpacing:0}}>{data.rows.length}</span>
+                                    </p>
+                                    <div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
+                                        {data.rows.slice(0,20).map((row,i) => (
+                                            <div key={i} style={{padding:'10px 12px',borderRadius:'8px',background:dm?'rgba(255,255,255,0.02)':'#F8FAFF',border:`1px solid ${borderC}`,display:'flex',alignItems:'flex-start',gap:'10px'}}>
+                                                <div style={{flex:1,minWidth:0}}>
+                                                    <p style={{fontSize:'12px',fontWeight:'600',color:textP,margin:'0 0 3px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{row.title}</p>
+                                                    <p style={{fontSize:'11px',color:textM,margin:0}}>{row.sub}</p>
+                                                </div>
+                                                {row.badge && <span style={{flexShrink:0,fontSize:'10px',fontWeight:'700',padding:'2px 8px',borderRadius:'20px',background:row.badgeBg||(dm?'rgba(99,102,241,0.15)':'#EEF2FF'),color:row.badgeColor||(dm?'#818cf8':'#4F46E5'),whiteSpace:'nowrap'}}>{row.badge}</span>}
+                                            </div>
+                                        ))}
+                                        {data.rows.length > 20 && <p style={{fontSize:'11px',color:textM,textAlign:'center',margin:'6px 0 0',padding:'8px',background:dm?'rgba(99,102,241,0.05)':'#F8FAFF',borderRadius:'8px'}}>+{data.rows.length-20} more not shown</p>}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Dashboard Page
+        function Dashboard() {
+            const dm = useDark();
+            const pageBg  = dm ? 'transparent' : '#F5F7FF';
+            const cardBg  = dm ? 'linear-gradient(155deg,rgba(17,30,58,0.97) 0%,rgba(8,16,36,0.99) 100%)' : 'white';
+            const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E2E8F2';
+            const textP   = dm ? '#f0f4ff' : '#0F172A';
+            const textM   = dm ? '#8fa4cc' : '#64748B';
+            const [tickets,       setTickets]       = React.useState([]);
+            const [staffCount,    setStaffCount]    = React.useState(0);
+            const [recentActivity,setRecentActivity]= React.useState([]);
+            const [loading,       setLoading]       = React.useState(true);
+            const statusCanvasRef   = React.useRef(null);
+            const categoryCanvasRef = React.useRef(null);
+            const statusChartRef    = React.useRef(null);
+            const categoryChartRef  = React.useRef(null);
+
+            // ── Fetch data ────────────────────────────────────────
+            React.useEffect(() => {
+                const su  = getSessionUser();
+                const tsp = getTicketScopeParams(su);
+                const uqp = getUserQueryParams(su);
+                const sp  = getActivityScopeParams(su);
+                const tp  = new URLSearchParams({ all:'1', limit:'500' });
+                if (tsp.scope)  tp.set('scope',  tsp.scope);
+                if (tsp.userId) tp.set('userId', String(tsp.userId));
+                if (tsp.deptId) tp.set('deptId', String(tsp.deptId));
+
+                Promise.all([
+                    fetch(`${HRMS_API}/tickets?${tp}`).then(r=>r.ok?r.json():{tickets:[]}),
+                    fetch(`${HRMS_API}/users?status=active&limit=200${uqp}`).then(r=>r.ok?r.json():{users:[]}),
+                    fetch(`${HRMS_API}/tickets/activity?limit=5${sp}`).then(r=>r.ok?r.json():{activity:[]}),
+                ]).then(([td, ud, ad]) => {
+                    setTickets(td.tickets || []);
+                    setStaffCount((ud.users || []).length);
+                    setRecentActivity(ad.activity || []);
+                }).catch(()=>{}).finally(()=>setLoading(false));
+            }, []);
+
+            // ── Compute stats ─────────────────────────────────────
+            const total    = tickets.length;
+            const open     = tickets.filter(t=>['new','assigned'].includes(t.status)).length;
+            const inProg   = tickets.filter(t=>['in_progress','waiting','pending_approval'].includes(t.status)).length;
+            const resolved = tickets.filter(t=>['resolved','closed'].includes(t.status)).length;
+            const escalated= tickets.filter(t=>t.isEscalated||t.escalated||t.status==='escalated').length;
+            const urgent   = tickets.filter(t=>['critical','urgent'].includes((t.priorityLabel||t.priority||'').toLowerCase())).length;
+            const now      = new Date();
+            const overdue  = tickets.filter(t=>!['resolved','closed'].includes(t.status)&&t.dueAt&&new Date(t.dueAt)<now).length;
+
+            // SLA: resolved tickets that were resolved before expected_completion / due_at
+            const resTkts = tickets.filter(t=>['resolved','closed'].includes(t.status));
+            const slaOk   = resTkts.filter(t=>{
+                const due = t.dueAt||t.expectedCompletion; if(!due) return true;
+                const fin = t.updatedAt||t.resolvedAt; if(!fin) return true;
+                return new Date(fin)<=new Date(due);
+            }).length;
+            const slaFailed = resTkts.length - slaOk;
+            // Include active overdue tickets as SLA breaches (they missed their deadline)
+            const slaTotalEval = resTkts.length + overdue;
+            const slaPct  = slaTotalEval>0 ? Math.round(slaOk/slaTotalEval*100) : 100;
+            const r = 54, circ = 2*Math.PI*r;
+
+            // ── Charts (rebuild when data changes) ────────────────
+            React.useEffect(() => {
+                if (!tickets.length) return;
+                let raf1, raf2;
+
+                // Status doughnut
+                const statusGroups = { Open:open, 'In Progress':inProg, Resolved:resolved, Urgent:urgent, Other: Math.max(0,total-open-inProg-resolved-urgent) };
+                const sLabels = Object.keys(statusGroups).filter(k=>statusGroups[k]>0);
+                const sData   = sLabels.map(k=>statusGroups[k]);
+                raf1 = requestAnimationFrame(()=>{
+                    if (!statusCanvasRef.current) return;
+                    if (statusChartRef.current) { try{statusChartRef.current.destroy();}catch(_){} }
+                    statusChartRef.current = new Chart(statusCanvasRef.current, {
+                        type: 'doughnut',
+                        data: { labels: sLabels, datasets:[{ data:sData, backgroundColor:['#0EA5E9','#F59E0B','#10B981','#EF4444','#9CA3AF'], borderColor: dm ? '#091425' : '#fff', borderWidth:2 }] },
+                        options: { responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{size:11} } } } }
+                    });
+                });
+
+                // Category bar
+                const catMap = {};
+                tickets.forEach(t=>{ const c=t.categoryLabel||t.category||'Other'; catMap[c]=(catMap[c]||0)+1; });
+                const catEntries = Object.entries(catMap).sort((a,b)=>b[1]-a[1]).slice(0,8);
+                raf2 = requestAnimationFrame(()=>{
+                    if (!categoryCanvasRef.current) return;
+                    if (categoryChartRef.current) { try{categoryChartRef.current.destroy();}catch(_){} }
+                    categoryChartRef.current = new Chart(categoryCanvasRef.current, {
+                        type: 'bar',
+                        data: { labels:catEntries.map(e=>e[0]), datasets:[{ label:'Tickets', data:catEntries.map(e=>e[1]), backgroundColor:'#6366F1', borderRadius:4 }] },
+                        options: { indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ x:{ ticks:{ stepSize:1, precision:0, color: dm ? '#8fa4cc' : '#64748B' }, grid:{ color: dm ? 'rgba(99,102,241,0.08)' : '#F3F4F6' } }, y:{ grid:{ color: dm ? 'rgba(99,102,241,0.08)' : '#F3F4F6' }, ticks:{ color: dm ? '#8fa4cc' : '#64748B' } } } }
+                    });
+                });
+                return ()=>{ cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); };
+            }, [tickets]);
+
+            const [insight, setInsight] = React.useState(null);
+
+            const buildInsight = (type) => {
+                const now2 = new Date();
+                const getStatus   = t => (t.status||t.status_id||'');
+                const getCategory = t => (t.categoryLabel||t.category||t.category_id||'Other');
+                const getAssignee = t => (t.assigneeName||t.assignedToName||'Unassigned');
+                const getPriority = t => (t.priorityLabel||t.priority||t.priority_id||'Low');
+                const isResolved  = t => ['resolved','closed'].includes(getStatus(t));
+                const fmtAge = t => { const d=Math.floor((now2-new Date(t.createdAt||t.date||now2))/86400000); return d===0?'Today':d===1?'Yesterday':`${d}d ago`; };
+                const pBadge = p => { const l=p.toLowerCase(); return l==='critical'||l==='urgent'?{bg:dm?'rgba(239,68,68,0.15)':'#FEF2F2',color:dm?'#fca5a5':'#DC2626'}:l==='high'?{bg:dm?'rgba(249,115,22,0.15)':'#FFF7ED',color:dm?'#fdba74':'#EA580C'}:l==='medium'?{bg:dm?'rgba(234,179,8,0.15)':'#FEFCE8',color:dm?'#fcd34d':'#A16207'}:{bg:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:dm?'#818cf8':'#4338CA'}; };
+                const tkRow = t => { const p=getPriority(t); const pb=pBadge(p); return {title:t.title||t.subtitle||t.title_type||'Untitled',sub:`${getAssignee(t)} · ${getCategory(t)} · ${fmtAge(t)}`,badge:p,badgeBg:pb.bg,badgeColor:pb.color}; };
+
+                if (type==='total') {
+                    const catMap={};tickets.forEach(t=>{const c=getCategory(t);catMap[c]=(catMap[c]||0)+1;});
+                    const topCat=Object.entries(catMap).sort((a,b)=>b[1]-a[1])[0];
+                    const openPct=total?Math.round((open/total)*100):0; const resPct2=total?Math.round((resolved/total)*100):0;
+                    return { title:'All Tickets', subtitle:`Complete overview of ${total} tickets in the system`, icon:'📋', iconBg:dm?'rgba(99,102,241,0.15)':'#EEF2FF',
+                        metrics:[{label:'Total',value:total,color:dm?'#818cf8':'#4F46E5'},{label:'Open',value:open,color:'#F97316'},{label:'Resolved',value:resolved,color:'#10B981'}],
+                        insights:[
+                            {type:resPct2>=70?'good':'warn',icon:resPct2>=70?'✅':'⚠️',title:'Resolution Health',text:`${resPct2}% of all tickets have been resolved. ${resPct2>=70?'Team throughput is strong and demand is being managed well.':resPct2>=50?'Resolution rate is moderate — review workload allocation across staff.':'Resolution rate is below optimal — recommend triaging the backlog urgently.'}`},
+                            {type:openPct>50?'bad':openPct>25?'warn':'good',icon:openPct>50?'🔴':openPct>25?'🟡':'🟢',title:'Open Backlog Health',text:`${openPct}% of tickets are currently open (${open} tickets). ${openPct>50?'Backlog is growing — staff capacity may need to be reviewed or redistributed.':openPct>25?'Moderate open load — monitor closely to prevent accumulation.':'Healthy balance between open and resolved work.'}`},
+                            escalated>0?{type:'warn',icon:'⬆️',title:'Escalations Require Attention',text:`${escalated} ticket${escalated!==1?'s have':' has'} been escalated. Recurring escalations in the same category may signal a systemic workflow issue worth investigating.`}:{type:'good',icon:'🌟',title:'Zero Escalations',text:'No tickets have been escalated — this reflects strong first-contact resolution quality and effective service delivery.'},
+                            topCat?{type:'info',icon:'📌',title:'Highest Volume Category',text:`"${topCat[0].replace(/_/g,' ')}" accounts for ${topCat[1]} ticket${topCat[1]!==1?'s':''} (${Math.round((topCat[1]/total)*100)}% of total). Ensure adequate resource allocation and process documentation for this service area.`}:null,
+                        ].filter(Boolean),
+                        breakdown:Object.entries(catMap).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([label,value])=>({label,value,bar:Math.round((value/total)*100),sub:`${Math.round((value/total)*100)}%`})),
+                        breakdownTitle:'Volume by Category',
+                    };
+                }
+                if (type==='open') {
+                    const openTkts=tickets.filter(t=>['new','assigned'].includes(getStatus(t))).sort((a,b)=>new Date(a.createdAt||0)-new Date(b.createdAt||0));
+                    const unassigned=openTkts.filter(t=>!t.assigneeName&&!t.assignedToName).length;
+                    const byA={};openTkts.forEach(t=>{const a=getAssignee(t);byA[a]=(byA[a]||0)+1;});
+                    const oldest=openTkts[0]; const oldDays=oldest?Math.floor((now2-new Date(oldest.createdAt||0))/86400000):0;
+                    const topHolder=Object.entries(byA).sort((a,b)=>b[1]-a[1])[0];
+                    return { title:'Open Tickets', subtitle:`${open} tickets awaiting action`, icon:'⏱️', iconBg:dm?'rgba(14,165,233,0.12)':'#E0F2FE',
+                        metrics:[{label:'New',value:openTkts.filter(t=>getStatus(t)==='new').length,color:'#06B6D4'},{label:'Assigned',value:openTkts.filter(t=>getStatus(t)==='assigned').length,color:'#3B82F6'},{label:'Unassigned',value:unassigned,color:'#EF4444'}],
+                        insights:[
+                            unassigned>0?{type:'bad',icon:'🚨',title:`${unassigned} Unassigned Ticket${unassigned!==1?'s':''}`,text:`${unassigned} open ticket${unassigned!==1?'s have':' has'} no assignee. Unassigned tickets risk being overlooked — assign them immediately to prevent SLA breaches.`}:{type:'good',icon:'✅',title:'All Open Tickets Assigned',text:'Every open ticket has an assignee — excellent queue management and accountability.'},
+                            oldest?{type:oldDays>7?'bad':oldDays>3?'warn':'info',icon:'⏳',title:'Oldest Open Ticket',text:`"${oldest.subtitle||oldest.title_type||'Untitled'}" has been open for ${oldDays} day${oldDays!==1?'s':''}. ${oldDays>7?'This warrants immediate review and escalation.':oldDays>3?'Consider prioritising resolution to prevent SLA breach.':'Within normal response window.'}`}:null,
+                            topHolder?{type:'info',icon:'👤',title:'Queue Distribution',text:`Open tickets span ${Object.keys(byA).length} staff. Top holder: ${topHolder[0]} (${topHolder[1]} ticket${topHolder[1]!==1?'s':''}). ${unassigned>0?`${unassigned} still awaiting assignment.`:''}`}:null,
+                        ].filter(Boolean),
+                        rows:openTkts.map(tkRow), rowsTitle:'Open Tickets (oldest first)',
+                    };
+                }
+                if (type==='inprogress') {
+                    const inpTkts=tickets.filter(t=>['in_progress','waiting','pending_approval'].includes(getStatus(t)));
+                    const byA={};inpTkts.forEach(t=>{const a=getAssignee(t);byA[a]=(byA[a]||0)+1;});
+                    const waiting=inpTkts.filter(t=>getStatus(t)==='waiting').length;
+                    const pendApp=inpTkts.filter(t=>getStatus(t)==='pending_approval').length;
+                    return { title:'In Progress', subtitle:`${inProg} tickets actively being worked`, icon:'⚙️', iconBg:dm?'rgba(245,158,11,0.12)':'#FFFBEB',
+                        metrics:[{label:'In Progress',value:inpTkts.filter(t=>getStatus(t)==='in_progress').length,color:'#F59E0B'},{label:'Waiting',value:waiting,color:'#8B5CF6'},{label:'Pending Approval',value:pendApp,color:'#EC4899'}],
+                        insights:[
+                            waiting>0?{type:'warn',icon:'⏸️',title:`${waiting} Blocked on External Input`,text:`${waiting} ticket${waiting!==1?'s are':' is'} in "Waiting" status. Follow up with clients or third parties to unblock these and prevent SLA impact.`}:{type:'good',icon:'✅',title:'No Blocked Tickets',text:'No tickets are in "Waiting" status — all active work is progressing without external blockers.'},
+                            pendApp>0?{type:'warn',icon:'📋',title:`${pendApp} Awaiting Approval`,text:`${pendApp} ticket${pendApp!==1?'s require':' requires'} approval to proceed. Ensure approvers have been notified — approval delays directly extend resolution time.`}:null,
+                            Object.keys(byA).length>0?{type:'info',icon:'👥',title:'Active Team Workload',text:`Active work is distributed across ${Object.keys(byA).length} staff member${Object.keys(byA).length!==1?'s':''}. ${Object.entries(byA).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([n,c])=>`${n}: ${c}`).join(' · ')}.`}:null,
+                        ].filter(Boolean),
+                        rows:inpTkts.map(t=>{const s=getStatus(t);const SC={in_progress:{bg:dm?'rgba(245,158,11,0.15)':'#FFFBEB',c:dm?'#fcd34d':'#D97706'},waiting:{bg:dm?'rgba(139,92,246,0.15)':'#F5F3FF',c:dm?'#c4b5fd':'#7C3AED'},pending_approval:{bg:dm?'rgba(236,72,153,0.15)':'#FDF2F8',c:dm?'#f9a8d4':'#DB2777'}};const sc=SC[s]||SC.in_progress;return {title:t.title||t.subtitle||t.title_type||'Untitled',sub:`${getAssignee(t)} · ${fmtAge(t)}`,badge:s.replace(/_/g,' '),badgeBg:sc.bg,badgeColor:sc.c};}),
+                        rowsTitle:'In-Progress Tickets',
+                    };
+                }
+                if (type==='resolved') {
+                    const resTkts2=tickets.filter(isResolved);
+                    const slaOkL=resTkts2.filter(t=>!(t.slaBreached||t.sla_breached)).length;
+                    const byA={};resTkts2.forEach(t=>{const a=getAssignee(t);byA[a]=(byA[a]||0)+1;});
+                    const topRes=Object.entries(byA).sort((a,b)=>b[1]-a[1])[0];
+                    const slaPctL=resTkts2.length>0?Math.round((slaOkL/resTkts2.length)*100):0;
+                    return { title:'Resolved Tickets', subtitle:`${resolved} tickets successfully closed`, icon:'✅', iconBg:dm?'rgba(16,185,129,0.12)':'#ECFDF5',
+                        metrics:[{label:'Resolved',value:resTkts2.filter(t=>getStatus(t)==='resolved').length,color:'#10B981'},{label:'Closed',value:resTkts2.filter(t=>getStatus(t)==='closed').length,color:'#6366F1'},{label:'SLA Met',value:`${slaPctL}%`,color:'#10B981'}],
+                        insights:[
+                            {type:slaPctL>=80?'good':'warn',icon:'⏱️',title:'SLA Performance on Resolved',text:`${slaOkL} of ${resTkts2.length} resolved tickets met SLA requirements (${slaPctL}%). ${resTkts2.length-slaOkL>0?`${resTkts2.length-slaOkL} were closed late — review those cases for process improvements.`:'All resolutions were on time — excellent.'}`},
+                            topRes?{type:'good',icon:'🏆',title:'Top Resolver',text:`${topRes[0]} has resolved the most tickets (${topRes[1]}). Recognising high performers reinforces service excellence and motivates the broader team.`}:null,
+                            {type:'info',icon:'📊',title:'Resolution Rate',text:`${resRate}% of all tickets have been resolved. ${resRate>=80?'Excellent throughput — team capacity is well matched to demand.':resRate>=60?'Good throughput — check if any categories are creating resolution bottlenecks.':'Consider reviewing workflow — a lower resolution rate may indicate process or capacity gaps.'}`},
+                        ].filter(Boolean),
+                        breakdown:Object.entries(byA).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([label,value])=>({label,value,bar:resTkts2.length?Math.round((value/resTkts2.length)*100):0,sub:`${resTkts2.length?Math.round((value/resTkts2.length)*100):0}%`})),
+                        breakdownTitle:'Resolved by Staff Member',
+                    };
+                }
+                if (type==='escalated') {
+                    const escTkts=tickets.filter(t=>t.isEscalated||t.escalated||t.status==='escalated');
+                    const byCat={};escTkts.forEach(t=>{const c=getCategory(t);byCat[c]=(byCat[c]||0)+1;});
+                    const stillOpen=escTkts.filter(t=>!isResolved(t)).length;
+                    return { title:'Escalated Tickets', subtitle:`${escalated} tickets flagged as escalated`, icon:'⬆️', iconBg:dm?'rgba(124,58,237,0.12)':'#F5F3FF',
+                        metrics:[{label:'Escalated',value:escalated,color:'#7C3AED'},{label:'% of Total',value:`${total?Math.round((escalated/total)*100):0}%`,color:'#8B5CF6'},{label:'Still Open',value:stillOpen,color:'#EF4444'}],
+                        insights:[
+                            escalated===0?{type:'good',icon:'🌟',title:'Zero Escalations',text:'No escalated tickets — this reflects strong first-contact resolution, effective staff training, and proactive client communication.'}:{type:'warn',icon:'⚠️',title:'Escalation Pattern',text:`Escalations are concentrated in: ${Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([c,n])=>`${c.replace(/_/g,' ')} (${n})`).join(', ')}. Address these categories to reduce future escalation rates.`},
+                            stillOpen>0?{type:'bad',icon:'🚨',title:'Open Escalations Need Immediate Action',text:`${stillOpen} escalated ticket${stillOpen!==1?'s remain':' remains'} unresolved. Escalated open tickets carry the highest risk to client satisfaction and SLA compliance.`}:null,
+                        ].filter(Boolean),
+                        rows:escTkts.map(tkRow), rowsTitle:'Escalated Tickets',
+                    };
+                }
+                if (type==='overdue') {
+                    const ovdTkts=tickets.filter(t=>!isResolved(t)&&t.dueAt&&new Date(t.dueAt)<now2).sort((a,b)=>new Date(a.dueAt)-new Date(b.dueAt));
+                    const fmtOvd=t=>{const d=Math.floor((now2-new Date(t.dueAt))/86400000);return `${d}d overdue`;};
+                    const critOvd=ovdTkts.filter(t=>['critical','urgent'].includes(getPriority(t).toLowerCase())).length;
+                    const potentialSla=Math.round((slaOk+overdue)/Math.max(slaTotalEval,1)*100);
+                    return { title:'Overdue Tickets', subtitle:`${overdue} tickets past their due date`, icon:'⚠️', iconBg:dm?'rgba(239,68,68,0.12)':'#FEF2F2',
+                        metrics:[{label:'Overdue',value:overdue,color:'#EF4444'},{label:'% of Open',value:`${open>0?Math.round((overdue/open)*100):0}%`,color:'#F97316'},{label:'Critical',value:critOvd,color:'#DC2626'}],
+                        insights:[
+                            overdue===0?{type:'good',icon:'🎯',title:'No Overdue Tickets',text:'All active tickets are within their due dates — excellent deadline management and client commitment.'}:{type:'bad',icon:'🚨',title:'Immediate Action Required',text:`${overdue} ticket${overdue!==1?'s are':' is'} past due. Overdue tickets risk SLA breaches, client dissatisfaction, and potential compliance issues. Prioritise resolution today.`},
+                            critOvd>0?{type:'bad',icon:'🔴',title:`${critOvd} Critical/Urgent Overdue`,text:`${critOvd} overdue ticket${critOvd!==1?'s are':' is'} Critical or Urgent priority. These represent the highest business risk and should be escalated and resolved immediately.`}:null,
+                            overdue>0?{type:'warn',icon:'📉',title:'SLA Recovery Opportunity',text:`Resolving all ${overdue} overdue tickets would recover your SLA rate from ${slaPct}% to a potential ${potentialSla}% — a ${potentialSla-slaPct} point improvement.`}:null,
+                        ].filter(Boolean),
+                        rows:ovdTkts.map(t=>{const p=getPriority(t);const pb=pBadge(p);return{title:t.subtitle||t.title_type||'Untitled',sub:`${getAssignee(t)} · ${fmtOvd(t)} · ${getCategory(t)}`,badge:p,badgeBg:pb.bg,badgeColor:pb.color};}),
+                        rowsTitle:'Overdue Tickets (most overdue first)',
+                    };
+                }
+                if (type==='urgent') {
+                    const urgTkts=tickets.filter(t=>['critical','urgent'].includes(getPriority(t).toLowerCase()));
+                    const openUrg=urgTkts.filter(t=>!isResolved(t));
+                    return { title:'Urgent & Critical Tickets', subtitle:`${urgent} high-priority tickets`, icon:'🔴', iconBg:dm?'rgba(220,38,38,0.12)':'#FFF1F2',
+                        metrics:[{label:'Critical/Urgent',value:urgent,color:'#DC2626'},{label:'Still Open',value:openUrg.length,color:'#EF4444'},{label:'Resolved',value:urgTkts.length-openUrg.length,color:'#10B981'}],
+                        insights:[
+                            urgent===0?{type:'good',icon:'✅',title:'No Critical Tickets',text:'No critical or urgent tickets — excellent risk management and proactive service delivery.'}:
+                            openUrg.length>0?{type:'bad',icon:'🚨',title:`${openUrg.length} Critical Ticket${openUrg.length!==1?'s':''} Unresolved`,text:`${openUrg.length} open critical/urgent ticket${openUrg.length!==1?'s require':' requires'} immediate resolution. Delays in critical tickets can cause significant service disruption and client escalations.`}:
+                            {type:'good',icon:'✅',title:'All Critical Tickets Resolved',text:`All ${urgent} critical/urgent ticket${urgent!==1?'s have':' has'} been resolved — excellent responsiveness to high-priority issues.`},
+                            urgent>0&&total>0?{type:Math.round((urgent/total)*100)>20?'bad':'info',icon:'📊',title:'Priority Distribution Risk',text:`Critical/Urgent tickets represent ${Math.round((urgent/total)*100)}% of all tickets. ${Math.round((urgent/total)*100)>20?'A high proportion of critical tickets may indicate systemic service issues — investigate root causes and consider preventative measures.':'This proportion is within a manageable range.'}`}:null,
+                        ].filter(Boolean),
+                        rows:urgTkts.sort((a,b)=>isResolved(a)?1:-1).map(t=>{const s=getStatus(t);const res=isResolved(t);return{title:t.subtitle||t.title_type||'Untitled',sub:`${getAssignee(t)} · ${getCategory(t)} · ${fmtAge(t)}`,badge:s.replace(/_/g,' '),badgeBg:res?(dm?'rgba(16,185,129,0.15)':'#ECFDF5'):(dm?'rgba(239,68,68,0.15)':'#FEF2F2'),badgeColor:res?'#10B981':'#DC2626'};}),
+                        rowsTitle:'Critical & Urgent Tickets',
+                    };
+                }
+                if (type==='status-chart') {
+                    const sMap={};tickets.forEach(t=>{const s=getStatus(t);sMap[s]=(sMap[s]||0)+1;});
+                    const SC2={new:'#06B6D4',assigned:'#3B82F6',in_progress:'#F59E0B',waiting:'#8B5CF6',pending_approval:'#EC4899',resolved:'#10B981',closed:'#475569',escalated:'#7C3AED'};
+                    return { title:'Status Distribution', subtitle:'Full pipeline breakdown by current status', icon:'📊', iconBg:dm?'rgba(99,102,241,0.15)':'#EEF2FF',
+                        metrics:[{label:'Total Tickets',value:total,color:dm?'#818cf8':'#4F46E5'},{label:'Active',value:open+inProg,color:'#F59E0B'},{label:'Completed',value:resolved,color:'#10B981'}],
+                        insights:[
+                            {type:'info',icon:'📈',title:'Pipeline Health',text:`${open+inProg} tickets are actively in the pipeline (${total?Math.round(((open+inProg)/total)*100):0}% of total). ${resolved} have been completed and ${overdue} are past due.`},
+                            inProg>open?{type:'good',icon:'⚙️',title:'Strong Throughput Velocity',text:'More tickets are in progress than waiting in queue — the team has excellent throughput and is actively servicing demand.'}:open>inProg*2?{type:'warn',icon:'⏸️',title:'Potential Queue Bottleneck',text:`${open} tickets are queued as "Open" versus only ${inProg} in progress. Consider reviewing team capacity or ticket assignment processes to prevent backlog growth.`}:{type:'info',icon:'⚖️',title:'Balanced Pipeline',text:'Open and in-progress tickets are in proportion — pipeline flow appears healthy with no major bottlenecks.'},
+                        ],
+                        breakdown:Object.entries(sMap).sort((a,b)=>b[1]-a[1]).map(([label,value])=>({label:label.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()),value,dot:SC2[label]||'#6366F1',bar:Math.round((value/Math.max(total,1))*100),sub:`${Math.round((value/Math.max(total,1))*100)}%`})),
+                        breakdownTitle:'Status Breakdown',
+                    };
+                }
+                if (type==='category-chart') {
+                    const catMap={};tickets.forEach(t=>{const c=getCategory(t);catMap[c]=(catMap[c]||0)+1;});
+                    const catE=Object.entries(catMap).sort((a,b)=>b[1]-a[1]);
+                    const openByCat={};tickets.filter(t=>!isResolved(t)).forEach(t=>{const c=getCategory(t);openByCat[c]=(openByCat[c]||0)+1;});
+                    const top=catE[0];
+                    const top2vol=catE.slice(0,2).reduce((s,[,v])=>s+v,0);
+                    return { title:'Category Breakdown', subtitle:'Ticket volume and open load per service category', icon:'📑', iconBg:dm?'rgba(99,102,241,0.15)':'#EEF2FF',
+                        metrics:[{label:'Categories',value:catE.length,color:dm?'#818cf8':'#4F46E5'},{label:'Top Volume',value:top?top[1]:0,color:'#F97316'},{label:'Open in Top',value:top?openByCat[top[0]]||0:0,color:'#EF4444'}],
+                        insights:[
+                            top?{type:'info',icon:'📌',title:`"${top[0].replace(/_/g,' ')}" Leads Volume`,text:`This category accounts for ${top[1]} ticket${top[1]!==1?'s':''} (${Math.round((top[1]/total)*100)}% of total). ${openByCat[top[0]]>0?`${openByCat[top[0]]} are still open.`:''} Ensure adequate resources and documented processes are in place.`}:null,
+                            catE.length>1?{type:top2vol/total>0.7?'warn':'info',icon:'⚖️',title:'Category Concentration',text:top2vol/total>0.7?`Top 2 categories represent ${Math.round(top2vol/total*100)}% of all tickets. High concentration may indicate a gap in service coverage or a recurring systemic issue in these areas.`:`Ticket volume is distributed across ${catE.length} categories — healthy service breadth with no extreme concentration.`}:null,
+                        ].filter(Boolean),
+                        breakdown:catE.map(([label,value])=>({label:label.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()),value,bar:Math.round((value/total)*100),sub:`${openByCat[label]||0} open`})),
+                        breakdownTitle:'Volume by Category',
+                    };
+                }
+                if (type==='sla') {
+                    const potSla=Math.round((slaOk+overdue)/Math.max(slaTotalEval,1)*100);
+                    return { title:'SLA Compliance', subtitle:'Service Level Agreement performance analysis', icon:'⏱️', iconBg:dm?'rgba(16,185,129,0.12)':'#ECFDF5',
+                        metrics:[{label:'SLA Rate',value:`${slaPct}%`,color:slaPct>=80?'#10B981':slaPct>=50?'#F59E0B':'#EF4444'},{label:'On Time',value:slaOk,color:'#10B981'},{label:'Breached',value:slaFailed+overdue,color:'#EF4444'}],
+                        insights:[
+                            {type:slaPct>=90?'good':slaPct>=70?'warn':'bad',icon:slaPct>=90?'✅':slaPct>=70?'⚠️':'🚨',title:`SLA Compliance: ${slaPct}%`,text:slaPct>=90?'Excellent SLA performance — the team consistently meets service commitments, building strong client trust.':slaPct>=70?'SLA compliance is within an acceptable range but has clear room for improvement. Focus on reducing overdue tickets first.':'SLA compliance is below target. An immediate review of ticket resolution workflows, staff capacity, and escalation processes is recommended.'},
+                            overdue>0?{type:'bad',icon:'⏰',title:`${overdue} Active Overdue — Direct SLA Impact`,text:`${overdue} ticket${overdue!==1?'s are':' is'} currently open past their due date. Each is an active SLA breach. Resolving these would push SLA from ${slaPct}% to a potential ${potSla}%.`}:{type:'good',icon:'🎯',title:'No Active Overdue Tickets',text:'All active tickets are within their due dates — SLA pressure is only from historically late closures.'},
+                            slaFailed>0?{type:'warn',icon:'📋',title:`${slaFailed} Late Closures`,text:`${slaFailed} resolved ticket${slaFailed!==1?'s were':' was'} closed after their due date. Review these cases to identify patterns — common causes include under-staffing, unclear ownership, or complex category types.`}:null,
+                            {type:'info',icon:'🧮',title:'How SLA is Calculated',text:`SLA = on-time closures ÷ (all resolved + active overdue) = ${slaOk} ÷ ${slaTotalEval} = ${slaPct}%. Reducing active overdue to zero would result in ${Math.round(slaOk/Math.max(resTkts.length,1)*100)}% SLA.`},
+                        ].filter(Boolean),
+                        breakdown:[{label:'Resolved On Time',value:slaOk,dot:'#10B981',bar:slaTotalEval?Math.round((slaOk/slaTotalEval)*100):0,sub:'on time'},{label:'Resolved Late',value:slaFailed,dot:'#F97316',bar:slaTotalEval?Math.round((slaFailed/slaTotalEval)*100):0,sub:'late'},{label:'Active Overdue',value:overdue,dot:'#EF4444',bar:slaTotalEval?Math.round((overdue/slaTotalEval)*100):0,sub:'past due'},{label:'Active Staff',value:staffCount,dot:'#0EA5E9',bar:0,sub:'staff'}],
+                        breakdownTitle:'SLA Components',
+                    };
+                }
+                return null;
+            };
+
+            const statCards = [
+                { id:'total',      label:'Total Tickets',  value:total,     color:dm?'#818cf8':'#4F46E5', bg:'#EEF2FF', icon:'📋' },
+                { id:'open',       label:'Open',           value:open,      color:'#0EA5E9', bg:'#E0F2FE', icon:'⏱️' },
+                { id:'inprogress', label:'In Progress',    value:inProg,    color:'#F59E0B', bg:'#FFFBEB', icon:'⚙️' },
+                { id:'resolved',   label:'Resolved',       value:resolved,  color:'#10B981', bg:'#ECFDF5', icon:'✅' },
+                { id:'escalated',  label:'Escalated',      value:escalated, color:'#7C3AED', bg:'#F5F3FF', icon:'⬆️' },
+                { id:'overdue',    label:'Overdue',        value:overdue,   color:'#EF4444', bg:'#FEF2F2', icon:'⚠️' },
+                { id:'urgent',     label:'Urgent/Critical',value:urgent,    color:'#DC2626', bg:'#FFF1F2', icon:'🔴' },
+            ];
+
+            const card = {background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,
+                boxShadow: dm
+                    ? '0 1px 0 rgba(255,255,255,0.04) inset, 0 4px 6px rgba(0,0,0,0.4), 0 16px 48px rgba(0,0,0,0.6), 0 0 80px -30px rgba(99,102,241,0.10)'
+                    : '0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0  0 0 1px rgba(15,23,42,0.03)'};
+
+            return (<>
+                <main className="flex-1 overflow-auto" style={{background:pageBg}}>
+                    <div style={{maxWidth:'1400px',margin:'0 auto',padding:'24px'}}>
+
+                        {/* Header */}
+                        <div style={{marginBottom:'20px'}}>
+                            <h1 style={{fontSize:'20px',fontWeight:'700',color:textP,margin:0}}>Dashboard</h1>
+                            <p style={{fontSize:'13px',color:textM,margin:'3px 0 0'}}>Yahweh Property Care — Ticket Management</p>
+                        </div>
+
+                        {/* Stat cards */}
+                        <div className='yc-stat-cards' style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(155px,1fr))',gap:'12px',marginBottom:'20px'}}>
+                            {statCards.map((c,i)=>(
+                                <div key={i} onClick={()=>!loading&&setInsight(buildInsight(c.id))}
+                                    style={{...card,padding:'16px',cursor:loading?'default':'pointer',transition:'transform 0.12s,box-shadow 0.12s'}}
+                                    onMouseEnter={e=>{if(!loading){e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.boxShadow=dm?'0 8px 32px rgba(0,0,0,0.6),0 0 0 1px rgba(99,102,241,0.2)':'0 8px 24px rgba(99,102,241,0.12),0 0 0 1px rgba(99,102,241,0.1)'}}}
+                                    onMouseLeave={e=>{e.currentTarget.style.transform='';e.currentTarget.style.boxShadow=''}}>
+                                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+                                        <div>
+                                            <p style={{fontSize:'11px',color:textM,fontWeight:'600',margin:0,textTransform:'uppercase',letterSpacing:'0.04em'}}>{c.label}</p>
+                                            <p style={{fontSize:'28px',fontWeight:'800',color:c.color,margin:'6px 0 0',lineHeight:1}}>
+                                                {loading ? '—' : c.value}
+                                            </p>
+                                        </div>
+                                        <span style={{fontSize:'20px',background:c.bg,borderRadius:'8px',width:'36px',height:'36px',display:'flex',alignItems:'center',justifyContent:'center'}}>{c.icon}</span>
+                                    </div>
+                                    {!loading && <p style={{fontSize:'9px',color:dm?'rgba(99,102,241,0.5)':'rgba(99,102,241,0.4)',margin:'8px 0 0',fontWeight:'600',letterSpacing:'0.06em'}}>CLICK FOR INSIGHTS →</p>}
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Charts row */}
+                        <div className='yc-chart-grid-2' style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px',marginBottom:'16px'}}>
+                            <div onClick={()=>!loading&&setInsight(buildInsight('status-chart'))} style={{...card,padding:'20px',cursor:loading?'default':'pointer',transition:'transform 0.12s'}} onMouseEnter={e=>{if(!loading)e.currentTarget.style.transform='translateY(-2px)'}} onMouseLeave={e=>e.currentTarget.style.transform=''}>
+                                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'14px'}}>
+                                    <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,margin:0}}>📊 Status Distribution</h2>
+                                    {!loading && <span style={{fontSize:'9px',color:dm?'rgba(99,102,241,0.5)':'rgba(99,102,241,0.4)',fontWeight:'700',letterSpacing:'0.06em'}}>CLICK FOR INSIGHTS</span>}
+                                </div>
+                                <div style={{height:'220px',position:'relative'}}>
+                                    {loading ? <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:textM,fontSize:'13px'}}>Loading…</div>
+                                             : <canvas ref={statusCanvasRef}></canvas>}
+                                </div>
+                            </div>
+                            <div onClick={()=>!loading&&setInsight(buildInsight('category-chart'))} style={{...card,padding:'20px',cursor:loading?'default':'pointer',transition:'transform 0.12s'}} onMouseEnter={e=>{if(!loading)e.currentTarget.style.transform='translateY(-2px)'}} onMouseLeave={e=>e.currentTarget.style.transform=''}>
+                                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'14px'}}>
+                                    <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,margin:0}}>📑 Category Breakdown</h2>
+                                    {!loading && <span style={{fontSize:'9px',color:dm?'rgba(99,102,241,0.5)':'rgba(99,102,241,0.4)',fontWeight:'700',letterSpacing:'0.06em'}}>CLICK FOR INSIGHTS</span>}
+                                </div>
+                                <div style={{height:'220px',position:'relative'}}>
+                                    {loading ? <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:textM,fontSize:'13px'}}>Loading…</div>
+                                             : <canvas ref={categoryCanvasRef}></canvas>}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* SLA + Activity row */}
+                        <div className='yc-chart-grid-2' style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px'}}>
+
+                            {/* SLA Compliance */}
+                            <div onClick={()=>!loading&&setInsight(buildInsight('sla'))} style={{...card,padding:'20px',cursor:loading?'default':'pointer',transition:'transform 0.12s'}} onMouseEnter={e=>{if(!loading)e.currentTarget.style.transform='translateY(-2px)'}} onMouseLeave={e=>e.currentTarget.style.transform=''}>
+                                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'16px'}}>
+                                    <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,margin:0}}>⏱️ SLA Compliance</h2>
+                                    {!loading && <span style={{fontSize:'9px',color:dm?'rgba(99,102,241,0.5)':'rgba(99,102,241,0.4)',fontWeight:'700',letterSpacing:'0.06em'}}>CLICK FOR INSIGHTS</span>}
+                                </div>
+                                <div style={{display:'flex',alignItems:'center',gap:'24px'}}>
+                                    <div style={{position:'relative',flexShrink:0}}>
+                                        <svg width="120" height="120" viewBox="0 0 120 120" style={{transform:'rotate(-90deg)'}}>
+                                            <circle cx="60" cy="60" r={r} stroke={dm?'#334155':'#F3F4F6'} strokeWidth="10" fill="none"/>
+                                            <circle cx="60" cy="60" r={r} stroke={slaPct>=80?'#10B981':slaPct>=50?'#F59E0B':'#EF4444'} strokeWidth="10" fill="none"
+                                                strokeDasharray={`${circ*slaPct/100} ${circ}`} strokeLinecap="round"/>
+                                        </svg>
+                                        <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
+                                            <span style={{fontSize:'22px',fontWeight:'800',color:textP}}>{loading?'—':slaPct+'%'}</span>
+                                            <span style={{fontSize:'10px',color:textM}}>SLA Met</span>
+                                        </div>
+                                    </div>
+                                    <div style={{flex:1}}>
+                                        {[
+                                            {label:'Total Tickets', val:total,    color:dm?'#818cf8':'#4F46E5'},
+                                            {label:'Resolved',      val:resolved, color:'#10B981'},
+                                            {label:'Overdue',       val:overdue,  color:'#EF4444'},
+                                            {label:'Active Staff',  val:staffCount,color:'#0EA5E9'},
+                                        ].map((row,i)=>(
+                                            <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'6px 0',borderBottom:i<3?`1px solid ${borderC}`:'none'}}>
+                                                <span style={{fontSize:'12px',color:textM}}>{row.label}</span>
+                                                <span style={{fontSize:'13px',fontWeight:'700',color:row.color}}>{loading?'—':row.val}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Recent Activity */}
+                            <div style={{...card,padding:'20px'}}>
+                                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'14px'}}>
+                                    <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,margin:0}}>📌 Recent Activity</h2>
+                                    <span style={{fontSize:'10px',background:'#ECFDF5',color:'#059669',borderRadius:'20px',padding:'2px 8px',fontWeight:'600'}}>Live</span>
+                                </div>
+                                {loading ? (
+                                    <p style={{fontSize:'13px',color:dm?'#4a607f':'#94A3B8',textAlign:'center',padding:'20px 0'}}>Loading…</p>
+                                ) : recentActivity.length === 0 ? (
+                                    <p style={{fontSize:'13px',color:dm?'#4a607f':'#94A3B8',textAlign:'center',padding:'20px 0'}}>No recent activity</p>
+                                ) : recentActivity.map((log, i) => {
+                                    const am = ACTION_META[log.action] || { label: log.action, bg: '#EEF2F8', color: '#475569' };
+                                    const initials = (log.actorName||'?').split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+                                    return (
+                                        <div key={i} style={{display:'flex',gap:'10px',paddingBottom:'10px',borderBottom:i<recentActivity.length-1?'1px solid #F3F4F6':'none',marginBottom:i<recentActivity.length-1?'10px':0}}>
+                                            <div style={{width:32,height:32,borderRadius:'50%',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:dm?'#818cf8':'#4F46E5',flexShrink:0}}>
+                                                {initials}
+                                            </div>
+                                            <div style={{flex:1,minWidth:0}}>
+                                                <div style={{display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}>
+                                                    <span style={{fontSize:11,fontWeight:600,padding:'2px 7px',borderRadius:20,background:am.bg,color:am.color}}>{am.label}</span>
+                                                    <span style={{fontSize:12,color:dm?'#c0cfec':'#334155',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'160px'}}>{log.ticketTitle}</span>
+                                                </div>
+                                                <p style={{fontSize:11,color:dm?'#4a607f':'#94A3B8',margin:'3px 0 0'}}>{log.actorName} · {fmtDate(log.at)}</p>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                    </div>
+                </main>
+                {insight && <InsightDrawer data={insight} onClose={()=>setInsight(null)}/>}
+            </>
+            );
+        }
+
+        // Create Ticket Page
+        function CreateTicket() {
+
+            const dm = useDark();
+            const pageBg  = dm ? 'transparent' : '#F5F7FF';
+            const cardBg  = dm ? 'linear-gradient(155deg,rgba(17,30,58,0.97) 0%,rgba(8,16,36,0.99) 100%)' : 'white';
+            const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E2E8F2';
+            const textP   = dm ? '#f0f4ff' : '#0F172A';
+            const textM   = dm ? '#8fa4cc' : '#64748B';
+            // Read logged-in user from sessionStorage so we can auto-fill reporter fields
+            const sessionUser = React.useMemo(() => getSessionUser(), []);
+
+            const [formData, setFormData] = React.useState({
+                title_type: 'Service Request',
+                subtitle: '',
+                category_id: '',        // populated from lookups
+                subcategory: '',
+                issue_details: '',
+                submitted_by: sessionUser?.name || '',
+                email: sessionUser?.email || '',
+                ndis_related: false,
+                priority_id: '',        // populated from lookups
+                initial_status: 'new',
+                expected_completion: '',
+                assigneeId: null,       // real DB user ID (null = unassigned)
+                approval_mode: 'AnyOne',
+                approver_ids: [],
+                created_by: sessionUser?.id || null,
+                assigned_to: null
+            });
+            const [loading, setLoading] = React.useState(false);
+            const [lookups, setLookups] = React.useState(null);
+            const [error, setError] = React.useState('');
+            const [success, setSuccess] = React.useState(false);
+            const [attachments, setAttachments] = React.useState([]);
+            const [attachError, setAttachError] = React.useState('');
+
+            React.useEffect(() => {
+                fetchLookups();
+            }, []);
+
+            const fetchLookups = async () => {
+                // Fetch lookups and users independently so one failure doesn't poison the other
+                const [lookupsRes, usersRes] = await Promise.allSettled([
+                    fetch(`${HRMS_API}/lookup/all`, { credentials: 'include', headers: authHeaders() }),
+                    fetch(`${HRMS_API}/users?status=active&limit=200`, { credentials: 'include', headers: authHeaders() })
+                ]);
+
+                // Parse categories/priorities from real API, fall back to mock only if truly needed
+                let categories = LOOKUPS_MOCK.categories;
+                let priorities = LOOKUPS_MOCK.priorities;
+                let statuses   = LOOKUPS_MOCK.statuses;
+                if (lookupsRes.status === 'fulfilled' && lookupsRes.value.ok) {
+                    try {
+                        const data = await lookupsRes.value.json();
+                        if (data.categories?.length) categories = data.categories;
+                        if (data.priorities?.length)  priorities = data.priorities;
+                        if (data.statuses?.length)    statuses   = data.statuses;
+                    } catch(_) {}
+                }
+
+                // Parse users list from real API
+                let users = [];
+                if (usersRes.status === 'fulfilled' && usersRes.value.ok) {
+                    try {
+                        const data = await usersRes.value.json();
+                        users = (data.users || []).map(u => ({
+                            id: u.id, name: u.name, email: u.email,
+                            role: u.position_title || u.role || 'Staff'
+                        }));
+                    } catch(_) {}
+                }
+
+                setLookups({ categories, priorities, statuses, users });
+
+                // Find current user in list to get their real DB id
+                const currentUser = users.find(u => u.email?.toLowerCase() === sessionUser?.email?.toLowerCase());
+                setFormData(prev => ({
+                    ...prev,
+                    created_by: currentUser?.id || prev.created_by,
+                    category_id: prev.category_id || (categories[0]?.id || ''),
+                    priority_id: prev.priority_id || (priorities.find(p => p.label?.toLowerCase() === 'medium')?.id || priorities[0]?.id || ''),
+                }));
+            };
+
+            const ALLOWED_TYPES = [
+                'application/pdf','application/msword',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'application/vnd.ms-excel',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'text/plain','text/rtf','application/rtf',
+                'image/jpeg','image/png','image/gif','image/bmp','image/heic','image/heif',
+            ];
+            const MAX_TOTAL_MB = 8;
+
+            const handleFileChange = (e) => {
+                setAttachError('');
+                const files = Array.from(e.target.files || []);
+                if (!files.length) return;
+                const invalid = files.filter(f => !ALLOWED_TYPES.includes(f.type) && !f.name.match(/\.(pdf|doc|docx|xls|xlsx|txt|rtf|jpg|jpeg|png|gif|bmp|heic|heif)$/i));
+                if (invalid.length) { setAttachError(`Unsupported file type: ${invalid.map(f=>f.name).join(', ')}`); e.target.value=''; return; }
+                const totalMB = (attachments.reduce((s,a)=>s+a.size,0) + files.reduce((s,f)=>s+f.size,0)) / 1024 / 1024;
+                if (totalMB > MAX_TOTAL_MB) { setAttachError(`Total attachment size exceeds ${MAX_TOTAL_MB}MB limit`); e.target.value=''; return; }
+                files.forEach(file => {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        const base64 = ev.target.result.split(',')[1]; // strip data URI prefix
+                        setAttachments(prev => [...prev, { name: file.name, type: file.type, size: file.size, content: base64 }]);
+                    };
+                    reader.readAsDataURL(file);
+                });
+                e.target.value = '';
+            };
+
+            const removeAttachment = (idx) => setAttachments(prev => prev.filter((_,i)=>i!==idx));
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setError('');
+                setSuccess(false);
+                try {
+                    if (!formData.subtitle?.trim()) {
+                        setError('Subtitle is required');
+                        setLoading(false);
+                        return;
+                    }
+                    if (!formData.category_id) {
+                        setError('Please select a category');
+                        setLoading(false);
+                        return;
+                    }
+                    if (!formData.priority_id) {
+                        setError('Please select a priority');
+                        setLoading(false);
+                        return;
+                    }
+                    if (!formData.expected_completion) {
+                        setError('Expected Completion date is required');
+                        setLoading(false);
+                        return;
+                    }
+                    if (!formData.assigneeId) {
+                        setError('Please assign the ticket to a staff member');
+                        setLoading(false);
+                        return;
+                    }
+                    if (Number(formData.assigneeId) === Number(formData.created_by)) {
+                        setError('You cannot assign a ticket to yourself');
+                        setLoading(false);
+                        return;
+                    }
+                    if (!formData.approver_ids || formData.approver_ids.length === 0) {
+                        setError('At least one approver must be selected');
+                        setLoading(false);
+                        return;
+                    }
+                    await API.tickets.create({ ...formData, attachments });
+                    setSuccess(true);
+                    setFormData({
+                        title_type: 'Service Request',
+                        subtitle: '',
+                        category_id: '',
+                        subcategory: '',
+                        issue_details: '',
+                        submitted_by: sessionUser?.name || '',
+                        email: sessionUser?.email || '',
+                        ndis_related: false,
+                        priority_id: '',
+                        initial_status: 'new',
+                        expected_completion: '',
+                        assigneeId: null,
+                        approval_mode: 'AnyOne',
+                        approver_ids: [],
+                        created_by: sessionUser?.id || null,
+                        assigned_to: null
+                    });
+                    setAttachments([]);
+                    setAttachError('');
+                    setTimeout(() => setSuccess(false), 5000);
+                } catch (err) {
+                    setError('Failed to create ticket: ' + err.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const handleChange = (e) => {
+                const { name, value, type, checked } = e.target;
+                setFormData(prev => ({
+                    ...prev,
+                    [name]: type === 'checkbox' ? checked : value
+                }));
+            };
+
+            const inputCls = "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition";
+            const labelCls = "block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5";
+            const cardCls = "bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-5";
+            const sectionHeadCls = "text-sm font-semibold text-gray-400 uppercase tracking-widest mb-5 flex items-center gap-2";
+
+            return (
+                <main className="flex-1 overflow-auto" style={{background:'#F8F9FB'}}>
+                    <div style={{maxWidth:'1100px', margin:'0 auto', padding:'clamp(16px,4vw,32px) clamp(12px,4vw,32px)'}}>
+                        {/* Page header */}
+                        <div className="mb-7">
+                            <div className="flex items-center gap-2 text-sm text-gray-400 mb-2 cursor-pointer hover:text-indigo-600 transition w-fit" onClick={() => {}}>
+                                <span style={{fontSize:'16px'}}>←</span>
+                                <span>Back</span>
+                            </div>
+                            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Create New Ticket</h1>
+                            <p className="text-sm text-gray-400 mt-1">Submit a new support request</p>
+                        </div>
+
+                        {error && (
+                            <div className="flex items-center gap-3 bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-xl mb-5 text-sm">
+                                <span>⚠️</span> {error}
+                            </div>
+                        )}
+                        {success && (
+                            <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-100 text-emerald-700 px-4 py-3 rounded-xl mb-5 text-sm">
+                                <span>✅</span> Ticket created successfully!
+                            </div>
+                        )}
+
+                        {!lookups ? (
+                            <div className="flex items-center justify-center py-20">
+                                <div className="text-center">
+                                    <div className="text-3xl mb-3">⏳</div>
+                                    <p className="text-gray-400 text-sm">Loading form…</p>
+                                </div>
+                            </div>
+                        ) : (
+                        <form onSubmit={handleSubmit}>
+                            {/* Two-column layout — stacks on mobile/tablet */}
+                            <div style={{display:'flex', gap:'24px', alignItems:'flex-start', flexWrap:'wrap'}}>
+                                {/* LEFT COLUMN — main form */}
+                                <div style={{flex:'1 1 420px', minWidth:0}}>
+                                    {/* Ticket Details */}
+                                    <div className={cardCls}>
+                                        <div className={sectionHeadCls}>
+                                            <span style={{color:dm?'#818cf8':'#4F46E5', fontSize:'15px'}}>📋</span> Ticket Details
+                                        </div>
+                                        <div className="grid gap-4 mb-4 yc-grid-2-col" style={{gridTemplateColumns:"repeat(2,1fr)"}} >
+                                            <div>
+                                                <label className={labelCls}>Title Type <span className="text-red-400">*</span></label>
+                                                <select name="title_type" value={formData.title_type} onChange={handleChange} className={inputCls}>
+                                                    <option>Service Request</option>
+                                                    <option>Complaint</option>
+                                                    <option>Incident Report</option>
+                                                    <option>Equipment Request</option>
+                                                    <option>Schedule Change</option>
+                                                    <option>Quality Issue</option>
+                                                    <option>Safety Report</option>
+                                                    <option>Other</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className={labelCls}>Subtitle <span className="text-red-400">*</span></label>
+                                                <input type="text" name="subtitle" value={formData.subtitle} onChange={handleChange} placeholder="Brief description" className={inputCls}/>
+                                            </div>
+                                        </div>
+                                        <div className="grid gap-4 mb-4 yc-grid-2-col" style={{gridTemplateColumns:"repeat(2,1fr)"}} >
+                                            <div>
+                                                <label className={labelCls}>Category <span className="text-red-400">*</span></label>
+                                                <select name="category_id" value={formData.category_id} onChange={handleChange} className={inputCls}>
+                                                    <option value="">— Select category —</option>
+                                                    {(lookups?.categories || []).map(c => (
+                                                        <option key={c.id} value={c.id}>{c.icon ? c.icon + ' ' : ''}{c.label}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className={labelCls}>Subcategory</label>
+                                                <input type="text" name="subcategory" value={formData.subcategory} onChange={handleChange} placeholder="Optional subcategory" className={inputCls}/>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className={labelCls}>Issue Details <span className="text-red-400">*</span></label>
+                                            <textarea name="issue_details" value={formData.issue_details} onChange={handleChange} placeholder="Describe the issue in detail…" rows="4" className={inputCls + " resize-none"}></textarea>
+                                        </div>
+
+                                        {/* Attachments */}
+                                        <div>
+                                            <label className={labelCls}>Attachments <span style={{fontSize:10,fontWeight:400,color:dm?'#4a607f':'#94A3B8'}}>(PDF, DOC, DOCX, XLS, XLSX, TXT, JPG, PNG, GIF, BMP, HEIC — max 8 MB total)</span></label>
+                                            <label style={{display:'flex',alignItems:'center',gap:8,padding:'10px 14px',border:`2px dashed ${dm?'rgba(99,102,241,0.3)':'#C7D2FE'}`,borderRadius:8,cursor:'pointer',background:dm?'rgba(99,102,241,0.05)':'#F5F7FF',transition:'border-color 0.2s'}}
+                                                onDragOver={e=>{e.preventDefault();e.currentTarget.style.borderColor='#6366F1';}}
+                                                onDragLeave={e=>{e.currentTarget.style.borderColor=dm?'rgba(99,102,241,0.3)':'#C7D2FE';}}
+                                                onDrop={e=>{e.preventDefault();e.currentTarget.style.borderColor=dm?'rgba(99,102,241,0.3)':'#C7D2FE';const dt={target:{files:e.dataTransfer.files,value:''}};handleFileChange(dt);}}>
+                                                <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.rtf,.jpg,.jpeg,.png,.gif,.bmp,.heic,.heif" onChange={handleFileChange} style={{display:'none'}}/>
+                                                <span style={{fontSize:20}}>📎</span>
+                                                <span style={{fontSize:12,color:dm?'#8fa4cc':'#64748B'}}>Click to attach files or drag &amp; drop</span>
+                                            </label>
+                                            {attachError && <p style={{fontSize:11,color:'#DC2626',marginTop:4}}>{attachError}</p>}
+                                            {attachments.length > 0 && (
+                                                <div style={{marginTop:8,display:'flex',flexDirection:'column',gap:4}}>
+                                                    {attachments.map((a,i)=>(
+                                                        <div key={i} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 10px',background:dm?'rgba(99,102,241,0.08)':'#EEF2FF',borderRadius:6,fontSize:12}}>
+                                                            <span>{a.type.startsWith('image/')?'🖼️':a.type.includes('pdf')?'📄':a.type.includes('sheet')||a.type.includes('excel')?'📊':'📝'}</span>
+                                                            <span style={{flex:1,color:dm?'#c7d2fe':'#1E1B4B',fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{a.name}</span>
+                                                            <span style={{color:dm?'#4a607f':'#94A3B8',flexShrink:0}}>{(a.size/1024).toFixed(0)} KB</span>
+                                                            <button type="button" onClick={()=>removeAttachment(i)} style={{background:'none',border:'none',cursor:'pointer',color:'#DC2626',fontSize:14,lineHeight:1,padding:'0 2px',flexShrink:0}}>✕</button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Reporter Information */}
+                                    <div className={cardCls}>
+                                        <div className="flex items-center justify-between mb-5">
+                                            <div className={sectionHeadCls} style={{marginBottom:0}}>
+                                                <span style={{color:dm?'#818cf8':'#4F46E5', fontSize:'15px'}}>👤</span> Reporter Information
+                                            </div>
+                                            <span className="text-xs text-gray-400 flex items-center gap-1">
+                                                <span>🔒</span> Auto-filled from your account
+                                            </span>
+                                        </div>
+                                        <div className="grid gap-4 mb-4 yc-grid-2-col" style={{gridTemplateColumns:"repeat(2,1fr)"}} >
+                                            <div>
+                                                <label className={labelCls}>Submitted By</label>
+                                                <input type="text" value={sessionUser?.name || ''} className={inputCls + " bg-gray-50 text-gray-500 cursor-not-allowed"} readOnly disabled tabIndex={-1}/>
+                                            </div>
+                                            <div>
+                                                <label className={labelCls}>Email</label>
+                                                <input type="email" value={sessionUser?.email || ''} className={inputCls + " bg-gray-50 text-gray-500 cursor-not-allowed"} readOnly disabled tabIndex={-1}/>
+                                            </div>
+                                        </div>
+                                        <label className="flex items-center gap-3 cursor-pointer group w-fit">
+                                            <div className="relative">
+                                                <input type="checkbox" name="ndis_related" checked={formData.ndis_related} onChange={handleChange} className="sr-only"/>
+                                                <div className={`w-10 h-6 rounded-full transition ${formData.ndis_related ? 'bg-indigo-600' : 'bg-gray-200'}`}></div>
+                                                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${formData.ndis_related ? 'left-5' : 'left-1'}`}></div>
+                                            </div>
+                                            <span className="text-sm font-medium text-gray-700">NDIS Related</span>
+                                        </label>
+                                    </div>
+
+                                    {/* Approvers — loaded from API */}
+                                    {(() => {
+                                        const approverList = (lookups && lookups.users) ? lookups.users.filter(u => u.id !== formData.assigneeId) : [];
+                                        return (
+                                        <div className={cardCls}>
+                                            <div className={sectionHeadCls}>
+                                                <span style={{color:dm?'#818cf8':'#4F46E5',fontSize:'15px'}}>✅</span> Approvers <span className="text-red-400 normal-case font-normal tracking-normal text-xs ml-1">*</span>
+                                            </div>
+                                            <p className="text-xs text-gray-400 mb-3">Select who must approve the resolution. <strong>All</strong> selected approvers must approve before the ticket closes.</p>
+                                            <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                                                {approverList.map(u => {
+                                                    const selected = formData.approver_ids.includes(u.id);
+                                                    return (
+                                                        <label key={u.id} className={`flex items-center gap-3 p-2.5 rounded-lg cursor-pointer border transition ${selected ? 'border-indigo-300 bg-indigo-50' : 'border-gray-100 hover:bg-gray-50'}`}>
+                                                            <div className="relative flex-shrink-0">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    className="sr-only"
+                                                                    checked={selected}
+                                                                    onChange={() => setFormData(prev => ({
+                                                                        ...prev,
+                                                                        approver_ids: selected
+                                                                            ? prev.approver_ids.filter(id => id !== u.id)
+                                                                            : [...prev.approver_ids, u.id]
+                                                                    }))}
+                                                                />
+                                                                <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition ${selected ? 'bg-indigo-600 border-indigo-600' : 'border-gray-300'}`}>
+                                                                    {selected && <span className="text-white text-xs leading-none">✓</span>}
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex items-center gap-2 min-w-0">
+                                                                <div className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center justify-center flex-shrink-0">
+                                                                    {(u.name || u.email || '?').charAt(0).toUpperCase()}
+                                                                </div>
+                                                                <div className="min-w-0">
+                                                                    <p className="text-sm font-medium text-gray-800 truncate">{u.name || u.email}</p>
+                                                                    {u.role && <p className="text-xs text-gray-400 truncate">{u.role}</p>}
+                                                                </div>
+                                                            </div>
+                                                        </label>
+                                                    );
+                                                })}
+                                            </div>
+                                            {formData.approver_ids.length > 0 && (
+                                                <p className="text-xs text-indigo-600 font-medium mt-2">
+                                                    {formData.approver_ids.length} approver{formData.approver_ids.length > 1 ? 's' : ''} selected
+                                                </p>
+                                            )}
+                                        </div>
+                                        );
+                                    })()}
+                                </div>
+
+                                {/* RIGHT COLUMN — sidebar (sticky on desktop, full-width on mobile) */}
+                                <div style={{flex:'0 1 280px', minWidth:'240px', width:'100%', position:'sticky', top:'16px', alignSelf:'flex-start'}}>
+                                    {/* Classification */}
+                                    <div className={cardCls}>
+                                        <div className={sectionHeadCls}>
+                                            <span style={{color:dm?'#818cf8':'#4F46E5', fontSize:'15px'}}>🏷️</span> Classification
+                                        </div>
+                                        <div className="mb-4">
+                                            <label className={labelCls}>Priority <span className="text-red-400">*</span></label>
+                                            <select name="priority_id" value={formData.priority_id} onChange={handleChange} className={inputCls}>
+                                                <option value="">— Select priority —</option>
+                                                {(lookups?.priorities || []).map(p => (
+                                                    <option key={p.id} value={p.id}>{p.label}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className={labelCls}>Expected Completion <span className="text-red-400">*</span></label>
+                                            <input type="date" name="expected_completion" value={formData.expected_completion} onChange={handleChange} required className={inputCls}/>
+                                        </div>
+                                    </div>
+
+                                    {/* Assignment */}
+                                    <div className={cardCls}>
+                                        <div className={sectionHeadCls}>
+                                            <span style={{color:dm?'#818cf8':'#4F46E5', fontSize:'15px'}}>👥</span> Assignment
+                                        </div>
+                                        <div>
+                                            <label className={labelCls}>Assign To <span className="text-red-400">*</span></label>
+                                            <select
+                                                value={formData.assigneeId || ''}
+                                                onChange={e => {
+                                                    const newAssigneeId = e.target.value ? Number(e.target.value) : null;
+                                                    setFormData(prev => ({
+                                                        ...prev,
+                                                        assigneeId: newAssigneeId,
+                                                        // Remove assignee from approver_ids if they were selected
+                                                        approver_ids: newAssigneeId ? prev.approver_ids.filter(id => id !== newAssigneeId) : prev.approver_ids
+                                                    }));
+                                                }}
+                                                className={inputCls}
+                                            >
+                                                <option value="">— Select assignee —</option>
+                                                {(lookups?.users || [])
+                                                    .filter(u => u.id !== Number(formData.created_by) && !(formData.approver_ids || []).includes(u.id))
+                                                    .map(u => (
+                                                    <option key={u.id} value={u.id}>{u.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    {/* Submit button */}
+                                    <button
+                                        type="submit"
+                                        disabled={loading}
+                                        className="w-full py-3 rounded-xl font-semibold text-sm text-white transition-all"
+                                        style={{background: loading ? '#A5B4FC' : 'linear-gradient(135deg, #6366F1, #8B5CF6)', boxShadow: loading ? 'none' : '0 4px 14px rgba(99,102,241,0.35)'}}
+                                    >
+                                        {loading ? '⏳  Creating ticket…' : '➕  Create Ticket'}
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                        )}
+                    </div>
+                </main>
+            );
+        }
+
+        // Tickets Page
+        function TicketsPage() {
+            const sessionUser = React.useMemo(() => getSessionUser(), []);
+            const scopeParams = React.useMemo(() => getTicketScopeParams(sessionUser), []);
+
+            // Human-readable scope label for the page header
+            const scopeLabel = React.useMemo(() => {
+                if (!sessionUser) return '';
+                const { isBootstrapAdmin, positionType } = sessionUser;
+                if (isBootstrapAdmin || positionType === 'director') return '👁 Viewing: All Tickets';
+                if (['ops','finance','strategic'].includes(positionType))
+                    return `👁 Viewing: ${sessionUser.dept || 'Your Department'} Tickets`;
+                if (scopeParams.scope === 'mine') return '👁 Viewing: Your Tickets';
+                return '';
+            }, []);
+
+
+            const dm = useDark();
+            const pageBg  = dm ? 'transparent' : '#F5F7FF';
+            const cardBg  = dm ? 'linear-gradient(155deg,rgba(17,30,58,0.97) 0%,rgba(8,16,36,0.99) 100%)' : 'white';
+            const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E2E8F2';
+            const textP   = dm ? '#f0f4ff' : '#0F172A';
+            const textM   = dm ? '#8fa4cc' : '#64748B';
+            const [tickets, setTickets] = React.useState([]);
+            const [staffList, setStaffList] = React.useState([]);
+            const [ticketsLoading, setTicketsLoading] = React.useState(true);
+            const [filter, setFilter] = React.useState('all');
+            const [search, setSearch] = React.useState('');
+            const [selectedTicket, setSelectedTicket] = React.useState(null);
+            const [approvers, setApprovers] = React.useState([]);
+            const [actionLoading, setActionLoading] = React.useState(false);
+            const [actionError, setActionError] = React.useState('');
+            const [closingTicketId, setClosingTicketId] = React.useState(null); // tracks inline-close in progress
+            const [rejectMode, setRejectMode] = React.useState(false);
+            const [reopenMode, setReopenMode] = React.useState(false);
+            const [reopenJustification, setReopenJustification] = React.useState('');
+            const [justification, setJustification] = React.useState('');
+            const [acceptanceNote, setAcceptanceNote] = React.useState('');
+            const [escalateMode, setEscalateMode] = React.useState(false);
+            const [escalateTo, setEscalateTo] = React.useState('');
+            const [escalateReason, setEscalateReason] = React.useState('');
+            const [escalations, setEscalations] = React.useState([]);
+            // Resolution note (required before Mark as Complete)
+            const [resolutionNote, setResolutionNote] = React.useState('');
+            // Extension request state
+            const [extMode, setExtMode] = React.useState(false);
+            const [extDate, setExtDate] = React.useState('');
+            const [extNote, setExtNote] = React.useState('');
+            // Extension response state
+            const [extResNote, setExtResNote] = React.useState('');
+            // Delete state
+            const [deleteMode, setDeleteMode] = React.useState(false);
+            const [deleteJustification, setDeleteJustification] = React.useState('');
+            // Manage approvers state
+            const [manageApproversMode, setManageApproversMode] = React.useState(false);
+            const [pendingApproverIds, setPendingApproverIds] = React.useState([]);
+            // Work notes / steps taken state
+            const [workNote, setWorkNote] = React.useState('');
+            const [workNoteLoading, setWorkNoteLoading] = React.useState(false);
+            // Drawer attachment upload state
+            const [attUploadLoading, setAttUploadLoading] = React.useState(false);
+            const [attUploadError, setAttUploadError] = React.useState('');
+
+            // Map API status IDs to display labels
+            const toStatusLabel = s => ({ open:'Open', new:'New', in_progress:'In Progress', pending_approval:'Pending Approval', resolved:'Resolved', closed:'Closed', waiting:'Waiting', assigned:'Assigned' })[s] || (s||'').replace(/_/g,' ');
+            const toPriorityLabel = p => ({ critical:'Critical', high:'High', medium:'Medium', low:'Low' })[p] || p;
+
+            // Normalise an API ticket to the display shape the rest of the component uses
+            const normalise = t => ({
+                ...t,
+                _dbId: t.id,
+                id: t.ticketNumber || `#${t.id}`,
+                title: t.title || '',
+                category: t.categoryLabel || t.category || '',
+                priority: toPriorityLabel(t.priorityLabel || t.priority || ''),
+                status: toStatusLabel(t.statusLabel || t.status || ''),
+                assigned: t.assigneeName || 'Unassigned',
+                date: t.createdAt ? new Date(t.createdAt).toLocaleDateString('en-AU', {day:'numeric',month:'short',year:'numeric'}) : '',
+                isEscalated: !!t.isEscalated,
+                // Carry through pending approver IDs for tab filtering
+                pendingApproverIds: Array.isArray(t.pendingApproverIds) ? t.pendingApproverIds : [],
+            });
+
+            React.useEffect(() => {
+                // Fetch real tickets and real staff in parallel
+                Promise.all([
+                    API.tickets.getAll({ all: true, limit: 500 }).catch(() => ({ tickets: [] })),
+                    fetch(`${HRMS_API}/users?status=active&limit=200`, { credentials:'include', headers: authHeaders() }).then(r => r.ok ? r.json() : { users: [] }).catch(() => ({ users: [] }))
+                ]).then(([tickData, staffData]) => {
+                    setTickets((tickData.tickets || []).map(normalise));
+                    setStaffList(staffData.users || []);
+                }).finally(() => setTicketsLoading(false));
+            }, []);
+
+            const refreshTicket = async (dbId) => {
+                try {
+                    const data = await API.tickets.getById(dbId);
+                    if (data.ticket) {
+                        // Ensure pendingApproverIds is always populated from live approvers
+                        if (!data.ticket.pendingApproverIds || data.ticket.pendingApproverIds.length === 0) {
+                            data.ticket.pendingApproverIds = (data.ticket.approvers || [])
+                                .filter(a => (a.status || '').toLowerCase() === 'pending')
+                                .map(a => a.userId);
+                        }
+                        const updated = normalise(data.ticket);
+                        setTickets(prev => prev.map(t => t._dbId === dbId ? updated : t));
+                        setSelectedTicket(updated);
+                        if (data.ticket.approvers) setApprovers(data.ticket.approvers);
+                    }
+                } catch(_) {}
+            };
+
+            const filtered = tickets.filter(t => {
+                if (filter !== 'all' && t.status.toLowerCase() !== filter.toLowerCase()) return false;
+                if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
+                return true;
+            });
+
+            const getStatusBadge = (status) => {
+                const badges = {
+                    'Open': 'badge-open',
+                    'In Progress': 'badge-in-progress',
+                    'Resolved': 'badge-resolved',
+                    'Closed': 'badge-closed'
+                };
+                return badges[status] || 'badge-open';
+            };
+
+            const getPriorityBadge = (priority) => {
+                const badges = {
+                    'Urgent': 'badge-urgent',
+                    'High': 'badge-high',
+                    'Medium': 'badge-medium',
+                    'Low': 'badge-low'
+                };
+                return badges[priority] || 'badge-medium';
+            };
+
+            // ── Inline badge style helpers ────────────────────────
+            const STATUS_ST = {
+                'New':              {bg:'#EEF2FF',color:'#4338CA',border:'#C7D2FE'},
+                'Open':             {bg:'#E0F2FE',color:'#0369A1',border:'#BAE6FD'},
+                'In Progress':      {bg:'#FFFBEB',color:'#B45309',border:'#FDE68A'},
+                'Waiting':          {bg:'#F5F3FF',color:'#7C3AED',border:'#DDD6FE'},
+                'Pending Approval': {bg:'#FFF7ED',color:'#C2410C',border:'#FED7AA'},
+                'Resolved':         {bg:'#ECFDF5',color:'#065F46',border:'#A7F3D0'},
+                'Closed':           {bg:'#F1F5F9',color:'#475569',border:'#CBD5E1'},
+                'Assigned':         {bg:'#DBEAFE',color:dm?'#93c5fd':'#1E40AF',border:'#BFDBFE'},
+            };
+            const PRI_ST = {
+                'Critical': {bg:'#FEF2F2',color:'#991B1B',border:'#FECACA',dot:'#EF4444'},
+                'Urgent':   {bg:'#FEF2F2',color:'#991B1B',border:'#FECACA',dot:'#EF4444'},
+                'High':     {bg:'#FFFBEB',color:'#92400E',border:'#FDE68A',dot:'#F59E0B'},
+                'Medium':   {bg:'#EFF6FF',color:'#1E40AF',border:'#BFDBFE',dot:'#3B82F6'},
+                'Low':      {bg:'#F0FDF4',color:'#166534',border:'#BBF7D0',dot:'#22C55E'},
+            };
+            const PRI_LEFT = {'Critical':'#EF4444','Urgent':'#EF4444','High':'#F59E0B','Medium':'#3B82F6','Low':'#22C55E'};
+            const sst = s => STATUS_ST[s] || {bg:'#F3F4F6',color:dm?'#c0cfec':'#334155',border:dm?'rgba(99,102,241,0.16)':'#E2E8F2'};
+            const pst = p => PRI_ST[p]   || {bg:'#F3F4F6',color:dm?'#c0cfec':'#334155',border:dm?'rgba(99,102,241,0.16)':'#E2E8F2',dot:dm?'#4a607f':'#94A3B8'};
+            const Badge = ({text, st}) => (
+                <span style={{display:'inline-flex',alignItems:'center',fontSize:11,fontWeight:600,padding:'2px 9px',borderRadius:20,background:st.bg,color:st.color,border:`1px solid ${st.border}`,whiteSpace:'nowrap'}}>{text}</span>
+            );
+            const now2 = new Date();
+            const isOD = t => !['Resolved','Closed'].includes(t.status) && (t.dueAt||t.expectedCompletion) && new Date(t.dueAt||t.expectedCompletion)<now2;
+            const fmtDue = t => {
+                const raw = t.dueAt||t.expectedCompletion; if(!raw) return null;
+                return new Date(raw).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'});
+            };
+
+            // Status filter counts
+            const STATUS_GROUPS = [
+                {key:'all',            label:'All',                match: ()=>true},
+                {key:'mine',           label:'Assigned to Me',     match: t=>t.assigneeId!=null && Number(t.assigneeId)===Number(sessionUser?.id), color:'#6366F1'},
+                {key:'my_approvals',   label:'Pending My Approval',match: t=>!['Resolved','Closed'].includes(t.status) && (t.pendingApproverIds||[]).map(Number).includes(Number(sessionUser?.id)), color:'#D97706'},
+                {key:'ready_to_close', label:'Pending Closure',     match: t=>t.status==='Resolved' && Number(t.requesterId)===Number(sessionUser?.id), color:'#059669'},
+                {key:'open',           label:'New / Open',         match: t=>['New','Open','Assigned'].includes(t.status)},
+                {key:'in_progress',    label:'In Progress',        match: t=>['In Progress','Waiting'].includes(t.status)},
+                {key:'pending',        label:'Pending Approval',   match: t=>t.status==='Pending Approval'},
+                {key:'resolved',       label:'Resolved',           match: t=>t.status==='Resolved'},
+                {key:'closed',         label:'Closed',             match: t=>t.status==='Closed'},
+                {key:'overdue',        label:'Overdue',            match: t=>isOD(t)},
+            ];
+            const filteredNew = tickets.filter(t => {
+                const grp = STATUS_GROUPS.find(g=>g.key===filter);
+                if (grp && !grp.match(t)) return false;
+                if (search && !t.title.toLowerCase().includes(search.toLowerCase()) && !t.id.toLowerCase().includes(search.toLowerCase())) return false;
+                return true;
+            });
+
+            return (
+                <main className="flex-1 overflow-auto" style={{background:pageBg}}>
+                    <div style={{maxWidth:'1400px',margin:'0 auto',padding:'24px'}}>
+
+                        {/* ── Header ── */}
+                        <div className='yc-toolbar' style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'20px',flexWrap:'wrap',gap:'10px'}}>
+                            <div>
+                                <h1 style={{fontSize:'20px',fontWeight:'700',color:textP,margin:0}}>Tickets</h1>
+                                <p style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',margin:'3px 0 0'}}>{scopeLabel || 'Manage and track support tickets'}</p>
+                            </div>
+                            <button onClick={()=>{ window.location.hash='create-ticket'; }}
+                                style={{display:'flex',alignItems:'center',gap:'6px',background:'#6366F1',color:'white',border:'none',borderRadius:'9px',padding:'9px 18px',fontSize:'13px',fontWeight:'600',cursor:'pointer',boxShadow:'0 1px 4px rgba(99,102,241,0.35)'}}>
+                                + New Ticket
+                            </button>
+                        </div>
+
+                        {/* ── Status filter tabs — two-group professional layout ── */}
+                        {(()=>{
+                            const MY_QUEUE   = ['all','mine','my_approvals','ready_to_close'];
+                            const BY_STATUS  = ['open','in_progress','pending','resolved','closed','overdue'];
+                            const renderTab  = (g) => {
+                                const cnt = g.key==='all' ? tickets.length : tickets.filter(g.match).length;
+                                const active = filter===g.key;
+                                const isMyApprovals  = g.key==='my_approvals';
+                                const isRTC          = g.key==='ready_to_close';
+                                const hasAlert       = (isMyApprovals||isRTC) && cnt>0;
+                                const accentColor    = isMyApprovals ? '#D97706' : isRTC ? '#059669' : '#6366F1';
+                                const bg   = active ? accentColor : hasAlert ? (dm?`rgba(${isMyApprovals?'217,119,6':'5,150,105'},0.1)`:(isMyApprovals?'#FFFBEB':'#ECFDF5')) : 'transparent';
+                                const border= active ? accentColor : hasAlert ? (isMyApprovals?'#FDE68A':'#6EE7B7') : (dm?'rgba(99,102,241,0.12)':'#E5E7EB');
+                                const color = active ? 'white' : hasAlert ? (dm?(isMyApprovals?'#fcd34d':'#34d399'):(isMyApprovals?'#92400E':'#065F46')) : (dm?'#8fa4cc':'#64748B');
+                                const badge_bg = active?'rgba(255,255,255,0.22)':hasAlert?(dm?`rgba(${isMyApprovals?'217,119,6':'5,150,105'},0.18)`:isMyApprovals?'#FEF3C7':'#D1FAE5'):(dm?'rgba(99,102,241,0.1)':'#EEF2F8');
+                                const badge_color = active?'white':hasAlert?(dm?(isMyApprovals?'#fcd34d':'#34d399'):(isMyApprovals?'#92400E':'#065F46')):(dm?'#6b80a4':'#94A3B8');
+                                return (
+                                    <button key={g.key} onClick={()=>setFilter(g.key)}
+                                        style={{display:'inline-flex',alignItems:'center',gap:'5px',padding:'5px 11px',borderRadius:'7px',border:`1px solid ${border}`,fontSize:'11.5px',fontWeight:'600',cursor:'pointer',transition:'all 0.15s',flexShrink:0,whiteSpace:'nowrap',background:bg,color,
+                                            boxShadow:active?`0 1px 4px ${accentColor}44`:'none'}}>
+                                        {isMyApprovals&&hasAlert&&<span style={{fontSize:'11px'}}>🔔</span>}
+                                        {isRTC&&hasAlert&&<span style={{fontSize:'11px'}}>🔒</span>}
+                                        {g.label}
+                                        <span style={{fontSize:'10px',fontWeight:'700',borderRadius:'10px',padding:'1px 5px',minWidth:'16px',textAlign:'center',background:badge_bg,color:badge_color}}>{cnt}</span>
+                                    </button>
+                                );
+                            };
+                            const groupWrap = (label, keys, borderColor) => (
+                                <div style={{display:'flex',alignItems:'center',gap:'4px',background:dm?'rgba(2,6,16,0.35)':'#F8FAFF',border:`1px solid ${dm?'rgba(99,102,241,0.1)':borderColor||'#EEF2F8'}`,borderRadius:'10px',padding:'4px 6px'}}>
+                                    <span style={{fontSize:'10px',fontWeight:'700',color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.06em',paddingRight:'6px',borderRight:`1px solid ${dm?'rgba(99,102,241,0.12)':'#E5E7EB'}`,marginRight:'2px',whiteSpace:'nowrap'}}>{label}</span>
+                                    {STATUS_GROUPS.filter(g=>keys.includes(g.key)).map(renderTab)}
+                                </div>
+                            );
+                            return (
+                                <div className='yc-toolbar-filters' style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'16px',flexWrap:'wrap'}}>
+                                    {groupWrap('My Queue', MY_QUEUE)}
+                                    <div style={{width:'1px',height:'28px',background:dm?'rgba(99,102,241,0.15)':'#E5E7EB',flexShrink:0}}/>
+                                    {groupWrap('By Status', BY_STATUS)}
+                                </div>
+                            );
+                        })()}
+
+                        {/* ── Search + table card ── */}
+                        <div style={{background:cardBg,borderRadius:'14px',border:`1px solid ${borderC}`,overflow:'hidden',boxShadow:dm?'0 4px 6px rgba(0,0,0,0.4),0 16px 48px rgba(0,0,0,0.55),0 1px 0 rgba(255,255,255,0.04) inset':'0 1px 4px rgba(0,0,0,0.05)'}}>
+
+                            {/* Search bar */}
+                            <div style={{padding:'14px 16px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`,display:'flex',alignItems:'center',gap:'10px'}}>
+                                <span style={{fontSize:'15px',color:dm?'#4a607f':'#94A3B8'}}>🔍</span>
+                                <input type="text" placeholder="Search by title or ticket ID…" value={search} onChange={e=>setSearch(e.target.value)}
+                                    style={{flex:1,border:'none',outline:'none',fontSize:'13px',color:dm?'#c0cfec':'#334155',background:'transparent'}}/>
+                                {search && <button onClick={()=>setSearch('')} style={{border:'none',background:'none',color:dm?'#4a607f':'#94A3B8',cursor:'pointer',fontSize:'16px',padding:'0 4px'}}>×</button>}
+                                <span style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',whiteSpace:'nowrap'}}>{filteredNew.length} ticket{filteredNew.length!==1?'s':''}</span>
+                            </div>
+
+                            {/* Table */}
+                            {ticketsLoading ? (
+                                <div style={{padding:'60px',textAlign:'center',color:dm?'#4a607f':'#94A3B8',fontSize:'14px'}}>⏳ Loading tickets…</div>
+                            ) : filteredNew.length === 0 ? (
+                                <div style={{padding:'60px',textAlign:'center'}}>
+                                    <div style={{fontSize:'36px',marginBottom:'12px'}}>🎫</div>
+                                    <p style={{fontSize:'14px',fontWeight:'600',color:dm?'#c0cfec':'#334155',margin:'0 0 4px'}}>No tickets found</p>
+                                    <p style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',margin:0}}>Try adjusting your filters or search term</p>
+                                </div>
+                            ) : (
+                                <div className="yc-table-scroll">
+                                    <table style={{width:'100%',borderCollapse:'collapse'}}>
+                                        <thead>
+                                            <tr style={{background:dm?'rgba(2,6,16,0.4)':'#F8FAFF',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
+                                                {['Ticket ID','Title','Category','Priority','Status','Assigned To','Due Date','Created',...(filter==='ready_to_close'?['Action']:[])].map(h=>(
+                                                    <th key={h} style={{textAlign:'left',padding:'10px 14px',fontSize:'11px',fontWeight:'700',color:textM,textTransform:'uppercase',letterSpacing:'0.05em',whiteSpace:'nowrap'}}>{h}</th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {filteredNew.map((t,i)=>{
+                                                const ps = pst(t.priority);
+                                                const ss = sst(t.status);
+                                                const od = isOD(t);
+                                                const dueStr = fmtDue(t);
+                                                const initials = (t.assigned||'?').split(/\s+/).map(w=>w[0]||'').slice(0,2).join('').toUpperCase();
+                                                const leftColor = PRI_LEFT[t.priority]||'#E5E7EB';
+                                                return (
+                                                    <tr key={t._dbId||t.id}
+                                                        style={{borderBottom:`1px solid ${dm?'rgba(99,102,241,0.10)':'#EEF2F8'}`,cursor:'pointer',transition:'background 0.1s'}}
+                                                        onMouseEnter={e=>e.currentTarget.style.background='#F8F9FF'}
+                                                        onMouseLeave={e=>e.currentTarget.style.background=''}
+                                                        onClick={async()=>{
+                                                            setSelectedTicket(t);
+                                                            setRejectMode(false); setReopenMode(false); setReopenJustification(''); setJustification(''); setActionError('');
+                                                            setEscalateMode(false); setEscalateTo(''); setEscalateReason('');
+                                                            setExtMode(false); setExtDate(''); setExtNote(''); setExtResNote('');
+                                                            setDeleteMode(false); setDeleteJustification('');
+                                                            setResolutionNote('');
+                                                            setApprovers([]); setEscalations([]);
+                                                            if(t._dbId){
+                                                                try {
+                                                                    const [ticketData,escData] = await Promise.all([
+                                                                        API.tickets.getById(t._dbId),
+                                                                        API.tickets.getEscalations(t._dbId).catch(()=>({escalations:[]}))
+                                                                    ]);
+                                                                    // Update selectedTicket with full data (includes comments, attachments, subcategory, etc.)
+                                                                    if(ticketData.ticket) setSelectedTicket(normalise(ticketData.ticket));
+                                                                    if(ticketData.ticket?.approvers) setApprovers(ticketData.ticket.approvers);
+                                                                    if(escData.escalations) setEscalations(escData.escalations);
+                                                                } catch(_){}
+                                                            }
+                                                        }}>
+                                                        {/* Priority left-stripe via box-shadow on first cell */}
+                                                        <td style={{padding:'12px 14px',fontSize:'12px',fontWeight:'700',color:dm?'#818cf8':'#4F46E5',whiteSpace:'nowrap',borderLeft:`3px solid ${leftColor}`}}>{t.id}</td>
+                                                        <td style={{padding:'12px 14px',maxWidth:'280px'}}>
+                                                            <div style={{display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}>
+                                                                <span style={{fontSize:'13px',fontWeight:'600',color:textP,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'220px'}}>{t.title}</span>
+                                                                {t.isEscalated && <span style={{fontSize:'10px',fontWeight:'700',padding:'1px 7px',borderRadius:20,background:dm?'rgba(249,115,22,0.15)':'#FFF7ED',color:dm?'#fdba74':'#C2410C',border:`1px solid ${dm?'rgba(249,115,22,0.3)':'#FED7AA'}`,flexShrink:0}}>⬆ Escalated</span>}
+                                                                {od && <span style={{fontSize:'10px',fontWeight:'700',padding:'1px 7px',borderRadius:20,background:dm?'rgba(239,68,68,0.15)':'#FEF2F2',color:dm?'#fca5a5':'#991B1B',border:'1px solid #FECACA',flexShrink:0}}>Overdue</span>}
+                                                            </div>
+                                                            {t.category && <div style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8',marginTop:'2px'}}>{t.category}</div>}
+                                                        </td>
+                                                        <td style={{padding:'12px 14px',fontSize:'12px',color:textM,whiteSpace:'nowrap'}}>{t.category}</td>
+                                                        <td style={{padding:'12px 14px'}}>
+                                                            <span style={{display:'inline-flex',alignItems:'center',gap:'5px',fontSize:11,fontWeight:600,padding:'3px 9px',borderRadius:20,background:ps.bg,color:ps.color,border:`1px solid ${ps.border}`}}>
+                                                                <span style={{width:6,height:6,borderRadius:'50%',background:ps.dot,flexShrink:0}}/>
+                                                                {t.priority}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{padding:'12px 14px'}}>
+                                                            <Badge text={t.status} st={ss}/>
+                                                        </td>
+                                                        <td style={{padding:'12px 14px'}}>
+                                                            {t.assigned==='Unassigned' ? (
+                                                                <span style={{fontSize:12,color:dm?'#4a607f':'#94A3B8',fontStyle:'italic'}}>Unassigned</span>
+                                                            ) : (
+                                                                <div style={{display:'flex',alignItems:'center',gap:'7px'}}>
+                                                                    <div style={{width:24,height:24,borderRadius:'50%',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:700,color:dm?'#818cf8':'#4F46E5',flexShrink:0}}>{initials}</div>
+                                                                    <span style={{fontSize:12,color:dm?'#c0cfec':'#334155',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:'120px'}}>{t.assigned}</span>
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                        <td style={{padding:'12px 14px',fontSize:12,color:od?'#EF4444':(dm?'#8fa4cc':'#64748B'),fontWeight:od?700:400,whiteSpace:'nowrap'}}>
+                                                            {dueStr || <span style={{color:'#D1D5DB'}}>—</span>}
+                                                        </td>
+                                                        <td style={{padding:'12px 14px',fontSize:12,color:dm?'#4a607f':'#94A3B8',whiteSpace:'nowrap'}}>{t.date}</td>
+                                                        {filter==='ready_to_close' && (
+                                                            <td style={{padding:'12px 14px',whiteSpace:'nowrap'}} onClick={e=>e.stopPropagation()}>
+                                                                <button
+                                                                    disabled={closingTicketId===t._dbId}
+                                                                    onClick={async()=>{
+                                                                        setClosingTicketId(t._dbId);
+                                                                        setActionError('');
+                                                                        try {
+                                                                            await API.tickets.close(t._dbId);
+                                                                            setTickets(prev=>prev.map(x=>x._dbId===t._dbId ? {...x, status:'Closed', isClosed:true} : x));
+                                                                        } catch(err) {
+                                                                            setActionError('Failed to close ticket. Please try again.');
+                                                                        } finally {
+                                                                            setClosingTicketId(null);
+                                                                        }
+                                                                    }}
+                                                                    style={{display:'inline-flex',alignItems:'center',gap:'5px',padding:'5px 12px',borderRadius:'7px',border:'1px solid #059669',background:closingTicketId===t._dbId?'#D1FAE5':'#059669',color:closingTicketId===t._dbId?'#065F46':'white',fontSize:'12px',fontWeight:'600',cursor:closingTicketId===t._dbId?'wait':'pointer',transition:'all 0.15s',opacity:closingTicketId===t._dbId?0.7:1}}
+                                                                >
+                                                                    {closingTicketId===t._dbId ? '⏳ Closing…' : '🔒 Close'}
+                                                                </button>
+                                                            </td>
+                                                        )}
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* ── Ticket Detail Drawer ── */}
+                    {selectedTicket && (()=>{
+                        const closeDrawer = () => {
+                            setSelectedTicket(null); setRejectMode(false); setReopenMode(false); setReopenJustification(''); setJustification(''); setAcceptanceNote(''); setActionError('');
+                            setEscalateMode(false); setEscalateTo(''); setEscalateReason(''); setEscalations([]);
+                            setExtMode(false); setExtDate(''); setExtNote(''); setExtResNote('');
+                            setDeleteMode(false); setDeleteJustification('');
+                            setManageApproversMode(false); setPendingApproverIds([]);
+                            setReopenMode(false); setReopenJustification('');
+                            setResolutionNote(''); setWorkNote(''); setAttUploadError('');
+                        };
+                        const isAssignee   = selectedTicket.assigneeId != null && Number(selectedTicket.assigneeId) === Number(sessionUser?.id);
+                        const isCreator    = selectedTicket.requesterId != null && Number(selectedTicket.requesterId) === Number(sessionUser?.id);
+                        const isBootAdmin  = sessionUser?.isBootstrapAdmin === true;
+                        // isApprover: user has a PENDING decision (can approve/reject)
+                        const isApprover   = approvers.some(ap => Number(ap.userId) === Number(sessionUser?.id) && (ap.status||'').toLowerCase() === 'pending');
+                        // isAnyApprover: user is assigned as approver regardless of current decision status (can reopen resolved tickets)
+                        const isAnyApprover = approvers.some(ap => Number(ap.userId) === Number(sessionUser?.id));
+                        const hasPendingExt = selectedTicket.extensionRequestStatus === 'pending';
+                        return (
+                        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',display:'flex',alignItems:'flex-start',justifyContent:'flex-end',zIndex:50}}
+                            onClick={e=>{if(e.target===e.currentTarget) closeDrawer();}}>
+                            <div style={{background:cardBg,width:'100%',maxWidth:'520px',height:'100vh',overflowY:'auto',display:'flex',flexDirection:'column',boxShadow:'-4px 0 24px rgba(0,0,0,0.12)'}}>
+
+                                {/* Header band */}
+                                {(()=>{
+                                    const ps = pst(selectedTicket.priority);
+                                    return (
+                                        <div style={{background:ps.bg,borderBottom:`3px solid ${ps.dot}`,padding:'20px 20px 16px',position:'sticky',top:0,zIndex:1}}>
+                                            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+                                                <div style={{flex:1,minWidth:0,paddingRight:'12px'}}>
+                                                    <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'6px',flexWrap:'wrap'}}>
+                                                        <span style={{fontSize:11,fontWeight:700,color:ps.color,background:cardBg,borderRadius:6,padding:'2px 8px',border:`1px solid ${ps.border}`}}>{selectedTicket.id}</span>
+                                                        <Badge text={selectedTicket.status} st={sst(selectedTicket.status)}/>
+                                                        {selectedTicket.isEscalated && <span style={{fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:20,background:'#FFF7ED',color:'#C2410C',border:'1px solid #FED7AA'}}>⬆ Escalated</span>}
+                                                        {hasPendingExt && <span style={{fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:20,background:'#FFF7ED',color:'#92400E',border:'1px solid #FDE68A'}}>⏳ Extension Requested</span>}
+                                                    </div>
+                                                    <h2 style={{fontSize:'15px',fontWeight:'700',color:textP,margin:0,lineHeight:1.3}}>{selectedTicket.title}</h2>
+                                                    {selectedTicket.category && <p style={{fontSize:'12px',color:textM,margin:'4px 0 0'}}>{selectedTicket.category}</p>}
+                                                </div>
+                                                <button onClick={closeDrawer}
+                                                    style={{background:dm?'rgba(99,102,241,0.08)':'white',border:`1px solid ${borderC}`,borderRadius:'8px',width:32,height:32,fontSize:18,cursor:'pointer',color:textM,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>×</button>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+
+                                <div style={{padding:'20px',flex:1}}>
+                                    {/* ── Full detail grid ── */}
+                                    {(()=>{
+                                        const raw = selectedTicket.dueAt||selectedTicket.expectedCompletion;
+                                        const od  = isOD(selectedTicket);
+                                        // Derive ticket type / subject from stored fields or split from combined title
+                                        const rawTitle = selectedTicket.title || '';
+                                        const titleParts = rawTitle.includes(' — ') ? rawTitle.split(' — ') : [rawTitle, ''];
+                                        const ticketType = selectedTicket.titleType || titleParts[0] || '—';
+                                        const ticketSubject = selectedTicket.subtitle || titleParts.slice(1).join(' — ') || '—';
+                                        const metaItems = [
+                                            {label:'Priority',    node: <Badge text={selectedTicket.priority} st={pst(selectedTicket.priority)}/>},
+                                            {label:'Status',      node: <Badge text={selectedTicket.status}   st={sst(selectedTicket.status)}/>},
+                                            {label:'Ticket Type', node: <span style={{fontSize:13,color:textP,fontWeight:500}}>{ticketType}</span>},
+                                            {label:'Subject',     node: <span style={{fontSize:13,color:textP}}>{ticketSubject}</span>},
+                                            {label:'Assigned To', node: <div>
+                                                <span style={{fontSize:13,color:textP,fontWeight:500,display:'block'}}>{selectedTicket.assigned||'Unassigned'}</span>
+                                                {selectedTicket.assigneeEmail && <span style={{fontSize:11,color:textM}}>{selectedTicket.assigneeEmail}</span>}
+                                            </div>},
+                                            {label:'Reported By', node: <div>
+                                                <span style={{fontSize:13,color:textP,fontWeight:500,display:'block'}}>{selectedTicket.requesterName||'—'}</span>
+                                                {selectedTicket.requesterEmail && <span style={{fontSize:11,color:textM}}>{selectedTicket.requesterEmail}</span>}
+                                            </div>},
+                                            {label:'Category',    node: <span style={{fontSize:13,color:textP}}>{selectedTicket.categoryLabel||selectedTicket.category||'—'}</span>},
+                                            {label:'Sub-Category',node: <span style={{fontSize:13,color:selectedTicket.subcategory?(dm?'#c0cfec':'#334155'):(dm?'#4a607f':'#94A3B8'),fontStyle:selectedTicket.subcategory?'normal':'italic'}}>{selectedTicket.subcategory||'Not specified'}</span>},
+                                            {label:'Created',     node: <span style={{fontSize:13,color:dm?'#c0cfec':'#334155'}}>{selectedTicket.date}</span>},
+                                            {label:'Due Date',    node: raw
+                                                ? <span style={{fontSize:13,fontWeight:od?700:400,color:od?'#EF4444':(dm?'#c0cfec':'#334155')}}>{new Date(raw).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'})}{od?' ⚠️ Overdue':''}</span>
+                                                : <span style={{fontSize:13,color:dm?'#4a607f':'#94A3B8'}}>Not set</span>},
+                                            {label:'NDIS Related',node: <span style={{fontSize:13,color:dm?'#c0cfec':'#334155'}}>{selectedTicket.ndisRelated?'Yes':'No'}</span>},
+                                        ];
+                                        return (
+                                            <div style={{marginBottom:20,paddingBottom:20,borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
+                                                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'14px'}}>
+                                                    {metaItems.map(({label,node})=>(
+                                                        <div key={label}>
+                                                            <p style={{fontSize:10,fontWeight:700,color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 4px'}}>{label}</p>
+                                                            {node}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+
+                                    {/* ── Description / Issue Details — always shown ── */}
+                                    {(()=>{
+                                        const issueText = selectedTicket.description||selectedTicket.issueDetails||selectedTicket.issue_details||'';
+                                        return (
+                                            <div style={{marginBottom:20,paddingBottom:20,borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
+                                                <p style={{fontSize:10,fontWeight:700,color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 8px'}}>📋 Issue Details / Description</p>
+                                                {issueText ? (
+                                                    <p style={{fontSize:13,color:dm?'#c0cfec':'#334155',lineHeight:1.7,margin:0,whiteSpace:'pre-wrap',background:dm?'rgba(99,102,241,0.04)':'#F8FAFF',padding:'12px 14px',borderRadius:8,border:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
+                                                        {issueText}
+                                                    </p>
+                                                ) : (
+                                                    <p style={{fontSize:13,color:dm?'#4a607f':'#94A3B8',fontStyle:'italic',margin:0,padding:'12px 14px',background:dm?'rgba(99,102,241,0.03)':'#F8FAFF',borderRadius:8,border:`1px dashed ${dm?'rgba(99,102,241,0.1)':'#E2E8F0'}`}}>No description provided.</p>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
+
+                                    {/* ── Resolution Note (set when marked complete) ── */}
+                                    {selectedTicket.resolutionNote && (
+                                        <div style={{marginBottom:20,paddingBottom:20,borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
+                                            <p style={{fontSize:10,fontWeight:700,color:dm?'#34d399':'#065F46',textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 8px'}}>✅ Resolution Note</p>
+                                            <p style={{fontSize:13,color:dm?'#6ee7b7':'#065F46',lineHeight:1.7,margin:0,whiteSpace:'pre-wrap',background:dm?'rgba(16,185,129,0.06)':'#ECFDF5',padding:'12px 14px',borderRadius:8,border:`1px solid ${dm?'rgba(16,185,129,0.15)':'#A7F3D0'}`}}>
+                                                {selectedTicket.resolutionNote}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* ── Attachments — always shown, with upload for assignee/admin ── */}
+                                    {(()=>{
+                                        const atts = selectedTicket.attachments || [];
+                                        const canUpload = isAssignee || isBootAdmin || isCreator;
+                                        const fileIcon = (type='') => type.startsWith('image/') ? '🖼️' : type.includes('pdf') ? '📄' : type.includes('sheet')||type.includes('excel') ? '📊' : type.includes('word')||type.includes('doc') ? '📝' : '📎';
+                                        const downloadFile = (att) => {
+                                            try {
+                                                const bytes = Uint8Array.from(atob(att.content), c=>c.charCodeAt(0));
+                                                const blob  = new Blob([bytes], {type: att.type||'application/octet-stream'});
+                                                const url   = URL.createObjectURL(blob);
+                                                const a     = document.createElement('a');
+                                                a.href = url; a.download = att.name; a.click();
+                                                setTimeout(()=>URL.revokeObjectURL(url), 2000);
+                                            } catch(_) { alert('Could not download attachment'); }
+                                        };
+                                        const handleAttachUpload = async (e) => {
+                                            const files = Array.from(e.target.files || []);
+                                            if (!files.length) return;
+                                            setAttUploadLoading(true); setAttUploadError('');
+                                            try {
+                                                const encoded = await Promise.all(files.map(f => new Promise((resolve, reject) => {
+                                                    const reader = new FileReader();
+                                                    reader.onload = ev => resolve({ name: f.name, type: f.type, size: f.size, content: ev.target.result.split(',')[1] });
+                                                    reader.onerror = reject;
+                                                    reader.readAsDataURL(f);
+                                                })));
+                                                await API.tickets.addAttachments(selectedTicket._dbId, encoded);
+                                                await refreshTicket(selectedTicket._dbId);
+                                            } catch(err) { setAttUploadError(err.message || 'Upload failed'); }
+                                            setAttUploadLoading(false);
+                                            e.target.value = '';
+                                        };
+                                        return (
+                                            <div style={{marginBottom:20,paddingBottom:20,borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
+                                                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+                                                    <p style={{fontSize:10,fontWeight:700,color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.06em',margin:0}}>📎 Attachments {atts.length > 0 ? `(${atts.length})` : ''}</p>
+                                                    {canUpload && (
+                                                        <label style={{display:'inline-flex',alignItems:'center',gap:5,padding:'4px 10px',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:dm?'#818cf8':'#4F46E5',border:`1px solid ${dm?'rgba(99,102,241,0.25)':'#C7D2FE'}`,borderRadius:6,fontSize:11,fontWeight:600,cursor:attUploadLoading?'not-allowed':'pointer',opacity:attUploadLoading?0.5:1}}>
+                                                            <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.rtf,.jpg,.jpeg,.png,.gif,.bmp,.heic" onChange={handleAttachUpload} style={{display:'none'}} disabled={attUploadLoading}/>
+                                                            {attUploadLoading ? '⏳ Uploading…' : '➕ Attach File'}
+                                                        </label>
+                                                    )}
+                                                </div>
+                                                {attUploadError && <p style={{fontSize:11,color:'#DC2626',margin:'0 0 8px'}}>{attUploadError}</p>}
+                                                {atts.length === 0 ? (
+                                                    <p style={{fontSize:12,color:dm?'#4a607f':'#94A3B8',fontStyle:'italic',margin:0,padding:'10px 14px',background:dm?'rgba(99,102,241,0.03)':'#F8FAFF',borderRadius:8,border:`1px dashed ${dm?'rgba(99,102,241,0.1)':'#E2E8F0'}`}}>No attachments yet.{canUpload ? ' Use the button above to attach files.' : ''}</p>
+                                                ) : (
+                                                    <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                                                        {atts.map((att,i)=>(
+                                                            <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:dm?'rgba(99,102,241,0.06)':'#F8FAFF',borderRadius:8,border:`1px solid ${dm?'rgba(99,102,241,0.12)':'#E2E8F0'}`}}>
+                                                                <span style={{fontSize:18,flexShrink:0}}>{fileIcon(att.type)}</span>
+                                                                <div style={{flex:1,minWidth:0}}>
+                                                                    <div style={{fontSize:12,fontWeight:600,color:textP,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{att.name}</div>
+                                                                    <div style={{fontSize:11,color:textM}}>{att.size ? `${(att.size/1024).toFixed(0)} KB` : ''}</div>
+                                                                </div>
+                                                                <button onClick={()=>downloadFile(att)}
+                                                                    style={{padding:'5px 12px',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:dm?'#818cf8':'#4F46E5',border:`1px solid ${dm?'rgba(99,102,241,0.25)':'#C7D2FE'}`,borderRadius:6,fontSize:11,fontWeight:600,cursor:'pointer',flexShrink:0}}>
+                                                                    ⬇ Download
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
+
+                                    {/* ── Work Notes / Steps Taken — audit trail ── */}
+                                    {(()=>{
+                                        const allComments = selectedTicket.comments || [];
+                                        const workNotes = allComments.filter(c => c.isInternal);
+                                        const fmtAt = ts => { try { return new Date(ts).toLocaleString('en-AU',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}); } catch(_){ return ''; } };
+                                        const canAddNote = true; // Work notes can be added at any stage for audit trail
+                                        const addWorkNote = async () => {
+                                            if (!workNote.trim()) return;
+                                            setWorkNoteLoading(true);
+                                            try {
+                                                const u = getSessionUser();
+                                                await authFetch(`${HRMS_API}/tickets/${selectedTicket._dbId}/comments`, {
+                                                    method: 'POST',
+                                                    body: JSON.stringify({ body: workNote.trim(), isInternal: true, actorId: u?.id })
+                                                });
+                                                setWorkNote('');
+                                                await refreshTicket(selectedTicket._dbId);
+                                            } catch(_){}
+                                            setWorkNoteLoading(false);
+                                        };
+                                        return (
+                                            <div style={{marginBottom:20,paddingBottom:20,borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
+                                                <p style={{fontSize:10,fontWeight:700,color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 10px'}}>🔧 Resolution Details / Steps Taken</p>
+                                                {workNotes.length === 0 ? (
+                                                    <p style={{fontSize:12,color:dm?'#4a607f':'#94A3B8',fontStyle:'italic',margin:'0 0 10px',padding:'10px 14px',background:dm?'rgba(99,102,241,0.03)':'#F8FAFF',borderRadius:8,border:`1px dashed ${dm?'rgba(99,102,241,0.1)':'#E2E8F0'}`}}>No work notes yet. Use the field below to document steps taken during resolution.</p>
+                                                ) : (
+                                                    <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:10}}>
+                                                        {workNotes.map((c,i)=>(
+                                                            <div key={c.id||i} style={{padding:'10px 12px',background:dm?'rgba(245,158,11,0.06)':'#FFFBEB',borderRadius:8,border:`1px solid ${dm?'rgba(245,158,11,0.15)':'#FDE68A'}`}}>
+                                                                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
+                                                                    <span style={{fontSize:11,fontWeight:700,color:dm?'#fcd34d':'#92400E'}}>{c.authorName || `Staff #${c.userId}`}</span>
+                                                                    <span style={{fontSize:10,color:dm?'#6b80a4':'#94A3B8'}}>{fmtAt(c.at)}</span>
+                                                                </div>
+                                                                <p style={{fontSize:13,color:dm?'#fef3c7':'#78350F',margin:0,lineHeight:1.6,whiteSpace:'pre-wrap'}}>{c.text}</p>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                {canAddNote && (
+                                                    <div>
+                                                        <textarea rows="3" value={workNote} onChange={e=>setWorkNote(e.target.value)}
+                                                            placeholder="Document a step taken, update, or note about the resolution process…"
+                                                            style={{width:'100%',border:`1px solid ${dm?'rgba(245,158,11,0.25)':'#FDE68A'}`,borderRadius:8,padding:'8px 10px',fontSize:13,resize:'vertical',boxSizing:'border-box',background:dm?'rgba(8,16,36,0.5)':'#FFFBEB',color:textP,outline:'none',marginBottom:8,fontFamily:'inherit',lineHeight:1.5}}/>
+                                                        <button disabled={workNoteLoading||!workNote.trim()} onClick={addWorkNote}
+                                                            style={{padding:'8px 16px',background:(workNoteLoading||!workNote.trim())?'#94A3B8':'#D97706',color:'white',border:'none',borderRadius:8,fontSize:12,fontWeight:600,cursor:(workNoteLoading||!workNote.trim())?'not-allowed':'pointer',opacity:workNoteLoading?0.5:1}}>
+                                                            {workNoteLoading?'Saving…':'📝 Add Work Note'}
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
+
+                                    {/* ── Assignee Actions ── */}
+                                    {isAssignee && !['Resolved','Closed'].includes(selectedTicket.status) && (()=>{
+                                        // Derive rejection context from approvers state
+                                        const displayApproversForAssignee = approvers.length > 0 ? approvers : (selectedTicket.approvers || []);
+                                        const rejectedApprovers = displayApproversForAssignee.filter(ap => (ap.status||'').toLowerCase() === 'rejected');
+                                        const wasReopened = rejectedApprovers.length > 0 && selectedTicket.status !== 'Pending Approval';
+                                        return (
+                                        <div style={{marginBottom:20,padding:16,background:dm?'rgba(99,102,241,0.08)':'#EEF2FF',borderRadius:12,border:`1px solid ${dm?'rgba(99,102,241,0.2)':'#C7D2FE'}`}}>
+                                            <p style={{fontSize:12,fontWeight:700,color:dm?'#818cf8':'#4338CA',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>
+                                                {selectedTicket.status === 'Pending Approval' ? '⏳ Your Actions (Assignee)' : wasReopened ? '🔄 Your Actions (Assignee)' : '✏️ Your Actions (Assignee)'}
+                                            </p>
+                                            {actionError && <div style={{fontSize:12,color:'#DC2626',background:'#FEF2F2',border:'1px solid #FECACA',borderRadius:8,padding:'8px 12px',marginBottom:10}}>{actionError}</div>}
+
+                                            {/* ── PENDING APPROVAL STATE: show waiting banner ── */}
+                                            {selectedTicket.status === 'Pending Approval' && (
+                                                <div>
+                                                    <div style={{padding:14,background:dm?'rgba(16,185,129,0.07)':'#ECFDF5',borderRadius:10,border:`1px solid ${dm?'rgba(16,185,129,0.2)':'#A7F3D0'}`,marginBottom:12}}>
+                                                        <p style={{fontSize:13,fontWeight:700,color:dm?'#34d399':'#065F46',margin:'0 0 4px'}}>✅ Resolution submitted — awaiting approval</p>
+                                                        <p style={{fontSize:12,color:dm?'#6ee7b7':'#047857',margin:0}}>Your resolution has been sent to the approver(s) below. You will be notified when they respond.</p>
+                                                    </div>
+                                                    {selectedTicket.resolutionNote && (
+                                                        <div style={{padding:'10px 12px',background:dm?'rgba(99,102,241,0.05)':'#F8FAFF',borderRadius:8,border:`1px solid ${dm?'rgba(99,102,241,0.12)':'#E0E7FF'}`}}>
+                                                            <p style={{fontSize:10,fontWeight:700,color:dm?'#818cf8':'#4338CA',textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 4px'}}>Your Resolution</p>
+                                                            <p style={{fontSize:13,color:dm?'#c0cfec':'#334155',margin:0,lineHeight:1.6,whiteSpace:'pre-wrap'}}>{selectedTicket.resolutionNote}</p>
+                                                        </div>
+                                                    )}
+                                                    <div style={{marginTop:10,display:'flex',flexDirection:'column',gap:6}}>
+                                                        {displayApproversForAssignee.map(ap => {
+                                                            const s=(ap.status||'pending').toLowerCase();
+                                                            const stBg={approved:dm?'rgba(16,185,129,0.1)':'#ECFDF5',rejected:dm?'rgba(239,68,68,0.1)':'#FEF2F2',pending:dm?'rgba(239,68,68,0.1)':'#FEF2F2'};
+                                                            const stC={approved:dm?'#34d399':'#065F46',rejected:dm?'#fca5a5':'#991B1B',pending:dm?'#fca5a5':'#991B1B'};
+                                                            const stI={approved:'✅',rejected:'❌',pending:'⏳'};
+                                                            return (
+                                                                <div key={ap.id} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 10px',background:stBg[s]||stBg.pending,borderRadius:8}}>
+                                                                    <div style={{width:28,height:28,borderRadius:'50%',background:dm?'rgba(255,255,255,0.1)':'white',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:12,color:stC[s]||stC.pending,flexShrink:0}}>
+                                                                        {(ap.userName||ap.name||'?').charAt(0).toUpperCase()}
+                                                                    </div>
+                                                                    <div style={{flex:1,minWidth:0}}>
+                                                                        <p style={{fontSize:12,fontWeight:600,color:stC[s]||stC.pending,margin:0}}>{ap.userName||ap.name} {stI[s]||'⏳'} {s.charAt(0).toUpperCase()+s.slice(1)}</p>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* ── REOPENED: rejection callout before re-submit form ── */}
+                                            {selectedTicket.status !== 'Pending Approval' && wasReopened && (
+                                                <div style={{padding:14,background:dm?'rgba(239,68,68,0.08)':'#FEF2F2',borderRadius:10,border:`1px solid ${dm?'rgba(239,68,68,0.25)':'#FECACA'}`,marginBottom:14}}>
+                                                    <p style={{fontSize:13,fontWeight:700,color:dm?'#fca5a5':'#991B1B',margin:'0 0 8px'}}>🔄 This ticket was reopened — revision required</p>
+                                                    {rejectedApprovers.map(ap => (
+                                                        <div key={ap.id} style={{marginBottom:6}}>
+                                                            <p style={{fontSize:12,fontWeight:600,color:dm?'#fca5a5':'#DC2626',margin:'0 0 2px'}}>{ap.userName||ap.name} said:</p>
+                                                            <p style={{fontSize:12,color:dm?'#fecaca':'#7F1D1D',margin:0,lineHeight:1.5,fontStyle:'italic',background:dm?'rgba(239,68,68,0.06)':'#FFF5F5',padding:'6px 10px',borderRadius:6}}>"{ap.justification||'No reason provided.'}"</p>
+                                                        </div>
+                                                    ))}
+                                                    <p style={{fontSize:11,color:dm?'#8fa4cc':'#64748B',marginTop:8,marginBottom:0}}>Please address the feedback above, then submit a revised resolution below.</p>
+                                                </div>
+                                            )}
+
+                                            {/* ── ACTIVE STATE: Mark Complete form ── */}
+                                            {selectedTicket.status !== 'Pending Approval' && (
+                                                <div style={{marginBottom:12}}>
+                                                    {!wasReopened && <p style={{fontSize:11,color:dm?'#8fa4cc':'#4338CA',marginBottom:10}}>Once your work is done, describe the resolution and submit for approver review.</p>}
+
+                                                    <label style={{display:'block',fontSize:11,fontWeight:700,color:dm?'#c0cfec':'#334155',marginBottom:5}}>
+                                                        {wasReopened ? 'Revised Resolution' : 'Resolution Note'} <span style={{color:'#EF4444'}}>*</span>
+                                                        <span style={{fontWeight:400,color:textM,marginLeft:4}}>(required for audit trail)</span>
+                                                    </label>
+                                                    <textarea rows="4" value={resolutionNote} onChange={e=>setResolutionNote(e.target.value)}
+                                                        placeholder={wasReopened ? 'Describe what you changed or improved to address the feedback…' : 'Describe what was done to resolve this ticket…'}
+                                                        style={{width:'100%',border:`1px solid ${wasReopened?(dm?'rgba(239,68,68,0.3)':'#FECACA'):(dm?'rgba(99,102,241,0.25)':'#C7D2FE')}`,borderRadius:8,padding:'8px 10px',fontSize:13,resize:'vertical',boxSizing:'border-box',background:dm?'rgba(8,16,36,0.5)':'white',color:textP,outline:'none',marginBottom:10,fontFamily:'inherit',lineHeight:1.5}}/>
+
+                                                    <button disabled={actionLoading||hasPendingExt||!resolutionNote.trim()} onClick={async()=>{
+                                                        setActionLoading(true); setActionError('');
+                                                        try { await API.tickets.complete(selectedTicket._dbId, resolutionNote.trim()); setResolutionNote(''); await refreshTicket(selectedTicket._dbId); }
+                                                        catch(e){ setActionError(e.message); }
+                                                        finally{ setActionLoading(false); }
+                                                    }} style={{width:'100%',padding:'11px 20px',background:(hasPendingExt||!resolutionNote.trim())?'#94A3B8':wasReopened?'#DC2626':'#4F46E5',color:'white',border:'none',borderRadius:9,fontSize:13,fontWeight:700,cursor:(hasPendingExt||!resolutionNote.trim())?'not-allowed':'pointer',opacity:actionLoading?0.5:1}}>
+                                                        {actionLoading?'⏳ Submitting…':wasReopened?'🔄 Resubmit Revised Resolution':'✔ Mark as Complete & Submit for Approval'}
+                                                    </button>
+                                                    {hasPendingExt && <p style={{fontSize:11,color:'#D97706',marginTop:6}}>⏳ Cannot submit for approval while an extension request is pending.</p>}
+                                                    {!resolutionNote.trim() && !hasPendingExt && <p style={{fontSize:11,color:dm?'#6b80a4':'#94A3B8',marginTop:6}}>Enter a resolution note above to enable submission.</p>}
+                                                </div>
+                                            )}
+
+                                            {/* Request Extension */}
+                                            {selectedTicket.status !== 'Pending Approval' && !hasPendingExt && (
+                                                <div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${dm?'rgba(99,102,241,0.15)':'#C7D2FE'}`}}>
+                                                    {!extMode ? (
+                                                        <button onClick={()=>{setExtMode(true);setActionError('');}}
+                                                            style={{padding:'8px 16px',background:'none',border:`1px solid ${dm?'rgba(99,102,241,0.3)':'#C7D2FE'}`,color:dm?'#818cf8':'#4338CA',borderRadius:8,fontSize:12,fontWeight:600,cursor:'pointer'}}>
+                                                            📅 Request Time Extension
+                                                        </button>
+                                                    ) : (
+                                                        <div>
+                                                            <p style={{fontSize:12,fontWeight:600,color:dm?'#c0cfec':'#334155',marginBottom:8}}>Request new due date</p>
+                                                            <div style={{marginBottom:10}}>
+                                                                <label style={{display:'block',fontSize:11,fontWeight:600,color:textM,marginBottom:4}}>Proposed New Due Date <span style={{color:'#EF4444'}}>*</span></label>
+                                                                <input type="date" value={extDate} onChange={e=>setExtDate(e.target.value)} min={new Date().toISOString().slice(0,10)}
+                                                                    style={{width:'100%',border:`1px solid ${borderC}`,borderRadius:8,padding:'8px 10px',fontSize:13,boxSizing:'border-box',background:dm?'rgba(8,16,36,0.6)':'white',color:textP,outline:'none'}}/>
+                                                            </div>
+                                                            <div style={{marginBottom:10}}>
+                                                                <label style={{display:'block',fontSize:11,fontWeight:600,color:textM,marginBottom:4}}>Reason</label>
+                                                                <textarea rows="2" value={extNote} onChange={e=>setExtNote(e.target.value)} placeholder="Why do you need more time?"
+                                                                    style={{width:'100%',border:`1px solid ${borderC}`,borderRadius:8,padding:'8px 10px',fontSize:13,resize:'none',boxSizing:'border-box',background:dm?'rgba(8,16,36,0.6)':'white',color:textP,outline:'none'}}/>
+                                                            </div>
+                                                            <div style={{display:'flex',gap:8}}>
+                                                                <button disabled={actionLoading||!extDate} onClick={async()=>{
+                                                                    setActionLoading(true); setActionError('');
+                                                                    try { await API.tickets.requestExtension(selectedTicket._dbId,extDate,extNote); setExtMode(false); setExtDate(''); setExtNote(''); await refreshTicket(selectedTicket._dbId); }
+                                                                    catch(e){ setActionError(e.message); }
+                                                                    finally{ setActionLoading(false); }
+                                                                }} style={{flex:1,padding:'9px',background:'#D97706',color:'white',border:'none',borderRadius:9,fontSize:13,fontWeight:600,cursor:'pointer',opacity:(actionLoading||!extDate)?0.5:1}}>
+                                                                    {actionLoading?'⏳…':'📅 Submit Extension Request'}
+                                                                </button>
+                                                                <button onClick={()=>{setExtMode(false);setExtDate('');setExtNote('');setActionError('');}}
+                                                                    style={{padding:'9px 14px',background:dm?'rgba(6,9,22,0.7)':'#F5F7FF',color:dm?'#c0cfec':'#334155',border:'none',borderRadius:9,fontSize:13,fontWeight:600,cursor:'pointer'}}>Cancel</button>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {/* Show pending extension status to assignee */}
+                                            {hasPendingExt && (
+                                                <div style={{marginTop:12,padding:12,background:dm?'rgba(245,158,11,0.08)':'#FFFBEB',borderRadius:10,border:`1px solid ${dm?'rgba(245,158,11,0.2)':'#FDE68A'}`}}>
+                                                    <p style={{fontSize:12,fontWeight:600,color:'#92400E',margin:'0 0 4px'}}>⏳ Extension Request Pending</p>
+                                                    <p style={{fontSize:11,color:dm?'#fcd34d':'#D97706',margin:0}}>Proposed: <strong>{selectedTicket.extensionRequestedDue ? new Date(selectedTicket.extensionRequestedDue).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}) : '—'}</strong></p>
+                                                    {selectedTicket.extensionRequestNote && <p style={{fontSize:11,color:dm?'#8fa4cc':'#64748B',margin:'4px 0 0'}}>Note: {selectedTicket.extensionRequestNote}</p>}
+                                                    <p style={{fontSize:11,color:dm?'#4a607f':'#94A3B8',margin:'4px 0 0'}}>Waiting for an approver to respond.</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                        );
+                                    })()}
+
+                                    {/* ── Approver: Extension Response Panel ── */}
+                                    {isAnyApprover && hasPendingExt && (
+                                        <div style={{marginBottom:20,padding:16,background:dm?'rgba(245,158,11,0.08)':'#FFFBEB',borderRadius:12,border:`1px solid ${dm?'rgba(245,158,11,0.25)':'#FDE68A'}`}}>
+                                            <p style={{fontSize:12,fontWeight:700,color:'#92400E',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:10}}>📅 Extension Request — Your Decision</p>
+                                            <p style={{fontSize:13,color:dm?'#c0cfec':'#374151',marginBottom:4}}>
+                                                The assignee <strong>{selectedTicket.assigned||'Assignee'}</strong> is requesting a time extension.
+                                            </p>
+                                            <p style={{fontSize:13,marginBottom:4,color:dm?'#c0cfec':'#374151'}}>
+                                                Proposed new date: <strong>{selectedTicket.extensionRequestedDue ? new Date(selectedTicket.extensionRequestedDue).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}) : '—'}</strong>
+                                            </p>
+                                            {selectedTicket.extensionRequestNote && <p style={{fontSize:12,color:dm?'#8fa4cc':'#64748B',marginBottom:12}}>Reason: "{selectedTicket.extensionRequestNote}"</p>}
+                                            <div style={{marginBottom:10}}>
+                                                <label style={{display:'block',fontSize:11,fontWeight:600,color:textM,marginBottom:4}}>Optional note to assignee</label>
+                                                <textarea rows="2" value={extResNote} onChange={e=>setExtResNote(e.target.value)} placeholder="Comment (optional)…"
+                                                    style={{width:'100%',border:`1px solid ${borderC}`,borderRadius:8,padding:'8px 10px',fontSize:13,resize:'none',boxSizing:'border-box',background:dm?'rgba(8,16,36,0.6)':'white',color:textP,outline:'none'}}/>
+                                            </div>
+                                            {actionError && <div style={{fontSize:12,color:'#DC2626',background:'#FEF2F2',border:'1px solid #FECACA',borderRadius:8,padding:'8px 12px',marginBottom:10}}>{actionError}</div>}
+                                            <div style={{display:'flex',gap:10}}>
+                                                <button disabled={actionLoading} onClick={async()=>{
+                                                    setActionLoading(true); setActionError('');
+                                                    try { await API.tickets.respondExtension(selectedTicket._dbId,'approve',extResNote); setExtResNote(''); await refreshTicket(selectedTicket._dbId); }
+                                                    catch(e){ setActionError(e.message); }
+                                                    finally{ setActionLoading(false); }
+                                                }} style={{flex:1,padding:'10px',background:'#059669',color:'white',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer',opacity:actionLoading?0.5:1}}>
+                                                    {actionLoading?'⏳…':'✅ Approve Extension'}
+                                                </button>
+                                                <button disabled={actionLoading} onClick={async()=>{
+                                                    setActionLoading(true); setActionError('');
+                                                    try { await API.tickets.respondExtension(selectedTicket._dbId,'deny',extResNote); setExtResNote(''); await refreshTicket(selectedTicket._dbId); }
+                                                    catch(e){ setActionError(e.message); }
+                                                    finally{ setActionLoading(false); }
+                                                }} style={{flex:1,padding:'10px',background:'#DC2626',color:'white',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer',opacity:actionLoading?0.5:1}}>
+                                                    {actionLoading?'⏳…':'❌ Deny Extension'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Approvers panel */}
+                                    {(()=>{
+                                        const displayApprovers = approvers.length > 0 ? approvers : (selectedTicket.approvers || []);
+                                        // staffList from outer scope; filter out assignee
+                                        const availableForApproval = staffList.filter(u => u.id !== selectedTicket.assigneeId);
+                                        return (
+                                        <div style={{marginBottom:20,paddingBottom:20,borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
+                                            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+                                                <p style={{fontSize:10,fontWeight:700,color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.06em',margin:0}}>
+                                                    ✅ Approvers {displayApprovers.length > 0 ? `(${displayApprovers.length})` : ''}
+                                                </p>
+                                                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                                                    {selectedTicket.status === 'Pending Approval' && (
+                                                        <span style={{fontSize:11,fontWeight:600,color:'#D97706',background:'#FFFBEB',padding:'2px 8px',borderRadius:20,border:'1px solid #FDE68A'}}>Awaiting approval</span>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {displayApprovers.length === 0 ? (
+                                                <p style={{fontSize:12,color:dm?'#4a607f':'#94A3B8',fontStyle:'italic',margin:0,padding:'10px 14px',background:dm?'rgba(99,102,241,0.03)':'#F8FAFF',borderRadius:8,border:`1px dashed ${dm?'rgba(99,102,241,0.1)':'#E2E8F0'}`}}>
+                                                    No approvers assigned to this ticket.
+                                                </p>
+                                            ) : (
+                                                <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                                                    {displayApprovers.map(ap => {
+                                                        const s=(ap.status||'pending').toLowerCase();
+                                                        const stBg={approved:dm?'rgba(16,185,129,0.08)':'#ECFDF5',rejected:dm?'rgba(239,68,68,0.08)':'#FEF2F2',pending:dm?'rgba(239,68,68,0.08)':'#FEF2F2'};
+                                                        const stBorder={approved:dm?'rgba(16,185,129,0.2)':'#A7F3D0',rejected:dm?'rgba(239,68,68,0.2)':'#FECACA',pending:dm?'rgba(239,68,68,0.2)':'#FECACA'};
+                                                        const stC={approved:dm?'#34d399':'#065F46',rejected:dm?'#fca5a5':'#991B1B',pending:dm?'#fca5a5':'#991B1B'};
+                                                        const stI={approved:'✅',rejected:'❌',pending:'⏳'};
+                                                        return (
+                                                            <div key={ap.id} style={{display:'flex',alignItems:'flex-start',gap:10,padding:'10px 12px',borderRadius:10,background:stBg[s]||stBg.pending,border:`1px solid ${stBorder[s]||stBorder.pending}`}}>
+                                                                <div style={{width:30,height:30,borderRadius:'50%',background:'rgba(255,255,255,0.6)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:12,color:stC[s]||stC.pending,flexShrink:0}}>
+                                                                    {(ap.userName||ap.name||'?').charAt(0).toUpperCase()}
+                                                                </div>
+                                                                <div style={{flex:1,minWidth:0}}>
+                                                                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
+                                                                        <p style={{fontSize:13,fontWeight:600,color:stC[s]||stC.pending,margin:0}}>{ap.userName||ap.name}</p>
+                                                                        <span style={{fontSize:11,fontWeight:700,color:stC[s]||stC.pending,flexShrink:0}}>{stI[s]||'⏳'} {s.charAt(0).toUpperCase()+s.slice(1)}</span>
+                                                                    </div>
+                                                                    {ap.justification && <p style={{fontSize:11,color:stC[s]||stC.pending,margin:'4px 0 0',opacity:0.8}}>{s==='approved'?'📝':'💬'} {ap.justification}</p>}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+                                        );
+                                    })()}
+
+                                    {/* Escalation trail */}
+                                    {(escalations.length > 0 || selectedTicket.isEscalated) && (
+                                        <div className="mb-5 p-4 bg-orange-50 border border-orange-100 rounded-xl">
+                                            <p className="text-xs font-semibold text-orange-700 uppercase tracking-widest mb-3">⬆ Escalation Trail</p>
+                                            <div className="space-y-2">
+                                                {escalations.map((e, i) => (
+                                                    <div key={e.id || i} className="text-xs text-orange-800">
+                                                        <span className="font-semibold">{e.escalated_by_name}</span> escalated to <span className="font-semibold">{e.escalated_to_name}</span>
+                                                        <span className="text-orange-500 ml-1">— {e.reason}</span>
+                                                        <span className="text-orange-400 ml-2">{e.created_at ? new Date(e.created_at).toLocaleDateString() : ''}</span>
+                                                    </div>
+                                                ))}
+                                                {escalations.length === 0 && selectedTicket.isEscalated && (
+                                                    <p className="text-xs text-orange-600 italic">This ticket has been escalated.</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Escalation action panel — managers/admins */}
+                                    {selectedTicket.status !== 'Resolved' && selectedTicket.status !== 'Closed' && (
+                                        <div className="mb-5">
+                                            {!escalateMode ? (
+                                                <button
+                                                    onClick={() => { setEscalateMode(true); setActionError(''); }}
+                                                    className="w-full py-2.5 border-2 border-orange-300 text-orange-700 text-sm font-semibold rounded-xl hover:bg-orange-50 transition flex items-center justify-center gap-2"
+                                                >
+                                                    ⬆ Escalate This Ticket
+                                                </button>
+                                            ) : (
+                                                <div className="border-2 border-orange-200 rounded-xl p-4 bg-orange-50">
+                                                    <p className="text-xs font-semibold text-orange-700 uppercase tracking-widest mb-3">Escalate Ticket</p>
+
+                                                    {actionError && (
+                                                        <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-3">{actionError}</div>
+                                                    )}
+
+                                                    <div className="mb-3">
+                                                        <label className="block text-xs font-semibold text-gray-600 mb-1.5">Escalate To <span className="text-red-400">*</span></label>
+                                                        <select
+                                                            value={escalateTo}
+                                                            onChange={e => setEscalateTo(e.target.value)}
+                                                            className="w-full border border-orange-200 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-400"
+                                                        >
+                                                            <option value="">— Select person —</option>
+                                                            {staffList.map(s => (
+                                                                <option key={s.id} value={s.id}>{s.name}{s.department_name ? ` (${s.department_name})` : ''}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+
+                                                    <div className="mb-3">
+                                                        <label className="block text-xs font-semibold text-gray-600 mb-1.5">Reason <span className="text-red-400">*</span></label>
+                                                        <textarea
+                                                            rows="3"
+                                                            value={escalateReason}
+                                                            onChange={e => setEscalateReason(e.target.value)}
+                                                            placeholder="Why is this ticket being escalated?"
+                                                            className="w-full border border-orange-200 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-400 resize-none"
+                                                        />
+                                                    </div>
+
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            disabled={actionLoading || !escalateTo || !escalateReason.trim()}
+                                                            onClick={async () => {
+                                                                setActionLoading(true); setActionError('');
+                                                                try {
+                                                                    const data = await API.tickets.escalate(
+                                                                        selectedTicket._dbId,
+                                                                        Number(escalateTo),
+                                                                        escalateReason
+                                                                    );
+                                                                    if (data.ticket?.escalations) setEscalations(data.ticket.escalations);
+                                                                    setEscalateMode(false); setEscalateTo(''); setEscalateReason('');
+                                                                    await refreshTicket(selectedTicket._dbId);
+                                                                    const escData = await API.tickets.getEscalations(selectedTicket._dbId).catch(() => ({ escalations: [] }));
+                                                                    if (escData.escalations) setEscalations(escData.escalations);
+                                                                } catch(e) { setActionError(e.message); }
+                                                                finally { setActionLoading(false); }
+                                                            }}
+                                                            className="flex-1 py-2.5 bg-orange-600 text-white text-sm font-semibold rounded-xl hover:bg-orange-700 transition disabled:opacity-50"
+                                                        >
+                                                            {actionLoading ? '⏳…' : '⬆ Confirm Escalation'}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => { setEscalateMode(false); setEscalateTo(''); setEscalateReason(''); setActionError(''); }}
+                                                            className="px-4 py-2.5 bg-white border border-orange-200 text-orange-700 text-sm font-semibold rounded-xl hover:bg-orange-50 transition"
+                                                        >
+                                                            Cancel
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {selectedTicket.status === 'Pending Approval' && isApprover && (
+                                        <div style={{marginTop:16,padding:16,background:dm?'rgba(249,115,22,0.10)':'#FFF7ED',borderRadius:12,border:`1px solid ${dm?'rgba(249,115,22,0.25)':'#FED7AA'}`}}>
+                                            <p style={{fontSize:12,fontWeight:700,color:'#C2410C',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:4}}>⚖ Your Decision (Approver)</p>
+                                            <p style={{fontSize:11,color:dm?'#fcd34d':'#92400E',marginBottom:12}}>Approve to close the ticket, or Reopen to send it back to the assignee for more work.</p>
+                                            {actionError && <div style={{fontSize:12,color:'#DC2626',background:'#FEF2F2',border:'1px solid #FECACA',borderRadius:8,padding:'8px 12px',marginBottom:10}}>{actionError}</div>}
+                                            {!rejectMode ? (
+                                                <div>
+                                                    <div style={{marginBottom:10}}>
+                                                        <label style={{display:'block',fontSize:11,fontWeight:600,color:dm?'#c0cfec':'#334155',marginBottom:4}}>Acceptance Note <span style={{fontSize:10,fontWeight:400,color:dm?'#4a607f':'#94A3B8'}}>(optional)</span></label>
+                                                        <textarea rows="2" value={acceptanceNote} onChange={e=>setAcceptanceNote(e.target.value)}
+                                                            placeholder="Add a note about your approval decision…"
+                                                            style={{width:'100%',border:`1px solid ${dm?'rgba(16,185,129,0.3)':'#A7F3D0'}`,borderRadius:8,padding:'8px 10px',fontSize:13,resize:'none',outline:'none',boxSizing:'border-box',background:dm?'rgba(8,16,36,0.6)':'white',color:textP,fontFamily:'inherit',marginBottom:0}}/>
+                                                    </div>
+                                                    <div style={{display:'flex',gap:'10px'}}>
+                                                    <button disabled={actionLoading} onClick={async()=>{
+                                                        setActionLoading(true); setActionError('');
+                                                        try {
+                                                            const data = await API.tickets.approve(selectedTicket._dbId, acceptanceNote);
+                                                            if(data.ticket?.approvers) setApprovers(data.ticket.approvers);
+                                                            setAcceptanceNote('');
+                                                            await refreshTicket(selectedTicket._dbId);
+                                                        } catch(e){ setActionError(e.message); }
+                                                        finally{ setActionLoading(false); }
+                                                    }} style={{flex:1,padding:'10px',background:'#059669',color:'white',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer',opacity:actionLoading?0.5:1}}>
+                                                        {actionLoading?'⏳…':'✅ Approve'}
+                                                    </button>
+                                                    <button disabled={actionLoading} onClick={()=>{setRejectMode(true);setActionError('');}}
+                                                        style={{flex:1,padding:'10px',background:'#DC2626',color:'white',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer',opacity:actionLoading?0.5:1}}>
+                                                        🔄 Reopen Ticket
+                                                    </button>
+                                                </div>
+                                                </div>
+                                            ) : (
+                                                <div>
+                                                    <p style={{fontSize:12,color:dm?'#c0cfec':'#374151',marginBottom:6}}>Provide a reason so the assignee knows what needs to be fixed:</p>
+                                                    <label style={{display:'block',fontSize:11,fontWeight:600,color:dm?'#c0cfec':'#334155',marginBottom:6}}>Reason for Reopening <span style={{color:'#EF4444'}}>*</span></label>
+                                                    <textarea rows="3" value={justification} onChange={e=>setJustification(e.target.value)}
+                                                        placeholder="What needs to be fixed or improved before this ticket can be approved?"
+                                                        style={{width:'100%',border:`1px solid ${dm?'rgba(239,68,68,0.3)':'#FECACA'}`,borderRadius:8,padding:'8px 10px',fontSize:13,resize:'none',outline:'none',marginBottom:10,boxSizing:'border-box',background:dm?'rgba(8,16,36,0.6)':'white',color:textP,fontFamily:'inherit'}}/>
+                                                    <div style={{display:'flex',gap:'8px'}}>
+                                                        <button disabled={actionLoading||!justification.trim()} onClick={async()=>{
+                                                            setActionLoading(true); setActionError('');
+                                                            try {
+                                                                const data = await API.tickets.reject(selectedTicket._dbId,justification);
+                                                                if(data.ticket?.approvers) setApprovers(data.ticket.approvers);
+                                                                setRejectMode(false); setJustification('');
+                                                                await refreshTicket(selectedTicket._dbId);
+                                                            } catch(e){ setActionError(e.message); }
+                                                            finally{ setActionLoading(false); }
+                                                        }} style={{flex:1,padding:'9px',background:'#DC2626',color:'white',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer',opacity:(actionLoading||!justification.trim())?0.5:1}}>
+                                                            {actionLoading?'⏳…':'🔄 Confirm Reopen'}
+                                                        </button>
+                                                        <button onClick={()=>{setRejectMode(false);setJustification('');setActionError('');}}
+                                                            style={{padding:'9px 16px',background:dm?'rgba(6,9,22,0.7)':'#F5F7FF',color:dm?'#c0cfec':'#334155',border:'none',borderRadius:10,fontSize:13,fontWeight:600,cursor:'pointer'}}>
+                                                            Cancel
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                    {/* ── Close Ticket panel — requester confirms resolution → Closed ── */}
+                                    {selectedTicket.status === 'Resolved' && (isCreator || isBootAdmin) && (
+                                        <div style={{marginTop:16,padding:16,background:dm?'rgba(16,185,129,0.10)':'#ECFDF5',borderRadius:12,border:`1px solid ${dm?'rgba(16,185,129,0.25)':'#6EE7B7'}`}}>
+                                            <p style={{fontSize:12,fontWeight:700,color:dm?'#34d399':'#065F46',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:4}}>✅ Confirm & Close Ticket</p>
+                                            <p style={{fontSize:11,color:dm?'#6ee7b7':'#047857',marginBottom:12}}>
+                                                Are you satisfied with the resolution? Closing the ticket finalises it permanently.
+                                            </p>
+                                            {actionError && <div style={{fontSize:12,color:'#DC2626',background:'#FEF2F2',border:'1px solid #FECACA',borderRadius:8,padding:'8px 12px',marginBottom:10}}>{actionError}</div>}
+                                            <button
+                                                disabled={actionLoading}
+                                                onClick={async()=>{
+                                                    if (!window.confirm('Close this ticket? This action is permanent.')) return;
+                                                    setActionLoading(true); setActionError('');
+                                                    try {
+                                                        await API.tickets.close(selectedTicket._dbId);
+                                                        await refreshTicket(selectedTicket._dbId);
+                                                    } catch(e){ setActionError(e.message); }
+                                                    finally{ setActionLoading(false); }
+                                                }}
+                                                style={{width:'100%',padding:'10px',background:actionLoading?'#6EE7B7':'#059669',color:'white',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:actionLoading?'not-allowed':'pointer',opacity:actionLoading?0.6:1}}>
+                                                {actionLoading ? '⏳ Closing…' : '🔒 Close Ticket'}
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* ── Reopen panel — any approver can reopen a resolved/closed ticket ── */}
+                                    {['Resolved','Closed'].includes(selectedTicket.status) && isAnyApprover && (
+                                        <div style={{marginTop:16,padding:16,background:dm?'rgba(59,130,246,0.10)':'#EFF6FF',borderRadius:12,border:`1px solid ${dm?'rgba(59,130,246,0.25)':'#BFDBFE'}`}}>
+                                            <p style={{fontSize:12,fontWeight:700,color:dm?'#93c5fd':'#1E40AF',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:4}}>🔄 Reopen Ticket</p>
+                                            <p style={{fontSize:11,color:dm?'#93c5fd':'#1D4ED8',marginBottom:12}}>As an approver, you can reopen this ticket if further work is needed. This will reset all approver decisions and send the ticket back to the assignee.</p>
+                                            {actionError && <div style={{fontSize:12,color:'#DC2626',background:'#FEF2F2',border:'1px solid #FECACA',borderRadius:8,padding:'8px 12px',marginBottom:10}}>{actionError}</div>}
+                                            {!reopenMode ? (
+                                                <button onClick={()=>{setReopenMode(true);setReopenJustification('');setActionError('');}}
+                                                    style={{width:'100%',padding:'10px',background:'#1D4ED8',color:'white',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer'}}>
+                                                    🔄 Reopen This Ticket
+                                                </button>
+                                            ) : (
+                                                <div>
+                                                    <p style={{fontSize:12,color:dm?'#c0cfec':'#374151',marginBottom:6}}>Provide a reason so the assignee knows what needs to be addressed:</p>
+                                                    <label style={{display:'block',fontSize:11,fontWeight:600,color:dm?'#c0cfec':'#334155',marginBottom:6}}>Reason for Reopening <span style={{color:'#EF4444'}}>*</span></label>
+                                                    <textarea rows="3" value={reopenJustification} onChange={e=>setReopenJustification(e.target.value)}
+                                                        placeholder="What needs to be fixed or revisited before this ticket can be closed?"
+                                                        style={{width:'100%',border:`1px solid ${dm?'rgba(59,130,246,0.3)':'#BFDBFE'}`,borderRadius:8,padding:'8px 10px',fontSize:13,resize:'none',outline:'none',marginBottom:10,boxSizing:'border-box',background:dm?'rgba(8,16,36,0.6)':'white',color:textP,fontFamily:'inherit'}}/>
+                                                    <div style={{display:'flex',gap:'8px'}}>
+                                                        <button disabled={actionLoading||!reopenJustification.trim()} onClick={async()=>{
+                                                            setActionLoading(true); setActionError('');
+                                                            try {
+                                                                const data = await API.tickets.reopen(selectedTicket._dbId, reopenJustification.trim());
+                                                                if(data.ticket?.approvers) setApprovers(data.ticket.approvers);
+                                                                setReopenMode(false); setReopenJustification('');
+                                                                await refreshTicket(selectedTicket._dbId);
+                                                            } catch(e){ setActionError(e.message); }
+                                                            finally{ setActionLoading(false); }
+                                                        }} style={{flex:1,padding:'9px',background:'#1D4ED8',color:'white',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer',opacity:(actionLoading||!reopenJustification.trim())?0.5:1}}>
+                                                            {actionLoading?'⏳…':'🔄 Confirm Reopen'}
+                                                        </button>
+                                                        <button onClick={()=>{setReopenMode(false);setReopenJustification('');setActionError('');}}
+                                                            style={{padding:'9px 16px',background:dm?'rgba(6,9,22,0.7)':'#F5F7FF',color:dm?'#c0cfec':'#334155',border:'none',borderRadius:10,fontSize:13,fontWeight:600,cursor:'pointer'}}>
+                                                            Cancel
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* ── Approval History (immutable audit trail) ── */}
+                                    {Array.isArray(selectedTicket.approvalHistory) && selectedTicket.approvalHistory.length > 0 && (
+                                        <div style={{marginBottom:20,paddingBottom:20,borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
+                                            <p style={{fontSize:10,fontWeight:700,color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 10px'}}>📋 Approval History</p>
+                                            <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                                                {selectedTicket.approvalHistory.map((h,i) => {
+                                                    const isApproved = (h.action||'').toLowerCase() === 'approved';
+                                                    const isRejected = (h.action||'').toLowerCase() === 'rejected';
+                                                    const isReopened = (h.action||'').toLowerCase() === 'reopened';
+                                                    const bg = isApproved ? (dm?'rgba(16,185,129,0.07)':'#ECFDF5') : isRejected ? (dm?'rgba(239,68,68,0.07)':'#FEF2F2') : isReopened ? (dm?'rgba(59,130,246,0.07)':'#EFF6FF') : (dm?'rgba(99,102,241,0.05)':'#F8FAFF');
+                                                    const border = isApproved ? (dm?'rgba(16,185,129,0.18)':'#A7F3D0') : isRejected ? (dm?'rgba(239,68,68,0.18)':'#FECACA') : isReopened ? (dm?'rgba(59,130,246,0.2)':'#BFDBFE') : (dm?'rgba(99,102,241,0.12)':'#E0E7FF');
+                                                    const col = isApproved ? (dm?'#34d399':'#065F46') : isRejected ? (dm?'#fca5a5':'#991B1B') : isReopened ? (dm?'#93c5fd':'#1E40AF') : (dm?'#818cf8':'#4338CA');
+                                                    const icon = isApproved ? '✅' : isRejected ? '❌' : isReopened ? '🔄' : '⏳';
+                                                    return (
+                                                        <div key={h.id||i} style={{padding:'9px 12px',borderRadius:9,background:bg,border:`1px solid ${border}`}}>
+                                                            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
+                                                                <span style={{fontSize:12,fontWeight:600,color:col}}>{icon} {h.approverName||'Unknown'}</span>
+                                                                <span style={{fontSize:10,color:dm?'#4a607f':'#94A3B8',flexShrink:0}}>Round {h.round||1} · {h.actedAt ? new Date(h.actedAt).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}) : ''}</span>
+                                                            </div>
+                                                            {h.comments && <p style={{fontSize:11,color:col,margin:'4px 0 0',opacity:0.85}}>{isApproved?'📝':'💬'} {h.comments}</p>}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* ── Bootstrap Admin: Delete Ticket ── */}
+                                    {isBootAdmin && !['Resolved','Closed'].includes(selectedTicket.status) && (
+                                        <div style={{marginTop:20,paddingTop:16,borderTop:`1px solid ${dm?'rgba(239,68,68,0.15)':'#FEE2E2'}`}}>
+                                            {!deleteMode ? (
+                                                <button onClick={()=>{setDeleteMode(true);setDeleteJustification('');setActionError('');}}
+                                                    style={{width:'100%',padding:'9px',background:'none',border:'1px solid #FCA5A5',color:'#DC2626',borderRadius:9,fontSize:12,fontWeight:600,cursor:'pointer'}}>
+                                                    🗑 Delete Ticket (Admin Only)
+                                                </button>
+                                            ) : (
+                                                <div style={{padding:14,background:dm?'rgba(239,68,68,0.08)':'#FEF2F2',borderRadius:10,border:'1px solid #FECACA'}}>
+                                                    <p style={{fontSize:12,fontWeight:700,color:'#991B1B',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>🗑 Confirm Ticket Deletion</p>
+                                                    <p style={{fontSize:12,color:dm?'#fca5a5':'#DC2626',marginBottom:10}}>This action is permanent and cannot be undone. A justification is required.</p>
+                                                    <textarea rows="3" value={deleteJustification} onChange={e=>setDeleteJustification(e.target.value)}
+                                                        placeholder="Justification for deleting this ticket…"
+                                                        style={{width:'100%',border:'1px solid #FECACA',borderRadius:8,padding:'8px 10px',fontSize:13,resize:'none',boxSizing:'border-box',background:dm?'rgba(8,16,36,0.6)':'white',color:textP,outline:'none',marginBottom:10}}/>
+                                                    {actionError && <div style={{fontSize:12,color:'#DC2626',marginBottom:8}}>{actionError}</div>}
+                                                    <div style={{display:'flex',gap:8}}>
+                                                        <button disabled={actionLoading||!deleteJustification.trim()} onClick={async()=>{
+                                                            setActionLoading(true); setActionError('');
+                                                            try {
+                                                                await API.tickets.delete(selectedTicket._dbId, deleteJustification.trim());
+                                                                setTickets(prev=>prev.filter(t=>t._dbId!==selectedTicket._dbId));
+                                                                closeDrawer();
+                                                            } catch(e){ setActionError(e.message); }
+                                                            finally{ setActionLoading(false); }
+                                                        }} style={{flex:1,padding:'9px',background:'#DC2626',color:'white',border:'none',borderRadius:9,fontSize:13,fontWeight:700,cursor:'pointer',opacity:(actionLoading||!deleteJustification.trim())?0.5:1}}>
+                                                            {actionLoading?'⏳…':'🗑 Permanently Delete'}
+                                                        </button>
+                                                        <button onClick={()=>{setDeleteMode(false);setDeleteJustification('');setActionError('');}}
+                                                            style={{padding:'9px 14px',background:dm?'rgba(6,9,22,0.7)':'#F5F7FF',color:dm?'#c0cfec':'#334155',border:'none',borderRadius:9,fontSize:13,fontWeight:600,cursor:'pointer'}}>Cancel</button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                        );
+                    })()}
+                </main>
+            );
+        }
+
+        // Calendar Page
+        // ── Australian Public Holidays data (2025 + 2026) ──────
+        const AU_HOLIDAYS = [
+            // ── NATIONAL ──
+            { date:'2025-01-01', name:"New Year's Day",          states:['ALL'] },
+            { date:'2025-01-27', name:"Australia Day (observed)", states:['ALL'] },
+            { date:'2025-04-18', name:"Good Friday",              states:['ALL'] },
+            { date:'2025-04-19', name:"Easter Saturday",          states:['ACT','NSW','QLD','SA','VIC'] },
+            { date:'2025-04-20', name:"Easter Sunday",            states:['ACT','NSW','QLD','VIC'] },
+            { date:'2025-04-21', name:"Easter Monday",            states:['ALL'] },
+            { date:'2025-04-25', name:"ANZAC Day",                states:['ALL'] },
+            { date:'2025-12-25', name:"Christmas Day",            states:['ALL'] },
+            { date:'2025-12-26', name:"Boxing Day",               states:['ALL'] },
+            // ── NSW ──
+            { date:'2025-06-09', name:"King's Birthday",          states:['NSW','ACT','SA','TAS'] },
+            { date:'2025-08-04', name:"Bank Holiday",             states:['NSW'] },
+            { date:'2025-10-06', name:"Labour Day",               states:['NSW','ACT','SA'] },
+            // ── VIC ──
+            { date:'2025-03-10', name:"Labour Day",               states:['VIC'] },
+            { date:'2025-06-09', name:"King's Birthday",          states:['VIC'] },
+            { date:'2025-09-26', name:"AFL Grand Final Friday",   states:['VIC'] },
+            { date:'2025-11-04', name:"Melbourne Cup",            states:['VIC'] },
+            // ── QLD ──
+            { date:'2025-05-05', name:"Labour Day",               states:['QLD'] },
+            { date:'2025-08-13', name:"Royal Queensland Show",    states:['QLD'] },
+            { date:'2025-10-06', name:"King's Birthday",          states:['QLD'] },
+            // ── SA ──
+            { date:'2025-03-03', name:"Adelaide Cup",             states:['SA'] },
+            { date:'2025-10-06', name:"Labour Day",               states:['SA'] },
+            { date:'2025-12-24', name:"Christmas Eve",            states:['SA'] },
+            { date:'2025-12-31', name:"New Year's Eve",           states:['SA'] },
+            // ── WA ──
+            { date:'2025-03-03', name:"Labour Day",               states:['WA'] },
+            { date:'2025-06-02', name:"Western Australia Day",    states:['WA'] },
+            { date:'2025-09-22', name:"King's Birthday",          states:['WA'] },
+            // ── TAS ──
+            { date:'2025-02-10', name:"Royal Hobart Regatta",     states:['TAS'] },
+            { date:'2025-03-10', name:"Eight Hours Day",          states:['TAS'] },
+            { date:'2025-12-26', name:"Boxing Day",               states:['TAS'] },
+            // ── NT ──
+            { date:'2025-05-05', name:"May Day",                  states:['NT'] },
+            { date:'2025-06-09', name:"King's Birthday",          states:['NT'] },
+            { date:'2025-07-14', name:"Picnic Day",               states:['NT'] },
+            // ── ACT ──
+            { date:'2025-03-10', name:"Canberra Day",             states:['ACT'] },
+            { date:'2025-05-26', name:"Reconciliation Day",       states:['ACT'] },
+            { date:'2025-06-09', name:"King's Birthday",          states:['ACT'] },
+            // ── 2026 NATIONAL ──
+            { date:'2026-01-01', name:"New Year's Day",           states:['ALL'] },
+            { date:'2026-01-26', name:"Australia Day",            states:['ALL'] },
+            { date:'2026-04-03', name:"Good Friday",              states:['ALL'] },
+            { date:'2026-04-04', name:"Easter Saturday",          states:['ACT','NSW','QLD','SA','VIC'] },
+            { date:'2026-04-05', name:"Easter Sunday",            states:['ACT','NSW','QLD','VIC'] },
+            { date:'2026-04-06', name:"Easter Monday",            states:['ALL'] },
+            { date:'2026-04-25', name:"ANZAC Day",                states:['ALL'] },
+            { date:'2026-12-25', name:"Christmas Day",            states:['ALL'] },
+            { date:'2026-12-28', name:"Boxing Day (observed)",    states:['ALL'] },
+            // ── 2026 NSW ──
+            { date:'2026-06-08', name:"King's Birthday",          states:['NSW','ACT'] },
+            { date:'2026-08-03', name:"Bank Holiday",             states:['NSW'] },
+            { date:'2026-10-05', name:"Labour Day",               states:['NSW','ACT'] },
+            // ── 2026 VIC ──
+            { date:'2026-03-09', name:"Labour Day",               states:['VIC'] },
+            { date:'2026-06-08', name:"King's Birthday",          states:['VIC'] },
+            { date:'2026-11-03', name:"Melbourne Cup",            states:['VIC'] },
+            // ── 2026 QLD ──
+            { date:'2026-05-04', name:"Labour Day",               states:['QLD'] },
+            { date:'2026-10-05', name:"King's Birthday",          states:['QLD'] },
+            // ── 2026 SA ──
+            { date:'2026-03-02', name:"Adelaide Cup",             states:['SA'] },
+            { date:'2026-06-08', name:"King's Birthday",          states:['SA'] },
+            { date:'2026-10-05', name:"Labour Day",               states:['SA'] },
+            // ── 2026 WA ──
+            { date:'2026-03-02', name:"Labour Day",               states:['WA'] },
+            { date:'2026-06-01', name:"Western Australia Day",    states:['WA'] },
+            { date:'2026-09-28', name:"King's Birthday",          states:['WA'] },
+            // ── 2026 TAS ──
+            { date:'2026-02-09', name:"Royal Hobart Regatta",     states:['TAS'] },
+            { date:'2026-03-09', name:"Eight Hours Day",          states:['TAS'] },
+            // ── 2026 NT ──
+            { date:'2026-05-04', name:"May Day",                  states:['NT'] },
+            { date:'2026-06-08', name:"King's Birthday",          states:['NT'] },
+            { date:'2026-07-13', name:"Picnic Day",               states:['NT'] },
+            // ── 2026 ACT ──
+            { date:'2026-03-09', name:"Canberra Day",             states:['ACT'] },
+            { date:'2026-05-25', name:"Reconciliation Day",       states:['ACT'] },
+        ];
+
+        const AU_STATES = [
+            { code:'ALL', label:'🇦🇺 All Australia (National)' },
+            { code:'NSW', label:'New South Wales' },
+            { code:'VIC', label:'Victoria' },
+            { code:'QLD', label:'Queensland' },
+            { code:'SA',  label:'South Australia' },
+            { code:'WA',  label:'Western Australia' },
+            { code:'TAS', label:'Tasmania' },
+            { code:'NT',  label:'Northern Territory' },
+            { code:'ACT', label:'Australian Capital Territory' },
+        ];
+
+        function CalendarPage() {
+
+            const dm = useDark();
+            const pageBg  = dm ? 'transparent' : '#F5F7FF';
+            const cardBg  = dm ? 'linear-gradient(155deg,rgba(17,30,58,0.97) 0%,rgba(8,16,36,0.99) 100%)' : 'white';
+            const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E2E8F2';
+            const textP   = dm ? '#f0f4ff' : '#0F172A';
+            const textM   = dm ? '#8fa4cc' : '#64748B';
+            const today = new Date();
+            const [viewDate, setViewDate] = React.useState(new Date(today.getFullYear(), today.getMonth(), 1));
+            const [selectedState, setSelectedState] = React.useState('NSW');
+            const [selectedDay, setSelectedDay] = React.useState(null);
+            const [tickets, setTickets]   = React.useState([]);
+            const [loading, setLoading]   = React.useState(true);
+
+            React.useEffect(() => {
+                setLoading(true);
+                API.tickets.getAll({ all: '1', limit: 500 }).then(data => {
+                    setTickets(data.tickets || []);
+                }).catch(() => setTickets([])).finally(() => setLoading(false));
+            }, []);
+
+            // ── Helpers ──────────────────────────────────────────
+            const pad     = n => String(n).padStart(2,'0');
+            const year    = viewDate.getFullYear();
+            const month   = viewDate.getMonth();
+            const MONTHS  = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+            const MS      = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            const dateStr = d => `${year}-${pad(month+1)}-${pad(d)}`;
+            const isToday = d => today.getFullYear()===year && today.getMonth()===month && today.getDate()===d;
+            const todayStr= `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
+
+            // Ticket colour by status (event-bar style)
+            const ticketColor = t => {
+                const s = (t.status||'').toLowerCase();
+                const p = (t.priorityLabel||t.priority||'').toLowerCase();
+                const od = !['resolved','closed'].includes(s) && t.dueAt && new Date(t.dueAt) < today;
+                if (od) return { bar:'#EF4444', bg:'#FEF2F2', text:'#991B1B', label:'Overdue' };
+                if (s==='resolved'||s==='closed') return { bar:'#10B981', bg:'#ECFDF5', text:'#065F46', label:'Resolved' };
+                if (s==='pending_approval')        return { bar:'#8B5CF6', bg:'#F5F3FF', text:'#5B21B6', label:'Approval' };
+                if (s==='in_progress')             return { bar:'#3B82F6', bg:'#EFF6FF', text:'#1D4ED8', label:'In Progress' };
+                if (p==='critical'||p==='urgent')  return { bar:'#F97316', bg:'#FFF7ED', text:'#9A3412', label:'Critical' };
+                if (p==='high')                    return { bar:'#F59E0B', bg:'#FFFBEB', text:'#92400E', label:'High' };
+                return { bar:'#6366F1', bg:'#EEF2FF', text:'#3730A3', label:'Open' };
+            };
+            const isDone    = t => ['resolved','closed'].includes((t.status||'').toLowerCase());
+            const isOverdue = t => !isDone(t) && t.dueAt && new Date(t.dueAt) < today;
+
+            // Build ticket map: date string → tickets[]
+            const ticketDateMap = {};
+            tickets.forEach(t => {
+                const raw = t.dueAt || t.expectedCompletion;
+                if (!raw) return;
+                const ds = raw.slice(0,10);
+                if (!ticketDateMap[ds]) ticketDateMap[ds] = [];
+                ticketDateMap[ds].push(t);
+            });
+
+            // Holiday maps
+            const visibleHols = AU_HOLIDAYS.filter(h => {
+                const ok = h.states.includes('ALL') || h.states.includes(selectedState);
+                const [hy,hm] = h.date.split('-').map(Number);
+                return ok && hy===year && (hm-1)===month;
+            });
+            const holMap = {};
+            AU_HOLIDAYS.forEach(h => {
+                if (h.states.includes('ALL') || h.states.includes(selectedState)) {
+                    if (!holMap[h.date]) holMap[h.date] = [];
+                    holMap[h.date].push(h);
+                }
+            });
+
+            // Ticket date map
+            const tktMap = {};
+            tickets.forEach(t => {
+                const raw = t.dueAt || t.expectedCompletion;
+                if (!raw) return;
+                const ds = raw.slice(0,10);
+                if (!tktMap[ds]) tktMap[ds] = [];
+                tktMap[ds].push(t);
+            });
+
+            // Stats
+            const moPfx = `${year}-${pad(month+1)}`;
+            const moTkts = tickets.filter(t => (t.dueAt||t.expectedCompletion||'').startsWith(moPfx));
+            const mDue = moTkts.length, mOD = moTkts.filter(isOverdue).length, mRes = moTkts.filter(isDone).length;
+            const wkEnd = new Date(today); wkEnd.setDate(wkEnd.getDate()+7);
+            const wkTkts = tickets.filter(t=>{const r=t.dueAt||t.expectedCompletion; if(!r)return false; const d=new Date(r); return d>=today&&d<=wkEnd&&!isDone(t);});
+            const odList = tickets.filter(isOverdue).sort((a,b)=>new Date(a.dueAt)-new Date(b.dueAt)).slice(0,10);
+            const upHols = AU_HOLIDAYS.filter(h=>{if(!h.states.includes('ALL')&&!h.states.includes(selectedState))return false; const d=new Date(h.date),diff=(d-today)/86400000; return diff>=0&&diff<=90;}).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,6);
+
+            // Grid
+            const daysInMonth = new Date(year,month+1,0).getDate();
+            const monFirst    = (new Date(year,month,1).getDay()+6)%7;
+            const cells = [];
+            for(let i=0;i<monFirst;i++) cells.push(null);
+            for(let d=1;d<=daysInMonth;d++) cells.push(d);
+            while(cells.length%7!==0) cells.push(null);
+            const weeks = [];
+            for(let i=0;i<cells.length;i+=7) weeks.push(cells.slice(i,i+7));
+
+            const prevM = () => setViewDate(new Date(year,month-1,1));
+            const nextM = () => setViewDate(new Date(year,month+1,1));
+            const goNow = () => { setViewDate(new Date(today.getFullYear(),today.getMonth(),1)); setSelectedDay(todayStr); };
+
+            const ST_COLOR = {new:dm?'#6b80a4':'#64748B',assigned:'#3B82F6',in_progress:'#F59E0B',waiting:'#8B5CF6',pending_approval:'#8B5CF6',resolved:'#10B981',closed:dm?'#6b80a4':'#475569'};
+            const ST_LABEL = {new:'New',assigned:'Assigned',in_progress:'In Progress',waiting:'Waiting',pending_approval:'Pending Approval',resolved:'Resolved',closed:'Closed'};
+
+            return (
+                <main className="flex-1 overflow-auto" style={{background:pageBg}}>
+                    <style>{`
+                        .gc-cell { transition: background 0.1s; }
+                        .gc-cell:hover .gc-date-num { background: ${dm ? 'rgba(99,102,241,0.15)' : '#E5E7EB'} !important; }
+                        .gc-cell:hover { background: ${dm ? 'rgba(99,102,241,0.06)' : '#FAFAFA'} !important; }
+                        .gc-cell.today-cell { background: ${dm ? 'rgba(59,130,246,0.08)' : 'white'} !important; }
+                        .gc-cell.sel-cell { background: ${dm ? 'rgba(99,102,241,0.14)' : '#EFF6FF'} !important; outline: 2px solid ${dm ? 'rgba(99,102,241,0.6)' : '#3B82F6'}; outline-offset: -2px; }
+                        .gc-cell.hol-cell { background: ${dm ? 'rgba(239,68,68,0.06)' : '#FFF8F8'} !important; }
+                        .gc-cell.wknd-cell { background: ${dm ? 'rgba(255,255,255,0.015)' : '#FAFAFA'}; }
+                        .ev-bar { border-radius: 4px; padding: 1px 6px; margin: 0 4px 2px; font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; transition: filter 0.1s; }
+                        .ev-bar:hover { filter: brightness(${dm ? '1.15' : '0.93'}); }
+                        .cal-btn:hover { background: ${dm ? 'rgba(99,102,241,0.1)' : '#F3F4F6'} !important; }
+                        .panel-row:hover { background: ${dm ? 'rgba(99,102,241,0.06)' : '#F9FAFB'}; border-radius: 8px; }
+                        .sidebar-row:hover { background: ${dm ? 'rgba(99,102,241,0.06)' : '#F9FAFB'} !important; border-radius: 8px; }
+                    `}</style>
+
+                    <div style={{maxWidth:'1560px', margin:'0 auto', padding:'20px 24px'}}>
+
+                        {/* ══ PAGE HEADER ══ */}
+                        <div className='yc-toolbar' style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'16px',flexWrap:'wrap',gap:'10px'}}>
+                            <div>
+                                <h1 style={{fontSize:'19px',fontWeight:'700',color:textP,margin:0,letterSpacing:'-0.3px'}}>Ticket Calendar</h1>
+                                <p style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',margin:'3px 0 0'}}>Due dates, overdue tracking &amp; public holidays</p>
+                            </div>
+                            <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
+                                <button onClick={goNow} className="cal-btn" style={{padding:'6px 14px',borderRadius:'8px',border:`1px solid ${borderC}`,background:dm?'rgba(99,102,241,0.1)':'white',fontSize:'13px',fontWeight:'600',color:dm?'#c7d2fe':'#334155',cursor:'pointer'}}>Today</button>
+                                <select value={selectedState} onChange={e=>setSelectedState(e.target.value)}
+                                    style={{padding:'6px 10px',borderRadius:'8px',border:`1px solid ${borderC}`,background:dm?'rgba(2,8,23,0.9)':'#FFFFFF',fontSize:'12px',color:textM,cursor:'pointer'}}>
+                                    {AU_STATES.map(s=><option key={s.code} value={s.code}>{s.label}</option>)}
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* ══ STATS CHIPS ══ */}
+                        <div className='yc-analytics-bar' style={{display:'flex',gap:'10px',marginBottom:'16px',flexWrap:'wrap'}}>
+                            {[
+                                { label:'Due This Month', value:mDue,          color:dm?'#818cf8':'#4F46E5', bg:'#EEF2FF', icon:'📅' },
+                                { label:'Overdue',        value:mOD,           color:'#EF4444', bg:'#FEF2F2', icon:'⚠️' },
+                                { label:'Resolved',       value:mRes,          color:'#10B981', bg:'#ECFDF5', icon:'✅' },
+                                { label:'Due This Week',  value:wkTkts.length, color:'#F59E0B', bg:'#FFFBEB', icon:'🔔' },
+                            ].map(s=>(
+                                <div key={s.label} style={{display:'flex',alignItems:'center',gap:'8px',background:cardBg,borderRadius:'10px',border:`1px solid ${borderC}`,padding:'8px 14px',boxShadow:dm?'0 4px 12px rgba(0,0,0,0.4)':'0 1px 2px rgba(0,0,0,0.04)'}}>
+                                    <span style={{fontSize:'15px',background:s.bg,borderRadius:'6px',width:'28px',height:'28px',display:'flex',alignItems:'center',justifyContent:'center'}}>{s.icon}</span>
+                                    <div>
+                                        <span style={{fontSize:'16px',fontWeight:'700',color:s.color,marginRight:'4px'}}>{s.value}</span>
+                                        <span style={{fontSize:'11px',color:textM}}>{s.label}</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* ══ MAIN LAYOUT: Calendar + Sidebar ══ */}
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 320px',gap:'16px',alignItems:'start'}}>
+
+                            {/* ── CALENDAR ── */}
+                            <div style={{background:cardBg,borderRadius:'14px',border:`1px solid ${borderC}`,overflow:'hidden',boxShadow:dm?'0 4px 6px rgba(0,0,0,0.4),0 16px 48px rgba(0,0,0,0.55),0 1px 0 rgba(255,255,255,0.04) inset':'0 1px 4px rgba(0,0,0,0.05)'}}>
+
+                                {/* Month nav bar */}
+                                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'16px 20px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.12)':'#F0F0F0'}`}}>
+                                    <button className="cal-nav2" onClick={prevM} style={{width:'32px',height:'32px',borderRadius:'8px',border:`1px solid ${borderC}`,background:dm?'rgba(99,102,241,0.08)':'white',cursor:'pointer',fontSize:'16px',color:textM,display:'flex',alignItems:'center',justifyContent:'center'}}>‹</button>
+                                    <div style={{textAlign:'center'}}>
+                                        <h2 style={{fontSize:'16px',fontWeight:'700',color:textP,margin:0}}>{MONTHS[month]} {year}</h2>
+                                        <div style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8',marginTop:'2px'}}>
+                                            {visibleHols.length>0 && <span style={{color:'#EF4444',fontWeight:'600'}}>{visibleHols.length} holiday{visibleHols.length!==1?'s':''}</span>}
+                                            {visibleHols.length>0 && mDue>0 && <span style={{color:'#D1D5DB'}}> · </span>}
+                                            {mDue>0 && <span style={{color:dm?'#818cf8':'#4F46E5',fontWeight:'600'}}>{mDue} ticket{mDue!==1?'s':''} due</span>}
+                                        </div>
+                                    </div>
+                                    <button className="cal-nav2" onClick={nextM} style={{width:'32px',height:'32px',borderRadius:'8px',border:`1px solid ${borderC}`,background:dm?'rgba(99,102,241,0.08)':'white',cursor:'pointer',fontSize:'16px',color:textM,display:'flex',alignItems:'center',justifyContent:'center'}}>›</button>
+                                </div>
+
+                                {/* Day labels */}
+                                <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',background:dm?'rgba(6,9,20,0.6)':'#F9FAFB',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.12)':'#F0F0F0'}`}}>
+                                    {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d,i)=>(
+                                        <div key={d} style={{textAlign:'center',fontSize:'11px',fontWeight:'600',letterSpacing:'0.05em',color:i>=5?(dm?'#4a607f':'#94A3B8'):(dm?'#6b80a4':'#64748B'),padding:'8px 0',textTransform:'uppercase'}}>{d}</div>
+                                    ))}
+                                </div>
+
+                                {/* Grid cells */}
+                                <div>
+                                    {weeks.map((wk,wi)=>(
+                                        <div key={wi} style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)'}}>
+                                            {wk.map((d,di)=>{
+                                                const ds = d ? dateStr(d) : null;
+                                                const hols = ds?(holMap[ds]||[]):[];
+                                                const tkts = ds?(tktMap[ds]||[]):[];
+                                                const dow = d?new Date(year,month,d).getDay():null;
+                                                const isWknd = dow===0||dow===6;
+                                                const isTd = d&&isToday(d);
+                                                const isHol = hols.length>0;
+                                                const isSel = selectedDay===ds;
+                                                const isLastWk = wi===weeks.length-1;
+                                                const odOnDay = tkts.filter(isOverdue).length;
+                                                return (
+                                                    <div key={di}
+                                                        className={`gc-cell${isTd?' today-cell':''}${isSel?' sel-cell':''}${isHol&&!isSel?' hol-cell':''}${isWknd&&!isHol&&!isSel?' wknd-cell':''}`}
+                                                        onClick={()=>d&&setSelectedDay(isSel?null:ds)}
+                                                        style={{minHeight:'110px',padding:'4px 0',cursor:d?'pointer':'default',borderBottom:isLastWk?'none':`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`,borderRight:di===6?'none':`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`,position:'relative',overflow:'hidden',background:!d?(dm?'rgba(0,0,0,0.15)':'#FAFAFA'):undefined}}
+                                                    >
+                                                        {d && (<>
+                                                            {/* Top accent */}
+                                                            {(isHol||odOnDay>0) && <div style={{position:'absolute',top:0,left:0,right:0,height:'2px',background:isHol?'#FCA5A5':'#FDBA74'}}/>}
+                                                            {/* Date number row */}
+                                                            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'4px 6px 3px',gap:'2px'}}>
+                                                                <div className="gc-date-num" style={{width:'22px',height:'22px',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'11px',fontWeight:isTd?'700':'500',background:isTd?'#3B82F6':'transparent',color:isTd?'white':isWknd?(dm?'#3d5070':'#94A3B8'):(dm?'#c0cfec':'#334155'),flexShrink:0}}>{d}</div>
+                                                                {isHol && <span style={{fontSize:'9px',color:'#DC2626',fontWeight:'600',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1,minWidth:0,paddingLeft:'2px'}}>{hols[0].name}</span>}
+                                                                {tkts.length>0 && <span style={{fontSize:'9px',fontWeight:'700',color:odOnDay>0?'#EF4444':'#6366F1',background:odOnDay>0?'#FEF2F2':'#EEF2FF',borderRadius:'8px',padding:'1px 4px',flexShrink:0}}>{tkts.length}</span>}
+                                                            </div>
+                                                            {/* Event bars */}
+                                                            {tkts.slice(0,3).map((t,ti)=>{
+                                                                const c = ticketColor(t);
+                                                                return <div key={ti} className="ev-bar" style={{background:c.bar,color:'white',marginBottom:'1px'}}>{t.title||t.ticketNumber||'Ticket'}</div>;
+                                                            })}
+                                                            {tkts.length>3 && <div style={{fontSize:'9px',color:dm?'#4a607f':'#94A3B8',paddingLeft:'6px'}}>+{tkts.length-3} more</div>}
+                                                        </>)}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Legend */}
+                                <div style={{display:'flex',flexWrap:'wrap',gap:'12px',padding:'10px 16px',borderTop:`1px solid ${dm?'rgba(99,102,241,0.12)':'#F0F0F0'}`,background:dm?'rgba(4,8,20,0.5)':'#FAFAFA',alignItems:'center'}}>
+                                    {[
+                                        {dot:'#6366F1',bg:'#EEF2FF',label:'Open'},
+                                        {dot:'#EF4444',bg:'#FEF2F2',label:'Overdue'},
+                                        {dot:'#10B981',bg:'#ECFDF5',label:'Resolved'},
+                                        {icon:true,bar:'#FCA5A5',label:'Holiday'},
+                                        {circle:true,label:'Today'},
+                                    ].map((l,i)=>(
+                                        <div key={i} style={{display:'flex',alignItems:'center',gap:'5px'}}>
+                                            {l.circle && <div style={{width:'16px',height:'16px',borderRadius:'50%',background:'#6366F1',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'8px',fontWeight:'700',color:'white'}}>9</div>}
+                                            {l.dot && <div style={{display:'flex',alignItems:'center',gap:'3px',background:l.bg,borderRadius:'4px',padding:'1.5px 6px'}}><div style={{width:'6px',height:'6px',borderRadius:'50%',background:l.dot}}/></div>}
+                                            {l.icon && <div style={{width:'18px',height:'2.5px',background:l.bar,borderRadius:'2px'}}/>}
+                                            <span style={{fontSize:'10px',color:dm?'#6b80a4':'#64748B'}}>{l.label}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* ── RIGHT SIDEBAR ── */}
+                            <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
+
+                                {/* Selected day */}
+                                {selectedDay && (()=>{
+                                    const hols = holMap[selectedDay]||[];
+                                    const tkts = tktMap[selectedDay]||[];
+                                    const [sy,sm2,sd2] = selectedDay.split('-').map(Number);
+                                    const dl = new Date(sy,sm2-1,sd2).toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+                                    const isPast = new Date(sy,sm2-1,sd2) < today && selectedDay!==todayStr;
+                                    return (
+                                        <div style={{background:cardBg,borderRadius:'12px',border:'2px solid rgba(99,102,241,0.7)',overflow:'hidden',boxShadow:dm?'0 2px 20px rgba(99,102,241,0.25)':'0 2px 8px rgba(99,102,241,0.12)'}}>
+                                            <div style={{background:'#6366F1',padding:'12px 16px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                                                <div>
+                                                    <div style={{fontSize:'11px',color:'rgba(255,255,255,0.75)',fontWeight:'600',textTransform:'uppercase',letterSpacing:'0.05em'}}>Selected</div>
+                                                    <div style={{fontSize:'13px',fontWeight:'700',color:'white',marginTop:'1px'}}>{dl}</div>
+                                                </div>
+                                                <button onClick={()=>setSelectedDay(null)} style={{background:'rgba(255,255,255,0.15)',border:'none',borderRadius:'6px',width:'26px',height:'26px',color:'white',fontSize:'16px',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>×</button>
+                                            </div>
+                                            <div style={{padding:'14px 16px'}}>
+                                                {hols.map((h,i)=>(
+                                                    <div key={i} style={{display:'flex',alignItems:'flex-start',gap:'8px',background:dm?'rgba(239,68,68,0.08)':'#FFF5F5',borderRadius:'8px',padding:'8px 10px',marginBottom:'8px'}}>
+                                                        <span style={{fontSize:'14px'}}>🎉</span>
+                                                        <div>
+                                                            <div style={{fontSize:'12px',fontWeight:'700',color:'#DC2626'}}>{h.name}</div>
+                                                            <div style={{fontSize:'10px',color:dm?'#4a607f':'#94A3B8',marginTop:'2px'}}>{h.states.includes('ALL')?'National':h.states.join(', ')}</div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                {tkts.length===0 && hols.length===0 && (
+                                                    <p style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',margin:0,textAlign:'center',padding:'8px 0'}}>No tickets or holidays</p>
+                                                )}
+                                                {tkts.length>0 && (
+                                                    <>
+                                                    <div style={{fontSize:'11px',fontWeight:'700',color:textM,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:'8px'}}>{tkts.length} ticket{tkts.length!==1?'s':''} due</div>
+                                                    {tkts.map((t,i)=>{
+                                                        const done=isDone(t); const od=isOverdue(t);
+                                                        const c=ticketColor(t);
+                                                        const sc=ST_COLOR[t.status]||'#9CA3AF';
+                                                        return (
+                                                            <div key={i} style={{borderLeft:`3px solid ${c.bar}`,background:c.bg,borderRadius:'0 8px 8px 0',padding:'8px 10px',marginBottom:'6px'}}>
+                                                                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'3px'}}>
+                                                                    <span style={{fontSize:'10px',fontWeight:'700',color:textM}}>{t.ticketNumber||`#${t.id}`}</span>
+                                                                    <span style={{fontSize:'10px',fontWeight:'600',color:sc,background:sc+'1A',borderRadius:'20px',padding:'1px 7px'}}>{ST_LABEL[t.status]||t.status}</span>
+                                                                </div>
+                                                                <div style={{fontSize:'12px',fontWeight:'600',color:dm?'#e4ecff':'#0F172A',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.title||'—'}</div>
+                                                                <div style={{display:'flex',gap:'6px',marginTop:'4px',flexWrap:'wrap'}}>
+                                                                    {(t.priorityLabel||t.priority) && <span style={{fontSize:'10px',color:c.text,fontWeight:'600'}}>{(t.priorityLabel||t.priority).charAt(0).toUpperCase()+(t.priorityLabel||t.priority).slice(1)}</span>}
+                                                                    {od && <span style={{fontSize:'10px',color:'#EF4444',fontWeight:'700'}}>⚠ Overdue</span>}
+                                                                    {done && <span style={{fontSize:'10px',color:'#10B981',fontWeight:'700'}}>✓ Resolved</span>}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+
+                                {/* Overdue tickets */}
+                                {odList.length > 0 && (
+                                <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${dm?'rgba(239,68,68,0.25)':'#FECACA'}`,overflow:'hidden',boxShadow:dm?'0 4px 16px rgba(0,0,0,0.4)':'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
+                                    <div style={{padding:'12px 16px',borderBottom:`1px solid ${dm?'rgba(239,68,68,0.12)':'#FEF2F2'}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                                        <span style={{fontSize:'13px',fontWeight:'700',color:'#EF4444'}}>⚠ Overdue Tickets</span>
+                                        <span style={{fontSize:'11px',background:dm?'rgba(239,68,68,0.15)':'#FEF2F2',color:dm?'#fca5a5':'#DC2626',borderRadius:'20px',padding:'2px 8px',fontWeight:'700'}}>{odList.length}</span>
+                                    </div>
+                                    <div style={{padding:'8px'}}>
+                                        {odList.map((t,i)=>{
+                                            const c=ticketColor(t);
+                                            const daysOver = t.dueAt ? Math.floor((today-new Date(t.dueAt))/86400000) : null;
+                                            return (
+                                                <div key={i} className="sidebar-row" style={{padding:'8px',borderRadius:'8px'}}>
+                                                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:'6px'}}>
+                                                        <div style={{flex:1,minWidth:0}}>
+                                                            <div style={{fontSize:'12px',fontWeight:'600',color:dm?'#e4ecff':'#0F172A',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.title||'—'}</div>
+                                                            <div style={{display:'flex',gap:'6px',marginTop:'2px',alignItems:'center'}}>
+                                                                <span style={{fontSize:'10px',fontWeight:'600',color:c.text}}>{(t.priorityLabel||t.priority||'').charAt(0).toUpperCase()+(t.priorityLabel||t.priority||'').slice(1)}</span>
+                                                                {t.assigneeName && <span style={{fontSize:'10px',color:dm?'#4a607f':'#94A3B8'}}>→ {t.assigneeName.split(' ')[0]}</span>}
+                                                            </div>
+                                                        </div>
+                                                        {daysOver!=null && <span style={{fontSize:'10px',fontWeight:'700',color:dm?'#fca5a5':'#EF4444',flexShrink:0,background:dm?'rgba(239,68,68,0.15)':'#FEF2F2',borderRadius:'20px',padding:'2px 7px',whiteSpace:'nowrap'}}>{daysOver}d late</span>}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                                )}
+
+                                {/* Due this week */}
+                                {wkTkts.length > 0 && (
+                                <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,overflow:'hidden',boxShadow:dm?'0 4px 16px rgba(0,0,0,0.4)':'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
+                                    <div style={{padding:'12px 16px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.12)':'#EEF2F8'}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                                        <span style={{fontSize:'13px',fontWeight:'700',color:dm?'#c0cfec':'#334155'}}>🔔 Due This Week</span>
+                                        <span style={{fontSize:'11px',background:dm?'rgba(234,179,8,0.15)':'#FFFBEB',color:dm?'#fcd34d':'#D97706',borderRadius:'20px',padding:'2px 8px',fontWeight:'700'}}>{wkTkts.length}</span>
+                                    </div>
+                                    <div style={{padding:'8px'}}>
+                                        {wkTkts.slice(0,6).map((t,i)=>{
+                                            const c=ticketColor(t);
+                                            const d=new Date(t.dueAt);
+                                            const diffD=Math.round((d-today)/86400000);
+                                            const dLabel=diffD===0?'Today':diffD===1?'Tomorrow':`${diffD}d`;
+                                            return (
+                                                <div key={i} className="sidebar-row" style={{padding:'8px',borderRadius:'8px',display:'flex',gap:'8px',alignItems:'center'}}>
+                                                    <div style={{width:'32px',height:'32px',background:dm?'rgba(245,158,11,0.12)':'#FFFBEB',borderRadius:'8px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                                                        <div style={{fontSize:'9px',fontWeight:'700',color:'#D97706',textTransform:'uppercase'}}>{MS[d.getMonth()]}</div>
+                                                        <div style={{fontSize:'13px',fontWeight:'700',color:'#92400E',lineHeight:1}}>{d.getDate()}</div>
+                                                    </div>
+                                                    <div style={{flex:1,minWidth:0}}>
+                                                        <div style={{fontSize:'12px',fontWeight:'600',color:dm?'#e4ecff':'#0F172A',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.title||'—'}</div>
+                                                        <div style={{fontSize:'10px',color:c.text,fontWeight:'600',marginTop:'1px'}}>{(t.priorityLabel||t.priority||'').charAt(0).toUpperCase()+(t.priorityLabel||t.priority||'').slice(1)}{t.assigneeName?` · ${t.assigneeName.split(' ')[0]}`:''}</div>
+                                                    </div>
+                                                    <span style={{fontSize:'10px',fontWeight:'700',color:diffD===0?'#EF4444':'#D97706',flexShrink:0}}>{dLabel}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                                )}
+
+                                {/* Upcoming public holidays */}
+                                <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,overflow:'hidden',boxShadow:dm?'0 4px 16px rgba(0,0,0,0.4)':'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
+                                    <div style={{padding:'12px 16px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.12)':'#EEF2F8'}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                                        <span style={{fontSize:'13px',fontWeight:'700',color:dm?'#c0cfec':'#334155'}}>🇦🇺 Public Holidays</span>
+                                        <span style={{fontSize:'10px',color:dm?'#4a607f':'#94A3B8'}}>Next 90 days</span>
+                                    </div>
+                                    <div style={{padding:'8px'}}>
+                                        {upHols.length===0 ? (
+                                            <p style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',textAlign:'center',padding:'12px',margin:0}}>None in the next 90 days</p>
+                                        ) : upHols.map((h,i)=>{
+                                            const [hy,hm2,hd2]=h.date.split('-').map(Number);
+                                            const diff=Math.round((new Date(hy,hm2-1,hd2)-today)/86400000);
+                                            const dLabel=diff===0?'Today 🎉':diff===1?'Tomorrow':`${diff}d`;
+                                            const hot=diff<=7;
+                                            return (
+                                                <div key={i} className="sidebar-row" style={{padding:'8px',borderRadius:'8px',display:'flex',gap:'8px',alignItems:'center'}}>
+                                                    <div style={{width:'32px',height:'32px',background:hot?(dm?'rgba(239,68,68,0.12)':'#FEF2F2'):(dm?'rgba(99,102,241,0.08)':'#F5F7FF'),borderRadius:'8px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                                                        <div style={{fontSize:'9px',fontWeight:'700',color:hot?'#DC2626':(dm?'#4a607f':'#64748B'),textTransform:'uppercase'}}>{MS[hm2-1]}</div>
+                                                        <div style={{fontSize:'13px',fontWeight:'700',color:hot?'#991B1B':(dm?'#8fa4cc':'#334155'),lineHeight:1}}>{hd2}</div>
+                                                    </div>
+                                                    <div style={{flex:1,minWidth:0}}>
+                                                        <div style={{fontSize:'12px',fontWeight:'600',color:dm?'#e4ecff':'#0F172A',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{h.name}</div>
+                                                        <div style={{fontSize:'10px',color:dm?'#4a607f':'#94A3B8',marginTop:'1px'}}>{h.states.includes('ALL')?'National':h.states.join(', ')}</div>
+                                                    </div>
+                                                    <span style={{fontSize:'10px',fontWeight:'700',color:hot?'#DC2626':(dm?'#4a607f':'#94A3B8'),flexShrink:0}}>{dLabel}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Monthly ticket breakdown by priority */}
+                                {moTkts.length>0 && (()=>{
+                                    const PRI_C = {critical:{dot:'#EF4444',text:'#991B1B'},high:{dot:'#F59E0B',text:'#92400E'},medium:{dot:'#3B82F6',text:'#1D4ED8'},low:{dot:'#10B981',text:'#065F46'}};
+                                    const priCounts = {};
+                                    moTkts.forEach(t => {
+                                        const p = (t.priorityLabel||t.priority||'low').toLowerCase();
+                                        priCounts[p] = (priCounts[p]||0)+1;
+                                    });
+                                    return (
+                                        <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,padding:'14px 16px',boxShadow:dm?'0 4px 16px rgba(0,0,0,0.4)':'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
+                                            <div style={{fontSize:'13px',fontWeight:'700',color:dm?'#c0cfec':'#334155',marginBottom:'12px'}}>📊 {MONTHS[month]} Breakdown</div>
+                                            {['critical','high','medium','low'].map(p=>{
+                                                const cnt=priCounts[p]||0; if(!cnt) return null;
+                                                const pc=PRI_C[p]||{dot:dm?'#4a607f':'#94A3B8',text:dm?'#c0cfec':'#334155'};
+                                                const pct=Math.round(cnt/moTkts.length*100);
+                                                return (
+                                                    <div key={p} style={{marginBottom:'8px'}}>
+                                                        <div style={{display:'flex',justifyContent:'space-between',fontSize:'11px',marginBottom:'3px'}}>
+                                                            <span style={{fontWeight:'600',color:pc.text,textTransform:'capitalize'}}>{p}</span>
+                                                            <span style={{color:dm?'#6b80a4':'#64748B'}}>{cnt} ({pct}%)</span>
+                                                        </div>
+                                                        <div style={{height:'6px',background:dm?'rgba(99,102,241,0.1)':'#F3F4F6',borderRadius:'3px'}}>
+                                                            <div style={{height:'100%',width:pct+'%',background:pc.dot,borderRadius:'3px'}}/>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    );
+                                })()}
+
+                            </div>{/* end sidebar */}
+                        </div>
+                    </div>
+                </main>
+            );
+        }
+
+        const ACTION_META = {
+            created:          { label: 'Created',          bg: '#DCFCE7', color: '#166534' },
+            assigned:         { label: 'Assigned',          bg: '#DBEAFE', color: '#1E40AF' },
+            status_changed:   { label: 'Status Changed',    bg: '#EDE9FE', color: '#6D28D9' },
+            resolved:         { label: 'Resolved',          bg: '#D1FAE5', color: '#065F46' },
+            approved:         { label: 'Approved',          bg: '#D1FAE5', color: '#065F46' },
+            rejected:         { label: 'Rejected',          bg: '#FEE2E2', color: '#991B1B' },
+            escalated:        { label: 'Escalated',         bg: '#FEF3C7', color: '#92400E' },
+            commented:        { label: 'Comment',           bg: '#EEF2F8', color: '#475569' },
+            priority_changed: { label: 'Priority Changed',  bg: '#FFF7ED', color: '#C2410C' },
+            reopened:         { label: 'Reopened',          bg: '#DBEAFE', color: '#1E40AF' },
+            closed:           { label: 'Closed',            bg: '#F0FDF4', color: '#14532D' },
+        };
+
+        const PRIORITY_META = {
+            critical: { bg: '#FEE2E2', color: '#991B1B' },
+            high:     { bg: '#FEF3C7', color: '#92400E' },
+            medium:   { bg: '#DBEAFE', color: '#1E40AF' },
+            low:      { bg: '#F0FDF4', color: '#166534' },
+        };
+
+        function fmtDate(iso) {
+            if (!iso) return '—';
+            const d = new Date(iso);
+            return d.toLocaleString('en-AU', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:true });
+        }
+
+        function detailSummary(action, details) {
+            if (!details) return '';
+            if (action === 'status_changed') return `${details.from || '?'} → ${details.to || '?'}`;
+            if (action === 'assigned')       return details.to ? `to user #${details.to}` : '';
+            if (action === 'priority_changed') return `${details.from || '?'} → ${details.to || '?'}`;
+            if (action === 'escalated')      return details.escalatedTo ? `to ${details.escalatedTo}${details.reason ? ` — ${details.reason}` : ''}` : '';
+            if (action === 'rejected')       return details.justification ? `"${details.justification.substring(0,60)}"` : '';
+            return '';
+        }
+
+        // ─── Staff Performance Page ───────────────────────────────
+        // Metrics: assigned, resolved, pending, resolution rate,
+        //          avg resolution time, SLA compliance, escalations,
+        //          overdue, high/critical tickets + auto insights
+        function StaffPerformancePage() {
+            const dm = useDark();
+            const pageBg  = dm ? 'transparent' : '#F5F7FF';
+            const cardBg  = dm ? 'linear-gradient(155deg,rgba(17,30,58,0.97) 0%,rgba(8,16,36,0.99) 100%)' : 'white';
+            const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E2E8F2';
+            const textP   = dm ? '#f0f4ff' : '#0F172A';
+            const textM   = dm ? '#8fa4cc' : '#64748B';
+            const [loading, setLoading]         = React.useState(true);
+            const [staffMetrics, setStaffMetrics] = React.useState([]);
+            const [summary, setSummary]         = React.useState({});
+            const [insights, setInsights]       = React.useState([]);
+            const [sortBy, setSortBy]           = React.useState('resolved');
+            const [sortDir, setSortDir]         = React.useState('desc');
+            const [perfChart, setPerfChart]     = React.useState(null);
+
+            React.useEffect(() => {
+                (async () => {
+                    try {
+                        const su = getSessionUser();
+                        const uqp = getUserQueryParams(su);
+                        const tsp = getTicketScopeParams(su);
+                        const tParams = new URLSearchParams({ all:'1', limit:'500' });
+                        if (tsp.scope)  tParams.set('scope',  tsp.scope);
+                        if (tsp.userId) tParams.set('userId', String(tsp.userId));
+                        if (tsp.deptId) tParams.set('deptId', String(tsp.deptId));
+                        const [usersRes, ticketsRes] = await Promise.all([
+                            fetch(`${HRMS_API}/users?status=active&limit=200${uqp}`),
+                            fetch(`${HRMS_API}/tickets?${tParams}`),
+                        ]);
+                        const usersData   = usersRes.ok   ? await usersRes.json()   : { users: [] };
+                        const ticketsData = ticketsRes.ok ? await ticketsRes.json() : { tickets: [] };
+                        const tickets = ticketsData.tickets || [];
+                        const users   = usersData.users   || [];
+                        const now = Date.now();
+
+                        const isResolved = t => {
+                            const s = (t.status || t.statusLabel || '').toString().toLowerCase();
+                            return t.isClosed || s === 'resolved' || s === 'closed';
+                        };
+
+                        // ── Per-staff metrics ──────────────────────────────
+                        const metrics = users.map(u => {
+                            const mine        = tickets.filter(t => t.assigneeId != null && Number(t.assigneeId) === Number(u.id));
+                            const resolved    = mine.filter(isResolved);
+                            const pending     = mine.filter(t => !isResolved(t));
+                            const withinSla   = resolved.filter(t => !t.slaBreached);
+                            const sla         = resolved.length ? Math.round((withinSla.length / resolved.length) * 100) : null;
+                            const resRate     = mine.length ? Math.round((resolved.length / mine.length) * 100) : null;
+
+                            // Average resolution time (hours)
+                            const durations = resolved
+                                .filter(t => t.resolvedAt && t.createdAt)
+                                .map(t => (new Date(t.resolvedAt) - new Date(t.createdAt)) / 3600000);
+                            const avgHours = durations.length ? Math.round(durations.reduce((a,b)=>a+b,0)/durations.length) : null;
+
+                            // Escalations: tickets in their queue that were escalated
+                            const escalated = mine.filter(t => t.isEscalated).length;
+
+                            // Overdue: open tickets past due date
+                            const overdue = pending.filter(t => t.dueAt && new Date(t.dueAt) < now).length;
+
+                            // High/Critical tickets
+                            const criticalHigh = mine.filter(t => {
+                                const p = (t.priority || t.priorityLabel || '').toString().toLowerCase();
+                                return p === 'critical' || p === 'high';
+                            }).length;
+
+                            const initials = (u.name || '?').split(/\s+/).map(w => w[0]).slice(0,2).join('').toUpperCase();
+                            return {
+                                id: u.id, name: u.name, initials,
+                                dept: u.department_name || '—',
+                                assigned: mine.length,
+                                resolved: resolved.length,
+                                pending: pending.length,
+                                resRate, sla, avgHours,
+                                escalated, overdue, criticalHigh,
+                            };
+                        }).filter(m => m.assigned > 0)
+                          .sort((a,b) => b.resolved - a.resolved);
+
+                        // ── Team summary ──────────────────────────────────
+                        const totalTickets   = tickets.length;
+                        const totalResolved  = tickets.filter(isResolved).length;
+                        const totalAssigned  = tickets.filter(t => t.assigneeId).length;
+                        const totalEscalated = tickets.filter(t => t.isEscalated).length;
+                        const totalOverdue   = tickets.filter(t => !isResolved(t) && t.dueAt && new Date(t.dueAt) < now).length;
+                        const resolvedWithSla = tickets.filter(t => isResolved(t) && !t.slaBreached).length;
+                        const teamSla = totalResolved > 0 ? Math.round((resolvedWithSla / totalResolved) * 100) : 0;
+                        const allDurs = tickets
+                            .filter(t => isResolved(t) && t.resolvedAt && t.createdAt)
+                            .map(t => (new Date(t.resolvedAt) - new Date(t.createdAt)) / 3600000);
+                        const teamAvgHours = allDurs.length ? Math.round(allDurs.reduce((a,b)=>a+b,0)/allDurs.length) : null;
+
+                        // ── Auto-generate insights ─────────────────────────
+                        const ins = [];
+                        if (metrics.length > 0) {
+                            const top = metrics[0];
+                            if (top.resolved > 0) ins.push({ type:'positive', icon:'🏆', text:`${top.name} leads the team with ${top.resolved} ticket${top.resolved>1?'s':''} resolved${top.resRate!==null?' ('+top.resRate+'% resolution rate)':''}.` });
+
+                            const withAvg = metrics.filter(m => m.avgHours !== null);
+                            if (withAvg.length > 0) {
+                                const fastest = withAvg.reduce((a,b) => a.avgHours < b.avgHours ? a : b);
+                                ins.push({ type:'positive', icon:'⚡', text:`${fastest.name} resolves tickets fastest — average ${fastest.avgHours}h per ticket.` });
+                            }
+
+                            const overdueStaff = metrics.filter(m => m.overdue > 0);
+                            if (overdueStaff.length > 0) {
+                                const total = overdueStaff.reduce((a,m) => a+m.overdue, 0);
+                                ins.push({ type:'danger', icon:'🚨', text:`${total} overdue ticket${total>1?'s':''} across ${overdueStaff.length} staff member${overdueStaff.length>1?'s':''} (${overdueStaff.map(m=>m.name).join(', ')}) — immediate attention needed.` });
+                            }
+
+                            const highEsc = [...metrics].sort((a,b)=>b.escalated-a.escalated)[0];
+                            if (highEsc && highEsc.escalated > 0) ins.push({ type:'warning', icon:'🔺', text:`${highEsc.name} has ${highEsc.escalated} escalated ticket${highEsc.escalated>1?'s':''} in their queue — review workload or complexity.` });
+
+                            const slaRisk = metrics.filter(m => m.sla !== null && m.sla < 70);
+                            if (slaRisk.length > 0) ins.push({ type:'warning', icon:'⏱️', text:`${slaRisk.map(m=>m.name+' ('+m.sla+'%)').join(', ')} ${slaRisk.length===1?'is':'are'} below 70% SLA — may need process support.` });
+
+                            const perfect = metrics.filter(m => m.sla === 100 && m.resolved >= 3);
+                            if (perfect.length > 0) ins.push({ type:'positive', icon:'✨', text:`${perfect.map(m=>m.name).join(' & ')} ${perfect.length===1?'has':'have'} maintained 100% SLA compliance.` });
+
+                            const highWorkload = metrics.filter(m => m.pending > 4);
+                            if (highWorkload.length > 0) ins.push({ type:'info', icon:'📋', text:`${highWorkload.map(m=>m.name+' ('+m.pending+' open)').join(', ')} ${highWorkload.length===1?'has':'have'} high open-ticket load — consider redistributing.` });
+
+                            const lowRes = metrics.filter(m => m.assigned >= 3 && m.resRate !== null && m.resRate < 30);
+                            if (lowRes.length > 0) ins.push({ type:'warning', icon:'📉', text:`${lowRes.map(m=>m.name).join(', ')} ${lowRes.length===1?'has':'have'} a low resolution rate (under 30%) — check for blockers.` });
+                        }
+                        if (ins.length === 0) ins.push({ type:'info', icon:'📊', text:'Assign tickets to staff members to start generating performance insights.' });
+
+                        setStaffMetrics(metrics);
+                        setSummary({ totalTickets, totalResolved, totalAssigned, totalEscalated, totalOverdue, teamSla, teamAvgHours });
+                        setInsights(ins);
+                        setLoading(false);
+                    } catch(e) {
+                        console.error('StaffPerformancePage', e);
+                        setLoading(false);
+                    }
+                })();
+            }, []);
+
+            // ── Chart ─────────────────────────────────────────────
+            React.useEffect(() => {
+                if (loading || staffMetrics.length === 0) return;
+                const ctx = document.getElementById('perfChart');
+                if (!ctx) return;
+                if (perfChart) { try { perfChart.destroy(); } catch(_){} }
+                const sorted = [...staffMetrics].sort((a,b) => b.assigned - a.assigned);
+                const chart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: sorted.map(s => s.name.split(' ')[0]),
+                        datasets: [
+                            { label: 'Assigned',  data: sorted.map(s => s.assigned),  backgroundColor: 'rgba(99,102,241,0.7)',  borderRadius: 4 },
+                            { label: 'Resolved',  data: sorted.map(s => s.resolved),  backgroundColor: 'rgba(16,185,129,0.85)', borderRadius: 4 },
+                            { label: 'Escalated', data: sorted.map(s => s.escalated), backgroundColor: 'rgba(239,68,68,0.7)',   borderRadius: 4 },
+                        ]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: true,
+                        plugins: { legend: { display: true, position: 'top' } },
+                        scales: { y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } }, x: { grid: { display: false } } }
+                    }
+                });
+                setPerfChart(chart);
+            }, [loading, staffMetrics]);
+
+            // ── Sorted table rows ─────────────────────────────────
+            const sorted = React.useMemo(() => {
+                return [...staffMetrics].sort((a,b) => {
+                    const va = a[sortBy] ?? -1;
+                    const vb = b[sortBy] ?? -1;
+                    return sortDir === 'desc' ? vb - va : va - vb;
+                });
+            }, [staffMetrics, sortBy, sortDir]);
+
+            const toggleSort = col => {
+                if (sortBy === col) setSortDir(d => d==='desc'?'asc':'desc');
+                else { setSortBy(col); setSortDir('desc'); }
+            };
+
+            const top3 = [...staffMetrics].sort((a,b)=>b.resolved-a.resolved).slice(0,3);
+            const MEDAL = ['🥇','🥈','🥉'];
+            const slaColor = v => v===null?'#9CA3AF':v>=80?'#10B981':v>=60?'#F59E0B':'#EF4444';
+            const insightBg = {positive:'#F0FDF4',warning:'#FFFBEB',danger:'#FEF2F2',info:'#EFF6FF'};
+            const insightBorder = {positive:'#BBF7D0',warning:'#FDE68A',danger:'#FECACA',info:'#BFDBFE'};
+            const insightText = {positive:'#166534',warning:'#92400E',danger:'#991B1B',info:'#1E40AF'};
+
+            const SortTh = ({ col, label }) => (
+                <th onClick={() => toggleSort(col)} style={{padding:'10px 12px',textAlign:'left',fontWeight:'600',color: sortBy===col?'#4338CA':(dm?'#8fa4cc':'#64748B'),fontSize:'11px',textTransform:'uppercase',letterSpacing:'0.05em',cursor:'pointer',whiteSpace:'nowrap',userSelect:'none'}}>
+                    {label} {sortBy===col ? (sortDir==='desc'?'↓':'↑') : ''}
+                </th>
+            );
+
+            return (
+                <main className="flex-1 overflow-auto bg-gray-50">
+                    <div className="p-8 max-w-7xl mx-auto">
+                        <div className="mb-7">
+                            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Staff Performance</h1>
+                            <p className="text-sm text-gray-400 mt-1">Live metrics computed from ticket data</p>
+                        </div>
+
+                        {loading ? (
+                            <div className="flex items-center justify-center py-24">
+                                <div className="text-center"><div className="text-4xl mb-3">⏳</div><p className="text-gray-400 text-sm">Loading performance data…</p></div>
+                            </div>
+                        ) : (
+                        <>
+                        {/* ── KPI row ── */}
+                        <div className="yc-stat-5 grid gap-4 mb-7" style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)"}}>
+                            {[
+                                { label:'Total Tickets',   value: summary.totalTickets,              icon:'🎫', color:dm?'#818cf8':'#4F46E5' },
+                                { label:'Resolved',        value: summary.totalResolved,             icon:'✅', color:'#10B981' },
+                                { label:'Team SLA',        value: (summary.teamSla||0)+'%',          icon:'⏱️', color: summary.teamSla>=80?'#10B981':summary.teamSla>=60?'#F59E0B':'#EF4444' },
+                                { label:'Avg Resolve Time',value: summary.teamAvgHours!=null?summary.teamAvgHours+'h':'—', icon:'🕐', color:dm?'#818cf8':'#4F46E5' },
+                                { label:'Overdue',         value: summary.totalOverdue||0,           icon:'🚨', color: summary.totalOverdue>0?'#EF4444':'#10B981' },
+                            ].map((s,i) => (
+                                <div key={i} style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,padding:'18px 20px',boxShadow:dm?'0 4px 24px rgba(0,0,0,0.4)':'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
+                                    <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'8px'}}>
+                                        <span style={{fontSize:'16px'}}>{s.icon}</span>
+                                        <span style={{fontSize:'11px',fontWeight:'600',color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.05em'}}>{s.label}</span>
+                                    </div>
+                                    <div style={{fontSize:'28px',fontWeight:'800',color:s.color}}>{s.value}</div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* ── Insights ── */}
+                        <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,padding:'20px 24px',marginBottom:'24px',boxShadow:dm?'0 4px 24px rgba(0,0,0,0.4)':'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
+                            <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,marginBottom:'14px',display:'flex',alignItems:'center',gap:'8px'}}>
+                                <span>💡</span> Performance Insights
+                            </h2>
+                            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(320px,1fr))',gap:'10px'}}>
+                                {insights.map((ins,i) => (
+                                    <div key={i} style={{display:'flex',alignItems:'flex-start',gap:'10px',padding:'12px 14px',borderRadius:'10px',background:insightBg[ins.type],border:'1px solid '+insightBorder[ins.type]}}>
+                                        <span style={{fontSize:'16px',flexShrink:0,marginTop:'1px'}}>{ins.icon}</span>
+                                        <p style={{fontSize:'12px',lineHeight:'1.6',color:insightText[ins.type],margin:0}}>{ins.text}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* ── Top performers podium ── */}
+                        {top3.length > 0 && (
+                        <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,padding:'20px 24px',marginBottom:'24px',boxShadow:dm?'0 4px 24px rgba(0,0,0,0.4)':'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
+                            <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,marginBottom:'16px'}}>⭐ Top Performers</h2>
+                            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'14px'}}>
+                                {top3.map((s,idx) => (
+                                    <div key={s.id} style={{border:`1px solid ${dm?'rgba(99,102,241,0.2)':(idx===0?'#FDE68A':idx===1?'#D1D5DB':'#E5E7EB')}`,borderRadius:'12px',padding:'20px',textAlign:'center',background:dm?(idx===0?'rgba(234,179,8,0.12)':idx===1?'rgba(99,102,241,0.08)':'rgba(99,102,241,0.05)'):(idx===0?'linear-gradient(135deg,#FFFBEB,#FEF3C7)':idx===1?'linear-gradient(135deg,#F8FAFC,#F1F5F9)':'#FAFAFA')}}>
+                                        <div style={{fontSize:'24px',marginBottom:'8px'}}>{MEDAL[idx]}</div>
+                                        <div style={{width:'44px',height:'44px',borderRadius:'50%',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:'#4338CA',fontWeight:'800',fontSize:'14px',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 10px'}}>{s.initials}</div>
+                                        <div style={{fontWeight:'700',fontSize:'13px',color:textP,marginBottom:'2px'}}>{s.name}</div>
+                                        <div style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8',marginBottom:'12px'}}>{s.dept}</div>
+                                        <div style={{display:'flex',justifyContent:'center',gap:'16px'}}>
+                                            <div><div style={{fontWeight:'800',fontSize:'18px',color:'#10B981'}}>{s.resolved}</div><div style={{fontSize:'10px',color:dm?'#4a607f':'#94A3B8'}}>Resolved</div></div>
+                                            <div><div style={{fontWeight:'800',fontSize:'18px',color:dm?'#818cf8':'#4F46E5'}}>{s.assigned}</div><div style={{fontSize:'10px',color:dm?'#4a607f':'#94A3B8'}}>Assigned</div></div>
+                                            <div><div style={{fontWeight:'800',fontSize:'18px',color:slaColor(s.sla)}}>{s.sla!==null?s.sla+'%':'—'}</div><div style={{fontSize:'10px',color:dm?'#4a607f':'#94A3B8'}}>SLA</div></div>
+                                        </div>
+                                        {s.avgHours!==null && <div style={{marginTop:'10px',fontSize:'11px',color:textM}}>⚡ Avg {s.avgHours}h resolve time</div>}
+                                        {s.escalated>0 && <div style={{marginTop:'4px',fontSize:'11px',color:'#EF4444'}}>🔺 {s.escalated} escalated</div>}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        )}
+
+                        {/* ── Full metrics table ── */}
+                        {staffMetrics.length > 0 ? (
+                        <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,padding:'20px 24px',marginBottom:'24px',boxShadow:dm?'0 4px 24px rgba(0,0,0,0.4)':'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
+                            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'16px'}}>
+                                <h2 style={{fontSize:'14px',fontWeight:'700',color:textP}}>📋 All Staff Metrics</h2>
+                                <span style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8'}}>Click column headers to sort</span>
+                            </div>
+                            <div className="yc-table-scroll">
+                                <table style={{width:'100%',borderCollapse:'collapse',fontSize:'13px'}}>
+                                    <thead>
+                                        <tr style={{borderBottom:'2px solid #F3F4F6'}}>
+                                            <th style={{padding:'10px 12px',textAlign:'left',fontWeight:'600',color:textM,fontSize:'11px',textTransform:'uppercase',letterSpacing:'0.05em'}}>Staff</th>
+                                            <th style={{padding:'10px 12px',textAlign:'left',fontWeight:'600',color:textM,fontSize:'11px',textTransform:'uppercase',letterSpacing:'0.05em'}}>Dept</th>
+                                            <SortTh col="assigned"    label="Assigned" />
+                                            <SortTh col="resolved"    label="Resolved" />
+                                            <SortTh col="pending"     label="Pending" />
+                                            <SortTh col="resRate"     label="Res. Rate" />
+                                            <SortTh col="avgHours"    label="Avg Time" />
+                                            <SortTh col="sla"         label="SLA" />
+                                            <SortTh col="escalated"   label="Escalated" />
+                                            <SortTh col="overdue"     label="Overdue" />
+                                            <SortTh col="criticalHigh" label="High/Crit" />
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {sorted.map((s,i) => (
+                                            <tr key={s.id} style={{borderBottom:`1px solid ${borderC}`,background:i%2===0?(dm?'rgba(255,255,255,0.02)':'#fff'):(dm?'rgba(99,102,241,0.03)':'#FAFAFA'),transition:'background 0.15s'}}
+                                                onMouseEnter={e=>e.currentTarget.style.background=dm?'rgba(99,102,241,0.10)':'#F5F3FF'}
+                                                onMouseLeave={e=>e.currentTarget.style.background=i%2===0?(dm?'rgba(255,255,255,0.02)':'#fff'):(dm?'rgba(99,102,241,0.03)':'#FAFAFA')}>
+                                                <td style={{padding:'11px 12px'}}>
+                                                    <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
+                                                        <div style={{width:'30px',height:'30px',borderRadius:'50%',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:'#4338CA',fontWeight:'700',fontSize:'11px',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{s.initials}</div>
+                                                        <span style={{fontWeight:'600',color:textP}}>{s.name}</span>
+                                                    </div>
+                                                </td>
+                                                <td style={{padding:'11px 12px',color:textM,fontSize:'12px'}}>{s.dept}</td>
+                                                <td style={{padding:'11px 12px',fontWeight:'700',color:dm?'#c0cfec':'#334155',textAlign:'center'}}>{s.assigned}</td>
+                                                <td style={{padding:'11px 12px',fontWeight:'700',color:'#10B981',textAlign:'center'}}>{s.resolved}</td>
+                                                <td style={{padding:'11px 12px',fontWeight:'600',color:s.pending>0?'#F59E0B':(dm?'#4a607f':'#94A3B8'),textAlign:'center'}}>{s.pending}</td>
+                                                <td style={{padding:'11px 12px',textAlign:'center'}}>
+                                                    {s.resRate!==null ? (
+                                                        <span style={{fontWeight:'700',color:s.resRate>=70?'#10B981':s.resRate>=40?'#F59E0B':'#EF4444'}}>{s.resRate}%</span>
+                                                    ) : <span style={{color:'#D1D5DB'}}>—</span>}
+                                                </td>
+                                                <td style={{padding:'11px 12px',color:textM,textAlign:'center'}}>{s.avgHours!==null?s.avgHours+'h':'—'}</td>
+                                                <td style={{padding:'11px 12px',textAlign:'center'}}>
+                                                    {s.sla!==null ? (
+                                                        <span style={{fontWeight:'700',color:slaColor(s.sla)}}>{s.sla}%</span>
+                                                    ) : <span style={{color:'#D1D5DB'}}>—</span>}
+                                                </td>
+                                                <td style={{padding:'11px 12px',textAlign:'center'}}>
+                                                    {s.escalated>0
+                                                        ? <span style={{background:dm?'rgba(239,68,68,0.15)':'#FEF2F2',color:dm?'#fca5a5':'#DC2626',fontWeight:'700',padding:'2px 8px',borderRadius:'6px',fontSize:'12px'}}>{s.escalated}</span>
+                                                        : <span style={{color:'#D1D5DB'}}>0</span>}
+                                                </td>
+                                                <td style={{padding:'11px 12px',textAlign:'center'}}>
+                                                    {s.overdue>0
+                                                        ? <span style={{background:dm?'rgba(249,115,22,0.15)':'#FFF7ED',color:dm?'#fdba74':'#EA580C',fontWeight:'700',padding:'2px 8px',borderRadius:'6px',fontSize:'12px'}}>{s.overdue}</span>
+                                                        : <span style={{color:'#D1D5DB'}}>0</span>}
+                                                </td>
+                                                <td style={{padding:'11px 12px',textAlign:'center'}}>
+                                                    {s.criticalHigh>0
+                                                        ? <span style={{background:dm?'rgba(190,18,60,0.15)':'#FFF1F2',color:dm?'#fda4af':'#BE123C',fontWeight:'700',padding:'2px 8px',borderRadius:'6px',fontSize:'12px'}}>{s.criticalHigh}</span>
+                                                        : <span style={{color:'#D1D5DB'}}>0</span>}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        ) : (
+                        <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,padding:'48px',textAlign:'center',marginBottom:'24px'}}>
+                            <div style={{fontSize:'40px',marginBottom:'12px'}}>📭</div>
+                            <p style={{color:dm?'#4a607f':'#94A3B8',fontSize:'14px'}}>No tickets assigned to staff yet — metrics appear once tickets have assignees.</p>
+                        </div>
+                        )}
+
+                        {/* ── Chart ── */}
+                        {staffMetrics.length > 0 && (
+                        <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,padding:'20px 24px',boxShadow:dm?'0 4px 24px rgba(0,0,0,0.4)':'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
+                            <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,marginBottom:'16px'}}>📊 Assigned / Resolved / Escalated by Staff</h2>
+                            <div className="chart-container"><canvas id="perfChart"></canvas></div>
+                        </div>
+                        )}
+                        </>
+                        )}
+                    </div>
+                </main>
+            );
+        }
+
+        // ── Team insight helpers ─────────────────────────────────
+        const isResT = t => { const s=(t.status||'').toLowerCase(); return t.isClosed||s==='resolved'||s==='closed'; };
+
+        function genDeptInsights(d) {
+            const ins = [];
+            if (d.resRate !== null) {
+                if (d.resRate >= 80) ins.push({ type:'positive', msg:`Strong resolution rate of ${d.resRate}% — team is closing tickets efficiently.` });
+                else if (d.resRate >= 50) ins.push({ type:'warning', msg:`Moderate resolution rate of ${d.resRate}% — ${d.pending} tickets still open.` });
+                else ins.push({ type:'danger', msg:`Low resolution rate of ${d.resRate}% — ${d.pending} tickets still pending action.` });
+            }
+            if (d.sla !== null) {
+                if (d.sla >= 80) ins.push({ type:'positive', msg:`SLA compliance healthy at ${d.sla}%.` });
+                else if (d.sla >= 60) ins.push({ type:'warning', msg:`SLA compliance at ${d.sla}% — some tickets are breaching deadlines.` });
+                else ins.push({ type:'danger', msg:`Only ${d.sla}% SLA compliance — deadlines consistently missed.` });
+            }
+            if (d.escalated > 0) ins.push({ type: d.escalated > 2 ? 'danger' : 'warning', msg:`${d.escalated} ticket${d.escalated>1?'s':''} escalated — review workload distribution.` });
+            else if (d.assigned > 0) ins.push({ type:'positive', msg:`No escalations — team handles tickets without needing to escalate.` });
+            if (d.overdue > 0) ins.push({ type:'danger', msg:`${d.overdue} overdue ticket${d.overdue>1?'s':''} — immediate attention required.` });
+            if (d.avgHours !== null) {
+                if (d.avgHours > 72) ins.push({ type:'warning', msg:`Avg resolution time of ${Math.round(d.avgHours/24)}d is above target — consider workload balancing.` });
+                else if (d.avgHours <= 8) ins.push({ type:'positive', msg:`Excellent avg resolution time of ${d.avgHours}h.` });
+                else ins.push({ type:'info', msg:`Avg resolution time: ${d.avgHours >= 24 ? Math.round(d.avgHours/24)+'d' : d.avgHours+'h'}.` });
+            }
+            if (d.criticalHigh > 0 && d.assigned > 0) {
+                const pct = Math.round((d.criticalHigh/d.assigned)*100);
+                ins.push({ type: pct > 50 ? 'warning' : 'info', msg:`${pct}% of tickets are Critical/High priority (${d.criticalHigh} of ${d.assigned}).` });
+            }
+            if (d.staff > 0 && d.assigned > 0) {
+                const ratio = (d.assigned / d.staff).toFixed(1);
+                ins.push({ type: ratio > 8 ? 'warning' : 'info', msg:`${ratio} tickets per staff member on average.` });
+            }
+            return ins;
+        }
+
+        const INSIGHT_STYLE = {
+            positive: { bg:'#F0FDF4', border:'#BBF7D0', text:'#166534', icon:'✅' },
+            warning:  { bg:'#FFFBEB', border:'#FDE68A', text:'#92400E', icon:'⚠️' },
+            danger:   { bg:'#FFF1F2', border:'#FECDD3', text:'#9F1239', icon:'🔴' },
+            info:     { bg:'#F0F9FF', border:'#BAE6FD', text:'#075985', icon:'ℹ️' },
+        };
+
+        // Team Comparison Page
+        function TeamComparisonPage() {
+            const dm = useDark();
+            const pageBg  = dm ? 'transparent' : '#F5F7FF';
+            const cardBg  = dm ? 'linear-gradient(155deg,rgba(17,30,58,0.97) 0%,rgba(8,16,36,0.99) 100%)' : 'white';
+            const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E2E8F2';
+            const textP   = dm ? '#f0f4ff' : '#0F172A';
+            const textM   = dm ? '#8fa4cc' : '#64748B';
+            const [loading, setLoading]         = React.useState(true);
+            const [deptMetrics, setDeptMetrics] = React.useState([]);
+            const [summary, setSummary]         = React.useState({});
+            const [sortBy, setSortBy]           = React.useState('resolved');
+            const [sortDir, setSortDir]         = React.useState('desc');
+            const [selectedDept, setSelectedDept] = React.useState(null);
+            const canvasRef  = React.useRef(null);
+            const chartInst  = React.useRef(null);
+
+            React.useEffect(() => {
+                (async () => {
+                    try {
+                        const su = getSessionUser();
+                        const uqp = getUserQueryParams(su);
+                        const tsp = getTicketScopeParams(su);
+                        const tParams = new URLSearchParams({ all:'1', limit:'500' });
+                        if (tsp.scope)  tParams.set('scope',  tsp.scope);
+                        if (tsp.userId) tParams.set('userId', String(tsp.userId));
+                        if (tsp.deptId) tParams.set('deptId', String(tsp.deptId));
+                        const [usersRes, ticketsRes] = await Promise.all([
+                            fetch(`${HRMS_API}/users?status=active&limit=200${uqp}`),
+                            fetch(`${HRMS_API}/tickets?${tParams}`),
+                        ]);
+                        const allUsers = (usersRes.ok   ? await usersRes.json()   : { users: [] }).users   || [];
+                        const tickets  = (ticketsRes.ok ? await ticketsRes.json() : { tickets: [] }).tickets || [];
+                        const now = Date.now();
+
+                        // Exclude director-level users from team comparison
+                        const isDirector = u => Array.isArray(u.positions)
+                            ? u.positions.some(p => (p.type||p.position_type||'').toLowerCase() === 'director')
+                            : (u.position_type||'').toLowerCase() === 'director';
+                        const users = allUsers.filter(u => !isDirector(u));
+
+                        const userDept = {};
+                        users.forEach(u => { userDept[u.id] = u.department_name || 'No Department'; });
+
+                        const depts = {};
+                        users.forEach(u => {
+                            const d = u.department_name || 'No Department';
+                            if (!depts[d]) depts[d] = { name: d, staff: [], tickets: [] };
+                            depts[d].staff.push(u);
+                        });
+                        tickets.forEach(t => {
+                            if (!t.assigneeId) return;
+                            const d = userDept[t.assigneeId];
+                            if (!d) return;
+                            if (!depts[d]) depts[d] = { name: d, staff: [], tickets: [] };
+                            depts[d].tickets.push(t);
+                        });
+
+                        const metrics = Object.values(depts).map(dept => {
+                            const ts       = dept.tickets;
+                            const resolved = ts.filter(isResT);
+                            const pending  = ts.filter(t => !isResT(t));
+                            const withinSla = resolved.filter(t => !t.slaBreached);
+                            const sla      = resolved.length ? Math.round((withinSla.length/resolved.length)*100) : null;
+                            const resRate  = ts.length ? Math.round((resolved.length/ts.length)*100) : null;
+                            const durs     = resolved.filter(t=>t.resolvedAt&&t.createdAt).map(t=>(new Date(t.resolvedAt)-new Date(t.createdAt))/3600000);
+                            const avgHours = durs.length ? Math.round(durs.reduce((a,b)=>a+b,0)/durs.length) : null;
+                            const escalated    = ts.filter(t=>t.isEscalated).length;
+                            const overdue      = pending.filter(t=>t.dueAt&&new Date(t.dueAt)<now).length;
+                            const criticalHigh = ts.filter(t=>{const p=(t.priorityLabel||t.priority||'').toLowerCase();return p==='critical'||p==='high';}).length;
+                            return { name:dept.name, staff:dept.staff.length, assigned:ts.length, resolved:resolved.length,
+                                     pending:pending.length, resRate, sla, avgHours, escalated, overdue, criticalHigh,
+                                     staffList: dept.staff, ticketList: ts };
+                        }).filter(m => m.staff>0||m.assigned>0);
+
+                        setDeptMetrics(metrics);
+                        const hasSla = metrics.filter(m=>m.sla!==null);
+                        setSummary({
+                            totalDepts:    metrics.length,
+                            totalStaff:    users.length,
+                            totalAssigned: metrics.reduce((a,b)=>a+b.assigned,0),
+                            totalResolved: metrics.reduce((a,b)=>a+b.resolved,0),
+                            totalEscalated:metrics.reduce((a,b)=>a+b.escalated,0),
+                            avgSla:        hasSla.length ? Math.round(hasSla.reduce((a,b)=>a+b.sla,0)/hasSla.length) : null,
+                        });
+                    } catch(e) { console.error(e); }
+                    finally { setLoading(false); }
+                })();
+            }, []);
+
+            // Chart — use rAF to ensure canvas has layout dimensions before Chart.js draws
+            React.useEffect(() => {
+                if (!deptMetrics.length) return;
+                let rafId;
+                rafId = requestAnimationFrame(() => {
+                    if (!canvasRef.current) return;
+                    if (chartInst.current) { try { chartInst.current.destroy(); } catch(_){} chartInst.current = null; }
+                    chartInst.current = new Chart(canvasRef.current, {
+                        type: 'bar',
+                        data: {
+                            labels: deptMetrics.map(d=>d.name),
+                            datasets: [
+                                { label:'Assigned',  data:deptMetrics.map(d=>d.assigned),  backgroundColor:'rgba(99,102,241,0.8)',  borderRadius:4 },
+                                { label:'Resolved',  data:deptMetrics.map(d=>d.resolved),  backgroundColor:'rgba(52,211,153,0.8)',  borderRadius:4 },
+                                { label:'Pending',   data:deptMetrics.map(d=>d.pending),   backgroundColor:'rgba(252,211,77,0.8)',  borderRadius:4 },
+                                { label:'Escalated', data:deptMetrics.map(d=>d.escalated), backgroundColor:'rgba(249,115,22,0.8)',  borderRadius:4 },
+                                { label:'Overdue',   data:deptMetrics.map(d=>d.overdue),   backgroundColor:'rgba(244,63,94,0.8)',   borderRadius:4 },
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins:{ legend:{ position:'bottom', labels:{boxWidth:12,padding:16,font:{size:12}} } },
+                            scales:{
+                                y:{ beginAtZero:true, grid:{color:'#F3F4F6'}, ticks:{stepSize:1} },
+                                x:{ grid:{display:false} }
+                            }
+                        }
+                    });
+                });
+                return () => {
+                    cancelAnimationFrame(rafId);
+                    if (chartInst.current) { try { chartInst.current.destroy(); } catch(_){} chartInst.current = null; }
+                };
+            }, [deptMetrics]);
+
+            const sorted = [...deptMetrics].sort((a,b) => {
+                const v = sortDir==='asc' ? 1 : -1;
+                const av = a[sortBy]??-1, bv = b[sortBy]??-1;
+                return (typeof av==='string' ? av.localeCompare(bv) : av-bv)*v;
+            });
+
+            const SortTh = ({col, label}) => (
+                <th onClick={()=>{setSortBy(col);setSortDir(d=>d==='asc'?'desc':'asc');}}
+                    style={{padding:'10px 12px',textAlign:'center',fontSize:'11px',fontWeight:700,color:textM,textTransform:'uppercase',letterSpacing:'0.05em',cursor:'pointer',whiteSpace:'nowrap',userSelect:'none',background:dm?'rgba(4,8,20,0.6)':'#F8FAFF'}}>
+                    {label}{sortBy===col?(sortDir==='asc'?' ↑':' ↓'):''}
+                </th>
+            );
+
+            const MEDAL = ['🥇','🥈','🥉'];
+            const top3  = [...deptMetrics].sort((a,b)=>b.resolved-a.resolved).slice(0,3);
+
+            return (
+                <main className="flex-1 overflow-auto bg-gray-50">
+                    <div className="p-8">
+                        <h1 className="text-3xl font-bold text-gray-900 mb-1">Team Comparison</h1>
+                        <p className="text-gray-500 text-sm mb-6">Live department-level performance metrics</p>
+
+                        {loading ? (
+                            <div style={{textAlign:'center',padding:'80px',color:dm?'#4a607f':'#94A3B8',fontSize:'14px'}}>Loading department metrics…</div>
+                        ) : (<>
+
+                        {/* Summary cards */}
+                        <div className="yc-grid-6 grid gap-4 mb-6" style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)"}}>
+                            {[
+                                { label:'Departments',    value:summary.totalDepts,    icon:'🏢', color:dm?'#818cf8':'#4F46E5' },
+                                { label:'Total Staff',    value:summary.totalStaff,    icon:'👥', color:'#0EA5E9' },
+                                { label:'Total Assigned', value:summary.totalAssigned, icon:'📋', color:'#8B5CF6' },
+                                { label:'Total Resolved', value:summary.totalResolved, icon:'✅', color:'#10B981' },
+                                { label:'Escalated',      value:summary.totalEscalated,icon:'⚠️', color:'#F97316' },
+                                { label:'Avg SLA',        value:summary.avgSla!=null?`${summary.avgSla}%`:'—', icon:'🎯', color:'#EC4899' },
+                            ].map((c,i) => (
+                                <div key={i} style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,padding:'16px 18px',boxShadow:'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
+                                    <div style={{fontSize:'11px',color:textM,fontWeight:600,marginBottom:4}}>{c.icon} {c.label}</div>
+                                    <div style={{fontSize:'26px',fontWeight:800,color:c.color}}>{c.value??'—'}</div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Podium */}
+                        {top3.length>0 && (
+                        <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,padding:'20px 24px',marginBottom:'20px',boxShadow:'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
+                            <h2 style={{fontSize:'14px',fontWeight:700,color:textP,marginBottom:'16px'}}>🏆 Top Performing Departments</h2>
+                            <div style={{display:'flex',gap:'16px',flexWrap:'wrap'}}>
+                                {top3.map((d,i) => (
+                                    <div key={d.name} onClick={()=>setSelectedDept(d)} style={{flex:'1 1 200px',borderRadius:'10px',border:'2px solid',borderColor:i===0?'#F59E0B':i===1?'#9CA3AF':'#CD7C3A',padding:'16px',background:dm?(i===0?'rgba(245,158,11,0.08)':i===1?'rgba(156,163,175,0.08)':'rgba(205,124,58,0.08)'):(i===0?'#FFFBEB':i===1?'#F9FAFB':'#FFF8F3'),cursor:'pointer',transition:'box-shadow 0.15s'}}
+                                        onMouseEnter={e=>e.currentTarget.style.boxShadow='0 4px 16px rgba(99,102,241,0.15)'}
+                                        onMouseLeave={e=>e.currentTarget.style.boxShadow='none'}>
+                                        <div style={{fontSize:'24px'}}>{MEDAL[i]}</div>
+                                        <div style={{fontWeight:700,fontSize:'14px',color:textP,marginTop:6}}>{d.name}</div>
+                                        <div style={{fontSize:'12px',color:textM,marginTop:4}}>
+                                            {d.staff} staff · {d.resolved} resolved{d.resRate!=null?` · ${d.resRate}% rate`:''}
+                                        </div>
+                                        {d.sla!=null && (<>
+                                            <div style={{marginTop:8,height:4,borderRadius:4,background:dm?'rgba(99,102,241,0.15)':'#E5E7EB'}}>
+                                                <div style={{height:4,borderRadius:4,width:`${d.sla}%`,background:d.sla>=80?'#10B981':d.sla>=60?'#F59E0B':'#EF4444'}}/>
+                                            </div>
+                                            <div style={{fontSize:'10px',color:dm?'#4a607f':'#94A3B8',marginTop:2}}>{d.sla}% SLA compliance</div>
+                                        </>)}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        )}
+
+                        {/* Chart — canvas always mounted so ref is available when deptMetrics loads */}
+                        <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,padding:'20px 24px',marginBottom:'20px',boxShadow:'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)',display:deptMetrics.length>0?'block':'none'}}>
+                            <h2 style={{fontSize:'14px',fontWeight:700,color:textP,marginBottom:'16px'}}>📊 Department Metrics Comparison</h2>
+                            <div className="chart-container"><canvas ref={canvasRef}></canvas></div>
+                        </div>
+
+                        {/* Table */}
+                        {deptMetrics.length>0 ? (
+                        <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,boxShadow:dm?'0 4px 24px rgba(0,0,0,0.4)':'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)',overflow:'hidden'}}>
+                            <div style={{padding:'16px 20px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
+                                <h2 style={{fontSize:'14px',fontWeight:700,color:textP}}>📋 Full Department Breakdown</h2>
+                                <p style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8',marginTop:2}}>Click column headers to sort</p>
+                            </div>
+                            <div className="yc-table-scroll">
+                                <table style={{width:'100%',borderCollapse:'collapse'}}>
+                                    <thead>
+                                        <tr style={{borderBottom:`2px solid ${borderC}`}}>
+                                            <th style={{padding:'10px 12px',textAlign:'left',fontSize:'11px',fontWeight:700,color:textM,textTransform:'uppercase',background:dm?'rgba(4,8,20,0.6)':'#F8FAFF',whiteSpace:'nowrap'}}>Department</th>
+                                            <SortTh col="staff"        label="Staff" />
+                                            <SortTh col="assigned"     label="Assigned" />
+                                            <SortTh col="resolved"     label="Resolved" />
+                                            <SortTh col="pending"      label="Pending" />
+                                            <SortTh col="resRate"      label="Res. Rate" />
+                                            <SortTh col="avgHours"     label="Avg Time" />
+                                            <SortTh col="sla"          label="SLA %" />
+                                            <SortTh col="escalated"    label="Escalated" />
+                                            <SortTh col="overdue"      label="Overdue" />
+                                            <SortTh col="criticalHigh" label="Crit/High" />
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {sorted.map((d,i) => (
+                                            <tr key={d.name} onClick={()=>setSelectedDept(d)}
+                                                style={{borderBottom:`1px solid ${borderC}`,background:i%2===0?(dm?'rgba(255,255,255,0.02)':'white'):(dm?'rgba(99,102,241,0.03)':'#FAFAFA'),cursor:'pointer'}}
+                                                onMouseEnter={e=>e.currentTarget.style.background=dm?'rgba(99,102,241,0.08)':'#F0F4FF'}
+                                                onMouseLeave={e=>e.currentTarget.style.background=i%2===0?(dm?'rgba(255,255,255,0.02)':'white'):(dm?'rgba(99,102,241,0.03)':'#FAFAFA')}>
+                                                <td style={{padding:'11px 12px',fontSize:'13px',fontWeight:600,color:textP,whiteSpace:'nowrap'}}>
+                                                    <div style={{display:'flex',alignItems:'center',gap:8}}>
+                                                        <div style={{width:30,height:30,borderRadius:'50%',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'11px',fontWeight:700,color:dm?'#818cf8':'#4F46E5',flexShrink:0}}>
+                                                            {(d.name||'?')[0].toUpperCase()}
+                                                        </div>
+                                                        {d.name}
+                                                    </div>
+                                                </td>
+                                                <td style={{padding:'11px 12px',textAlign:'center',fontSize:'13px',color:dm?'#c0cfec':'#334155'}}>{d.staff}</td>
+                                                <td style={{padding:'11px 12px',textAlign:'center',fontSize:'13px',color:dm?'#c0cfec':'#334155'}}>{d.assigned}</td>
+                                                <td style={{padding:'11px 12px',textAlign:'center'}}>
+                                                    <span style={{fontWeight:700,fontSize:'13px',color:'#10B981'}}>{d.resolved}</span>
+                                                </td>
+                                                <td style={{padding:'11px 12px',textAlign:'center',fontSize:'13px',color:dm?'#c0cfec':'#334155'}}>{d.pending}</td>
+                                                <td style={{padding:'11px 12px',textAlign:'center'}}>
+                                                    {d.resRate!=null
+                                                        ? <span style={{fontSize:'12px',fontWeight:700,padding:'2px 8px',borderRadius:20,background:d.resRate>=80?(dm?'rgba(16,185,129,0.15)':'#D1FAE5'):d.resRate>=50?(dm?'rgba(245,158,11,0.15)':'#FEF3C7'):(dm?'rgba(239,68,68,0.15)':'#FEE2E2'),color:d.resRate>=80?(dm?'#6ee7b7':'#065F46'):d.resRate>=50?(dm?'#fcd34d':'#92400E'):(dm?'#fca5a5':'#991B1B')}}>{d.resRate}%</span>
+                                                        : <span style={{color:'#D1D5DB'}}>—</span>}
+                                                </td>
+                                                <td style={{padding:'11px 12px',textAlign:'center',fontSize:'12px',color:textM}}>
+                                                    {d.avgHours!=null?(d.avgHours>=24?`${Math.round(d.avgHours/24)}d`:`${d.avgHours}h`):'—'}
+                                                </td>
+                                                <td style={{padding:'11px 12px',textAlign:'center'}}>
+                                                    {d.sla!=null
+                                                        ? <span style={{fontSize:'12px',fontWeight:700,padding:'2px 8px',borderRadius:20,background:d.sla>=80?(dm?'rgba(16,185,129,0.15)':'#D1FAE5'):d.sla>=60?(dm?'rgba(245,158,11,0.15)':'#FEF3C7'):(dm?'rgba(239,68,68,0.15)':'#FEE2E2'),color:d.sla>=80?(dm?'#6ee7b7':'#065F46'):d.sla>=60?(dm?'#fcd34d':'#92400E'):(dm?'#fca5a5':'#991B1B')}}>{d.sla}%</span>
+                                                        : <span style={{color:'#D1D5DB'}}>—</span>}
+                                                </td>
+                                                <td style={{padding:'11px 12px',textAlign:'center'}}>
+                                                    {d.escalated>0
+                                                        ? <span style={{background:dm?'rgba(239,68,68,0.15)':'#FEF2F2',color:dm?'#fca5a5':'#DC2626',fontWeight:700,padding:'2px 8px',borderRadius:6,fontSize:'12px'}}>{d.escalated}</span>
+                                                        : <span style={{color:'#D1D5DB'}}>0</span>}
+                                                </td>
+                                                <td style={{padding:'11px 12px',textAlign:'center'}}>
+                                                    {d.overdue>0
+                                                        ? <span style={{background:dm?'rgba(249,115,22,0.15)':'#FFF7ED',color:dm?'#fdba74':'#EA580C',fontWeight:700,padding:'2px 8px',borderRadius:6,fontSize:'12px'}}>{d.overdue}</span>
+                                                        : <span style={{color:'#D1D5DB'}}>0</span>}
+                                                </td>
+                                                <td style={{padding:'11px 12px',textAlign:'center'}}>
+                                                    {d.criticalHigh>0
+                                                        ? <span style={{background:dm?'rgba(190,18,60,0.15)':'#FFF1F2',color:dm?'#fda4af':'#BE123C',fontWeight:700,padding:'2px 8px',borderRadius:6,fontSize:'12px'}}>{d.criticalHigh}</span>
+                                                        : <span style={{color:'#D1D5DB'}}>0</span>}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        ) : (
+                        <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,padding:'48px',textAlign:'center'}}>
+                            <div style={{fontSize:'40px',marginBottom:'12px'}}>📭</div>
+                            <p style={{color:dm?'#4a607f':'#94A3B8',fontSize:'14px'}}>No department data yet — seed tickets and assign them to staff to see metrics.</p>
+                        </div>
+                        )}
+                        </>)}
+
+                        {/* ── Insight Drawer ── */}
+                        {selectedDept && (() => {
+                            const d = selectedDept;
+                            const insights = genDeptInsights(d);
+                            // Staff breakdown from ticketList
+                            const staffMap = {};
+                            (d.ticketList||[]).forEach(tk => {
+                                const sid = tk.assigneeId || tk.assigned_to;
+                                const sname = tk.assigneeName || tk.assignee_name || ('User #'+sid);
+                                if (!sid) return;
+                                if (!staffMap[sid]) staffMap[sid] = {name:sname,assigned:0,resolved:0,pending:0};
+                                staffMap[sid].assigned++;
+                                if (isResT(tk)) staffMap[sid].resolved++;
+                                if (tk.status==='pending_approval') staffMap[sid].pending++;
+                            });
+                            const staffRows = Object.values(staffMap).sort((a,b)=>b.assigned-a.assigned);
+                            // Category breakdown
+                            const catMap = {};
+                            (d.ticketList||[]).forEach(tk => {
+                                const cl = tk.categoryLabel || tk.category_label || 'Uncategorised';
+                                catMap[cl] = (catMap[cl]||0)+1;
+                            });
+                            // Status breakdown
+                            const stMap = {};
+                            (d.ticketList||[]).forEach(tk => {
+                                const s = (tk.status||'unknown').toLowerCase();
+                                stMap[s] = (stMap[s]||0)+1;
+                            });
+                            const ST_LABEL = {new:'New',assigned:'Assigned',in_progress:'In Progress',waiting:'Waiting',pending_approval:'Pending Approval',resolved:'Resolved',closed:'Closed'};
+                            const ST_COLOR = {new:dm?'#6b80a4':'#64748B',assigned:'#3B82F6',in_progress:'#F59E0B',waiting:'#8B5CF6',pending_approval:'#EC4899',resolved:'#10B981',closed:dm?'#6b80a4':'#475569'};
+                            return (
+                                <div style={{position:'fixed',inset:0,zIndex:1000,display:'flex'}}>
+                                    {/* overlay */}
+                                    <div style={{flex:1,background:'rgba(0,0,0,0.35)',cursor:'pointer'}} onClick={()=>setSelectedDept(null)}/>
+                                    {/* panel */}
+                                    <div style={{width:'420px',maxWidth:'95vw',background:cardBg,overflowY:'auto',boxShadow:dm?'-4px 0 40px rgba(0,0,0,0.7),- 1px 0 rgba(99,102,241,0.15)':'-4px 0 24px rgba(0,0,0,0.15)',display:'flex',flexDirection:'column'}}>
+                                        {/* header */}
+                                        <div style={{padding:'20px 24px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`,display:'flex',alignItems:'center',justifyContent:'space-between',position:'sticky',top:0,background:dm?'rgba(8,16,36,0.98)':'#fff',zIndex:1}}>
+                                            <div>
+                                                <div style={{fontSize:'18px',fontWeight:700,color:textP}}>{d.name}</div>
+                                                <div style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',marginTop:'2px'}}>{d.staff} staff · {d.assigned} tickets</div>
+                                            </div>
+                                            <button onClick={()=>setSelectedDept(null)} style={{background:'none',border:'none',fontSize:'22px',cursor:'pointer',color:dm?'#4a607f':'#94A3B8',lineHeight:1,padding:'4px 8px'}}>×</button>
+                                        </div>
+                                        <div style={{padding:'20px 24px',flex:1}}>
+                                            {/* metric chips */}
+                                            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px',marginBottom:'24px'}}>
+                                                {[
+                                                    {label:'Assigned', value:d.assigned, color:'#3B82F6'},
+                                                    {label:'Resolved', value:d.resolved, color:'#10B981'},
+                                                    {label:'Pending', value:d.pending,   color:'#EC4899'},
+                                                    {label:'SLA %',    value:d.sla!=null?d.sla+'%':'—', color: d.sla==null?'#9CA3AF':d.sla>=80?'#10B981':d.sla>=60?'#F59E0B':'#EF4444'},
+                                                    {label:'Avg Hours',value:d.avgHours!=null?d.avgHours:'—', color:'#8B5CF6'},
+                                                    {label:'Escalated',value:d.escalated,color:'#EF4444'},
+                                                ].map(m=>(
+                                                    <div key={m.label} style={{background:dm?'rgba(4,8,20,0.6)':'#F8FAFF',borderRadius:'8px',padding:'10px 12px',textAlign:'center'}}>
+                                                        <div style={{fontSize:'18px',fontWeight:700,color:m.color}}>{m.value}</div>
+                                                        <div style={{fontSize:'11px',color:textM,marginTop:'2px'}}>{m.label}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            {/* insights */}
+                                            {insights.length > 0 && (
+                                                <div style={{marginBottom:'24px'}}>
+                                                    <div style={{fontSize:'13px',fontWeight:600,color:dm?'#c0cfec':'#334155',marginBottom:'8px',textTransform:'uppercase',letterSpacing:'0.05em'}}>Insights</div>
+                                                    <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
+                                                        {insights.map((ins,i)=>{
+                                                            const st = INSIGHT_STYLE[ins.type]||INSIGHT_STYLE.info;
+                                                            return (
+                                                                <div key={i} style={{display:'flex',gap:'10px',alignItems:'flex-start',background:st.bg,borderRadius:'8px',padding:'10px 12px',border:`1px solid ${st.border}`}}>
+                                                                    <span style={{fontSize:'16px',flexShrink:0}}>{st.icon}</span>
+                                                                    <span style={{fontSize:'13px',color:st.text,lineHeight:'1.4'}}>{ins.msg}</span>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Staff breakdown */}
+                                            {staffRows.length > 0 && (
+                                                <div style={{marginBottom:'24px'}}>
+                                                    <div style={{fontSize:'13px',fontWeight:600,color:dm?'#c0cfec':'#334155',marginBottom:'8px',textTransform:'uppercase',letterSpacing:'0.05em'}}>Staff Breakdown</div>
+                                                    <div style={{borderRadius:'8px',border:`1px solid ${borderC}`,overflow:'hidden'}}>
+                                                        <table style={{width:'100%',borderCollapse:'collapse',fontSize:'13px'}}>
+                                                            <thead>
+                                                                <tr style={{background:dm?'rgba(4,8,20,0.6)':'#F8FAFF'}}>
+                                                                    <th style={{padding:'8px 12px',textAlign:'left',color:textM,fontWeight:600}}>Name</th>
+                                                                    <th style={{padding:'8px 8px',textAlign:'center',color:textM,fontWeight:600}}>Asgd</th>
+                                                                    <th style={{padding:'8px 8px',textAlign:'center',color:textM,fontWeight:600}}>Res</th>
+                                                                    <th style={{padding:'8px 8px',textAlign:'center',color:textM,fontWeight:600}}>Pend</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {staffRows.map((sr,i)=>(
+                                                                    <tr key={i} style={{borderTop:`1px solid ${borderC}`}}>
+                                                                        <td style={{padding:'8px 12px',color:textP,maxWidth:'140px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{sr.name}</td>
+                                                                        <td style={{padding:'8px',textAlign:'center',color:'#3B82F6',fontWeight:600}}>{sr.assigned}</td>
+                                                                        <td style={{padding:'8px',textAlign:'center',color:'#10B981',fontWeight:600}}>{sr.resolved}</td>
+                                                                        <td style={{padding:'8px',textAlign:'center',color:'#EC4899',fontWeight:600}}>{sr.pending}</td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Category breakdown */}
+                                            {Object.keys(catMap).length > 0 && (
+                                                <div style={{marginBottom:'24px'}}>
+                                                    <div style={{fontSize:'13px',fontWeight:600,color:dm?'#c0cfec':'#334155',marginBottom:'8px',textTransform:'uppercase',letterSpacing:'0.05em'}}>By Category</div>
+                                                    <div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
+                                                        {Object.entries(catMap).sort((a,b)=>b[1]-a[1]).map(([cat,cnt])=>{
+                                                            const pct = d.assigned ? Math.round(cnt/d.assigned*100) : 0;
+                                                            return (
+                                                                <div key={cat}>
+                                                                    <div style={{display:'flex',justifyContent:'space-between',fontSize:'12px',color:dm?'#c0cfec':'#334155',marginBottom:'3px'}}>
+                                                                        <span>{cat}</span><span style={{fontWeight:600}}>{cnt}</span>
+                                                                    </div>
+                                                                    <div style={{height:'6px',background:dm?'rgba(99,102,241,0.12)':'#F0F0F0',borderRadius:'3px'}}>
+                                                                        <div style={{height:'100%',width:pct+'%',background:'#6366F1',borderRadius:'3px'}}/>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Status breakdown */}
+                                            {Object.keys(stMap).length > 0 && (
+                                                <div>
+                                                    <div style={{fontSize:'13px',fontWeight:600,color:dm?'#c0cfec':'#334155',marginBottom:'8px',textTransform:'uppercase',letterSpacing:'0.05em'}}>By Status</div>
+                                                    <div style={{display:'flex',flexWrap:'wrap',gap:'6px'}}>
+                                                        {Object.entries(stMap).sort((a,b)=>b[1]-a[1]).map(([st,cnt])=>(
+                                                            <div key={st} style={{display:'flex',alignItems:'center',gap:'5px',background:dm?'rgba(4,8,20,0.6)':'#F8FAFF',border:`1px solid ${borderC}`,borderRadius:'20px',padding:'4px 10px',fontSize:'12px'}}>
+                                                                <span style={{width:'8px',height:'8px',borderRadius:'50%',background:ST_COLOR[st]||'#9CA3AF',display:'inline-block',flexShrink:0}}/>
+                                                                <span style={{color:dm?'#c0cfec':'#334155'}}>{ST_LABEL[st]||st}</span>
+                                                                <span style={{fontWeight:700,color:textP}}>{cnt}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+                    </div>
+                </main>
+            );
+        }
+
+        // Analytics Page
+        function AnalyticsPage() {
+
+            const dm = useDark();
+            const pageBg  = dm ? 'transparent' : '#F5F7FF';
+            const cardBg  = dm ? 'linear-gradient(155deg,rgba(17,30,58,0.97) 0%,rgba(8,16,36,0.99) 100%)' : 'white';
+            const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E2E8F2';
+            const textP   = dm ? '#f0f4ff' : '#0F172A';
+            const textM   = dm ? '#8fa4cc' : '#64748B';
+            const [tickets, setTickets] = React.useState([]);
+            const [loading, setLoading] = React.useState(true);
+            const [range, setRange] = React.useState('90'); // days
+
+            const charts = React.useRef({});
+
+            React.useEffect(() => {
+                API.tickets.getAll({ all: true, limit: 500 }).then(d => {
+                    setTickets(d.tickets || []);
+                    setLoading(false);
+                }).catch(() => { setLoading(false); });
+            }, []);
+
+            // Derived metrics
+            const now = new Date();
+            const cutoff = new Date(now); cutoff.setDate(now.getDate() - Number(range));
+            const filtered = tickets.filter(t => new Date(t.createdAt || t.date || now) >= cutoff);
+
+            const total      = filtered.length;
+            const open       = filtered.filter(t => !['resolved','closed'].includes((t.status||t.status_id||'').toLowerCase())).length;
+            const resolved   = filtered.filter(t => ['resolved','closed'].includes((t.status||t.status_id||'').toLowerCase())).length;
+            const escalated  = filtered.filter(t => t.isEscalated).length;
+            const ndis       = filtered.filter(t => t.ndisRelated || t.ndis_related || t.ndisrelated).length;
+            const resTickets  = filtered.filter(t => ['resolved','closed'].includes((t.status||t.status_id||'').toLowerCase()));
+            const slaBreached= resTickets.filter(t => t.slaBreached||t.sla_breached).length;
+            const slaOkCount = resTickets.length - slaBreached;
+            const overduePct = filtered.filter(t => !['resolved','closed'].includes((t.status||t.status_id||'').toLowerCase()) && t.dueAt && new Date(t.dueAt) < now).length;
+            const slaEval    = resTickets.length + overduePct;
+            const slaRate    = slaEval > 0 ? Math.round((slaOkCount / slaEval) * 100) : 100;
+            const resRate    = total ? Math.round((resolved/total)*100) : 0;
+
+            // Priority counts
+            const priorityCounts = { critical:0, urgent:0, high:0, medium:0, low:0 };
+            filtered.forEach(t => { const p=(t.priorityLabel||t.priority||t.priority_id||'Low').toLowerCase().replace('critical','critical').replace('urgent','urgent'); if(priorityCounts[p]!==undefined) priorityCounts[p]++; else if(p.includes('critical')||p.includes('urgent')) priorityCounts['critical']++; });
+
+            // Status counts
+            const statusCounts = {};
+            filtered.forEach(t => { const s=(t.status||t.status_id||'open'); statusCounts[s]=(statusCounts[s]||0)+1; });
+
+            // Category counts (top 6)
+            const catCounts = {};
+            filtered.forEach(t => { const c=(t.categoryLabel||t.category||t.category_id||'Other'); catCounts[c]=(catCounts[c]||0)+1; });
+            const topCats = Object.entries(catCounts).sort((a,b)=>b[1]-a[1]).slice(0,7);
+
+            // Staff workload
+            const staffCounts = {};
+            filtered.forEach(t => { const a=t.assigneeName||t.assignedToName||'Unassigned'; staffCounts[a]=(staffCounts[a]||0)+1; });
+            const staffRows = Object.entries(staffCounts).sort((a,b)=>b[1]-a[1]);
+
+            // Monthly volume (last 6 months)
+            const monthlyMap = {};
+            for(let i=5;i>=0;i--){ const d=new Date(now); d.setMonth(d.getMonth()-i); const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; monthlyMap[k]=0; }
+            filtered.forEach(t => { const d=new Date(t.createdAt||t.date||now); const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; if(monthlyMap[k]!==undefined) monthlyMap[k]++; });
+            const monthLabels = Object.keys(monthlyMap).map(k=>{ const [y,m]=k.split('-'); return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][Number(m)-1]+' '+y; });
+            const monthData   = Object.values(monthlyMap);
+
+            // Build / rebuild charts after render
+            React.useEffect(() => {
+                if(loading) return;
+                const destroy = id => { if(charts.current[id]) { charts.current[id].destroy(); delete charts.current[id]; } };
+                const COLORS = { critical:'#EF4444', urgent:'#EF4444', high:'#F97316', medium:'#EAB308', low:'#6366F1' };
+                const PALETTE = ['#6366F1','#8B5CF6','#EC4899','#F97316','#EAB308','#10B981','#06B6D4'];
+
+                // 1. Monthly trend line
+                destroy('trend');
+                const tc = document.getElementById('chart-trend');
+                if(tc) charts.current.trend = new Chart(tc, { type:'line', data:{ labels:monthLabels, datasets:[{ label:'Tickets Created', data:monthData, borderColor:'#6366F1', backgroundColor:'rgba(99,102,241,0.08)', fill:true, tension:0.4, pointBackgroundColor:'#6366F1', pointRadius:4 }] }, options:{ responsive:true, plugins:{ legend:{display:false} }, scales:{ y:{ beginAtZero:true, grid:{color:dm?'rgba(99,102,241,0.08)':'#F3F4F6'}, ticks:{stepSize:1,color:dm?'#4a607f':'#94A3B8'} }, x:{ grid:{display:false}, ticks:{color:dm?'#4a607f':'#94A3B8'} } } } });
+
+                // 2. Priority doughnut
+                destroy('priority');
+                const pc = document.getElementById('chart-priority');
+                const pLabels = Object.keys(priorityCounts).filter(k=>priorityCounts[k]>0);
+                const pData   = pLabels.map(k=>priorityCounts[k]);
+                const pColors = pLabels.map(k=>COLORS[k]||'#6366F1');
+                if(pc) charts.current.priority = new Chart(pc, { type:'doughnut', data:{ labels:pLabels.map(l=>l.charAt(0).toUpperCase()+l.slice(1)), datasets:[{ data:pData, backgroundColor:pColors, borderWidth:2, borderColor:'white', hoverOffset:6 }] }, options:{ responsive:true, cutout:'68%', plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, padding:12, font:{size:11}, color:dm?'#8fa4cc':'#334155' } } } } });
+
+                // 3. Category bar
+                destroy('category');
+                const cc = document.getElementById('chart-category');
+                if(cc) charts.current.category = new Chart(cc, { type:'bar', data:{ labels:topCats.map(([k])=>k.replace(/_/g,' ').replace(/\b\w/g,l=>l.toUpperCase())), datasets:[{ label:'Tickets', data:topCats.map(([,v])=>v), backgroundColor:PALETTE, borderRadius:6, borderSkipped:false }] }, options:{ indexAxis:'y', responsive:true, plugins:{ legend:{display:false} }, scales:{ x:{ beginAtZero:true, grid:{color:dm?'rgba(99,102,241,0.08)':'#F3F4F6'}, ticks:{stepSize:1,color:dm?'#4a607f':'#94A3B8'} }, y:{ grid:{display:false}, ticks:{color:dm?'#8fa4cc':'#334155'} } } } });
+
+                // 4. Status breakdown bar
+                destroy('status');
+                const sc = document.getElementById('chart-status');
+                const sLabels = Object.keys(statusCounts);
+                const statusColors = { open:'#6366F1', in_progress:'#F97316', resolved:'#10B981', closed:'#8B5CF6', pending_approval:'#EAB308', new:'#06B6D4', waiting:'#EC4899', assigned:'#3B82F6' };
+                if(sc) charts.current.status = new Chart(sc, { type:'bar', data:{ labels:sLabels.map(l=>l.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())), datasets:[{ label:'Count', data:sLabels.map(k=>statusCounts[k]), backgroundColor:sLabels.map(k=>statusColors[k]||'#6366F1'), borderRadius:8, borderSkipped:false }] }, options:{ responsive:true, plugins:{ legend:{display:false} }, scales:{ y:{ beginAtZero:true, grid:{color:dm?'rgba(99,102,241,0.08)':'#F3F4F6'}, ticks:{color:dm?'#4a607f':'#94A3B8'} }, x:{ grid:{display:false}, ticks:{color:dm?'#8fa4cc':'#334155'} } } } });
+
+                // 5. Staff workload bar
+                destroy('staff');
+                const stc = document.getElementById('chart-staff');
+                if(stc) charts.current.staff = new Chart(stc, { type:'bar', data:{ labels:staffRows.map(([k])=>k), datasets:[{ label:'Assigned', data:staffRows.map(([,v])=>v), backgroundColor:'rgba(99,102,241,0.75)', borderRadius:6, borderSkipped:false }] }, options:{ indexAxis:'y', responsive:true, plugins:{ legend:{display:false} }, scales:{ x:{ beginAtZero:true, grid:{color:dm?'rgba(99,102,241,0.08)':'#F3F4F6'}, ticks:{color:dm?'#4a607f':'#94A3B8'} }, y:{ grid:{display:false}, ticks:{color:dm?'#8fa4cc':'#334155'} } } } });
+
+                // 6. NDIS vs Non-NDIS pie
+                destroy('ndis');
+                const nc = document.getElementById('chart-ndis');
+                if(nc) charts.current.ndis = new Chart(nc, { type:'doughnut', data:{ labels:['NDIS Related','Non-NDIS'], datasets:[{ data:[ndis, total-ndis], backgroundColor:['#6366F1','#E0E7FF'], borderWidth:2, borderColor:'white', hoverOffset:4 }] }, options:{ responsive:true, cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, padding:10, font:{size:11}, color:dm?'#8fa4cc':'#334155' } } } } });
+
+            }, [loading, range, filtered.map(t=>t.id||t.createdAt).join(',')]);
+
+            const [insight, setInsight] = React.useState(null);
+
+            const buildAnalyticsInsight = (type) => {
+                const now2 = new Date();
+                const getStatus   = t => (t.status||t.status_id||'');
+                const getCategory = t => (t.categoryLabel||t.category||t.category_id||'Other');
+                const getAssignee = t => (t.assigneeName||t.assignedToName||'Unassigned');
+                const getPriority = t => (t.priorityLabel||t.priority||t.priority_id||'Low');
+                const isRes = t => ['resolved','closed'].includes(getStatus(t));
+                const fmtAge = t => { const d=Math.floor((now2-new Date(t.createdAt||t.date||now2))/86400000); return d===0?'Today':d===1?'Yesterday':`${d}d ago`; };
+                const pBadge = p => { const l=p.toLowerCase(); return l==='critical'||l==='urgent'?{bg:dm?'rgba(239,68,68,0.15)':'#FEF2F2',color:dm?'#fca5a5':'#DC2626'}:l==='high'?{bg:dm?'rgba(249,115,22,0.15)':'#FFF7ED',color:dm?'#fdba74':'#EA580C'}:l==='medium'?{bg:dm?'rgba(234,179,8,0.15)':'#FEFCE8',color:dm?'#fcd34d':'#A16207'}:{bg:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:dm?'#818cf8':'#4338CA'}; };
+                const tkRow = t => { const p=getPriority(t); const pb=pBadge(p); return {title:t.title||t.subtitle||t.title_type||'Untitled',sub:`${getAssignee(t)} · ${getCategory(t)} · ${fmtAge(t)}`,badge:p,badgeBg:pb.bg,badgeColor:pb.color}; };
+
+                if (type==='total') {
+                    const catMap={};filtered.forEach(t=>{const c=getCategory(t);catMap[c]=(catMap[c]||0)+1;});
+                    const topCat=Object.entries(catMap).sort((a,b)=>b[1]-a[1])[0];
+                    const openPct=total?Math.round((open/total)*100):0;
+                    return { title:`All Tickets — Last ${range} Days`, subtitle:`${total} tickets created in this period`, icon:'🎫', iconBg:dm?'rgba(30,27,75,0.4)':'#EEF2FF',
+                        metrics:[{label:'Total',value:total,color:dm?'#818cf8':'#4F46E5'},{label:'Open',value:open,color:'#F97316'},{label:'Resolved',value:resolved,color:'#10B981'}],
+                        insights:[
+                            {type:resRate>=70?'good':'warn',icon:resRate>=70?'✅':'⚠️',title:`${resRate}% Resolution Rate`,text:`${resolved} of ${total} tickets in this period have been resolved. ${resRate>=70?'Strong throughput — team is keeping up with demand.':resRate>=50?'Moderate resolution rate — consider if there are workflow or capacity constraints.':'Lower resolution rate warrants investigation into potential bottlenecks or resourcing gaps.'}`},
+                            {type:openPct>50?'bad':openPct>25?'warn':'good',icon:openPct>50?'🔴':'🟡',title:'Open Backlog Risk',text:`${open} tickets (${openPct}%) remain open in this period. ${openPct>50?'Backlog is accumulating — review capacity allocation.':openPct>25?'Moderate open load.':'Healthy pipeline balance.'}`},
+                            topCat?{type:'info',icon:'📌',title:'Leading Category',text:`"${topCat[0].replace(/_/g,' ')}" is the top category with ${topCat[1]} tickets (${Math.round((topCat[1]/total)*100)}% of this period). Resource allocation and process quality here directly impacts overall performance.`}:null,
+                            escalated>0?{type:'warn',icon:'⬆️',title:`${escalated} Escalation${escalated!==1?'s':''}`,text:`${escalated} ticket${escalated!==1?'s were':' was'} escalated in this period. Investigate recurring categories to address root causes before they escalate.`}:{type:'good',icon:'🌟',title:'Zero Escalations',text:'No escalations in this period — indicates strong service delivery and proactive resolution.'},
+                        ].filter(Boolean),
+                        breakdown:Object.entries(catMap).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([label,value])=>({label,value,bar:Math.round((value/total)*100),sub:`${Math.round((value/total)*100)}%`})),
+                        breakdownTitle:'Volume by Category',
+                    };
+                }
+                if (type==='open') {
+                    const openTkts=filtered.filter(t=>!isRes(t)).sort((a,b)=>new Date(a.createdAt||0)-new Date(b.createdAt||0));
+                    const byA={};openTkts.forEach(t=>{const a=getAssignee(t);byA[a]=(byA[a]||0)+1;});
+                    const unassigned=openTkts.filter(t=>!t.assigneeName&&!t.assignedToName).length;
+                    return { title:'Open Tickets', subtitle:`${open} unresolved tickets in period`, icon:'🔓', iconBg:dm?'rgba(249,115,22,0.12)':'#FFF7ED',
+                        metrics:[{label:'Open',value:open,color:'#F97316'},{label:'% of Period',value:`${total?Math.round((open/total)*100):0}%`,color:'#EF4444'},{label:'Unassigned',value:unassigned,color:'#DC2626'}],
+                        insights:[
+                            unassigned>0?{type:'bad',icon:'🚨',title:`${unassigned} Without Assignee`,text:`${unassigned} open ticket${unassigned!==1?'s have':' has'} no assigned staff member. These are at highest risk of being missed — assign immediately.`}:{type:'good',icon:'✅',title:'All Open Tickets Assigned',text:'All open tickets have assigned staff — good ownership and accountability.'},
+                            overduePct>0?{type:'bad',icon:'⏰',title:`${overduePct} Actively Overdue`,text:`${overduePct} open ticket${overduePct!==1?'s are':' is'} past their due date. Each one is an active SLA breach. Prioritise resolution today.`}:null,
+                            Object.keys(byA).length>0?{type:'info',icon:'👥',title:'Open Load by Staff',text:`Open tickets distributed across ${Object.keys(byA).length} staff member${Object.keys(byA).length!==1?'s':''}. ${Object.entries(byA).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([n,c])=>`${n}: ${c}`).join(' · ')}.`}:null,
+                        ].filter(Boolean),
+                        rows:openTkts.map(tkRow), rowsTitle:'Open Tickets (oldest first)',
+                    };
+                }
+                if (type==='resolved') {
+                    const resTkts2=filtered.filter(isRes);
+                    const byA={};resTkts2.forEach(t=>{const a=getAssignee(t);byA[a]=(byA[a]||0)+1;});
+                    const topRes=Object.entries(byA).sort((a,b)=>b[1]-a[1])[0];
+                    return { title:'Resolved Tickets', subtitle:`${resolved} tickets closed in this period`, icon:'✅', iconBg:dm?'rgba(16,185,129,0.12)':'#ECFDF5',
+                        metrics:[{label:'Resolved',value:resolved,color:'#10B981'},{label:'Resolution Rate',value:`${resRate}%`,color:'#10B981'},{label:'SLA Met',value:`${slaRate}%`,color:slaRate>=80?'#10B981':'#F59E0B'}],
+                        insights:[
+                            {type:resRate>=70?'good':'warn',icon:'📊',title:`${resRate}% Period Resolution Rate`,text:`${resRate>=70?'Excellent resolution velocity — the team is effectively closing out demand.':resRate>=50?'Moderate resolution rate. Consider whether complex tickets are causing delays.':'Lower resolution rate — investigate workflow friction, capacity constraints, or external dependencies.'}`},
+                            {type:slaRate>=80?'good':'warn',icon:'⏱️',title:`SLA Compliance: ${slaRate}%`,text:`${slaOkCount} of ${slaEval} evaluated tickets met SLA. ${slaBreached>0?`${slaBreached} resolved late.`:''} ${overduePct>0?`${overduePct} still open and overdue.`:''}`},
+                            topRes?{type:'good',icon:'🏆',title:'Top Resolver This Period',text:`${topRes[0]} resolved the most tickets (${topRes[1]}) in this period. High individual performers should be recognised and their practices shared with the team.`}:null,
+                        ].filter(Boolean),
+                        breakdown:Object.entries(byA).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([label,value])=>({label,value,bar:resTkts2.length?Math.round((value/resTkts2.length)*100):0,sub:`${resTkts2.length?Math.round((value/resTkts2.length)*100):0}%`})),
+                        breakdownTitle:'Resolved by Staff',
+                    };
+                }
+                if (type==='sla') {
+                    const potSla=Math.round((slaOkCount+overduePct)/Math.max(slaEval,1)*100);
+                    return { title:'SLA Compliance', subtitle:`Service level analysis · last ${range} days`, icon:'⏱️', iconBg:dm?'rgba(16,185,129,0.12)':'#ECFDF5',
+                        metrics:[{label:'SLA Rate',value:`${slaRate}%`,color:slaRate>=80?'#10B981':slaRate>=60?'#F59E0B':'#EF4444'},{label:'On Time',value:slaOkCount,color:'#10B981'},{label:'Breached',value:slaBreached+overduePct,color:'#EF4444'}],
+                        insights:[
+                            {type:slaRate>=90?'good':slaRate>=70?'warn':'bad',icon:slaRate>=90?'✅':slaRate>=70?'⚠️':'🚨',title:`SLA at ${slaRate}% in This Period`,text:slaRate>=90?'Outstanding SLA performance — the team is consistently meeting client commitments.':slaRate>=70?'SLA compliance is acceptable but improvable. Focus on reducing overdue tickets first.':'SLA compliance needs immediate attention. Review ticket assignment, staff capacity, and escalation processes.'},
+                            overduePct>0?{type:'bad',icon:'⏰',title:`${overduePct} Active Overdue`,text:`${overduePct} tickets are currently open past their due date. Resolving these would push SLA from ${slaRate}% to ~${potSla}%.`}:{type:'good',icon:'🎯',title:'No Active Overdue',text:'All active tickets are within their due dates this period.'},
+                            slaBreached>0?{type:'warn',icon:'📋',title:`${slaBreached} Late Closures`,text:`${slaBreached} ticket${slaBreached!==1?'s were':' was'} resolved after their due date. Analyse these for common causes — repeated patterns indicate a process or capacity issue.`}:null,
+                            {type:'info',icon:'🧮',title:'Calculation',text:`SLA = ${slaOkCount} on-time ÷ (${resTickets.length} resolved + ${overduePct} overdue) = ${slaRate}%.`},
+                        ].filter(Boolean),
+                        breakdown:[{label:'On Time',value:slaOkCount,dot:'#10B981',bar:slaEval?Math.round((slaOkCount/slaEval)*100):0,sub:'on time'},{label:'Resolved Late',value:slaBreached,dot:'#F97316',bar:slaEval?Math.round((slaBreached/slaEval)*100):0,sub:'late'},{label:'Active Overdue',value:overduePct,dot:'#EF4444',bar:slaEval?Math.round((overduePct/slaEval)*100):0,sub:'overdue'}],
+                        breakdownTitle:'SLA Components',
+                    };
+                }
+                if (type==='escalated') {
+                    const escTkts=filtered.filter(t=>t.isEscalated);
+                    const byCat={};escTkts.forEach(t=>{const c=getCategory(t);byCat[c]=(byCat[c]||0)+1;});
+                    return { title:'Escalated Tickets', subtitle:`${escalated} escalations in last ${range} days`, icon:'⬆️', iconBg:dm?'rgba(124,58,237,0.12)':'#F5F3FF',
+                        metrics:[{label:'Escalated',value:escalated,color:'#7C3AED'},{label:'% of Period',value:`${total?Math.round((escalated/total)*100):0}%`,color:'#8B5CF6'},{label:'Still Open',value:escTkts.filter(t=>!isRes(t)).length,color:'#EF4444'}],
+                        insights:[
+                            escalated===0?{type:'good',icon:'🌟',title:'Zero Escalations This Period',text:`No tickets were escalated in the last ${range} days — reflects effective first-contact resolution and well-managed expectations.`}:{type:'warn',icon:'⚠️',title:'Escalation Categories',text:`Escalations in this period: ${Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([c,n])=>`${c.replace(/_/g,' ')} (${n})`).join(', ')}. Investigate root causes to build prevention strategies.`},
+                            escalated>0&&escTkts.filter(t=>!isRes(t)).length>0?{type:'bad',icon:'🚨',title:'Open Escalations',text:`${escTkts.filter(t=>!isRes(t)).length} escalated ticket${escTkts.filter(t=>!isRes(t)).length!==1?'s remain':' remains'} open — these represent the highest risk to client trust and SLA compliance.`}:null,
+                        ].filter(Boolean),
+                        rows:escTkts.map(tkRow), rowsTitle:'Escalated Tickets',
+                    };
+                }
+                if (type==='ndis') {
+                    const ndisTkts=filtered.filter(t=>t.ndisRelated||t.ndis_related||t.ndisrelated);
+                    const nonNdis=total-ndis;
+                    const ndisRes=ndisTkts.filter(isRes).length;
+                    const ndisResRate=ndisTkts.length>0?Math.round((ndisRes/ndisTkts.length)*100):0;
+                    const byCat={};ndisTkts.forEach(t=>{const c=getCategory(t);byCat[c]=(byCat[c]||0)+1;});
+                    return { title:'NDIS Related Tickets', subtitle:`NDIS compliance analysis · last ${range} days`, icon:'🏥', iconBg:dm?'rgba(6,182,212,0.12)':'#ECFEFF',
+                        metrics:[{label:'NDIS Tickets',value:ndis,color:'#06B6D4'},{label:'% of Total',value:`${total?Math.round((ndis/total)*100):0}%`,color:'#0EA5E9'},{label:'NDIS Resolved',value:ndisRes,color:'#10B981'}],
+                        insights:[
+                            {type:'info',icon:'📋',title:'NDIS Compliance Obligation',text:`${ndis} NDIS-related ticket${ndis!==1?'s':''} in this period (${total?Math.round((ndis/total)*100):0}% of total). Ensure all NDIS tickets have complete documentation, appropriate response times, and comply with NDIS Practice Standards.`},
+                            {type:ndisResRate>=70?'good':'warn',icon:ndisResRate>=70?'✅':'⚠️',title:`NDIS Resolution Rate: ${ndisResRate}%`,text:`${ndisRes} of ${ndisTkts.length} NDIS tickets have been resolved. ${ndisResRate>=70?'Strong compliance throughput.':'Review NDIS ticket workflows — lower resolution rates may indicate complexity or resourcing gaps in NDIS service delivery.'}`},
+                            Object.keys(byCat).length>0?{type:'info',icon:'📌',title:'NDIS Category Distribution',text:`NDIS tickets span: ${Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([c,n])=>`${c.replace(/_/g,' ')} (${n})`).join(', ')}. Ensure service staff in these areas are trained in NDIS compliance requirements.`}:null,
+                        ].filter(Boolean),
+                        breakdown:Object.entries(byCat).sort((a,b)=>b[1]-a[1]).map(([label,value])=>({label:label.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()),value,bar:ndis?Math.round((value/ndis)*100):0,sub:`${ndis?Math.round((value/ndis)*100):0}%`})),
+                        breakdownTitle:'NDIS Tickets by Category',
+                    };
+                }
+                if (type==='trend') {
+                    const maxMonth=Math.max(...monthData,1); const minMonth=Math.min(...monthData.filter(v=>v>0),0);
+                    const recentTrend=monthData.slice(-3); const prevTrend=monthData.slice(-6,-3);
+                    const recentAvg=recentTrend.reduce((a,b)=>a+b,0)/Math.max(recentTrend.length,1);
+                    const prevAvg=prevTrend.reduce((a,b)=>a+b,0)/Math.max(prevTrend.length,1);
+                    const trendDir=recentAvg>prevAvg*1.1?'up':recentAvg<prevAvg*0.9?'down':'stable';
+                    return { title:'Ticket Volume Trend', subtitle:'Monthly ticket creation over 6 months', icon:'📈', iconBg:dm?'rgba(99,102,241,0.15)':'#EEF2FF',
+                        metrics:[{label:'Peak Month',value:maxMonth,color:'#EF4444'},{label:'Monthly Avg',value:Math.round(monthData.reduce((a,b)=>a+b,0)/Math.max(monthData.length,1)),color:dm?'#818cf8':'#4F46E5'},{label:'Recent Avg',value:Math.round(recentAvg),color:'#10B981'}],
+                        insights:[
+                            {type:trendDir==='up'?'warn':trendDir==='down'?'good':'info',icon:trendDir==='up'?'📈':trendDir==='down'?'📉':'➡️',title:`Volume Trend: ${trendDir==='up'?'Increasing':trendDir==='down'?'Decreasing':'Stable'}`,text:`Recent 3-month average (${Math.round(recentAvg)}/mo) vs prior 3-month (${Math.round(prevAvg)}/mo). ${trendDir==='up'?'Increasing volume may require capacity review to prevent SLA degradation.':trendDir==='down'?'Decreasing volume may indicate improved client self-service, seasonal variation, or reduced service demand.':'Volume is stable — predictable demand enables effective resource planning.'}`},
+                            {type:'info',icon:'📊',title:'Volume Distribution',text:`Peak month: ${monthLabels[monthData.indexOf(maxMonth)]} (${maxMonth} tickets). ${maxMonth>recentAvg*1.5?'Significant volume spikes suggest seasonal patterns or one-off events — investigate and plan for recurrence.':'Volume is relatively consistent across months — good for planning.'}`},
+                        ],
+                        breakdown:monthLabels.map((label,i)=>({label,value:monthData[i],bar:maxMonth?Math.round((monthData[i]/maxMonth)*100):0})),
+                        breakdownTitle:'Monthly Volume',
+                    };
+                }
+                if (type==='priority') {
+                    const pMap=Object.entries(priorityCounts).filter(([,v])=>v>0);
+                    const critUrgCount=(priorityCounts.critical||0)+(priorityCounts.urgent||0);
+                    return { title:'Priority Distribution', subtitle:`Ticket priority breakdown · last ${range} days`, icon:'🎯', iconBg:dm?'rgba(239,68,68,0.08)':'#FFF5F5',
+                        metrics:[{label:'Critical/Urgent',value:critUrgCount,color:'#EF4444'},{label:'High',value:priorityCounts.high||0,color:'#F97316'},{label:'Med/Low',value:(priorityCounts.medium||0)+(priorityCounts.low||0),color:'#6366F1'}],
+                        insights:[
+                            {type:critUrgCount/Math.max(total,1)>0.2?'bad':critUrgCount>0?'warn':'good',icon:critUrgCount/Math.max(total,1)>0.2?'🚨':critUrgCount>0?'⚠️':'✅',title:'Critical Load Assessment',text:`${critUrgCount} critical/urgent ticket${critUrgCount!==1?'s':''} represent ${total?Math.round((critUrgCount/total)*100):0}% of the period's volume. ${critUrgCount/Math.max(total,1)>0.2?'High critical ratio may indicate service quality issues or insufficient preventative maintenance — investigate root causes.':critUrgCount>0?'Manageable critical load — monitor for any upward trend.':'No critical tickets — excellent risk management.'}`},
+                            {type:'info',icon:'📊',title:'Priority Balance',text:`Priority mix: ${pMap.map(([p,c])=>`${p}: ${c} (${Math.round((c/total)*100)}%)`).join(', ')}. A healthy service operation typically sees most tickets in the medium/low range.`},
+                        ],
+                        breakdown:[{label:'Critical/Urgent',value:critUrgCount,dot:'#EF4444',bar:total?Math.round((critUrgCount/total)*100):0},{label:'High',value:priorityCounts.high||0,dot:'#F97316',bar:total?Math.round(((priorityCounts.high||0)/total)*100):0},{label:'Medium',value:priorityCounts.medium||0,dot:'#EAB308',bar:total?Math.round(((priorityCounts.medium||0)/total)*100):0},{label:'Low',value:priorityCounts.low||0,dot:'#6366F1',bar:total?Math.round(((priorityCounts.low||0)/total)*100):0}],
+                        breakdownTitle:'Priority Breakdown',
+                    };
+                }
+                if (type==='status') {
+                    const SC2={new:'#06B6D4',assigned:'#3B82F6',in_progress:'#F59E0B',waiting:'#8B5CF6',pending_approval:'#EC4899',resolved:'#10B981',closed:'#475569'};
+                    return { title:'Status Breakdown', subtitle:`All ticket statuses · last ${range} days`, icon:'📋', iconBg:dm?'rgba(99,102,241,0.15)':'#EEF2FF',
+                        metrics:[{label:'Active Pipeline',value:open,color:'#F59E0B'},{label:'Resolved',value:resolved,color:'#10B981'},{label:'Waiting/Blocked',value:(statusCounts['waiting']||0)+(statusCounts['pending_approval']||0),color:'#8B5CF6'}],
+                        insights:[
+                            {type:'info',icon:'📈',title:'Pipeline Flow',text:`${open} tickets in the open queue, ${Object.values(statusCounts).reduce((a,b)=>a+b,0)-resolved} actively being managed. A healthy pipeline has more tickets in "in_progress" than "new" or "assigned".`},
+                            (statusCounts['waiting']||0)>0?{type:'warn',icon:'⏸️',title:`${statusCounts['waiting']} Blocked Tickets`,text:`${statusCounts['waiting']} ticket${statusCounts['waiting']!==1?'s are':' is'} in "Waiting" — stalled on external input. Follow up to unblock and protect SLA.`}:null,
+                            (statusCounts['pending_approval']||0)>0?{type:'warn',icon:'📋',title:`${statusCounts['pending_approval']} Awaiting Approval`,text:`${statusCounts['pending_approval']} ticket${statusCounts['pending_approval']!==1?'s require':' requires'} approval. Approvers should be prompted to review to prevent delays.`}:null,
+                        ].filter(Boolean),
+                        breakdown:Object.entries(statusCounts).sort((a,b)=>b[1]-a[1]).map(([label,value])=>({label:label.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()),value,dot:SC2[label]||'#6366F1',bar:Math.round((value/Math.max(total,1))*100),sub:`${Math.round((value/Math.max(total,1))*100)}%`})),
+                        breakdownTitle:'Status Breakdown',
+                    };
+                }
+                if (type==='category') {
+                    const openByCat={};filtered.filter(t=>!isRes(t)).forEach(t=>{const c=getCategory(t);openByCat[c]=(openByCat[c]||0)+1;});
+                    const top=topCats[0];
+                    return { title:'Top Categories', subtitle:`Service category analysis · last ${range} days`, icon:'🗂️', iconBg:dm?'rgba(99,102,241,0.15)':'#EEF2FF',
+                        metrics:[{label:'Categories',value:topCats.length,color:dm?'#818cf8':'#4F46E5'},{label:'Top Volume',value:top?top[1]:0,color:'#F97316'},{label:'Open in Top',value:top?openByCat[top[0]]||0:0,color:'#EF4444'}],
+                        insights:[
+                            top?{type:'info',icon:'📌',title:`"${top[0].replace(/_/g,' ')}" Leads Volume`,text:`Top category with ${top[1]} tickets (${Math.round((top[1]/total)*100)}% of period). ${openByCat[top[0]]>0?`${openByCat[top[0]]} remain open.`:''} Ensure staff capacity, process documentation, and quality standards are prioritised here.`}:null,
+                            {type:'info',icon:'⚖️',title:'Category Spread',text:topCats.slice(0,2).reduce((s,[,v])=>s+v,0)/total>0.7?`Top 2 categories account for ${Math.round(topCats.slice(0,2).reduce((s,[,v])=>s+v,0)/total*100)}% of tickets — high concentration. Investigate if this reflects a systemic issue.`:`Tickets are spread across ${topCats.length} categories — broad service delivery with no extreme concentration.`},
+                        ].filter(Boolean),
+                        breakdown:topCats.map(([label,value])=>({label:label.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()),value,bar:Math.round((value/total)*100),sub:`${openByCat[label]||0} open`})),
+                        breakdownTitle:'Volume by Category',
+                    };
+                }
+                if (type==='staff') {
+                    const top3Staff=staffRows.slice(0,3);
+                    const unassigned=filtered.filter(t=>!t.assigneeName&&!t.assignedToName).length;
+                    const maxLoad=staffRows[0]?staffRows[0][1]:0;
+                    const avgLoad=staffRows.length>0?Math.round(staffRows.reduce((s,[,v])=>s+v,0)/staffRows.length):0;
+                    return { title:'Staff Workload', subtitle:`Team capacity analysis · last ${range} days`, icon:'👥', iconBg:dm?'rgba(99,102,241,0.15)':'#EEF2FF',
+                        metrics:[{label:'Active Staff',value:staffRows.length,color:dm?'#818cf8':'#4F46E5'},{label:'Avg Load',value:avgLoad,color:'#F59E0B'},{label:'Unassigned',value:unassigned,color:'#EF4444'}],
+                        insights:[
+                            maxLoad>avgLoad*2?{type:'warn',icon:'⚠️',title:'Uneven Workload Distribution',text:`${staffRows[0]?staffRows[0][0]:'Top staff'} has ${maxLoad} tickets vs team average of ${avgLoad}. Significant imbalances risk burnout and SLA inconsistencies — consider redistributing open tickets.`}:{type:'good',icon:'⚖️',title:'Balanced Team Load',text:`Workload is relatively evenly distributed across ${staffRows.length} staff (avg ${avgLoad} tickets each). Balanced loads support consistent service quality.`},
+                            unassigned>0?{type:'bad',icon:'🚨',title:`${unassigned} Unassigned Tickets`,text:`${unassigned} ticket${unassigned!==1?'s have':' has'} no assigned staff. These are invisible to all team members and at risk of being missed entirely — assign immediately.`}:{type:'good',icon:'✅',title:'Full Ticket Coverage',text:'All tickets have an assigned staff member — complete ownership and accountability across the team.'},
+                            top3Staff.length>0?{type:'info',icon:'🏆',title:'Top Performers',text:`Highest load: ${top3Staff.map(([n,c])=>`${n} (${c})`).join(', ')}. Top performers should be recognised — their approaches may provide best practice learnings for the team.`}:null,
+                        ].filter(Boolean),
+                        breakdown:staffRows.slice(0,10).map(([label,value])=>({label,value,bar:maxLoad?Math.round((value/maxLoad)*100):0,sub:`${value} tickets`})),
+                        breakdownTitle:'Tickets per Staff Member',
+                    };
+                }
+                if (type==='ndis-chart') {
+                    return buildAnalyticsInsight('ndis');
+                }
+                return null;
+            };
+
+            const card = (label, value, sub, color='#6366F1', icon, meta, onClickFn) => (
+                <div onClick={onClickFn} style={{background:cardBg, borderRadius:'16px', border:`1.5px solid ${borderC}`, padding:'18px 20px', boxShadow:dm?'0 4px 24px rgba(0,0,0,0.4)':'0 1px 6px rgba(99,102,241,0.07)', cursor:onClickFn?'pointer':'default', transition:'transform 0.12s'}}
+                    onMouseEnter={e=>{if(onClickFn)e.currentTarget.style.transform='translateY(-2px)'}}
+                    onMouseLeave={e=>e.currentTarget.style.transform=''}>
+                    <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'8px'}}>
+                        <p style={{fontSize:'11px', fontWeight:'700', color:dm?'#4a607f':'#94A3B8', textTransform:'uppercase', letterSpacing:'0.07em', margin:0}}>{label}</p>
+                        <span style={{fontSize:'20px'}}>{icon}</span>
+                    </div>
+                    <p style={{fontSize:'30px', fontWeight:'700', color, margin:'0 0 4px', lineHeight:1}}>{value}</p>
+                    <p style={{fontSize:'12px', color:dm?'#4a607f':'#94A3B8', margin:'0 0 4px'}}>{sub}</p>
+                    {onClickFn && <p style={{fontSize:'9px',color:dm?'rgba(99,102,241,0.5)':'rgba(99,102,241,0.4)',margin:0,fontWeight:'600',letterSpacing:'0.06em'}}>CLICK FOR INSIGHTS →</p>}
+                </div>
+            );
+
+            const chartCard = (title, subtitle, id, height=220, footnote, onClickFn) => (
+                <div onClick={onClickFn} style={{background:cardBg, borderRadius:'16px', border:`1.5px solid ${borderC}`, padding:'20px', boxShadow:dm?'0 4px 24px rgba(0,0,0,0.4)':'0 1px 6px rgba(99,102,241,0.07)', cursor:onClickFn?'pointer':'default', transition:'transform 0.12s'}}
+                    onMouseEnter={e=>{if(onClickFn)e.currentTarget.style.transform='translateY(-2px)'}}
+                    onMouseLeave={e=>e.currentTarget.style.transform=''}>
+                    <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:'2px'}}>
+                        <p style={{fontSize:'14px', fontWeight:'700', color:dm?'#c7d2fe':'#1E1B4B', margin:0}}>{title}</p>
+                        {onClickFn && <span style={{fontSize:'9px',color:dm?'rgba(99,102,241,0.5)':'rgba(99,102,241,0.4)',fontWeight:'700',letterSpacing:'0.06em',flexShrink:0,marginLeft:'8px',marginTop:'2px'}}>CLICK FOR INSIGHTS</span>}
+                    </div>
+                    <p style={{fontSize:'11px', color:dm?'#4a607f':'#94A3B8', margin:'0 0 10px'}}>{subtitle}</p>
+                    <div style={{position:'relative', height:`${height}px`}}>
+                        <canvas id={id}></canvas>
+                    </div>
+                </div>
+            );
+
+            return (<>
+                <main className="flex-1 overflow-auto" style={{background:pageBg}}>
+                    <div style={{maxWidth:'1400px', margin:'0 auto', padding:'24px 28px'}}>
+
+                        {/* Header */}
+                        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'22px', flexWrap:'wrap', gap:'12px'}}>
+                            <div>
+                                <h1 style={{fontSize:'22px', fontWeight:'700', color:dm?'#c7d2fe':'#1E1B4B', margin:0}}>📊 Analytics</h1>
+                                <p style={{fontSize:'12px', color:dm?'#4a607f':'#94A3B8', margin:'4px 0 0'}}>Business insights · {tickets.length} tickets loaded · as of {new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</p>
+                            </div>
+                            <div style={{display:'flex', alignItems:'center', gap:'8px', background:cardBg, border:`1.5px solid ${borderC}`, borderRadius:'10px', padding:'8px 14px'}}>
+                                <span style={{fontSize:'11px', fontWeight:'700', color:dm?'#818cf8':'#4F46E5', textTransform:'uppercase', letterSpacing:'0.06em'}}>Period</span>
+                                <select value={range} onChange={e=>setRange(e.target.value)} style={{border:`1px solid ${borderC}`, borderRadius:'6px', padding:'4px 8px', fontSize:'12px', fontWeight:'600', color:dm?'#818cf8':'#4338CA', background:dm?'rgba(99,102,241,0.15)':'#F5F3FF', cursor:'pointer', outline:'none'}}>
+                                    <option value="30">Last 30 days</option>
+                                    <option value="60">Last 60 days</option>
+                                    <option value="90">Last 90 days</option>
+                                    <option value="180">Last 6 months</option>
+                                    <option value="365">Last 12 months</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {loading ? (
+                            <div style={{textAlign:'center', padding:'60px', color:dm?'#4a607f':'#94A3B8'}}>
+                                <p style={{fontSize:'32px', marginBottom:'8px'}}>⏳</p>
+                                <p>Loading analytics…</p>
+                            </div>
+                        ) : (<>
+
+                        {/* ── KPI Cards ── */}
+                        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:'14px', marginBottom:'20px'}}>
+                            {card('Total Tickets', total, `in last ${range} days`, '#1E1B4B', '🎫', null, ()=>!loading&&setInsight(buildAnalyticsInsight('total')))}
+                            {card('Open', open, `${total ? Math.round((open/total)*100) : 0}% of total`, '#F97316', '🔓', null, ()=>!loading&&setInsight(buildAnalyticsInsight('open')))}
+                            {card('Resolved', resolved, `${resRate}% resolution rate`, '#10B981', '✅', null, ()=>!loading&&setInsight(buildAnalyticsInsight('resolved')))}
+                            {card('SLA Compliance', `${slaRate}%`, `${slaBreached} late closures · ${overduePct} active overdue`, slaRate>=90?'#10B981':slaRate>=70?'#F97316':'#EF4444', '⏱️', null, ()=>!loading&&setInsight(buildAnalyticsInsight('sla')))}
+                            {card('Escalated', escalated, `${total ? Math.round((escalated/total)*100) : 0}% of total`, '#8B5CF6', '⬆️', null, ()=>!loading&&setInsight(buildAnalyticsInsight('escalated')))}
+                            {card('NDIS Related', ndis, `${total ? Math.round((ndis/total)*100) : 0}% of total`, '#06B6D4', '🏥', null, ()=>!loading&&setInsight(buildAnalyticsInsight('ndis')))}
+                        </div>
+
+                        {/* ── Row 1: Trend + Priority ── */}
+                        <div style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:'16px', marginBottom:'16px'}}>
+                            {chartCard('Ticket Volume Trend', 'Monthly ticket creation — all tickets regardless of period filter', 'chart-trend', 200, null, ()=>!loading&&setInsight(buildAnalyticsInsight('trend')))}
+                            {chartCard('Priority Breakdown', `Distribution by priority · ${filtered.length} tickets in period`, 'chart-priority', 200, null, ()=>!loading&&setInsight(buildAnalyticsInsight('priority')))}
+                        </div>
+
+                        {/* ── Row 2: Status + Category ── */}
+                        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'16px', marginBottom:'16px'}}>
+                            {chartCard('Tickets by Status', `Raw status values from backend · ${filtered.length} tickets`, 'chart-status', 200, null, ()=>!loading&&setInsight(buildAnalyticsInsight('status')))}
+                            {chartCard('Top Categories', `Top ${Math.min(topCats.length,7)} categories by volume · ${filtered.length} tickets`, 'chart-category', 200, null, ()=>!loading&&setInsight(buildAnalyticsInsight('category')))}
+                        </div>
+
+                        {/* ── Row 3: Staff + NDIS + Insights ── */}
+                        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'16px', marginBottom:'16px'}}>
+                            {chartCard('Staff Workload', `Assigned tickets per staff member · ${filtered.length} tickets`, 'chart-staff', 200, null, ()=>!loading&&setInsight(buildAnalyticsInsight('staff')))}
+                            {chartCard('NDIS vs Non-NDIS', `NDIS flag from backend · ${ndis} of ${total} tickets flagged`, 'chart-ndis', 200, null, ()=>!loading&&setInsight(buildAnalyticsInsight('ndis-chart')))}
+
+                            {/* Key Insights card */}
+                            <div style={{background:cardBg, borderRadius:'16px', border:`1.5px solid ${borderC}`, padding:'20px', boxShadow:dm?'0 4px 24px rgba(0,0,0,0.4)':'0 1px 6px rgba(99,102,241,0.07)'}}>
+                                <p style={{fontSize:'14px', fontWeight:'700', color:dm?'#c7d2fe':'#1E1B4B', margin:'0 0 2px'}}>💡 Key Insights</p>
+                                <p style={{fontSize:'11px', color:dm?'#4a607f':'#94A3B8', margin:'0 0 14px'}}>Auto-generated observations</p>
+                                <div style={{display:'flex', flexDirection:'column', gap:'10px'}}>
+                                    {[
+                                        { icon:'🟢', text: resRate >= 80 ? `Strong resolution rate of ${resRate}% — team is performing well.` : `Resolution rate is ${resRate}% — consider reviewing workload distribution.`, good: resRate >= 80 },
+                                        { icon: slaRate >= 90 ? '🟢' : '🔴', text: `SLA compliance: ${slaRate}% (${slaOkCount} on-time / ${slaEval} evaluated). ${slaBreached} closed late; ${overduePct} still open & overdue.`, good: slaRate >= 90 },
+                                        { icon: escalated > 0 ? '🟡' : '🟢', text: escalated > 0 ? `${escalated} ticket${escalated!==1?'s':''} escalated — review underlying causes to prevent recurrence.` : 'No escalations in this period — excellent.', good: escalated === 0 },
+                                        { icon:'🔵', text: `${ndis} NDIS-related ticket${ndis!==1?'s':''} (${total ? Math.round((ndis/total)*100) : 0}%) — ensure compliance documentation is up to date.`, good: true },
+                                        { icon: topCats[0] ? '📌' : '📌', text: topCats[0] ? `Highest volume category: "${topCats[0][0].replace(/_/g,' ')}" with ${topCats[0][1]} ticket${topCats[0][1]!==1?'s':''}.` : 'No category data available.', good: true },
+                                        { icon: open > resolved ? '🔴' : '🟢', text: open > resolved ? `More open (${open}) than resolved (${resolved}) tickets — backlog may be building.` : `More resolved (${resolved}) than open (${open}) — healthy pipeline.`, good: open <= resolved },
+                                    ].map((ins,i) => (
+                                        <div key={i} style={{display:'flex', gap:'8px', alignItems:'flex-start', padding:'8px 10px', borderRadius:'8px', background: ins.good ? '#F0FDF4' : '#FFF7ED', border:`1px solid ${ins.good ? '#BBF7D0' : '#FED7AA'}`}}>
+                                            <span style={{flexShrink:0, fontSize:'13px'}}>{ins.icon}</span>
+                                            <p style={{fontSize:'11px', color:dm?'#c0cfec':'#334155', margin:0, lineHeight:'1.5'}}>{ins.text}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* ── Summary table: Priority × Status ── */}
+                        <div style={{background:cardBg, borderRadius:'16px', border:`1.5px solid ${borderC}`, padding:'20px', boxShadow:dm?'0 4px 24px rgba(0,0,0,0.4)':'0 1px 6px rgba(99,102,241,0.07)', marginBottom:'16px'}}>
+                            <p style={{fontSize:'14px', fontWeight:'700', color:dm?'#c7d2fe':'#1E1B4B', margin:'0 0 2px'}}>📋 Ticket Summary Table</p>
+                            <p style={{fontSize:'11px', color:dm?'#4a607f':'#94A3B8', margin:'0 0 14px'}}>Breakdown by category, priority and status</p>
+                            <div className="yc-table-scroll">
+                                <table style={{width:'100%', borderCollapse:'collapse', fontSize:'12px'}}>
+                                    <thead>
+                                        <tr style={{borderBottom:`2px solid ${borderC}`, background:dm?'rgba(99,102,241,0.12)':'#F8F7FF'}}>
+                                            {['Category','Total','Critical','High','Medium','Low','Open','Resolved','SLA OK'].map(h=>(
+                                                <th key={h} style={{padding:'8px 12px', textAlign: h==='Category'?'left':'center', fontWeight:'700', color:dm?'#818cf8':'#4F46E5', fontSize:'10px', textTransform:'uppercase', letterSpacing:'0.06em', whiteSpace:'nowrap'}}>{h}</th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {Object.entries(catCounts).sort((a,b)=>b[1]-a[1]).map(([cat,cnt],i)=>{
+                                            const catTkts = filtered.filter(t=>(t.categoryLabel||t.category||t.category_id||'Other')===cat);
+                                            const critH = catTkts.filter(t=>['critical','urgent'].includes((t.priorityLabel||t.priority||t.priority_id||'').toLowerCase())).length;
+                                            const high   = catTkts.filter(t=>(t.priorityLabel||t.priority||t.priority_id||'').toLowerCase()==='high').length;
+                                            const med    = catTkts.filter(t=>(t.priorityLabel||t.priority||t.priority_id||'').toLowerCase()==='medium').length;
+                                            const low    = catTkts.filter(t=>(t.priorityLabel||t.priority||t.priority_id||'').toLowerCase()==='low').length;
+                                            const catOpen= catTkts.filter(t=>!['resolved','closed'].includes((t.status||t.status_id||'').toLowerCase())).length;
+                                            const catRes = catTkts.filter(t=>['resolved','closed'].includes((t.status||t.status_id||'').toLowerCase())).length;
+                                            const catSla = catTkts.filter(t=>!(t.slaBreached||t.sla_breached)).length;
+                                            return (
+                                                <tr key={cat} style={{borderBottom:'1px solid #EEF2FF', background: i%2===0 ? (dm?'rgba(255,255,255,0.02)':'white') : (dm?'rgba(99,102,241,0.04)':'#FAFBFF')}}>
+                                                    <td style={{padding:'9px 12px', fontWeight:'600', color:dm?'#c0cfec':'#334155', textTransform:'capitalize'}}>{cat.replace(/_/g,' ')}</td>
+                                                    <td style={{padding:'9px 12px', textAlign:'center', fontWeight:'700', color:dm?'#c7d2fe':'#1E1B4B'}}>{cnt}</td>
+                                                    <td style={{padding:'9px 12px', textAlign:'center'}}>{critH>0?<span style={{background:'#FEF2F2',color:'#DC2626',padding:'2px 7px',borderRadius:'20px',fontWeight:'700',fontSize:'11px'}}>{critH}</span>:<span style={{color:'#D1D5DB'}}>—</span>}</td>
+                                                    <td style={{padding:'9px 12px', textAlign:'center'}}>{high>0?<span style={{background:'#FFF7ED',color:'#C2410C',padding:'2px 7px',borderRadius:'20px',fontWeight:'700',fontSize:'11px'}}>{high}</span>:<span style={{color:'#D1D5DB'}}>—</span>}</td>
+                                                    <td style={{padding:'9px 12px', textAlign:'center'}}>{med>0?<span style={{background:'#FEFCE8',color:'#A16207',padding:'2px 7px',borderRadius:'20px',fontWeight:'700',fontSize:'11px'}}>{med}</span>:<span style={{color:'#D1D5DB'}}>—</span>}</td>
+                                                    <td style={{padding:'9px 12px', textAlign:'center'}}>{low>0?<span style={{background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:'#4338CA',padding:'2px 7px',borderRadius:'20px',fontWeight:'700',fontSize:'11px'}}>{low}</span>:<span style={{color:'#D1D5DB'}}>—</span>}</td>
+                                                    <td style={{padding:'9px 12px', textAlign:'center', color:'#F97316', fontWeight:'600'}}>{catOpen}</td>
+                                                    <td style={{padding:'9px 12px', textAlign:'center', color:'#10B981', fontWeight:'600'}}>{catRes}</td>
+                                                    <td style={{padding:'9px 12px', textAlign:'center'}}><span style={{fontSize:'11px', fontWeight:'700', color: catSla===cnt?'#10B981':'#F97316'}}>{cnt>0?Math.round((catSla/cnt)*100)+'%':'—'}</span></td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        </>)}
+                    </div>
+                </main>
+                <InsightDrawer data={insight} onClose={()=>setInsight(null)}/>
+            </>);
+        }
+
+        // Org Chart Page
+        // ── Org Chart helpers (defined outside to keep stable references) ──
+        const ORG_GAP  = 6;    // gap between sibling sub-trees (px)
+        const ORG_LINE = '#94A3B8';
+        const ORG_LH   = 12;   // connector line height (px)
+
+        function OrgCard({ name, title, email, type, vacant, deptLabel, extra }) {
+            const dm = useDark();
+            const S = {
+                director:  { b:'#16A34A', bg:'#F0FDF4', hdr:'#16A34A', t:'#15803D' },
+                ops:       { b:'#DC2626', bg:'#FFF5F5', hdr:'#DC2626', t:'#DC2626' },
+                finance:   { b:'#D97706', bg:'#FFFBEB', hdr:'#D97706', t:'#92400E' },
+                strategic: { b:'#7C3AED', bg:'#F5F3FF', hdr:'#7C3AED', t:'#5B21B6' },
+                staff:     { b:'#3B82F6', bg:'#EFF6FF', hdr:'#3B82F6', t:'#1D4ED8' },
+                external:  { b:'#94A3B8', bg:dm?'rgba(99,102,241,0.06)':'#F8FAFF', hdr:'#94A3B8', t:dm?'#8fa4cc':'#64748B' },
+            };
+            const s = S[type] || S.ops;
+            const w = deptLabel ? 155 : 115;
+            // Split deptLabel into icon + text e.g. "👥 Operations Department"
+            const dlParts = deptLabel ? deptLabel.split(' ') : [];
+            const dlIcon  = dlParts[0] || '';
+            const dlText  = dlParts.slice(1).join(' ').toUpperCase();
+            return (
+                <div style={{ border:`1.5px ${vacant?'dashed':'solid'} ${vacant?'#D1D5DB':s.b}`, background:vacant?'#F9FAFB':s.bg, borderRadius:10, width:w, textAlign:'center', boxShadow:'0 1px 6px rgba(0,0,0,0.08)', flexShrink:0, overflow:'hidden' }}>
+                    {deptLabel && (
+                        <div style={{ background:s.hdr, padding:'7px 6px 5px', display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
+                            <div style={{ width:28, height:28, borderRadius:'50%', background:'rgba(255,255,255,0.25)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:15 }}>{dlIcon}</div>
+                            <p style={{ fontSize:8, fontWeight:800, color:'white', textTransform:'uppercase', letterSpacing:'0.06em', margin:0, lineHeight:1.3 }}>{dlText}</p>
+                        </div>
+                    )}
+                    <div style={{ padding:'7px 8px 8px' }}>
+                        <p style={{ fontSize: deptLabel?12:11, fontWeight:700, color:vacant?(dm?'#4a607f':'#64748B'):(dm?'#f0f4ff':'#0F172A'), margin:'0 0 2px', lineHeight:1.3 }}>{name}</p>
+                        {title && !vacant && <p style={{ fontSize:9, fontWeight:600, color:s.t, margin:'0 0 2px', lineHeight:1.4 }}>{title}</p>}
+                        {email && !vacant && <p style={{ fontSize:8.5, color:'#2563EB', margin:'0 0 5px', wordBreak:'break-word', lineHeight:1.3 }}>Email: {email}</p>}
+                        <span style={{ display:'inline-block', fontSize:8.5, fontWeight:700, background:vacant?'#FEF2F2':'#DCFCE7', color:vacant?'#DC2626':'#15803D', padding:'1px 7px', borderRadius:20, border:`1px solid ${vacant?'#FCA5A5':'#86EFAC'}` }}>{vacant?'[VACANT]':'[ACTIVE]'}</span>
+                        {extra && <p style={{fontSize:8, color:dm?'#818cf8':'#4F46E5', margin:'3px 0 0', fontWeight:600}}>{extra}</p>}
+                    </div>
+                </div>
+            );
+        }
+
+        // gap  = px between sibling sub-trees (overrides ORG_GAP)
+        // lineH = connector vertical height in px (overrides ORG_LH)
+        function OrgTree({ card, ch=[], gap=ORG_GAP, lineH=ORG_LH }) {
+            const G = gap, L = ORG_LINE, LH = lineH;
+            const n = ch.length;
+            return (
+                <div style={{ display:'flex', flexDirection:'column', alignItems:'center' }}>
+                    {card}
+                    {n > 0 && <>
+                        <div style={{ width:2, height:LH, background:L, flexShrink:0 }} />
+                        {n === 1
+                            ? ch[0]
+                            : <div style={{ display:'flex', gap:`${G}px`, alignItems:'flex-start' }}>
+                                {ch.map((c,i) => {
+                                    const first=i===0, last=i===n-1;
+                                    return (
+                                        <div key={i} style={{ display:'flex', flexDirection:'column', alignItems:'center', position:'relative', paddingTop:LH }}>
+                                            <div style={{ position:'absolute', top:0, left:'50%', transform:'translateX(-50%)', width:2, height:LH, background:L }} />
+                                            {!first && <div style={{ position:'absolute', top:0, left:`${-G/2}px`, right:'50%', height:2, background:L }} />}
+                                            {!last  && <div style={{ position:'absolute', top:0, left:'50%', right:`${-G/2}px`, height:2, background:L }} />}
+                                            {c}
+                                        </div>
+                                    );
+                                })}
+                              </div>
+                        }
+                    </>}
+                </div>
+            );
+        }
+
+        function OrgChartPage() {
+
+            const dm = useDark();
+            const pageBg  = dm ? 'transparent' : '#F5F7FF';
+            const cardBg  = dm ? 'linear-gradient(155deg,rgba(17,30,58,0.97) 0%,rgba(8,16,36,0.99) 100%)' : 'white';
+            const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E2E8F2';
+            const textP   = dm ? '#f0f4ff' : '#0F172A';
+            const textM   = dm ? '#8fa4cc' : '#64748B';
+            const [orgData, setOrgData] = React.useState(null);
+            const [loading, setLoading] = React.useState(true);
+            const [error,   setError]   = React.useState('');
+            const [scale,   setScale]   = React.useState(1);
+            const chartWrapRef  = React.useRef(null);
+            const containerRef  = React.useRef(null);
+
+            // Auto-scale chart to fit container width
+            const calcScale = React.useCallback(() => {
+                const wrap = chartWrapRef.current;
+                const cont = containerRef.current;
+                if (!wrap || !cont) return;
+                wrap.style.zoom = '';                      // reset to measure natural size
+                const naturalW = wrap.scrollWidth;
+                const contW    = cont.clientWidth - 16;   // subtract small padding
+                setScale(naturalW > contW ? contW / naturalW : 1);
+            }, []);
+
+            React.useEffect(() => {
+                if (!orgData) return;
+                const t = setTimeout(calcScale, 150);      // wait for DOM to settle
+                return () => clearTimeout(t);
+            }, [orgData, calcScale]);
+
+            const fetchOrg = React.useCallback(async () => {
+                setLoading(true);
+                setError('');
+                try {
+                    const res = await fetch(`${HRMS_API}/org/chart`);
+                    if (!res.ok) {
+                        const err = await res.json().catch(() => ({}));
+                        throw new Error(`API returned ${res.status}${err.message ? ': ' + err.message : ''}`);
+                    }
+                    const data = await res.json();
+                    setOrgData(data);
+                } catch(e) {
+                    setError('Could not load org chart from API (' + e.message + ').');
+                } finally { setLoading(false); }
+            }, []);
+
+            React.useEffect(() => { fetchOrg(); }, [fetchOrg]);
+
+            // Flatten tree for stats
+            const flatNodes = (node) => [node, ...(node.children||[]).flatMap(flatNodes)];
+            const allNodes    = (orgData?.tree || []).flatMap(flatNodes);
+            const activeCount = allNodes.filter(n => !n.is_vacant).length;
+            const vacantCount = allNodes.filter(n =>  n.is_vacant).length;
+            const deptCount   = (orgData?.departments || []).length;
+            const sysRoles    = orgData?.bootstrapAdmins || [];
+
+            // Derive position type from title when position_type not yet in response
+            const deriveType = (node) => {
+                if (node.position_type) return node.position_type;
+                const t = (node.title || '').toLowerCase();
+                if (t.includes('director')) return 'director';
+                if (t.includes('finance') || t.includes('plan manager')) return 'finance';
+                if (t.includes('strategic') || t.includes('business dev') || t.includes('client rel') || t.includes('marketing')) return 'strategic';
+                if (t.includes('external') || t.includes('consultant')) return 'external';
+                if (t.includes('support worker') || t.includes('day centre staff') || t.includes('staff')) return 'staff';
+                return 'ops';
+            };
+
+            // Render a position node from the API tree
+            const renderTree = (node) => {
+                const staffArr = node.staff || [];
+                const vacant   = node.is_vacant !== false && staffArr.length === 0;
+                const primary  = staffArr[0];
+                const extra    = staffArr.length > 1 ? `+${staffArr.length-1} more` : null;
+                const type     = deriveType(node);
+                const card = <OrgCard
+                    deptLabel={node.dept_label || null}
+                    name={vacant ? node.title : primary.name}
+                    title={vacant ? null : node.title}
+                    email={vacant ? null : primary.email}
+                    type={type}
+                    vacant={vacant}
+                    extra={extra}
+                />;
+                const children = (node.children || []).map(c => renderTree(c));
+                return <OrgTree key={node.id} card={card} gap={node.dept_label ? 10 : 6} ch={children}/>;
+            };
+
+            return (
+                <main className="flex-1 overflow-auto" style={{background:pageBg}}>
+                    <div style={{padding:'24px 28px'}}>
+                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'20px'}}>
+                            <div>
+                                <h1 style={{fontSize:'22px', fontWeight:'700', color:dm?'#c7d2fe':'#1E1B4B', margin:0}}>🏢 Organizational Chart</h1>
+                                <p style={{fontSize:'12px', color:dm?'#4a607f':'#94A3B8', margin:'4px 0 0'}}>Yahweh Care — live staff hierarchy. Updates instantly when staff are added or removed.</p>
+                            </div>
+                            <button onClick={fetchOrg} style={{padding:'7px 14px',background:cardBg,border:`2px solid ${borderC}`,borderRadius:'8px',fontSize:'12px',fontWeight:'600',color:'#4338CA',cursor:'pointer'}}>
+                                🔄 Refresh
+                            </button>
+                        </div>
+
+                        <div className='yc-detail-layout' style={{display:'flex', gap:'20px', alignItems:'flex-start', flexWrap:'wrap'}}>
+                            {/* ── Chart card ── */}
+                            <div style={{flex:1, minWidth:0, background:cardBg, borderRadius:'20px', border:`2px solid ${borderC}`, padding:'24px 24px 20px', boxShadow:'0 4px 20px rgba(99,102,241,0.08)'}}>
+                                <h2 style={{textAlign:'center', fontSize:'22px', fontWeight:'900', color:dm?'#c7d2fe':'#1E1B4B', marginBottom:'24px', letterSpacing:'1px', textTransform:'uppercase', textShadow:'0 1px 2px rgba(0,0,0,0.08)'}}>
+                                    Organizational Chart for Yahweh Care
+                                </h2>
+
+                                <div className='yc-org-scroll'>
+                                {loading && <div style={{textAlign:'center',padding:'60px',color:dm?'#4a607f':'#94A3B8',fontSize:'14px'}}>Loading org chart…</div>}
+                                {error && <div style={{textAlign:'center',padding:'12px',fontSize:'13px',color:'#D97706',background:dm?'rgba(234,179,8,0.12)':'#FFFBEB',borderRadius:'8px',marginBottom:'16px',border:`1px solid ${dm?'rgba(234,179,8,0.3)':'#FDE68A'}`}}>{error}</div>}
+
+                                {!loading && orgData && (
+                                    <div ref={containerRef} style={{width:'100%', overflowX:'hidden'}}>
+                                        <div ref={chartWrapRef} style={{zoom: scale, width:'fit-content', minWidth:'100%', display:'flex', justifyContent:'center', transformOrigin:'top center', boxSizing:'border-box'}}>
+                                            {(() => {
+                                                // Show only meaningful roots: has children, or has staff, or is director-type
+                                                const roots = orgData.tree.filter(n =>
+                                                    n.parent_position_id === null &&
+                                                    (n.children?.length > 0 || (n.staff?.length > 0) || deriveType(n) === 'director')
+                                                );
+                                                return roots.length > 0
+                                                    ? roots.map(root => renderTree(root))
+                                                    : <p style={{color:dm?'#4a607f':'#94A3B8',fontSize:'13px',padding:'20px'}}>No org chart data.</p>;
+                                            })()}
+                                        </div>
+                                    </div>
+                                )}
+                                </div>
+
+                                {/* Legend */}
+                                <div style={{marginTop:'20px', borderTop:'1px solid #E0E7FF', paddingTop:'16px'}}>
+                                    <div style={{display:'flex', flexWrap:'wrap', gap:'10px', alignItems:'center', marginBottom:'10px'}}>
+                                        <span style={{fontSize:'11px', fontWeight:'800', color:dm?'#c0cfec':'#334155', textTransform:'uppercase', letterSpacing:'0.06em', marginRight:'4px'}}>Legend</span>
+                                        {[
+                                            {color:'#16A34A', label:'Director Level'},
+                                            {color:'#DC2626', label:'Operations (Managers / Officers)'},
+                                            {color:'#D97706', label:'Finance (Managers / Officers)'},
+                                            {color:'#7C3AED', label:'Strategic Development (Managers / Officers)'},
+                                            {color:'#3B82F6', label:'Team / Staff'},
+                                            {color:dm?'#4a607f':'#94A3B8', label:'Consultant / External'},
+                                        ].map((l,i)=>(
+                                            <div key={i} style={{display:'flex',alignItems:'center',gap:'6px',padding:'4px 10px',borderRadius:'6px',border:`1.5px solid ${l.color}40`,background:`${l.color}0A`}}>
+                                                <div style={{width:'12px',height:'12px',borderRadius:'3px',background:`${l.color}20`,border:`2px solid ${l.color}`}}></div>
+                                                <span style={{fontSize:'11px',color:dm?'#c0cfec':'#334155',fontWeight:'500'}}>{l.label}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div style={{display:'flex', gap:'16px', alignItems:'center'}}>
+                                        <span style={{fontSize:'11px',fontWeight:'700',background:'#DCFCE7',color:'#15803D',padding:'3px 12px',borderRadius:'20px',border:'1px solid #86EFAC'}}>[ACTIVE] Active Position</span>
+                                        <span style={{fontSize:'11px',fontWeight:'700',background:dm?'rgba(239,68,68,0.15)':'#FEF2F2',color:dm?'#fca5a5':'#DC2626',padding:'3px 12px',borderRadius:'20px',border:'1px solid #FCA5A5'}}>[VACANT] Inactive Position</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* ── Sidebar ── */}
+                            <div style={{width:'270px', flexShrink:0, display:'flex', flexDirection:'column', gap:'14px'}}>
+                                {/* System Roles */}
+                                <div style={{background:cardBg, borderRadius:'16px', border:'2px solid #C7D2FE', padding:'16px', boxShadow:'0 2px 10px rgba(99,102,241,0.1)'}}>
+                                    <p style={{fontSize:'11px',fontWeight:'800',color:'white',textTransform:'uppercase',letterSpacing:'0.07em',margin:'0 0 14px',padding:'6px 10px',background:'#4338CA',borderRadius:'8px',textAlign:'center'}}>⚙️ System Roles (Not Part of Org Hierarchy)</p>
+                                    {sysRoles.length === 0 && <p style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',textAlign:'center',padding:'8px'}}>Loading…</p>}
+                                    {sysRoles.map((r,i)=>(
+                                        <div key={i} style={{display:'flex',gap:'12px',marginBottom:'12px',padding:'12px',background:dm?'rgba(99,102,241,0.08)':'#F8F9FF',borderRadius:'12px',border:'1.5px solid #E0E7FF',alignItems:'flex-start'}}>
+                                            <div style={{width:'40px',height:'40px',borderRadius:'50%',background: i===0 ? '#DBEAFE' : '#EDE9FE',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'20px',flexShrink:0}}>
+                                                {i===0 ? '👤' : '🛡️'}
+                                            </div>
+                                            <div style={{flex:1,minWidth:0}}>
+                                                <p style={{fontSize:'14px',fontWeight:'700',color:dm?'#c7d2fe':'#1E1B4B',margin:'0 0 2px'}}>{r.name}</p>
+                                                <p style={{fontSize:'11px',color:dm?'#818cf8':'#4F46E5',fontWeight:'600',margin:'0 0 3px'}}>{i===0 ? 'Bootstrap Admin' : 'Bootstrap Super Admin'}</p>
+                                                <p style={{fontSize:'10px',color:'#2563EB',margin:'0 0 6px',wordBreak:'break-all'}}>Email: {r.email}</p>
+                                                <span style={{fontSize:'10px',fontWeight:'700',background:'#DCFCE7',color:'#15803D',padding:'2px 10px',borderRadius:'20px',border:'1px solid #86EFAC'}}>[ACTIVE]</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    <p style={{fontSize:'11px',color:textM,lineHeight:'1.6',margin:0,padding:'10px',background:dm?'rgba(4,8,20,0.6)':'#F8FAFF',borderRadius:'8px',border:`1px solid ${borderC}`}}>Has full system access and control at the platform level. Not included in the organizational reporting structure.</p>
+                                </div>
+
+                                {/* Notes */}
+                                <div style={{background:cardBg,borderRadius:'16px',border:`2px solid ${borderC}`,padding:'16px',boxShadow:'0 2px 8px rgba(99,102,241,0.07)'}}>
+                                    <p style={{fontSize:'12px',fontWeight:'800',color:dm?'#c7d2fe':'#1E1B4B',textTransform:'uppercase',letterSpacing:'0.07em',margin:'0 0 12px'}}>📝 Notes</p>
+                                    {[
+                                        'Only active positions are assigned to current staff.',
+                                        'All vacant positions are kept in the structure for future growth and scalability.',
+                                        'System roles (e.g., Bootstrap Admin, Bootstrap Super Admin) are separate from the organizational hierarchy.',
+                                    ].map((n,i)=>(
+                                        <div key={i} style={{display:'flex',gap:'8px',marginBottom:'10px'}}>
+                                            <div style={{width:'6px',height:'6px',borderRadius:'50%',background:'#6366F1',flexShrink:0,marginTop:'5px'}}></div>
+                                            <p style={{fontSize:'12px',color:dm?'#c0cfec':'#334155',margin:0,lineHeight:'1.6'}}>{n}</p>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Live Stats */}
+                                <div style={{background:'linear-gradient(135deg,#6366F1,#818CF8)',borderRadius:'16px',padding:'16px',color:'white'}}>
+                                    <p style={{fontSize:'11px',fontWeight:'700',textTransform:'uppercase',letterSpacing:'0.08em',opacity:0.8,margin:'0 0 10px'}}>Quick Stats</p>
+                                    {[
+                                        {l:'Total Positions', v: allNodes.length || '—'},
+                                        {l:'Active Staff',    v: activeCount || '—'},
+                                        {l:'Vacant Positions',v: vacantCount || '—'},
+                                        {l:'Departments',     v: deptCount   || '—'},
+                                    ].map((s,i)=>(
+                                        <div key={i} style={{display:'flex',justifyContent:'space-between',marginBottom:'6px'}}>
+                                            <span style={{fontSize:'12px',opacity:0.85}}>{s.l}</span>
+                                            <span style={{fontSize:'13px',fontWeight:'700'}}>{s.v}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            );
+        }
+
+        // ============================================================
+        // STAFF MANAGEMENT PAGE
+        // ============================================================
+        function StaffManagementPage() {
+            const EMP_TYPES = { full_time:'Full Time', part_time:'Part Time', casual:'Casual', contractor:'Contractor' };
+            const POS_TYPES  = ['director','ops','finance','strategic','staff','external'];
+            const EMPTY_FORM = {
+                name:'', email:'', phone:'', employment_type:'full_time',
+                department_id:'', manager_id:'', start_date:'',
+                profile_notes:'', position_ids:[], auth_provider:'azure_ad'
+            };
+
+
+            const dm = useDark();
+            const pageBg  = dm ? 'transparent' : '#F5F7FF';
+            const cardBg  = dm ? 'linear-gradient(155deg,rgba(17,30,58,0.97) 0%,rgba(8,16,36,0.99) 100%)' : 'white';
+            const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E2E8F2';
+            const textP   = dm ? '#f0f4ff' : '#0F172A';
+            const textM   = dm ? '#8fa4cc' : '#64748B';
+            const [staff,       setStaff]       = React.useState([]);
+            const [departments, setDepts]        = React.useState([]);
+            const [positions,   setPositions]    = React.useState([]);
+            const [loading,     setLoading]      = React.useState(true);
+            const [search,      setSearch]       = React.useState('');
+            const [deptFilter,  setDeptFilter]   = React.useState('all');
+            const [showModal,   setShowModal]    = React.useState(false);
+            const [modalMode,   setModalMode]    = React.useState('add');
+            const [selStaff,    setSelStaff]     = React.useState(null);
+            const [delConfirm,  setDelConfirm]   = React.useState(null);
+            const [showPosModal,setShowPosModal] = React.useState(false);
+            const [saving,      setSaving]       = React.useState(false);
+            const [error,       setError]        = React.useState('');
+            const [toast,       setToast]        = React.useState('');
+            const [form,        setForm]         = React.useState(EMPTY_FORM);
+            const [posForm,     setPosForm]      = React.useState({ title:'', department_id:'', position_type:'staff', dept_label:'', parent_id:'' });
+
+            const showToast = (msg) => { setToast(msg); setTimeout(()=>setToast(''),3000); };
+
+            const fetchAll = React.useCallback(async () => {
+                setLoading(true);
+                try {
+                    const uqp = getUserQueryParams(getSessionUser());
+                    const [sR,dR,pR] = await Promise.all([
+                        fetch(`${HRMS_API}/users?limit=200${uqp}`, { credentials:'include', headers: authHeaders() }),
+                        fetch(`${HRMS_API}/org/departments`,        { credentials:'include', headers: authHeaders() }),
+                        fetch(`${HRMS_API}/org/positions`,          { credentials:'include', headers: authHeaders() }),
+                    ]);
+                    const [sd,dd,pd] = await Promise.all([sR.json(),dR.json(),pR.json()]);
+                    // backend-hrms returns { users } for /users and { departments } and { positions }
+                    const rawStaff = sd.users || sd.staff || [];
+                    // Normalize to the shape the page expects
+                    const normalised = rawStaff.map(u => ({
+                        ...u,
+                        is_active: u.active !== false,
+                        department_name: u.department || '',
+                        positions: Array.isArray(u.positions) && u.positions.length > 0 ? u.positions : (u.position_id ? [{ id: u.position_id, title: u.position_title || '', type: 'ops', is_primary: true }] : []),
+                        auth_provider: u.auth_provider || (u.microsoft_id ? 'azure_ad' : 'local'),
+                    }));
+                    setStaff(normalised);
+                    setDepts(dd.departments || []);
+                    setPositions(pd.positions || []);
+                } catch(e) { setError('Failed to load staff data: ' + e.message); }
+                finally { setLoading(false); }
+            }, []);
+
+            React.useEffect(() => { fetchAll(); }, [fetchAll]);
+
+            const filtered = staff.filter(s => {
+                const q = search.toLowerCase();
+                return (!q || s.name?.toLowerCase().includes(q) || s.email?.toLowerCase().includes(q) ||
+                        (s.positions||[]).some(p=>p.title?.toLowerCase().includes(q))) &&
+                       (deptFilter==='all' || String(s.department_id)===deptFilter);
+            });
+
+            const openAdd = () => { setForm(EMPTY_FORM); setModalMode('add'); setSelStaff(null); setError(''); setShowModal(true); };
+            const openEdit = (m) => {
+                setForm({
+                    name: m.name||'', email: m.email||'', phone: m.phone||'',
+                    employment_type: m.employment_type||'full_time',
+                    department_id: m.department_id||'', manager_id: m.manager_id||'',
+                    start_date: m.start_date ? m.start_date.slice(0,10) : '',
+                    profile_notes: m.profile_notes||'',
+                    position_ids: (m.positions||[]).map(p=>p.id),
+                    auth_provider: m.auth_provider||'azure_ad'
+                });
+                setSelStaff(m); setModalMode('edit'); setError(''); setShowModal(true);
+            };
+
+            const handleSave = async () => {
+                if (!form.name.trim()) return setError('Name is required');
+                if (!form.email.trim()) return setError('Email is required');
+                const emailDomain = form.email.trim().split('@')[1] || '';
+                if (!['yahwehcare.com.au','yahwehpc.com.au'].includes(emailDomain)) {
+                    return setError('Email must be a @yahwehcare.com.au or @yahwehpc.com.au address to allow Microsoft Entra login.');
+                }
+                setSaving(true); setError('');
+                try {
+                    // Use single position_id (first selected) — org chart links one user → one position
+                    const payload = {
+                        name:            form.name.trim(),
+                        email:           form.email.trim(),
+                        phone:           form.phone || null,
+                        employment_type: form.employment_type || 'full_time',
+                        department_id:   form.department_id   || null,
+                        manager_id:      form.manager_id      || null,
+                        start_date:      form.start_date      || null,
+                        profile_notes:   form.profile_notes   || null,
+                        position_id:     form.position_ids?.length ? form.position_ids[0] : null,
+                        position_ids:    form.position_ids || [],
+                        auth_provider:   form.auth_provider   || 'azure_ad',
+                        is_active:       true,
+                    };
+                    const url    = modalMode==='add' ? `${HRMS_API}/users` : `${HRMS_API}/users/${selStaff.id}`;
+                    const method = modalMode==='add' ? 'POST' : 'PATCH';
+                    const res = await authFetch(url, { method, body:JSON.stringify(payload) });
+                    if (!res.ok) {
+                        const e = await res.json().catch(()=>({}));
+                        if (res.status === 401) throw new Error('Session expired — please sign out and sign back in.');
+                        throw new Error(e.error || e.message || 'Save failed');
+                    }
+                    setShowModal(false);
+                    showToast(modalMode==='add' ? '✅ Staff member added' : '✅ Staff member updated');
+                    fetchAll();
+                } catch(e) { setError(e.message); }
+                finally { setSaving(false); }
+            };
+
+            const handleDelete = async () => {
+                if (!delConfirm) return;
+                try {
+                    const res  = await authFetch(`${HRMS_API}/users/${delConfirm.id}`, { method:'DELETE' });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || data.message || 'Delete failed');
+                    setDelConfirm(null);
+                    showToast(`✅ ${data.message || 'Staff member deactivated'}`);
+                    fetchAll();
+                } catch(e) { setError(e.message); }
+            };
+
+            const handleAddPosition = async () => {
+                if (!posForm.title.trim()) return;
+                try {
+                    const body = JSON.stringify({
+                        title:           posForm.title.trim(),
+                        departmentId:    posForm.department_id || null,
+                        parentPositionId:posForm.parent_id     || null,
+                        sortOrder:       0,
+                    });
+                    const res = await authFetch(`${HRMS_API}/org/positions`, {
+                        method:'POST', body
+                    });
+                    if (!res.ok) { const e=await res.json(); throw new Error(e.error || e.message); }
+                    const data = await res.json();
+                    setPositions(prev=>[...prev, data.position]);
+                    setForm(f=>({...f, position_ids:[...f.position_ids, data.position.id]}));
+                    setShowPosModal(false);
+                    setPosForm({ title:'', department_id:'', position_type:'staff', dept_label:'', parent_id:'' });
+                    showToast('✅ Position created');
+                } catch(e) { setError(e.message); }
+            };
+
+            const togglePos = (id) => setForm(f=>({
+                ...f,
+                position_ids: f.position_ids.includes(id)
+                    ? f.position_ids.filter(x=>x!==id)
+                    : [...f.position_ids, id]
+            }));
+
+            const posTypeColor = { director:'#16A34A', ops:'#DC2626', finance:'#D97706', strategic:'#7C3AED', staff:'#3B82F6', external:'#94A3B8' };
+
+            const Avatar = ({name, size=36}) => {
+                const ini=(name||'').split(' ').slice(0,2).map(w=>w[0]?.toUpperCase()||'').join('');
+                const colors=['#6366F1','#EC4899','#14B8A6','#F59E0B','#8B5CF6','#10B981'];
+                const bg=colors[(name||'').charCodeAt(0)%colors.length];
+                return <div style={{width:size,height:size,borderRadius:'50%',background:bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:size*0.38,fontWeight:700,color:'white',flexShrink:0}}>{ini}</div>;
+            };
+
+            const inputStyle = { width:'100%', padding:'8px 10px', border:`1px solid ${borderC}`, borderRadius:'6px', fontSize:'13px', boxSizing:'border-box' };
+            const labelStyle = { fontSize:'12px', fontWeight:'600', color:dm?'#c0cfec':'#334155', marginBottom:'4px', display:'block' };
+
+            return (
+                <main className="flex-1 overflow-auto" style={{background:pageBg}}>
+                    {/* Toast */}
+                    {toast && (
+                        <div style={{position:'fixed',top:20,right:20,zIndex:9999,background:'#1E1B4B',color:'white',padding:'12px 20px',borderRadius:'10px',fontSize:'13px',fontWeight:'600',boxShadow:'0 4px 20px rgba(0,0,0,0.2)'}}>
+                            {toast}
+                        </div>
+                    )}
+
+                    <div style={{padding:'24px 28px'}}>
+                        {/* Header */}
+                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'20px'}}>
+                            <div>
+                                <h1 style={{fontSize:'22px',fontWeight:'700',color:dm?'#c7d2fe':'#1E1B4B',margin:0}}>👥 Staff Management</h1>
+                                <p style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',margin:'4px 0 0'}}>Add, manage, and organise Yahweh Care staff — changes update the Org Chart instantly</p>
+                            </div>
+                            <div style={{display:'flex',gap:'10px'}}>
+                                <button onClick={()=>setShowPosModal(true)}
+                                    style={{padding:'9px 16px',background:cardBg,border:`2px solid ${borderC}`,borderRadius:'10px',fontSize:'13px',fontWeight:'600',color:'#4338CA',cursor:'pointer'}}>
+                                    + New Position
+                                </button>
+                                <button onClick={openAdd}
+                                    style={{padding:'9px 18px',background:'linear-gradient(135deg,#6366F1,#7C3AED)',color:'white',border:'none',borderRadius:'10px',fontSize:'13px',fontWeight:'700',cursor:'pointer',boxShadow:'0 3px 12px rgba(99,102,241,0.35)'}}>
+                                    + Add Staff Member
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Filters */}
+                        <div style={{display:'flex',gap:'10px',marginBottom:'16px',flexWrap:'wrap'}}>
+                            <input type="text" placeholder="Search name, email or position…" value={search} onChange={e=>setSearch(e.target.value)}
+                                style={{flex:1,minWidth:'200px',padding:'8px 12px',border:`1.5px solid ${borderC}`,borderRadius:'8px',fontSize:'13px',background:dm?'rgba(2,8,23,0.8)':'white',color:textP}} />
+                            <select value={deptFilter} onChange={e=>setDeptFilter(e.target.value)}
+                                style={{padding:'8px 12px',border:`1.5px solid ${borderC}`,borderRadius:'8px',fontSize:'13px',background:dm?'rgba(2,8,23,0.8)':'white',color:textP,background:cardBg,color:dm?'#c0cfec':'#334155'}}>
+                                <option value="all">All Departments</option>
+                                {departments.map(d=><option key={d.id} value={String(d.id)}>{d.name}</option>)}
+                            </select>
+                            <div style={{padding:'8px 14px',background:cardBg,border:'1.5px solid #E0E7FF',borderRadius:'8px',fontSize:'13px',color:dm?'#818cf8':'#4F46E5',fontWeight:'600'}}>
+                                {filtered.length} staff
+                            </div>
+                        </div>
+
+                        {/* Error */}
+                        {error && !showModal && (
+                            <div style={{background:dm?'rgba(239,68,68,0.12)':'#FEF2F2',border:`1px solid ${dm?'rgba(239,68,68,0.3)':'#FECACA'}`,borderRadius:'8px',padding:'10px 14px',marginBottom:'12px',fontSize:'13px',color:'#DC2626'}}>
+                                ⚠️ {error}
+                            </div>
+                        )}
+
+                        {/* Staff Table */}
+                        <div style={{background:cardBg,borderRadius:'16px',border:`2px solid ${borderC}`,overflow:'hidden',boxShadow:'0 2px 12px rgba(99,102,241,0.07)'}}>
+                            {loading ? (
+                                <div style={{padding:'40px',textAlign:'center',color:dm?'#4a607f':'#94A3B8',fontSize:'14px'}}>Loading staff…</div>
+                            ) : filtered.length === 0 ? (
+                                <div style={{padding:'40px',textAlign:'center',color:dm?'#4a607f':'#94A3B8',fontSize:'14px'}}>No staff found</div>
+                            ) : (
+                                <table style={{width:'100%',borderCollapse:'collapse'}}>
+                                    <thead>
+                                        <tr style={{background:dm?'rgba(99,102,241,0.12)':'#F8F9FF',borderBottom:`2px solid ${borderC}`}}>
+                                            {['Staff Member','Positions','Department','Employment','Login','Actions'].map(h=>(
+                                                <th key={h} style={{padding:'11px 14px',textAlign:'left',fontSize:'11px',fontWeight:'700',color:dm?'#818cf8':'#4F46E5',textTransform:'uppercase',letterSpacing:'0.05em'}}>{h}</th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filtered.map(m=>(
+                                            <tr key={m.id} style={{borderBottom:'1px solid #F0F2F8'}} className="table-row">
+                                                <td style={{padding:'12px 14px'}}>
+                                                    <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
+                                                        <Avatar name={m.name} size={34}/>
+                                                        <div>
+                                                            <div style={{fontSize:'13px',fontWeight:'700',color:textP,display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}>
+                                                                {m.name}
+                                                                {m.is_bootstrap_admin && <span title="System Administration — not part of org hierarchy" style={{fontSize:'9px',fontWeight:'700',background:dm?'rgba(234,179,8,0.15)':'#FEF3C7',color:dm?'#fcd34d':'#D97706',padding:'1px 6px',borderRadius:'10px',border:'1px solid #FDE68A'}}>⭐ Bootstrap Admin</span>}
+                                                                {!m.is_bootstrap_admin && (m.positions||[]).some(p=>(p.type||p.position_type||'').toLowerCase()==='director') && <span title="Organisational Leadership — part of org hierarchy" style={{fontSize:'9px',fontWeight:'700',background:dm?'rgba(22,163,74,0.15)':'#DCFCE7',color:dm?'#4ade80':'#15803D',padding:'1px 6px',borderRadius:'10px',border:'1px solid #86EFAC'}}>🏢 Director</span>}
+                                                            </div>
+                                                            <div style={{fontSize:'11px',color:textM}}>{m.email}</div>
+                                                            {m.phone && <div style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8'}}>{m.phone}</div>}
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td style={{padding:'12px 14px'}}>
+                                                    {(m.positions||[]).length === 0 ? (
+                                                        <span style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8',fontStyle:'italic'}}>No position assigned</span>
+                                                    ) : (
+                                                        <div style={{display:'flex',flexWrap:'wrap',gap:'4px'}}>
+                                                            {(m.positions||[]).map(p=>(
+                                                                <span key={p.id} style={{fontSize:'10px',fontWeight:'600',padding:'2px 8px',borderRadius:'10px',background:`${posTypeColor[p.type]||'#6366F1'}15`,color:posTypeColor[p.type]||'#6366F1',border:`1px solid ${posTypeColor[p.type]||'#6366F1'}30`}}>
+                                                                    {p.is_primary?'★ ':''}{p.title}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td style={{padding:'12px 14px',fontSize:'12px',color:dm?'#c0cfec':'#334155'}}>{m.department_name||'—'}</td>
+                                                <td style={{padding:'12px 14px'}}>
+                                                    <span style={{fontSize:'11px',fontWeight:'600',padding:'3px 8px',borderRadius:'8px',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:'#4338CA'}}>
+                                                        {EMP_TYPES[m.employment_type]||m.employment_type||'—'}
+                                                    </span>
+                                                </td>
+                                                <td style={{padding:'12px 14px'}}>
+                                                    <span style={{fontSize:'11px',fontWeight:'600',padding:'3px 8px',borderRadius:'8px',whiteSpace:'nowrap',
+                                                        background: m.auth_provider==='azure_ad'?'#DBEAFE':'#F0FDF4',
+                                                        color: m.auth_provider==='azure_ad'?'#1D4ED8':'#15803D'
+                                                    }}>
+                                                        {m.auth_provider==='azure_ad'?'🔷 Microsoft Entra':'🔑 Local'}
+                                                    </span>
+                                                </td>
+                                                <td style={{padding:'12px 14px'}}>
+                                                    <div style={{display:'flex',gap:'6px'}}>
+                                                        <button onClick={()=>openEdit(m)}
+                                                            style={{padding:'5px 12px',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',border:'none',borderRadius:'6px',fontSize:'11px',fontWeight:'600',color:'#4338CA',cursor:'pointer'}}>
+                                                            Edit
+                                                        </button>
+                                                        {!m.is_bootstrap_admin && (
+                                                            <button onClick={()=>setDelConfirm(m)}
+                                                                style={{padding:'5px 12px',background:dm?'rgba(239,68,68,0.15)':'#FEF2F2',border:'none',borderRadius:'6px',fontSize:'11px',fontWeight:'600',color:dm?'#fca5a5':'#DC2626',cursor:'pointer'}}>
+                                                                Deactivate
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+
+                        {/* Stats row */}
+                        {!loading && (
+                            <div style={{display:'flex',gap:'12px',marginTop:'14px',flexWrap:'wrap'}}>
+                                {[
+                                    {label:'Total Staff',   val:staff.length,                                                color:dm?'#818cf8':'#4F46E5'},
+                                    {label:'Active',        val:staff.filter(s=>s.is_active).length,                        color:'#16A34A'},
+                                    {label:'Unassigned',    val:staff.filter(s=>s.is_active&&(s.positions||[]).length===0).length, color:'#D97706'},
+                                    {label:'Entra Login',   val:staff.filter(s=>s.auth_provider==='azure_ad').length,        color:dm?'#93c5fd':'#1E40AF'},
+                                    {label:'Vacant Positions', val:positions.filter(p=>p.is_vacant).length,                  color:'#DC2626'},
+                                ].map(s=>(
+                                    <div key={s.label} style={{background:cardBg,border:`2px solid ${borderC}`,borderRadius:'10px',padding:'10px 16px',display:'flex',gap:'10px',alignItems:'center'}}>
+                                        <span style={{fontSize:'18px',fontWeight:'800',color:s.color}}>{s.val}</span>
+                                        <span style={{fontSize:'11px',color:textM,fontWeight:'600'}}>{s.label}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* ── ADD/EDIT STAFF MODAL ─────────────────────────────── */}
+                    {showModal && (
+                        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:'20px'}}>
+                            <div style={{background:cardBg,borderRadius:'16px',width:'100%',maxWidth:'680px',maxHeight:'90vh',overflow:'auto',boxShadow:'0 20px 60px rgba(0,0,0,0.25)'}}>
+                                {/* Modal header */}
+                                <div style={{padding:'20px 24px',borderBottom:`1px solid ${borderC}`,display:'flex',justifyContent:'space-between',alignItems:'center',background:'linear-gradient(135deg,#6366F1,#7C3AED)',borderRadius:'16px 16px 0 0'}}>
+                                    <h2 style={{fontSize:'16px',fontWeight:'700',color:'white',margin:0}}>
+                                        {modalMode==='add'?'➕ Add New Staff Member':'✏️ Edit Staff Member'}
+                                    </h2>
+                                    <button onClick={()=>setShowModal(false)} style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',borderRadius:'50%',width:'28px',height:'28px',cursor:'pointer',fontSize:'14px'}}>✕</button>
+                                </div>
+
+                                <div style={{padding:'20px 24px'}}>
+                                    {error && <div style={{background:dm?'rgba(239,68,68,0.12)':'#FEF2F2',border:`1px solid ${dm?'rgba(239,68,68,0.3)':'#FECACA'}`,borderRadius:'8px',padding:'8px 12px',marginBottom:'14px',fontSize:'12px',color:'#DC2626'}}>⚠️ {error}</div>}
+
+                                    {/* Login method notice */}
+                                    <div style={{background:'#EFF6FF',border:'1px solid #BFDBFE',borderRadius:'8px',padding:'10px 14px',marginBottom:'16px',fontSize:'12px',color:dm?'#93c5fd':'#1E40AF'}}>
+                                        <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'4px'}}>
+                                            <span style={{fontSize:'16px'}}>🔷</span>
+                                            <strong>Microsoft Entra Login</strong>
+                                        </div>
+                                        <ul style={{margin:'4px 0 0 24px',padding:0,lineHeight:'1.7'}}>
+                                            <li>Staff log in via <strong>"Sign in with Microsoft"</strong> — no password needed.</li>
+                                            <li>The email entered here <strong>must exactly match</strong> their Microsoft 365 / Azure AD email address.</li>
+                                            <li>Once added, they can sign in immediately — no further setup required.</li>
+                                        </ul>
+                                    </div>
+
+                                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'14px'}}>
+                                        {/* Full Name */}
+                                        <div style={{gridColumn:'1/-1'}}>
+                                            <label style={labelStyle}>Full Name <span style={{color:'#DC2626'}}>*</span></label>
+                                            <input style={inputStyle} value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="e.g. Jane Smith"/>
+                                        </div>
+                                        {/* Email */}
+                                        <div>
+                                            <label style={labelStyle}>Email Address <span style={{color:'#DC2626'}}>*</span></label>
+                                            <input
+                                                style={{...inputStyle, borderColor: form.email && !['yahwehcare.com.au','yahwehpc.com.au'].includes(form.email.split('@')[1]||'') ? '#F59E0B' : inputStyle.borderColor}}
+                                                type="email"
+                                                value={form.email}
+                                                onChange={e=>setForm(f=>({...f,email:e.target.value}))}
+                                                placeholder="jane@yahwehcare.com.au"
+                                            />
+                                            {form.email && !['yahwehcare.com.au','yahwehpc.com.au'].includes(form.email.split('@')[1]||'') && (
+                                                <p style={{fontSize:12,color:'#B45309',marginTop:4}}>
+                                                    ⚠️ Must be a <strong>@yahwehcare.com.au</strong> or <strong>@yahwehpc.com.au</strong> address — this must match their Microsoft Entra account exactly.
+                                                </p>
+                                            )}
+                                            {form.email && ['yahwehcare.com.au','yahwehpc.com.au'].includes(form.email.split('@')[1]||'') && (
+                                                <p style={{fontSize:12,color:'#16A34A',marginTop:4}}>✅ Valid organisation domain</p>
+                                            )}
+                                        </div>
+                                        {/* Phone */}
+                                        <div>
+                                            <label style={labelStyle}>Phone Number</label>
+                                            <input style={inputStyle} value={form.phone} onChange={e=>setForm(f=>({...f,phone:e.target.value}))} placeholder="+61 4xx xxx xxx"/>
+                                        </div>
+                                        {/* Positions */}
+                                        <div style={{gridColumn:'1/-1'}}>
+                                            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'6px'}}>
+                                                <label style={{...labelStyle,margin:0}}>Org Chart Positions <span style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8',fontWeight:'400'}}>(one staff can hold multiple)</span></label>
+                                                <button onClick={()=>setShowPosModal(true)} style={{fontSize:'11px',fontWeight:'600',color:dm?'#818cf8':'#4F46E5',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',border:'none',borderRadius:'6px',padding:'3px 8px',cursor:'pointer'}}>+ New Position</button>
+                                            </div>
+                                            <div style={{border:`1.5px solid ${borderC}`,borderRadius:'8px',maxHeight:'160px',overflow:'auto',padding:'8px'}}>
+                                                {positions.length===0 ? (
+                                                    <p style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',textAlign:'center',padding:'10px'}}>No positions found</p>
+                                                ) : positions.map(p=>(
+                                                    <label key={p.id} style={{display:'flex',alignItems:'center',gap:'8px',padding:'5px 6px',borderRadius:'6px',cursor:'pointer',background:form.position_ids.includes(p.id)?`${posTypeColor[p.position_type]||'#6366F1'}10`:'transparent'}}>
+                                                        <input type="checkbox" checked={form.position_ids.includes(p.id)} onChange={()=>togglePos(p.id)}/>
+                                                        <span style={{fontSize:'12px',color:dm?'#c0cfec':'#334155',flex:1}}>{p.title}</span>
+                                                        <span style={{fontSize:'10px',fontWeight:'600',color:posTypeColor[p.position_type]||'#6366F1',background:`${posTypeColor[p.position_type]||'#6366F1'}15`,padding:'1px 6px',borderRadius:'8px'}}>{p.position_type}</span>
+                                                        {!p.is_vacant && <span style={{fontSize:'10px',color:'#15803D',background:'#DCFCE7',padding:'1px 6px',borderRadius:'8px'}}>Occupied</span>}
+                                                        {p.is_vacant && <span style={{fontSize:'10px',color:'#DC2626',background:dm?'rgba(239,68,68,0.15)':'#FEF2F2',padding:'1px 6px',borderRadius:'8px'}}>Vacant</span>}
+                                                    </label>
+                                                ))}
+                                            </div>
+                                            {form.position_ids.length>0 && (
+                                                <p style={{fontSize:'11px',color:dm?'#818cf8':'#4F46E5',marginTop:'4px'}}>✓ {form.position_ids.length} position(s) selected — first is primary</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Modal footer */}
+                                <div style={{padding:'16px 24px',borderTop:'1px solid #E0E7FF',display:'flex',justifyContent:'flex-end',gap:'10px',background:'#F8F9FF',borderRadius:'0 0 16px 16px'}}>
+                                    <button onClick={()=>setShowModal(false)} style={{padding:'9px 18px',background:cardBg,border:`2px solid ${borderC}`,borderRadius:'8px',fontSize:'13px',fontWeight:'600',color:textM,cursor:'pointer'}}>Cancel</button>
+                                    <button onClick={handleSave} disabled={saving} style={{padding:'9px 20px',background:'linear-gradient(135deg,#6366F1,#7C3AED)',color:'white',border:'none',borderRadius:'8px',fontSize:'13px',fontWeight:'700',cursor:'pointer',opacity:saving?0.7:1}}>
+                                        {saving ? 'Saving…' : (modalMode==='add'?'Add Staff Member':'Save Changes')}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ── NEW POSITION MODAL ────────────────────────────────── */}
+                    {showPosModal && (
+                        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1100,display:'flex',alignItems:'center',justifyContent:'center',padding:'20px'}}>
+                            <div style={{background:cardBg,borderRadius:'14px',width:'100%',maxWidth:'440px',boxShadow:'0 20px 60px rgba(0,0,0,0.25)'}}>
+                                <div style={{padding:'16px 20px',borderBottom:`1px solid ${borderC}`,background:'linear-gradient(135deg,#6366F1,#7C3AED)',borderRadius:'14px 14px 0 0',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                                    <h3 style={{fontSize:'14px',fontWeight:'700',color:'white',margin:0}}>🏷️ Create New Position</h3>
+                                    <button onClick={()=>setShowPosModal(false)} style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',borderRadius:'50%',width:'26px',height:'26px',cursor:'pointer'}}>✕</button>
+                                </div>
+                                <div style={{padding:'16px 20px',display:'grid',gap:'12px'}}>
+                                    <div>
+                                        <label style={labelStyle}>Position Title <span style={{color:'#DC2626'}}>*</span></label>
+                                        <input style={inputStyle} value={posForm.title} onChange={e=>setPosForm(f=>({...f,title:e.target.value}))} placeholder="e.g. Community Support Worker" autoFocus/>
+                                    </div>
+                                    <div>
+                                        <label style={labelStyle}>Department</label>
+                                        <select style={inputStyle} value={posForm.department_id} onChange={e=>setPosForm(f=>({...f,department_id:e.target.value}))}>
+                                            <option value="">— Select —</option>
+                                            {departments.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label style={labelStyle}>Reports To (Parent Position)</label>
+                                        <select style={inputStyle} value={posForm.parent_id} onChange={e=>setPosForm(f=>({...f,parent_id:e.target.value}))}>
+                                            <option value="">— Root / Top Level —</option>
+                                            {positions.map(p=><option key={p.id} value={p.id}>{p.title}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div style={{padding:'12px 20px',borderTop:'1px solid #E0E7FF',display:'flex',justifyContent:'flex-end',gap:'8px',background:'#F8F9FF',borderRadius:'0 0 14px 14px'}}>
+                                    <button onClick={()=>setShowPosModal(false)} style={{padding:'8px 14px',background:cardBg,border:`2px solid ${borderC}`,borderRadius:'8px',fontSize:'12px',fontWeight:'600',color:textM,cursor:'pointer'}}>Cancel</button>
+                                    <button onClick={handleAddPosition} style={{padding:'8px 16px',background:'linear-gradient(135deg,#6366F1,#7C3AED)',color:'white',border:'none',borderRadius:'8px',fontSize:'12px',fontWeight:'700',cursor:'pointer'}}>Create Position</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ── DELETE CONFIRM ───────────────────────────────────── */}
+                    {delConfirm && (
+                        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                            <div style={{background:cardBg,borderRadius:'14px',width:'420px',boxShadow:'0 20px 60px rgba(0,0,0,0.25)',overflow:'hidden'}}>
+                                <div style={{padding:'20px 24px',textAlign:'center'}}>
+                                    <div style={{fontSize:'40px',marginBottom:'12px'}}>⚠️</div>
+                                    <h3 style={{fontSize:'16px',fontWeight:'700',color:textP,margin:'0 0 8px'}}>Deactivate Staff Member?</h3>
+                                    <p style={{fontSize:'13px',color:textM,margin:'0 0 8px'}}>
+                                        <strong>{delConfirm.name}</strong> will be deactivated and removed from all org chart positions.
+                                    </p>
+                                    <p style={{fontSize:'12px',color:'#DC2626',background:'#FEF2F2',padding:'8px',borderRadius:'6px',margin:'0 0 4px'}}>
+                                        Their positions will become <strong>VACANT</strong> in the Org Chart.
+                                    </p>
+                                    <p style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8'}}>This action can be undone by re-adding the staff member.</p>
+                                </div>
+                                <div style={{padding:'12px 20px',borderTop:`1px solid ${dm?'rgba(99,102,241,0.10)':'#EEF2F8'}`,display:'flex',gap:'10px',justifyContent:'center',background:dm?'rgba(4,8,20,0.6)':'#F8FAFF'}}>
+                                    <button onClick={()=>setDelConfirm(null)} style={{padding:'9px 20px',background:cardBg,border:`2px solid ${borderC}`,borderRadius:'8px',fontSize:'13px',fontWeight:'600',cursor:'pointer',color:dm?'#c0cfec':'#334155'}}>Cancel</button>
+                                    <button onClick={handleDelete} style={{padding:'9px 20px',background:'#DC2626',color:'white',border:'none',borderRadius:'8px',fontSize:'13px',fontWeight:'700',cursor:'pointer'}}>Deactivate</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </main>
+            );
+        }
+
+        // ── Ticket Log Page ───────────────────────────────────────────────────────
+        function TicketLogPage() {
+            const dm = useDark();
+            const sessionUser = React.useMemo(() => getSessionUser(), []);
+
+            // Palette
+            const pageBg  = dm ? 'transparent' : '#F5F7FF';
+            const cardBg  = dm ? 'rgba(15,23,42,0.85)' : '#FFFFFF';
+            const borderC = dm ? 'rgba(99,102,241,0.18)' : '#E8ECFF';
+            const textP   = dm ? '#e2e8f0' : '#1e293b';
+            const textM   = dm ? '#94a3b8' : '#64748B';
+            const textS   = dm ? '#64748b' : '#94a3b8';
+
+            // State
+            const [tickets, setTickets]         = React.useState([]);
+            const [loading, setLoading]         = React.useState(true);
+            const [search, setSearch]           = React.useState('');
+            const [statusFilter, setStatusFilter]     = React.useState('');
+            const [priorityFilter, setPriorityFilter] = React.useState('');
+            const [categoryFilter, setCategoryFilter] = React.useState('');
+            const [assigneeFilter, setAssigneeFilter] = React.useState('');
+            const [dateFrom, setDateFrom]             = React.useState('');
+            const [dateTo, setDateTo]                 = React.useState('');
+            const [selected, setSelected]       = React.useState(null);
+            const [logData, setLogData]         = React.useState(null);  // { ticket, timeline }
+            const [logLoading, setLogLoading]   = React.useState(false);
+            const [logError, setLogError]       = React.useState('');
+
+            // Fetch all tickets (scope=all for admin/director, scope=dept for manager)
+            React.useEffect(() => {
+                const scopeP = getTicketScopeParams(sessionUser);
+                const params = new URLSearchParams({ ...scopeP, all: '1', limit: '500' });
+                authFetch(`${HRMS_API}/tickets?${params}`)
+                    .then(r => r.json())
+                    .then(d => { setTickets(d.tickets || []); setLoading(false); })
+                    .catch(() => setLoading(false));
+            }, []);
+
+            // Fetch log when ticket selected
+            const selectTicket = async (t) => {
+                setSelected(t);
+                setLogData(null);
+                setLogError('');
+                setLogLoading(true);
+                try {
+                    const data = await API.tickets.log(t._dbId || t.id);
+                    setLogData(data);
+                } catch (e) {
+                    setLogError(e.message || 'Failed to load log');
+                } finally {
+                    setLogLoading(false);
+                }
+            };
+
+            // Derived filter options (from loaded tickets — no extra API call)
+            const uniquePriorities = React.useMemo(() => {
+                const seen = new Map();
+                tickets.forEach(t => { if (t.priorityLabel && !seen.has(t.priorityLabel)) seen.set(t.priorityLabel, t.priority||t.priorityLabel); });
+                return [...seen.entries()].map(([label, val]) => ({ label, val }));
+            }, [tickets]);
+
+            const uniqueCategories = React.useMemo(() => {
+                const seen = new Map();
+                tickets.forEach(t => { if (t.categoryLabel && !seen.has(t.categoryLabel)) seen.set(t.categoryLabel, t.category||t.categoryLabel); });
+                return [...seen.entries()].map(([label, val]) => ({ label, val }));
+            }, [tickets]);
+
+            const uniqueAssignees = React.useMemo(() => {
+                const seen = new Map();
+                tickets.forEach(t => { if (t.assigneeName && !seen.has(t.assigneeName)) seen.set(t.assigneeName, t.assigneeName); });
+                return [...seen.keys()].sort();
+            }, [tickets]);
+
+            const hasActiveFilters = search || statusFilter || priorityFilter || categoryFilter || assigneeFilter || dateFrom || dateTo;
+
+            const clearFilters = () => {
+                setSearch('');
+                setStatusFilter('');
+                setPriorityFilter('');
+                setCategoryFilter('');
+                setAssigneeFilter('');
+                setDateFrom('');
+                setDateTo('');
+            };
+
+            // Filtered ticket list
+            const filtered = tickets.filter(t => {
+                const q = search.toLowerCase();
+                const matchSearch = !q
+                    || (t.title||'').toLowerCase().includes(q)
+                    || (t.ticketNumber||'').toLowerCase().includes(q)
+                    || (t.requesterName||'').toLowerCase().includes(q)
+                    || (t.assigneeName||'').toLowerCase().includes(q);
+                const matchStatus = !statusFilter
+                    || (t.status||'').toLowerCase().replace(/ /g,'_') === statusFilter.toLowerCase().replace(/ /g,'_');
+                const matchPriority = !priorityFilter
+                    || String(t.priority||'') === String(priorityFilter)
+                    || (t.priorityLabel||'').toLowerCase() === priorityFilter.toLowerCase();
+                const matchCategory = !categoryFilter
+                    || String(t.category||'') === String(categoryFilter)
+                    || (t.categoryLabel||'').toLowerCase() === categoryFilter.toLowerCase();
+                const matchAssignee = !assigneeFilter
+                    || (t.assigneeName||'') === assigneeFilter;
+                const createdMs = t.createdAt ? new Date(t.createdAt).getTime() : null;
+                const matchFrom = !dateFrom || (createdMs && createdMs >= new Date(dateFrom).getTime());
+                const matchTo   = !dateTo   || (createdMs && createdMs <= new Date(dateTo + 'T23:59:59').getTime());
+                return matchSearch && matchStatus && matchPriority && matchCategory && matchAssignee && matchFrom && matchTo;
+            });
+
+            // Normalise raw DB status to phase key (new/waiting/assigned → open)
+            const normStatus = (s) => {
+                const k = (s||'').toLowerCase().replace(/ /g,'_');
+                return { new:'open', waiting:'open', assigned:'open' }[k] || k;
+            };
+            // Status color helper
+            const statusColor = (s) => {
+                const m = { open:'#6366F1', new:'#6366F1', waiting:'#6366F1', assigned:'#0EA5E9', in_progress:'#0EA5E9', pending_approval:'#D97706', resolved:'#10B981', closed:'#64748B' };
+                return m[(s||'').toLowerCase().replace(/ /g,'_')] || '#6366F1';
+            };
+            const statusBg = (s) => {
+                const m = { open:'rgba(99,102,241,0.1)', new:'rgba(99,102,241,0.1)', waiting:'rgba(99,102,241,0.1)', assigned:'rgba(14,165,233,0.1)', in_progress:'rgba(14,165,233,0.1)', pending_approval:'rgba(217,119,6,0.1)', resolved:'rgba(16,185,129,0.1)', closed:'rgba(100,116,139,0.1)' };
+                return m[(s||'').toLowerCase().replace(/ /g,'_')] || 'rgba(99,102,241,0.1)';
+            };
+
+            // Timeline entry config
+            const entryConfig = (entry) => {
+                const { type, action } = entry;
+                if (type === 'approval') {
+                    if ((action||'').toLowerCase() === 'approved') return { icon:'✅', color:'#10B981', bg:dm?'rgba(16,185,129,0.1)':'#ECFDF5', label:'Approved' };
+                    if ((action||'').toLowerCase() === 'rejected') return { icon:'❌', color:'#EF4444', bg:dm?'rgba(239,68,68,0.1)':'#FEF2F2', label:'Rejected' };
+                    return { icon:'🔓', color:'#D97706', bg:dm?'rgba(217,119,6,0.1)':'#FFFBEB', label:'Reopened' };
+                }
+                if (type === 'comment') return { icon:'💬', color:'#64748B', bg:dm?'rgba(100,116,139,0.1)':'#F8FAFC', label:'Comment' };
+                const map = {
+                    created:              { icon:'🎫', color:'#6366F1', bg:dm?'rgba(99,102,241,0.1)':'#EEF2FF', label:'Created' },
+                    assigned:             { icon:'👤', color:'#0EA5E9', bg:dm?'rgba(14,165,233,0.1)':'#F0F9FF', label:'Assigned' },
+                    status_changed:       { icon:'🔄', color:'#8B5CF6', bg:dm?'rgba(139,92,246,0.1)':'#F5F3FF', label:'Status Changed' },
+                    priority_changed:     { icon:'⚡', color:'#F59E0B', bg:dm?'rgba(245,158,11,0.1)':'#FFFBEB', label:'Priority Changed' },
+                    approvers_updated:    { icon:'👥', color:'#6366F1', bg:dm?'rgba(99,102,241,0.1)':'#EEF2FF', label:'Approvers Updated' },
+                    extension_requested:  { icon:'📅', color:'#D97706', bg:dm?'rgba(217,119,6,0.1)':'#FFFBEB', label:'Extension Requested' },
+                    extension_responded:  { icon:'📋', color:'#0EA5E9', bg:dm?'rgba(14,165,233,0.1)':'#F0F9FF', label:'Extension Responded' },
+                    reopened:             { icon:'🔓', color:'#D97706', bg:dm?'rgba(217,119,6,0.1)':'#FFFBEB', label:'Reopened' },
+                    commented:            { icon:'💬', color:'#64748B', bg:dm?'rgba(100,116,139,0.1)':'#F8FAFC', label:'Comment' },
+                    attachment_added:     { icon:'📎', color:'#64748B', bg:dm?'rgba(100,116,139,0.1)':'#F8FAFC', label:'Attachment Added' },
+                    escalated:            { icon:'🚨', color:'#EF4444', bg:dm?'rgba(239,68,68,0.1)':'#FEF2F2', label:'Escalated' },
+                    'pending_approval':   { icon:'⏳', color:'#D97706', bg:dm?'rgba(217,119,6,0.1)':'#FFFBEB', label:'Sent for Approval' },
+                    // activity entries from approve/reject endpoints
+                    approved:             { icon:'✅', color:'#10B981', bg:dm?'rgba(16,185,129,0.1)':'#ECFDF5', label:'Approved' },
+                    rejected:             { icon:'❌', color:'#EF4444', bg:dm?'rgba(239,68,68,0.1)':'#FEF2F2', label:'Rejected' },
+                };
+                return map[action] || { icon:'📝', color:'#6366F1', bg:dm?'rgba(99,102,241,0.1)':'#EEF2FF', label: (action||'').replace(/_/g,' ') };
+            };
+
+            // Human-readable description of an entry
+            const entryDesc = (entry) => {
+                const d = entry.details || {};
+                const actor = entry.actorName || 'System';
+                switch (entry.action) {
+                    case 'created':             return `Ticket created by ${actor}`;
+                    case 'assigned':            return `Assigned to ${d.to || d.assigneeName || 'someone'} by ${actor}`;
+                    case 'status_changed':      return `Status changed: ${d.from || '—'} → ${d.to || '—'}`;
+                    case 'priority_changed':    return `Priority changed: ${d.from || '—'} → ${d.to || '—'}`;
+                    case 'approvers_updated':   return `Approvers updated by ${actor}`;
+                    case 'extension_requested': { const due = d.newDueDate || d.newDue; return `Time extension requested by ${actor} — new due: ${due ? new Date(due).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}) : '—'}`; }
+                    case 'extension_responded': {
+                        const resp = ['approved','approve'].includes((d.action||'').toLowerCase()) ? 'approved' : 'denied';
+                        return `Extension ${resp} by ${actor}`;
+                    }
+                    case 'closed':              return `Ticket closed by ${actor} — resolution confirmed`;
+                    case 'reopened':            return `Ticket reopened by ${actor}`;
+                    case 'commented':           return `Comment by ${actor}`;
+                    case 'attachment_added':    return `Attachment added by ${actor}`;
+                    case 'escalated':           return `Escalated by ${actor}`;
+                    case 'approved':            return `Approved by ${actor}${d.acceptanceNote ? ` — "${d.acceptanceNote}"` : ''}`;
+                    case 'rejected':            return `Rejected by ${actor}${d.justification ? ` — "${d.justification}"` : ''}`;
+                    case 'Approved':            return `Approved by ${actor}${d.comments ? ` — "${d.comments}"` : ''}`;
+                    case 'Rejected':            return `Rejected by ${actor}${d.comments ? ` — "${d.comments}"` : ''}`;
+                    case 'Reopened':            return `Reopened by ${actor}${d.comments ? ` — "${d.comments}"` : ''}`;
+                    default:                    return `${(entry.action||'').replace(/_/g,' ')} by ${actor}`;
+                }
+            };
+
+            // Phase timeline — derive reached phases from the log
+            const PHASES = [
+                { key: 'created',          label: 'Created',     icon: '🎫' },
+                { key: 'open',             label: 'Open',        icon: '📬' },
+                { key: 'in_progress',      label: 'In Progress', icon: '⚙️' },
+                { key: 'pending_approval', label: 'Approval',    icon: '⏳' },
+                { key: 'resolved',         label: 'Resolved',    icon: '✅' },
+                { key: 'closed',           label: 'Closed',      icon: '🔒' },
+            ];
+            const getReachedPhases = (timeline, ticket) => {
+                const reached = new Set(['created']);
+                if (ticket) {
+                    const s = normStatus(ticket.status);
+                    if (['open','in_progress','pending_approval','resolved','closed'].includes(s)) reached.add('open');
+                    if (['in_progress','pending_approval','resolved','closed'].includes(s)) reached.add('in_progress');
+                    if (['pending_approval','resolved','closed'].includes(s)) reached.add('pending_approval');
+                    if (['resolved','closed'].includes(s)) reached.add('resolved');
+                    if (s === 'closed') reached.add('closed');
+                }
+                (timeline||[]).forEach(e => {
+                    if (e.action === 'status_changed' && e.details?.to) {
+                        const to = (e.details.to||'').toLowerCase().replace(' ','_');
+                        reached.add(to);
+                    }
+                });
+                return reached;
+            };
+
+            const fmtTime = (iso) => {
+                if (!iso) return '—';
+                const d = new Date(iso);
+                return d.toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}) + ' ' +
+                    d.toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit'});
+            };
+            const fmtRelative = (iso) => {
+                if (!iso) return '';
+                const diff = Date.now() - new Date(iso).getTime();
+                const m = Math.floor(diff/60000);
+                if (m < 1) return 'just now';
+                if (m < 60) return `${m}m ago`;
+                const h = Math.floor(m/60);
+                if (h < 24) return `${h}h ago`;
+                const days = Math.floor(h/24);
+                if (days < 30) return `${days}d ago`;
+                return new Date(iso).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'});
+            };
+
+            const statuses = ['Open','New','Waiting','Assigned','In Progress','Pending Approval','Resolved','Closed'];
+
+            return (
+                <main style={{flex:1,overflowY:'auto',padding:'24px',background:pageBg}}>
+                    {/* Header */}
+                    <div style={{marginBottom:24}}>
+                        <h1 style={{fontSize:22,fontWeight:700,color:textP,margin:0}}>📜 Ticket Log</h1>
+                        <p style={{fontSize:13,color:textM,marginTop:4}}>Full lifecycle audit of every ticket — phase by phase, event by event.</p>
+                    </div>
+
+                    <div style={{display:'flex',gap:16,height:'calc(100vh - 160px)'}}>
+                        {/* ── Left panel: ticket list ── */}
+                        <div style={{width:320,flexShrink:0,display:'flex',flexDirection:'column',gap:8}}>
+                            {/* Search */}
+                            <input
+                                value={search} onChange={e=>setSearch(e.target.value)}
+                                placeholder="Search by title, #, requester, assignee…"
+                                style={{width:'100%',border:`1px solid ${borderC}`,borderRadius:10,padding:'9px 12px',
+                                    fontSize:13,background:cardBg,color:textP,outline:'none',boxSizing:'border-box'}}
+                            />
+
+                            {/* Filter panel */}
+                            <div style={{background:cardBg,border:`1px solid ${borderC}`,borderRadius:12,padding:'12px',display:'flex',flexDirection:'column',gap:8}}>
+                                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                                    <span style={{fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:textM}}>🔍 Filters</span>
+                                    {hasActiveFilters && (
+                                        <button onClick={clearFilters}
+                                            style={{fontSize:11,color:'#6366F1',background:'none',border:'none',cursor:'pointer',padding:0,fontWeight:600}}>
+                                            Clear all
+                                        </button>
+                                    )}
+                                </div>
+
+                                {/* Status */}
+                                <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}
+                                    style={{width:'100%',border:`1px solid ${borderC}`,borderRadius:8,padding:'7px 10px',
+                                        fontSize:12,background:dm?'rgba(8,16,36,0.5)':'#F8FAFF',color:textM,outline:'none',boxSizing:'border-box'}}>
+                                    <option value="">All Statuses</option>
+                                    {statuses.map(s=><option key={s} value={s}>{s}</option>)}
+                                </select>
+
+                                {/* Priority */}
+                                <select value={priorityFilter} onChange={e=>setPriorityFilter(e.target.value)}
+                                    style={{width:'100%',border:`1px solid ${priorityFilter?'#6366F1':borderC}`,borderRadius:8,padding:'7px 10px',
+                                        fontSize:12,background:dm?'rgba(8,16,36,0.5)':'#F8FAFF',color:textM,outline:'none',boxSizing:'border-box'}}>
+                                    <option value="">All Priorities</option>
+                                    {uniquePriorities.map(p=><option key={p.val} value={p.val}>{p.label}</option>)}
+                                </select>
+
+                                {/* Category */}
+                                <select value={categoryFilter} onChange={e=>setCategoryFilter(e.target.value)}
+                                    style={{width:'100%',border:`1px solid ${categoryFilter?'#6366F1':borderC}`,borderRadius:8,padding:'7px 10px',
+                                        fontSize:12,background:dm?'rgba(8,16,36,0.5)':'#F8FAFF',color:textM,outline:'none',boxSizing:'border-box'}}>
+                                    <option value="">All Categories</option>
+                                    {uniqueCategories.map(c=><option key={c.val} value={c.val}>{c.label}</option>)}
+                                </select>
+
+                                {/* Assignee */}
+                                <select value={assigneeFilter} onChange={e=>setAssigneeFilter(e.target.value)}
+                                    style={{width:'100%',border:`1px solid ${assigneeFilter?'#6366F1':borderC}`,borderRadius:8,padding:'7px 10px',
+                                        fontSize:12,background:dm?'rgba(8,16,36,0.5)':'#F8FAFF',color:textM,outline:'none',boxSizing:'border-box'}}>
+                                    <option value="">All Assignees</option>
+                                    {uniqueAssignees.map(a=><option key={a} value={a}>{a}</option>)}
+                                </select>
+
+                                {/* Date range */}
+                                <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                                    <div style={{flex:1}}>
+                                        <label style={{fontSize:10,color:textS,display:'block',marginBottom:3}}>From</label>
+                                        <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)}
+                                            style={{width:'100%',border:`1px solid ${dateFrom?'#6366F1':borderC}`,borderRadius:8,padding:'6px 8px',
+                                                fontSize:12,background:dm?'rgba(8,16,36,0.5)':'#F8FAFF',color:textP,outline:'none',boxSizing:'border-box',
+                                                colorScheme: dm?'dark':'light'}}/>
+                                    </div>
+                                    <div style={{flex:1}}>
+                                        <label style={{fontSize:10,color:textS,display:'block',marginBottom:3}}>To</label>
+                                        <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)}
+                                            style={{width:'100%',border:`1px solid ${dateTo?'#6366F1':borderC}`,borderRadius:8,padding:'6px 8px',
+                                                fontSize:12,background:dm?'rgba(8,16,36,0.5)':'#F8FAFF',color:textP,outline:'none',boxSizing:'border-box',
+                                                colorScheme: dm?'dark':'light'}}/>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Result count */}
+                            <div style={{fontSize:11,color:textM,paddingLeft:2}}>
+                                {loading ? 'Loading…' : `${filtered.length} ticket${filtered.length !== 1 ? 's' : ''}${hasActiveFilters ? ' matched' : ''}`}
+                            </div>
+
+                            {/* Ticket list */}
+                            <div style={{flex:1,overflowY:'auto',display:'flex',flexDirection:'column',gap:6}}>
+                                {loading ? (
+                                    <div style={{textAlign:'center',padding:32,color:textM,fontSize:13}}>Loading tickets…</div>
+                                ) : filtered.length === 0 ? (
+                                    <div style={{textAlign:'center',padding:32,color:textM,fontSize:13}}>No tickets found</div>
+                                ) : filtered.map(t => {
+                                    const isActive = selected && (selected._dbId||selected.id) === (t._dbId||t.id);
+                                    const sc = statusColor(t.status);
+                                    const sb = statusBg(t.status);
+                                    return (
+                                        <div key={t._dbId||t.id} onClick={()=>selectTicket(t)}
+                                            style={{padding:'10px 12px',borderRadius:10,cursor:'pointer',
+                                                background: isActive ? (dm?'rgba(99,102,241,0.18)':'#EEF2FF') : cardBg,
+                                                border:`1px solid ${isActive ? '#6366F1' : borderC}`,
+                                                transition:'all 0.15s'}}>
+                                            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:6}}>
+                                                <span style={{fontSize:11,fontWeight:700,color:'#6366F1'}}>{t.ticketNumber||`TKT-${String(t._dbId||t.id).padStart(6,'0')}`}</span>
+                                                <span style={{fontSize:10,fontWeight:600,padding:'2px 7px',borderRadius:20,
+                                                    background:sb,color:sc,whiteSpace:'nowrap'}}>{({'new':'New','waiting':'Waiting','assigned':'Assigned','open':'Open','in_progress':'In Progress','pending_approval':'Pending Approval','resolved':'Resolved','closed':'Closed'}[(t.status||'').toLowerCase()])||t.statusLabel||t.status||'Open'}</span>
+                                            </div>
+                                            <p style={{fontSize:12,fontWeight:600,color:textP,margin:'4px 0 2px',
+                                                overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'100%'}}>{t.title}</p>
+                                            <p style={{fontSize:11,color:textM,margin:0}}>
+                                                {t.requesterName||'—'} → {t.assigneeName||'Unassigned'}
+                                            </p>
+                                            <p style={{fontSize:10,color:textS,margin:'2px 0 0'}}>{fmtRelative(t.createdAt)}</p>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* ── Right panel: timeline ── */}
+                        <div style={{flex:1,overflowY:'auto',background:cardBg,borderRadius:14,border:`1px solid ${borderC}`,padding:0}}>
+                            {!selected ? (
+                                <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
+                                    height:'100%',gap:12,color:textM}}>
+                                    <span style={{fontSize:48}}>📜</span>
+                                    <p style={{fontSize:14,margin:0}}>Select a ticket to view its full log</p>
+                                </div>
+                            ) : logLoading ? (
+                                <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:textM,fontSize:14}}>
+                                    ⏳ Loading log…
+                                </div>
+                            ) : logError ? (
+                                <div style={{padding:24,color:'#EF4444',fontSize:13}}>{logError}</div>
+                            ) : logData ? (()=>{
+                                const { ticket, timeline } = logData;
+                                const reachedPhases = getReachedPhases(timeline, ticket);
+                                const sc = statusColor(ticket.status);
+                                const sb = statusBg(ticket.status);
+
+                                return (
+                                    <div>
+                                        {/* Ticket header */}
+                                        <div style={{padding:'20px 24px',borderBottom:`1px solid ${borderC}`}}>
+                                            <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12,marginBottom:8}}>
+                                                <div>
+                                                    <span style={{fontSize:11,fontWeight:700,color:'#6366F1',marginRight:8}}>{ticket.ticketNumber||`TKT-${String(ticket._dbId||ticket.id).padStart(6,'0')}`}</span>
+                                                    <span style={{fontSize:10,fontWeight:600,padding:'3px 9px',borderRadius:20,background:sb,color:sc}}>{ticket.status}</span>
+                                                </div>
+                                                {ticket.priorityLabel && (
+                                                    <span style={{fontSize:11,color:textM}}>🔥 {ticket.priorityLabel}</span>
+                                                )}
+                                            </div>
+                                            <h2 style={{fontSize:16,fontWeight:700,color:textP,margin:'0 0 6px'}}>{ticket.title}</h2>
+                                            <div style={{display:'flex',gap:16,flexWrap:'wrap',fontSize:11,color:textM}}>
+                                                <span>👤 Raised by: <strong>{ticket.requesterName||'—'}</strong></span>
+                                                <span>🛠 Assigned to: <strong>{ticket.assigneeName||'Unassigned'}</strong></span>
+                                                {ticket.categoryLabel && <span>🏷 {ticket.categoryLabel}</span>}
+                                                <span>📅 Created: <strong>{fmtTime(ticket.createdAt)}</strong></span>
+                                                {ticket.closedAt && <span>🔒 Closed: <strong>{fmtTime(ticket.closedAt)}</strong></span>}
+                                            </div>
+                                        </div>
+
+                                        {/* Phase tracker */}
+                                        <div style={{padding:'16px 24px',borderBottom:`1px solid ${borderC}`,background:dm?'rgba(8,16,36,0.4)':'#F8FAFF'}}>
+                                            <p style={{fontSize:10,fontWeight:700,letterSpacing:'0.08em',textTransform:'uppercase',color:textM,margin:'0 0 12px'}}>Lifecycle Phases</p>
+                                            <div style={{display:'flex',alignItems:'center',gap:0,flexWrap:'nowrap',overflowX:'auto'}}>
+                                                {PHASES.map((ph, i) => {
+                                                    const reached = reachedPhases.has(ph.key);
+                                                    const isCurrent = normStatus(ticket.status) === ph.key;
+                                                    return (
+                                                        <React.Fragment key={ph.key}>
+                                                            <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4,minWidth:70}}>
+                                                                <div style={{width:34,height:34,borderRadius:'50%',display:'flex',alignItems:'center',
+                                                                    justifyContent:'center',fontSize:16,
+                                                                    background: isCurrent ? '#6366F1' : reached ? (dm?'rgba(16,185,129,0.2)':'#ECFDF5') : (dm?'rgba(255,255,255,0.05)':'#F1F5F9'),
+                                                                    border: isCurrent ? '2px solid #6366F1' : reached ? '2px solid #10B981' : `2px solid ${borderC}`,
+                                                                    boxShadow: isCurrent ? '0 0 0 3px rgba(99,102,241,0.25)' : 'none'}}>
+                                                                    {ph.icon}
+                                                                </div>
+                                                                <span style={{fontSize:10,fontWeight: isCurrent||reached ? 700 : 400,
+                                                                    color: isCurrent ? '#6366F1' : reached ? '#10B981' : textS,
+                                                                    whiteSpace:'nowrap'}}>{ph.label}</span>
+                                                            </div>
+                                                            {i < PHASES.length - 1 && (
+                                                                <div style={{flex:1,height:2,minWidth:16,
+                                                                    background: reachedPhases.has(PHASES[i+1].key) ? '#10B981' : (dm?'rgba(255,255,255,0.08)':'#E2E8F0'),
+                                                                    margin:'0 0 20px'}}/>
+                                                            )}
+                                                        </React.Fragment>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+
+                                        {/* Timeline entries */}
+                                        <div style={{padding:'20px 24px'}}>
+                                            <p style={{fontSize:10,fontWeight:700,letterSpacing:'0.08em',textTransform:'uppercase',color:textM,margin:'0 0 16px'}}>
+                                                Event Log — {timeline.length} event{timeline.length !== 1 ? 's' : ''}
+                                            </p>
+                                            {timeline.length === 0 ? (
+                                                <p style={{color:textM,fontSize:13}}>No events recorded yet.</p>
+                                            ) : (
+                                                <div style={{position:'relative',paddingLeft:32}}>
+                                                    {/* Vertical line */}
+                                                    <div style={{position:'absolute',left:11,top:0,bottom:0,width:2,
+                                                        background:dm?'rgba(99,102,241,0.15)':'#E8ECFF',borderRadius:2}}/>
+
+                                                    {timeline.map((entry, idx) => {
+                                                        const cfg = entryConfig(entry);
+                                                        const desc = entryDesc(entry);
+                                                        const d = entry.details || {};
+                                                        const isLast = idx === timeline.length - 1;
+
+                                                        return (
+                                                            <div key={idx} style={{position:'relative',marginBottom: isLast?0:20}}>
+                                                                {/* Dot */}
+                                                                <div style={{position:'absolute',left:-32,top:3,width:24,height:24,borderRadius:'50%',
+                                                                    background:cfg.bg,border:`2px solid ${cfg.color}`,
+                                                                    display:'flex',alignItems:'center',justifyContent:'center',fontSize:11}}>
+                                                                    {cfg.icon}
+                                                                </div>
+
+                                                                {/* Card */}
+                                                                <div style={{background: dm?'rgba(15,23,42,0.6)':'#FAFBFF',
+                                                                    border:`1px solid ${borderC}`,borderRadius:10,padding:'10px 14px'}}>
+                                                                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8,marginBottom:4}}>
+                                                                        <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                                                                            <span style={{fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:20,
+                                                                                background:cfg.bg,color:cfg.color}}>{cfg.label}</span>
+                                                                            <span style={{fontSize:12,color:textP,fontWeight:500}}>{desc}</span>
+                                                                        </div>
+                                                                        <span style={{fontSize:10,color:textS,whiteSpace:'nowrap',flexShrink:0}} title={fmtTime(entry.at)}>
+                                                                            {fmtRelative(entry.at)}
+                                                                        </span>
+                                                                    </div>
+                                                                    <p style={{fontSize:10,color:textS,margin:0}}>{fmtTime(entry.at)}</p>
+
+                                                                    {/* Extra detail rows */}
+                                                                    {entry.type === 'comment' && d.text && (
+                                                                        <div style={{marginTop:6,padding:'6px 10px',background:dm?'rgba(255,255,255,0.03)':'#F8FAFC',
+                                                                            borderRadius:7,fontSize:12,color:textM,borderLeft:`3px solid ${cfg.color}`}}>
+                                                                            "{d.text}"
+                                                                            {d.isInternal && <span style={{fontSize:10,color:'#D97706',marginLeft:8}}>🔒 Internal</span>}
+                                                                        </div>
+                                                                    )}
+                                                                    {entry.type === 'approval' && d.comments && (
+                                                                        <div style={{marginTop:6,padding:'6px 10px',background:dm?'rgba(255,255,255,0.03)':'#F8FAFC',
+                                                                            borderRadius:7,fontSize:12,color:textM,borderLeft:`3px solid ${cfg.color}`}}>
+                                                                            "{d.comments}"
+                                                                        </div>
+                                                                    )}
+                                                                    {entry.action === 'extension_requested' && d.note && (
+                                                                        <div style={{marginTop:6,padding:'6px 10px',background:dm?'rgba(255,255,255,0.03)':'#F8FAFC',
+                                                                            borderRadius:7,fontSize:12,color:textM,borderLeft:`3px solid ${cfg.color}`}}>
+                                                                            Reason: "{d.note}"
+                                                                        </div>
+                                                                    )}
+                                                                    {entry.action === 'reopened' && d.justification && (
+                                                                        <div style={{marginTop:6,padding:'6px 10px',background:dm?'rgba(255,255,255,0.03)':'#F8FAFC',
+                                                                            borderRadius:7,fontSize:12,color:textM,borderLeft:`3px solid ${cfg.color}`}}>
+                                                                            Reason: "{d.justification}"
+                                                                        </div>
+                                                                    )}
+                                                                    {entry.type === 'approval' && d.round > 1 && (
+                                                                        <span style={{fontSize:10,color:'#D97706',marginTop:4,display:'block'}}>Round {d.round}</span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })() : null}
+                        </div>
+                    </div>
+                </main>
+            );
+        }
+
+        // Scheduled Reports Page
+        function ScheduledReportsPage() {
+            const dm = useDark();
+            const pageBg  = dm ? 'transparent' : '#F5F7FF';
+            const cardBg  = dm ? 'linear-gradient(155deg,rgba(17,30,58,0.97) 0%,rgba(8,16,36,0.99) 100%)' : 'white';
+            const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E2E8F2';
+            const textP   = dm ? '#f0f4ff' : '#0F172A';
+            const textM   = dm ? '#8fa4cc' : '#64748B';
+            const cu = React.useMemo(() => getSessionUser(), []);
+
+
+            // ── state ──────────────────────────────────────────────────────────
+            const [apiTickets,  setApiTickets]  = React.useState([]);
+            const [loading,     setLoading]     = React.useState(true);
+            const [exporting,   setExporting]   = React.useState(false);
+            const [sending,     setSending]     = React.useState(false);
+            const [toast,       setToast]       = React.useState(null);
+
+            // filters
+            const [reportType,     setReportType]     = React.useState('activity_log');
+            const [period,         setPeriod]         = React.useState('all_time');
+            const [dateFrom,       setDateFrom]       = React.useState('');
+            const [dateTo,         setDateTo]         = React.useState('');
+            const [categoryFilter, setCategoryFilter] = React.useState('all');
+            const [priorityFilter, setPriorityFilter] = React.useState('all');
+            const [emailTo,        setEmailTo]        = React.useState('');
+            const [emailSubject,   setEmailSubject]   = React.useState('');
+            // schedule modal
+            const [schedules,         setSchedules]         = React.useState([]);
+            const [showSchedModal,    setShowSchedModal]    = React.useState(false);
+            const [schedReportType,   setSchedReportType]   = React.useState('activity_log');
+            const [schedFreq,         setSchedFreq]         = React.useState('weekly');
+            const [schedDay,          setSchedDay]          = React.useState('Monday');
+            const [schedTime,         setSchedTime]         = React.useState('08:00');
+            const [schedEmail,        setSchedEmail]        = React.useState('');
+            const [schedPeriod,       setSchedPeriod]       = React.useState('last_30');
+            const [schedRecipients,   setSchedRecipients]   = React.useState([]);
+            const [allUsers,          setAllUsers]          = React.useState([]);
+
+            // ── fetch tickets — same scope logic as Dashboard ──────────────────
+            React.useEffect(() => {
+                const su  = getSessionUser();
+                const tsp = getTicketScopeParams(su);
+                const tp  = new URLSearchParams({ all: '1', limit: '2000' });
+                if (tsp.scope)  tp.set('scope',  tsp.scope);
+                if (tsp.userId) tp.set('userId', String(tsp.userId));
+                if (tsp.deptId) tp.set('deptId', String(tsp.deptId));
+                authFetch(`${HRMS_API}/tickets?${tp}`)
+                    .then(r => r.ok ? r.json() : {tickets:[]})
+                    .then(d => setApiTickets(Array.isArray(d.tickets) ? d.tickets : []))
+                    .catch(() => setApiTickets([]))
+                    .finally(() => setLoading(false));
+            }, []);
+
+            // ── load schedules + users from backend ────────────────────────────
+            React.useEffect(() => {
+                authFetch(`${HRMS_API}/schedules`)
+                    .then(r => r.ok ? r.json() : { schedules: [] })
+                    .then(d => setSchedules(Array.isArray(d.schedules) ? d.schedules : []))
+                    .catch(() => {});
+                authFetch(`${HRMS_API}/users`)
+                    .then(r => r.ok ? r.json() : { users: [] })
+                    .then(d => setAllUsers(Array.isArray(d.users) ? d.users : []))
+                    .catch(() => {});
+            }, []);
+
+            // ── All tickets — normalize API field names for reports ───────────
+            const allTickets = React.useMemo(() => {
+                // API returns lowercase status ('open','in_progress','resolved','closed').
+                // Report builder checks Title Case, so normalise here once.
+                const STATUS_LABELS = {
+                    'open':'Open', 'new':'New', 'assigned':'Assigned',
+                    'in_progress':'In Progress', 'resolved':'Resolved', 'closed':'Closed',
+                    'escalated':'Escalated', 'pending_approval':'Pending Approval', 'waiting':'Waiting',
+                };
+                return apiTickets.map(t => ({
+                    ...t,
+                    _source: 'api',
+                    // normalise status to Title Case
+                    status: STATUS_LABELS[(t.status||'').toLowerCase()] || t.status || '',
+                    // use label fields (populated by backend join), fall back to raw IDs
+                    priority:       t.priorityLabel || t.priority_label || String(t.priority || ''),
+                    category:       t.categoryLabel || t.category_label || t.category_name || String(t.category || ''),
+                    // consistent name fields
+                    assigneeName:   t.assigneeName  || t.assigned_to_name || '',
+                    departmentName: t.departmentName || t.department_name  || '',
+                    createdByName:  t.requesterName  || t.requester_name   || t.createdByName || '',
+                }));
+            }, [apiTickets]);
+
+            // ── dynamic categories from actual data ────────────────────────────
+            const dynamicCategories = React.useMemo(() => {
+                const cats = new Set();
+                allTickets.forEach(t => { if (t.category) cats.add(t.category); });
+                return ['all', ...Array.from(cats).sort()];
+            }, [allTickets]);
+
+            // ── dynamic priorities from actual data ───────────────────────────
+            const dynamicPriorities = React.useMemo(() => {
+                const pri = new Set();
+                allTickets.forEach(t => { if (t.priority) pri.add(t.priority); });
+                // Sort by severity order if known, else alphabetically
+                const order = ['critical','urgent','high','medium','low'];
+                const sorted = Array.from(pri).sort((a,b) => {
+                    const ai = order.indexOf((a+'').toLowerCase());
+                    const bi = order.indexOf((b+'').toLowerCase());
+                    if (ai === -1 && bi === -1) return (a+'').localeCompare(b+'');
+                    if (ai === -1) return 1;
+                    if (bi === -1) return -1;
+                    return ai - bi;
+                });
+                return ['all', ...sorted];
+            }, [allTickets]);
+
+            const showToast = (msg, type='success') => {
+                setToast({msg, type});
+                setTimeout(() => setToast(null), 4000);
+            };
+
+            // ── date filter ────────────────────────────────────────────────────
+            const getDateRange = () => {
+                if (period === 'all_time') return { from: null, to: null };
+                if (period === 'custom')   return { from: dateFrom ? new Date(dateFrom+'T00:00:00') : null, to: dateTo ? new Date(dateTo+'T23:59:59') : null };
+                const now = new Date();
+                const to  = new Date(now); to.setHours(23,59,59,999);
+                const from = new Date(now);
+                if (period === 'today')     from.setHours(0,0,0,0);
+                else if (period === 'last_7')   from.setDate(from.getDate()-7);
+                else if (period === 'last_30')  from.setDate(from.getDate()-30);
+                else if (period === 'last_90')  from.setDate(from.getDate()-90);
+                else if (period === 'last_6m')  from.setMonth(from.getMonth()-6);
+                else if (period === 'last_year')from.setFullYear(from.getFullYear()-1);
+                return { from, to };
+            };
+
+            const applyFilters = (tickets) => {
+                const { from, to } = getDateRange();
+                let result = tickets;
+                // date filter
+                if (from || to) {
+                    result = result.filter(t => {
+                        const d = new Date(t.createdAt || t.created_at || 0);
+                        if (isNaN(d)) return true;
+                        if (from && d < from) return false;
+                        if (to   && d > to)   return false;
+                        return true;
+                    });
+                }
+                // category filter
+                if (categoryFilter !== 'all') {
+                    result = result.filter(t => (t.category||'').toLowerCase() === categoryFilter.toLowerCase());
+                }
+                // priority filter
+                if (priorityFilter !== 'all') {
+                    result = result.filter(t => (t.priority||'').toLowerCase() === priorityFilter.toLowerCase());
+                }
+                return result;
+            };
+
+            // ── report type definitions ────────────────────────────────────────
+            const REPORT_GROUPS = [
+                { group:'General', types:[
+                    { id:'activity_log',      label:'Activity Log',         icon:'📋' },
+                    { id:'open_aging',        label:'Open Tickets Aging',   icon:'🕐' },
+                    { id:'monthly_trend',     label:'Monthly Trend',        icon:'📈' },
+                ]},
+                { group:'Status & Priority', types:[
+                    { id:'overdue_tickets',   label:'Overdue Tickets',      icon:'⚠️'  },
+                    { id:'critical_urgent',   label:'Critical & Urgent',    icon:'🚨' },
+                    { id:'unassigned',        label:'Unassigned Tickets',   icon:'👤' },
+                    { id:'pending_approval',  label:'Pending Approval',     icon:'⏳' },
+                    { id:'escalated',         label:'Escalation Report',    icon:'⬆️'  },
+                    { id:'resolved_period',   label:'Resolved This Period', icon:'✔️'  },
+                ]},
+                { group:'Performance & SLA', types:[
+                    { id:'staff_performance', label:'Staff Performance',    icon:'⭐' },
+                    { id:'sla_compliance',    label:'SLA Compliance',       icon:'✅' },
+                    { id:'resolution_time',   label:'Resolution Time',      icon:'⏱️'  },
+                    { id:'team_comparison',   label:'Team Comparison',      icon:'🔄' },
+                    { id:'priority_analysis', label:'Priority Analysis',    icon:'🎯' },
+                ]},
+                { group:'Category Reports', types:[
+                    { id:'category_breakdown',label:'Category Breakdown',   icon:'📂' },
+                    { id:'ndis_compliance',   label:'NDIS Compliance',      icon:'🏥' },
+                    { id:'client_issues',     label:'Client Issues',        icon:'👥' },
+                    { id:'hr_issues',         label:'HR Issues',            icon:'👔' },
+                    { id:'safety_incidents',  label:'Safety & Incidents',   icon:'🦺' },
+                    { id:'equipment_issues',  label:'Equipment Issues',     icon:'🔧' },
+                    { id:'cleaning_quality',  label:'Cleaning Quality',     icon:'🧹' },
+                    { id:'account_finance',   label:'Account & Finance',    icon:'💰' },
+                ]},
+            ];
+            const REPORT_TYPES = REPORT_GROUPS.flatMap(g => g.types);
+
+            // ── build report rows ──────────────────────────────────────────────
+            const buildReport = (overrideType) => {
+                const rType = overrideType || reportType;
+                const filtered = applyFilters(allTickets);
+                const now = new Date();
+
+                const isOD  = t => !['Resolved','Closed'].includes(t.status) && t.dueAt && new Date(t.dueAt) < now;
+                const ageDays = t => { const d = new Date(t.createdAt||t.created_at||now); return isNaN(d)?0:Math.ceil((now-d)/86400000); };
+                const resDays = t => (t.resolvedAt && (t.createdAt||t.created_at))
+                    ? Math.ceil((new Date(t.resolvedAt)-new Date(t.createdAt||t.created_at))/86400000) : null;
+
+                const baseH = ['Ticket ID','Title','Status','Priority','Category','Assignee','Department','Created Date','Due Date','Resolved Date'];
+                const baseR = t => [
+                    t.ticketNumber||t.id||'',
+                    t.title||'',
+                    t.status||'',
+                    t.priority||'',
+                    t.category||'',
+                    t.assigneeName||t.assigned_to_name||'',
+                    t.departmentName||t.department_name||'',
+                    t.createdAt ? new Date(t.createdAt).toLocaleDateString('en-AU') : '',
+                    t.dueAt    ? new Date(t.dueAt).toLocaleDateString('en-AU')    : '',
+                    t.resolvedAt ? new Date(t.resolvedAt).toLocaleDateString('en-AU') : '',
+                ];
+
+                if (rType === 'activity_log') {
+                    return { title:'Activity Log', headers:[...baseH,'Created By','Last Updated','Age (days)'],
+                        rows: filtered.map(t=>[...baseR(t), t.createdByName||t.created_by_name||'', t.updatedAt?new Date(t.updatedAt).toLocaleDateString('en-AU'):'', ageDays(t)]) };
+                }
+                if (rType === 'open_aging') {
+                    const open = filtered.filter(t=>!['Resolved','Closed'].includes(t.status));
+                    const bracket = d => d<=3?'0–3 days':d<=7?'4–7 days':d<=14?'8–14 days':d<=30?'15–30 days':'30+ days';
+                    return { title:'Open Tickets Aging', headers:['Ticket ID','Title','Status','Priority','Category','Assignee','Department','Created Date','Due Date','Age (days)','Age Bracket','Overdue'],
+                        rows: open.map(t=>{ const d=ageDays(t); return [t.ticketNumber||t.id||'',t.title||'',t.status||'',t.priority||'',t.category||'',t.assigneeName||t.assigned_to_name||'',t.departmentName||t.department_name||'',t.createdAt?new Date(t.createdAt).toLocaleDateString('en-AU'):'',t.dueAt?new Date(t.dueAt).toLocaleDateString('en-AU'):'',d,bracket(d),isOD(t)?'Yes':'No']; }).sort((a,b)=>b[9]-a[9]) };
+                }
+                if (rType === 'monthly_trend') {
+                    const map = {};
+                    allTickets.forEach(t=>{ const d=new Date(t.createdAt||t.created_at); if(isNaN(d))return; const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; if(!map[k])map[k]={created:0,resolved:0,escalated:0,overdue:0}; map[k].created++; if(['Resolved','Closed'].includes(t.status))map[k].resolved++; if(t.isEscalated)map[k].escalated++; if(isOD(t))map[k].overdue++; });
+                    return { title:'Monthly Trend', headers:['Month','Total Created','Resolved','Escalated','Overdue','Resolution Rate %'],
+                        rows: Object.entries(map).sort().map(([m,v])=>[m,v.created,v.resolved,v.escalated,v.overdue,v.created>0?((v.resolved/v.created)*100).toFixed(1):'0.0']) };
+                }
+                if (rType === 'overdue_tickets') {
+                    const od = filtered.filter(isOD);
+                    return { title:'Overdue Tickets', headers:['Ticket ID','Title','Status','Priority','Category','Assignee','Department','Due Date','Days Overdue','Escalated'],
+                        rows: od.map(t=>{ const days=Math.ceil((now-new Date(t.dueAt))/86400000); return [t.ticketNumber||t.id||'',t.title||'',t.status||'',t.priority||'',t.category||'',t.assigneeName||t.assigned_to_name||'',t.departmentName||t.department_name||'',new Date(t.dueAt).toLocaleDateString('en-AU'),days,t.isEscalated?'Yes':'No']; }).sort((a,b)=>b[8]-a[8]) };
+                }
+                if (rType === 'critical_urgent') {
+                    const hi = filtered.filter(t=>['Critical','Urgent'].includes(t.priority));
+                    return { title:'Critical & Urgent Tickets', headers:[...baseH,'Age (days)','Overdue','Escalated'],
+                        rows: hi.map(t=>[...baseR(t),ageDays(t),isOD(t)?'Yes':'No',t.isEscalated?'Yes':'No']) };
+                }
+                if (rType === 'unassigned') {
+                    const ua = filtered.filter(t=>!t.assigneeName&&!t.assigned_to_name&&!['Resolved','Closed'].includes(t.status));
+                    return { title:'Unassigned Tickets', headers:['Ticket ID','Title','Status','Priority','Category','Department','Created Date','Due Date','Age (days)','Overdue'],
+                        rows: ua.map(t=>[t.ticketNumber||t.id||'',t.title||'',t.status||'',t.priority||'',t.category||'',t.departmentName||t.department_name||'',t.createdAt?new Date(t.createdAt).toLocaleDateString('en-AU'):'',t.dueAt?new Date(t.dueAt).toLocaleDateString('en-AU'):'',ageDays(t),isOD(t)?'Yes':'No']).sort((a,b)=>b[8]-a[8]) };
+                }
+                if (rType === 'pending_approval') {
+                    const pa = filtered.filter(t=>t.status==='Pending Approval');
+                    return { title:'Pending Approval', headers:[...baseH,'Created By','Age (days)'],
+                        rows: pa.map(t=>[...baseR(t),t.createdByName||t.created_by_name||'',ageDays(t)]) };
+                }
+                if (rType === 'escalated') {
+                    const esc = filtered.filter(t=>t.isEscalated||t.status==='Escalated');
+                    return { title:'Escalation Report', headers:[...baseH,'Escalated By','Escalation Reason','Age (days)'],
+                        rows: esc.map(t=>[...baseR(t),t.escalatedByName||'',t.escalationReason||t.escalate_reason||'',ageDays(t)]) };
+                }
+                if (rType === 'resolved_period') {
+                    const res = filtered.filter(t=>['Resolved','Closed'].includes(t.status));
+                    return { title:'Resolved This Period', headers:[...baseH,'Created By','Resolution Days','SLA Met'],
+                        rows: res.map(t=>{ const rd=resDays(t); const due=t.dueAt?new Date(t.dueAt):null; const resDate=t.resolvedAt?new Date(t.resolvedAt):null; return [...baseR(t),t.createdByName||t.created_by_name||'',rd!==null?rd:'N/A',due&&resDate?(resDate<=due?'Yes':'No'):'N/A']; }) };
+                }
+                if (rType === 'staff_performance') {
+                    const map = {};
+                    filtered.forEach(t=>{ const n=t.assigneeName||t.assigned_to_name||'Unassigned'; if(!map[n])map[n]={dept:t.departmentName||t.department_name||'',total:0,resolved:0,inprog:0,pending:0,overdue:0,totalDays:0,resCnt:0}; map[n].total++; if(['Resolved','Closed'].includes(t.status)){map[n].resolved++;const rd=resDays(t);if(rd!==null){map[n].totalDays+=rd;map[n].resCnt++;}} if(t.status==='In Progress')map[n].inprog++; if(t.status==='Pending Approval')map[n].pending++; if(isOD(t))map[n].overdue++; });
+                    return { title:'Staff Performance', headers:['Staff Member','Department','Total Assigned','Resolved','In Progress','Pending','Overdue','Resolution Rate %','Avg Resolution Days'],
+                        rows: Object.entries(map).sort((a,b)=>b[1].total-a[1].total).map(([n,v])=>[n,v.dept,v.total,v.resolved,v.inprog,v.pending,v.overdue,v.total>0?((v.resolved/v.total)*100).toFixed(1):'0.0',v.resCnt>0?(v.totalDays/v.resCnt).toFixed(1):'N/A']) };
+                }
+                if (rType === 'sla_compliance') {
+                    const res = filtered.filter(t=>['Resolved','Closed'].includes(t.status));
+                    return { title:'SLA Compliance', headers:['Ticket ID','Title','Category','Priority','Due Date','Resolved Date','SLA Status','Days Difference','Assignee','Department'],
+                        rows: res.map(t=>{ const due=t.dueAt?new Date(t.dueAt):null; const resDate=t.resolvedAt?new Date(t.resolvedAt):null; const diff=due&&resDate?Math.ceil((resDate-due)/86400000):null; return [t.ticketNumber||t.id||'',t.title||'',t.category||'',t.priority||'',due?due.toLocaleDateString('en-AU'):'',resDate?resDate.toLocaleDateString('en-AU'):'',due&&resDate?(resDate<=due?'On Time':'Breached'):'N/A',diff!==null?diff:'N/A',t.assigneeName||t.assigned_to_name||'',t.departmentName||t.department_name||'']; }) };
+                }
+                if (rType === 'resolution_time') {
+                    const map = {};
+                    filtered.filter(t=>['Resolved','Closed'].includes(t.status)&&resDays(t)!==null).forEach(t=>{ const k=`${t.category||'Unknown'}|||${t.priority||'Unknown'}`; if(!map[k])map[k]={cat:t.category||'Unknown',pri:t.priority||'Unknown',count:0,total:0,min:9999,max:0}; const d=resDays(t); map[k].count++;map[k].total+=d;if(d<map[k].min)map[k].min=d;if(d>map[k].max)map[k].max=d; });
+                    return { title:'Resolution Time Analysis', headers:['Category','Priority','Resolved Count','Avg Days','Min Days','Max Days'],
+                        rows: Object.values(map).sort((a,b)=>(b.total/b.count)-(a.total/a.count)).map(v=>[v.cat,v.pri,v.count,(v.total/v.count).toFixed(1),v.min,v.max]) };
+                }
+                if (rType === 'team_comparison') {
+                    const map = {};
+                    filtered.forEach(t=>{ const d=t.departmentName||t.department_name||'Unknown'; if(!map[d])map[d]={total:0,open:0,resolved:0,escalated:0,overdue:0,pending:0,totalDays:0,resCnt:0}; map[d].total++; if(['New','Open','Assigned','In Progress'].includes(t.status))map[d].open++; if(['Resolved','Closed'].includes(t.status)){map[d].resolved++;const rd=resDays(t);if(rd!==null){map[d].totalDays+=rd;map[d].resCnt++;}} if(t.isEscalated)map[d].escalated++; if(isOD(t))map[d].overdue++; if(t.status==='Pending Approval')map[d].pending++; });
+                    return { title:'Team Comparison', headers:['Department','Total','Open','Resolved','Escalated','Overdue','Pending Approval','Resolution Rate %','Avg Resolution Days'],
+                        rows: Object.entries(map).sort((a,b)=>b[1].total-a[1].total).map(([d,v])=>[d,v.total,v.open,v.resolved,v.escalated,v.overdue,v.pending,v.total>0?((v.resolved/v.total)*100).toFixed(1):'0.0',v.resCnt>0?(v.totalDays/v.resCnt).toFixed(1):'N/A']) };
+                }
+                if (rType === 'priority_analysis') {
+                    const map = {};
+                    filtered.forEach(t=>{ const p=t.priority||'Unknown'; if(!map[p])map[p]={total:0,open:0,resolved:0,overdue:0,escalated:0,totalDays:0,resCnt:0}; map[p].total++; if(!['Resolved','Closed'].includes(t.status))map[p].open++; if(['Resolved','Closed'].includes(t.status)){map[p].resolved++;const rd=resDays(t);if(rd!==null){map[p].totalDays+=rd;map[p].resCnt++;}} if(isOD(t))map[p].overdue++; if(t.isEscalated)map[p].escalated++; });
+                    return { title:'Priority Analysis', headers:['Priority','Total','Open','Resolved','Overdue','Escalated','Resolution Rate %','Avg Resolution Days'],
+                        rows: ['Critical','Urgent','High','Medium','Low','Unknown'].filter(p=>map[p]).map(p=>{ const v=map[p]; return [p,v.total,v.open,v.resolved,v.overdue,v.escalated,v.total>0?((v.resolved/v.total)*100).toFixed(1):'0.0',v.resCnt>0?(v.totalDays/v.resCnt).toFixed(1):'N/A']; }) };
+                }
+                if (rType === 'category_breakdown') {
+                    const map = {};
+                    filtered.forEach(t=>{ const c=t.category||'Uncategorised'; if(!map[c])map[c]={total:0,open:0,resolved:0,overdue:0,escalated:0,critical:0,pending:0}; map[c].total++; if(['New','Open','Assigned','In Progress'].includes(t.status))map[c].open++; if(['Resolved','Closed'].includes(t.status))map[c].resolved++; if(isOD(t))map[c].overdue++; if(t.isEscalated)map[c].escalated++; if(['Critical','Urgent'].includes(t.priority))map[c].critical++; if(t.status==='Pending Approval')map[c].pending++; });
+                    return { title:'Category Breakdown', headers:['Category','Total','Open','Resolved','Overdue','Escalated','Critical/Urgent','Pending Approval','Resolution Rate %'],
+                        rows: Object.entries(map).sort((a,b)=>b[1].total-a[1].total).map(([c,v])=>[c,v.total,v.open,v.resolved,v.overdue,v.escalated,v.critical,v.pending,v.total>0?((v.resolved/v.total)*100).toFixed(1):'0.0']) };
+                }
+                // Category-specific reports
+                const CAT_MATCH = {
+                    ndis_compliance:  { label:'NDIS Compliance',    fn: t=>(t.category||'').toLowerCase().includes('ndis') },
+                    client_issues:    { label:'Client Issues',      fn: t=>(t.category||'').toLowerCase().includes('client') },
+                    hr_issues:        { label:'HR Issues',          fn: t=>(t.category||'').toLowerCase().includes('hr') },
+                    safety_incidents: { label:'Safety & Incidents', fn: t=>(t.category||'').toLowerCase().includes('safety')||(t.category||'').toLowerCase().includes('incident') },
+                    equipment_issues: { label:'Equipment Issues',   fn: t=>(t.category||'').toLowerCase().includes('equipment') },
+                    cleaning_quality: { label:'Cleaning Quality',   fn: t=>(t.category||'').toLowerCase().includes('cleaning') },
+                    account_finance:  { label:'Account & Finance',  fn: t=>(t.category||'').toLowerCase().includes('account')||(t.category||'').toLowerCase().includes('financ')||(t.category||'').toLowerCase().includes('billing') },
+                };
+                if (CAT_MATCH[rType]) {
+                    const { label, fn } = CAT_MATCH[rType];
+                    const subset = filtered.filter(fn);
+                    return { title: label, headers:[...baseH,'Created By','Age (days)','Overdue','SLA Met'],
+                        rows: subset.map(t=>{ const due=t.dueAt?new Date(t.dueAt):null; const resDate=t.resolvedAt?new Date(t.resolvedAt):null; return [...baseR(t),t.createdByName||t.created_by_name||'',ageDays(t),isOD(t)?'Yes':'No',due&&resDate?(resDate<=due?'Yes':'No'):'N/A']; }) };
+                }
+                return { title:'Report', headers:[], rows:[] };
+            };
+
+            // ── live preview ───────────────────────────────────────────────────
+            const preview = React.useMemo(() => buildReport(), [allTickets, reportType, period, dateFrom, dateTo, categoryFilter, priorityFilter]);
+
+            // ── XLSX export — SheetJS is lazy-loaded on first export click ────────
+            const handleExportXLSX = async () => {
+                // Load SheetJS dynamically only when export is actually triggered
+                if (typeof XLSX === 'undefined' && !window.XLSX) {
+                    try {
+                        await new Promise((resolve, reject) => {
+                            const s = document.createElement('script');
+                            s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+                            s.onload = resolve; s.onerror = reject;
+                            document.head.appendChild(s);
+                        });
+                    } catch(e) {
+                        showToast('Could not load export library — check your connection.', 'error');
+                        return;
+                    }
+                }
+                const XL = (typeof XLSX !== 'undefined' ? XLSX : null) || window.XLSX || null;
+                if (!XL) { showToast('SheetJS library not ready — please try again.', 'error'); return; }
+                setExporting(true);
+                try {
+                    const { title, headers, rows } = buildReport();
+                    if (!rows.length) { showToast('No records found — try "All Time" or a wider date range.', 'error'); setExporting(false); return; }
+                    const wb = XL.utils.book_new();
+                    const ws = XL.utils.aoa_to_sheet([headers, ...rows]);
+                    ws['!cols'] = headers.map(h => ({ wch: Math.max(String(h).length + 4, 14) }));
+                    XL.utils.book_append_sheet(wb, ws, title.substring(0,31));
+                    const sumWs = XL.utils.aoa_to_sheet([
+                        ['Report:',        title],
+                        ['Period:',        period === 'custom' ? `${dateFrom} to ${dateTo}` : period.replace(/_/g,' ')],
+                        ['Category:',      categoryFilter === 'all' ? 'All Categories' : categoryFilter],
+                        ['Priority:',      priorityFilter === 'all' ? 'All Priorities' : priorityFilter],
+                        ['Generated:',     new Date().toLocaleString('en-AU')],
+                        ['Generated By:',  cu ? cu.name : 'System'],
+                        ['Total Records:', rows.length],
+                    ]);
+                    sumWs['!cols'] = [{wch:18},{wch:40}];
+                    XL.utils.book_append_sheet(wb, sumWs, 'Summary');
+                    const fileName = `${title.replace(/[\s/]+/g,'_')}_${new Date().toISOString().slice(0,10)}.xlsx`;
+                    XL.writeFile(wb, fileName);
+                    showToast(`✅ ${fileName} downloaded — ${rows.length} records`);
+                } catch(e) {
+                    showToast('Export failed: ' + e.message, 'error');
+                } finally {
+                    setExporting(false);
+                }
+            };
+
+            // ── CSV export ─────────────────────────────────────────────────────
+            const handleExportCSV = () => {
+                const { title, headers, rows } = buildReport();
+                if (!rows.length) { showToast('No records found — try "All Time" or a wider date range.', 'error'); return; }
+                const esc = v => { const s = String(v ?? ''); return (s.includes(',') || s.includes('"') || s.includes('\n')) ? `"${s.replace(/"/g,'""')}"` : s; };
+                const csv = [headers, ...rows].map(r => r.map(esc).join(',')).join('\r\n');
+                const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+                const url  = URL.createObjectURL(blob);
+                const a    = Object.assign(document.createElement('a'), { href: url, download: `${title.replace(/[\s/]+/g,'_')}_${new Date().toISOString().slice(0,10)}.csv` });
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showToast(`✅ CSV downloaded — ${rows.length} records`);
+            };
+
+            // ── Send via Resend email API ──────────────────────────────────────
+            const handleSendEmail = async () => {
+                if (!emailTo.trim()) { showToast('Enter at least one recipient email.', 'error'); return; }
+                setSending(true);
+                try {
+                    const { title, headers, rows } = buildReport();
+                    const subject = emailSubject || `${title} — ${new Date().toLocaleDateString('en-AU')}`;
+                    const reportPayload = JSON.stringify({
+                        to: emailTo.split(',').map(e=>e.trim()).filter(Boolean),
+                        subject, reportTitle: title, period: period.replace(/_/g,' '),
+                        generatedBy: cu?.name || 'System', headers, rows,
+                    });
+                    const res = await authFetch(`${HRMS_API}/notifications/send-report-email`, {
+                        method: 'POST', body: reportPayload,
+                    });
+                    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error || 'Send failed'); }
+                    const data = await res.json();
+                    showToast(`✅ Report emailed to ${data.recipients?.join(', ')} (${data.count} records)`);
+                } catch(e) { showToast('Send failed: ' + e.message, 'error'); }
+                finally { setSending(false); }
+            };
+
+            // ── Export & Send ──────────────────────────────────────────────────
+            const handleExportAndSend = async () => {
+                await handleExportXLSX();
+                await handleSendEmail();
+            };
+
+            // ── Save schedule ──────────────────────────────────────────────────
+            const handleSaveSchedule = async () => {
+                if (!schedRecipients.length) { showToast('Select at least one recipient.', 'error'); return; }
+                const label = REPORT_TYPES.find(r=>r.id===schedReportType)?.label || schedReportType;
+                const freq = schedFreq === 'fortnightly' ? 'weekly' : schedFreq;
+                const body = { name: label, description: schedPeriod, frequency: freq,
+                    day_of_week: (schedFreq==='weekly'||schedFreq==='fortnightly') ? schedDay : undefined,
+                    time: schedTime, report_types: [schedReportType], recipient_ids: schedRecipients.map(Number) };
+                try {
+                    const r = await authFetch(`${HRMS_API}/schedules`, { method:'POST', body:JSON.stringify(body) });
+                    const data = await r.json();
+                    if (!r.ok) { showToast(data.message || 'Failed to save schedule.', 'error'); return; }
+                    setSchedules(prev => [data.schedule, ...prev]);
+                    setShowSchedModal(false); setSchedRecipients([]);
+                    showToast(`✅ Schedule saved — ${label} ${schedFreq}`);
+                } catch(e) { showToast('Error saving schedule.', 'error'); }
+            };
+
+            const deleteSchedule = async id => { const r=await authFetch(`${HRMS_API}/schedules/${id}`,{method:'DELETE'}); if(r.ok) setSchedules(p=>p.filter(s=>s.id!==id)); else showToast('Failed to delete schedule.','error'); };
+            const toggleSchedule = async id => { const sc=schedules.find(s=>s.id===id); if(!sc) return; const r=await authFetch(`${HRMS_API}/schedules/${id}`,{method:'PATCH',body:JSON.stringify({active:!sc.active})}); if(r.ok){const d=await r.json();setSchedules(p=>p.map(s=>s.id===id?d.schedule:s));} else showToast('Failed to update schedule.','error'); };
+            const sendScheduleNow = async id => { const r=await authFetch(`${HRMS_API}/schedules/${id}/send`,{method:'POST'}); const d=await r.json(); if(r.ok){setSchedules(p=>p.map(s=>s.id===id?d.schedule:s));showToast(`✅ Report sent to ${d.emailsSent} recipient(s)`);} else showToast(d.message||'Failed to send report.','error'); };
+
+            // ── UI helpers ─────────────────────────────────────────────────────
+            const PERIOD_OPTS = [
+                {v:'all_time',  l:'All Time (no filter)'},
+                {v:'today',     l:'Today'},
+                {v:'last_7',    l:'Last 7 days'},
+                {v:'last_30',   l:'Last 30 days'},
+                {v:'last_90',   l:'Last 90 days'},
+                {v:'last_6m',   l:'Last 6 months'},
+                {v:'last_year', l:'Last 12 months'},
+                {v:'custom',    l:'Custom date range'},
+            ];
+            const PRIORITY_OPTS = ['all','Critical','Urgent','High','Medium','Low'];
+            const FREQ_OPTS = ['daily','weekly','fortnightly','monthly'];
+            const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+
+            const s = {
+                card:    {background:cardBg, borderRadius:12, border:`1px solid ${borderC}`, padding:'20px', boxShadow:'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0  0 0 1px rgba(15,23,42,0.03)'},
+                lbl:     {display:'block', fontSize:11, fontWeight:700, color:textM, marginBottom:5, textTransform:'uppercase', letterSpacing:'0.06em'},
+                inp:     {width:'100%', border:`1px solid ${dm?'rgba(99,102,241,0.18)':'#CBD5E1'}`, borderRadius:8, padding:'8px 12px', fontSize:13, outline:'none', boxSizing:'border-box', color:textP, background:dm?'rgba(2,8,23,0.9)':'#FFFFFF'},
+                sel:     {width:'100%', border:`1px solid ${dm?'rgba(99,102,241,0.18)':'#CBD5E1'}`, borderRadius:8, padding:'8px 12px', fontSize:13, outline:'none', boxSizing:'border-box', color:textP, background:cardBg, cursor:'pointer'},
+                btnPri:  {padding:'10px 18px', background:'#4F46E5', color:'white', border:'none', borderRadius:8, fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6},
+                btnGrn:  {padding:'10px 18px', background:'#059669', color:'white', border:'none', borderRadius:8, fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6},
+                btnOut:  {padding:'10px 18px', background:cardBg, color:dm?'#c0cfec':'#334155', border:`1px solid ${dm?'rgba(99,102,241,0.18)':'#CBD5E1'}`, borderRadius:8, fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6},
+            };
+
+            if (loading) return (
+                <main style={{flex:1,overflow:'auto',background:dm?'rgba(4,8,20,0.6)':'#F8FAFF',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                    <div style={{textAlign:'center'}}>
+                        <div style={{width:40,height:40,border:'3px solid #E5E7EB',borderTopColor:'#4F46E5',borderRadius:'50%',animation:'spin 0.8s linear infinite',margin:'0 auto 12px'}}/>
+                        <p style={{color:textM,fontSize:14}}>Loading report data…</p>
+                    </div>
+                </main>
+            );
+
+            return (
+                <main style={{flex:1,overflow:'auto',background:dm?'rgba(4,8,20,0.6)':'#F8FAFF'}}>
+                    {/* Toast */}
+                    {toast && (
+                        <div style={{position:'fixed',top:68,right:20,zIndex:999,background:toast.type==='error'?'#FEF2F2':'#F0FDF4',border:`1px solid ${toast.type==='error'?'#FECACA':'#BBF7D0'}`,color:toast.type==='error'?'#DC2626':'#166534',padding:'11px 18px',borderRadius:10,fontSize:13,fontWeight:600,boxShadow:'0 4px 16px rgba(0,0,0,0.12)',maxWidth:400}}>
+                            {toast.msg}
+                        </div>
+                    )}
+
+                    <div style={{maxWidth:1200,margin:'0 auto',padding:'24px 20px'}}>
+                        {/* Page header */}
+                        <div style={{marginBottom:20,display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:12}}>
+                            <div>
+                                <h1 style={{fontSize:22,fontWeight:800,color:textP,marginBottom:2}}>📊 Reports</h1>
+                                <p style={{fontSize:13,color:textM}}>
+                                    {loading ? 'Loading...' : `${allTickets.length} tickets from live data`}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* ── Filters row ── */}
+                        <div style={{...s.card, marginBottom:16}}>
+                            <p style={{fontSize:12,fontWeight:700,color:dm?'#c0cfec':'#334155',marginBottom:12}}>🔍 Filters — applied to all exports</p>
+                            <div style={{display:'grid',gridTemplateColumns:period==='custom'?'2fr 1fr 1fr 1fr 1fr':'2fr 1fr 1fr',gap:12,alignItems:'end'}}>
+                                {/* Period */}
+                                <div>
+                                    <span style={s.lbl}>Time Period</span>
+                                    <select value={period} onChange={e=>{setPeriod(e.target.value);if(e.target.value!=='custom'){setDateFrom('');setDateTo('');}}} style={s.sel}>
+                                        {PERIOD_OPTS.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
+                                    </select>
+                                </div>
+                                {/* Date From / To — only when custom */}
+                                {period==='custom'&&<div>
+                                    <span style={s.lbl}>From Date</span>
+                                    <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)} style={s.inp}/>
+                                </div>}
+                                {period==='custom'&&<div>
+                                    <span style={s.lbl}>To Date</span>
+                                    <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)} style={s.inp}/>
+                                </div>}
+                                {/* Category */}
+                                <div>
+                                    <span style={s.lbl}>Category</span>
+                                    <select value={categoryFilter} onChange={e=>setCategoryFilter(e.target.value)} style={s.sel}>
+                                        {dynamicCategories.map(c=><option key={c} value={c}>{c==='all'?'All Categories':c}</option>)}
+                                    </select>
+                                </div>
+                                {/* Priority */}
+                                <div>
+                                    <span style={s.lbl}>Priority</span>
+                                    <select value={priorityFilter} onChange={e=>setPriorityFilter(e.target.value)} style={s.sel}>
+                                        {dynamicPriorities.map(p=><option key={p} value={p}>{p==='all'?'All Priorities':p}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                            {/* Active filter chips */}
+                            <div style={{marginTop:10,display:'flex',gap:6,flexWrap:'wrap'}}>
+                                {period!=='all_time'&&<span style={{fontSize:11,background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:'#4F46E5',padding:'3px 10px',borderRadius:20,fontWeight:600}}>📅 {PERIOD_OPTS.find(o=>o.v===period)?.l||period}</span>}
+                                {categoryFilter!=='all'&&<span style={{fontSize:11,background:'#F0FDF4',color:'#166534',padding:'3px 10px',borderRadius:20,fontWeight:600}}>📂 {categoryFilter}</span>}
+                                {priorityFilter!=='all'&&<span style={{fontSize:11,background:dm?'rgba(249,115,22,0.15)':'#FFF7ED',color:dm?'#fdba74':'#C2410C',padding:'3px 10px',borderRadius:20,fontWeight:600}}>🎯 {priorityFilter}</span>}
+                                <span style={{fontSize:11,background:dm?'rgba(4,8,20,0.6)':'#F8FAFF',color:textM,padding:'3px 10px',borderRadius:20,fontWeight:600}}>{preview.rows.length} records match</span>
+                            </div>
+                        </div>
+
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}>
+                            {/* ── LEFT: Report type selector ── */}
+                            <div style={s.card}>
+                                <p style={{fontSize:13,fontWeight:700,color:textP,marginBottom:14}}>📋 Report Type</p>
+                                <div style={{display:'flex',flexDirection:'column',gap:12,maxHeight:480,overflowY:'auto',paddingRight:4}}>
+                                    {REPORT_GROUPS.map(g=>(
+                                        <div key={g.group}>
+                                            <p style={{fontSize:10,fontWeight:700,color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:6}}>{g.group}</p>
+                                            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:5}}>
+                                                {g.types.map(r=>(
+                                                    <button key={r.id} onClick={()=>setReportType(r.id)} style={{padding:'8px 10px',borderRadius:8,border:`2px solid ${reportType===r.id?'#4F46E5':'#E5E7EB'}`,background:reportType===r.id?'#EEF2FF':'white',cursor:'pointer',textAlign:'left',transition:'all 0.12s'}}>
+                                                        <span style={{fontSize:13}}>{r.icon}</span>
+                                                        <span style={{display:'block',fontSize:11,fontWeight:700,color:reportType===r.id?'#4F46E5':(dm?'#f0f4ff':'#0F172A'),marginTop:2,lineHeight:1.3}}>{r.label}</span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* ── RIGHT: Export + Email ── */}
+                            <div style={{display:'flex',flexDirection:'column',gap:14}}>
+                                {/* Selected report info */}
+                                <div style={{...s.card,background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',border:'2px solid #C7D2FE'}}>
+                                    <p style={{fontSize:13,fontWeight:700,color:'#4338CA'}}>
+                                        {REPORT_TYPES.find(r=>r.id===reportType)?.icon} {REPORT_TYPES.find(r=>r.id===reportType)?.label}
+                                    </p>
+                                    <p style={{fontSize:22,fontWeight:800,color:textP,marginTop:4}}>{preview.rows.length} <span style={{fontSize:13,fontWeight:500,color:textM}}>records ready to export</span></p>
+                                    {preview.rows.length===0&&<p style={{fontSize:12,color:'#DC2626',marginTop:4}}>⚠ No records match — try "All Time" or adjust your filters</p>}
+                                </div>
+
+                                {/* Export Only */}
+                                <div style={s.card}>
+                                    <p style={{fontSize:13,fontWeight:700,color:textP,marginBottom:12}}>📥 Export</p>
+                                    <div style={{display:'flex',gap:10}}>
+                                        <button onClick={handleExportXLSX} disabled={exporting} style={{...s.btnPri,flex:1,opacity:exporting?0.6:1}}>
+                                            <span>📊</span>{exporting?'Exporting…':'Excel (.xlsx)'}
+                                        </button>
+                                        <button onClick={handleExportCSV} style={{...s.btnPri,flex:1}}>
+                                            <span>📄</span>CSV (.csv)
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Email */}
+                                <div style={s.card}>
+                                    <p style={{fontSize:13,fontWeight:700,color:textP,marginBottom:12}}>📧 Email Report</p>
+                                    <div style={{marginBottom:10}}>
+                                        <span style={s.lbl}>Recipient(s)</span>
+                                        <input type="text" value={emailTo} onChange={e=>setEmailTo(e.target.value)} placeholder="email@company.com, another@co.com" style={s.inp}/>
+                                    </div>
+                                    <div style={{marginBottom:12}}>
+                                        <span style={s.lbl}>Subject (optional)</span>
+                                        <input type="text" value={emailSubject} onChange={e=>setEmailSubject(e.target.value)} placeholder={`${REPORT_TYPES.find(r=>r.id===reportType)?.label} — ${new Date().toLocaleDateString('en-AU')}`} style={s.inp}/>
+                                    </div>
+                                    <div style={{display:'flex',gap:8}}>
+                                        <button onClick={handleSendEmail} disabled={sending||!emailTo.trim()} style={{...s.btnPri,flex:1,opacity:(sending||!emailTo.trim())?0.6:1}}>
+                                            <span>📤</span>{sending?'Sending…':'Send Report'}
+                                        </button>
+                                        <button onClick={handleExportAndSend} disabled={exporting||sending||!emailTo.trim()} style={{...s.btnPri,flex:1,opacity:(exporting||sending||!emailTo.trim())?0.6:1}}>
+                                            <span>⚡</span>Export & Send
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Schedule */}
+                                <div style={s.card}>
+                                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+                                        <p style={{fontSize:13,fontWeight:700,color:textP}}>🕐 Schedules</p>
+                                        <button onClick={()=>{ setSchedReportType(reportType); setShowSchedModal(true); }} style={{...s.btnPri,padding:'6px 12px',fontSize:12}}>+ Add</button>
+                                    </div>
+                                    {schedules.length===0?(
+                                        <p style={{fontSize:12,color:dm?'#4a607f':'#94A3B8',textAlign:'center',padding:'12px 0'}}>No schedules yet — click + Add</p>
+                                    ):(
+                                        <div style={{display:'flex',flexDirection:'column',gap:7,maxHeight:200,overflowY:'auto'}}>
+                                            {schedules.map(sc=>(
+                                                <div key={sc.id} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 10px',borderRadius:8,background:sc.active?'#F0FDF4':'#F9FAFB',border:`1px solid ${sc.active?'#BBF7D0':'#E5E7EB'}`}}>
+                                                    <div style={{flex:1,minWidth:0}}>
+                                                        <p style={{fontSize:12,fontWeight:600,color:textP,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{sc.name}</p>
+                                                        <p style={{fontSize:11,color:textM}}>{sc.frequency==='daily'?'Daily':`Every ${sc.dayOfWeek}`} at {sc.time}{sc.lastSentAt?` · Sent ${new Date(sc.lastSentAt).toLocaleDateString('en-AU')}`:''}</p>
+                                                    </div>
+                                                    <button onClick={()=>sendScheduleNow(sc.id)} title="Send now" style={{fontSize:10,fontWeight:700,padding:'3px 8px',borderRadius:5,border:'none',cursor:'pointer',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:dm?'#a5b4fc':'#4F46E5'}}>▶</button>
+                                                    <button onClick={()=>toggleSchedule(sc.id)} style={{fontSize:10,fontWeight:700,padding:'3px 8px',borderRadius:5,border:'none',cursor:'pointer',background:sc.active?'#DCFCE7':(dm?'rgba(99,102,241,0.08)':'#EEF2F8'),color:sc.active?'#166534':(dm?'#8fa4cc':'#64748B')}}>{sc.active?'Active':'Paused'}</button>
+                                                    <button onClick={()=>deleteSchedule(sc.id)} style={{width:24,height:24,borderRadius:5,border:'none',cursor:'pointer',background:'#FEF2F2',color:'#DC2626',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center'}}>×</button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    {/* ── Schedule Modal ── */}
+                    {showSchedModal&&(
+                        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={()=>{setShowSchedModal(false);setSchedRecipients([]);}}>
+                            <div style={{background:cardBg,borderRadius:16,padding:28,width:480,maxWidth:'92vw',boxShadow:'0 20px 60px rgba(0,0,0,0.2)',maxHeight:'90vh',overflowY:'auto'}} onClick={e=>e.stopPropagation()}>
+                                <h3 style={{fontSize:16,fontWeight:700,color:textP,marginBottom:20}}>🕐 Schedule a Report</h3>
+
+                                <div style={{marginBottom:14}}>
+                                    <span style={s.lbl}>Report Type</span>
+                                    <select value={schedReportType} onChange={e=>setSchedReportType(e.target.value)} style={s.sel}>
+                                        {REPORT_GROUPS.map(g=>(
+                                            <optgroup key={g.group} label={g.group}>
+                                                {g.types.map(r=><option key={r.id} value={r.id}>{r.icon} {r.label}</option>)}
+                                            </optgroup>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div style={{marginBottom:14}}>
+                                    <span style={s.lbl}>Report Period</span>
+                                    <select value={schedPeriod} onChange={e=>setSchedPeriod(e.target.value)} style={s.sel}>
+                                        {PERIOD_OPTS.filter(o=>o.v!=='custom').map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
+                                    </select>
+                                </div>
+
+                                <div style={{marginBottom:14}}>
+                                    <span style={s.lbl}>Frequency</span>
+                                    <div style={{display:'flex',gap:8}}>
+                                        {FREQ_OPTS.map(f=>(
+                                            <button key={f} onClick={()=>setSchedFreq(f)} style={{flex:1,padding:'8px',borderRadius:8,border:`2px solid ${schedFreq===f?'#4F46E5':'#E5E7EB'}`,background:schedFreq===f?'#EEF2FF':(dm?'rgba(2,8,23,0.85)':'white'),cursor:'pointer',fontSize:12,fontWeight:700,color:schedFreq===f?'#4F46E5':(dm?'#c0cfec':'#334155'),textTransform:'capitalize'}}>
+                                                {f}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {(schedFreq==='weekly'||schedFreq==='fortnightly')&&(
+                                    <div style={{marginBottom:14}}>
+                                        <span style={s.lbl}>Day of Week</span>
+                                        <select value={schedDay} onChange={e=>setSchedDay(e.target.value)} style={s.sel}>
+                                            {DAYS.map(d=><option key={d} value={d}>{d}</option>)}
+                                        </select>
+                                    </div>
+                                )}
+
+                                <div style={{marginBottom:14}}>
+                                    <span style={s.lbl}>Send Time</span>
+                                    <input type="time" value={schedTime} onChange={e=>setSchedTime(e.target.value)} style={s.inp}/>
+                                </div>
+
+                                <div style={{marginBottom:20}}>
+                                    <span style={s.lbl}>Send To (select recipients)</span>
+                                    <select multiple value={schedRecipients} onChange={e=>setSchedRecipients(Array.from(e.target.selectedOptions,o=>o.value))} style={{...s.inp,height:84,padding:4}}>
+                                        {allUsers.map(u=><option key={u.id} value={String(u.id)}>{u.display_name||u.name||u.email}</option>)}
+                                    </select>
+                                    <p style={{fontSize:11,color:textM,marginTop:4}}>Hold Ctrl / ⌘ to select multiple</p>
+                                </div>
+
+                                <div style={{display:'flex',gap:10}}>
+                                    <button onClick={handleSaveSchedule} style={{...s.btnPri,flex:1}}>✅ Save Schedule</button>
+                                    <button onClick={()=>{setShowSchedModal(false);setSchedRecipients([]);}} style={{...s.btnOut,flex:1}}>Cancel</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </main>
+            );
+        }
+        // Main App
+        function App() {
+            const [currentPage, setCurrentPage] = React.useState(() => {
+                const hash = window.location.hash.slice(1) || 'dashboard';
+                return hash;
+            });
+            const [signedOut,   setSignedOut]   = React.useState(false);
+            const [authError,   setAuthError]   = React.useState(null);
+            const isMobile = () => window.innerWidth < 1024;
+            const [sidebarOpen, setSidebarOpen] = React.useState(() => !isMobile());
+            const [mobileOverlay, setMobileOverlay] = React.useState(false);
+
+            // Track viewport to toggle overlay mode
+            React.useEffect(() => {
+                const onResize = () => {
+                    if (!isMobile()) { setMobileOverlay(false); }
+                    else { setSidebarOpen(false); }
+                };
+                window.addEventListener('resize', onResize);
+                return () => window.removeEventListener('resize', onResize);
+            }, []);
+
+            // When sidebar opens on mobile, show overlay; on desktop keep inline
+            const handleSidebarToggle = () => {
+                if (isMobile()) {
+                    setMobileOverlay(o => !o);
+                } else {
+                    setSidebarOpen(o => !o);
+                }
+            };
+            const closeMobileNav = () => setMobileOverlay(false);
+            const [darkMode,    setDarkMode]    = React.useState(() => {
+                try { return localStorage.getItem('yc_dark') === '1'; } catch(e) { return false; }
+            });
+            const [currentUser, setCurrentUser] = React.useState(() => {
+                // Seed from sessionStorage — set by init script after Microsoft login redirect
+                try {
+                    const stored = sessionStorage.getItem('ms_current_user');
+                    return stored ? JSON.parse(stored) : null;
+                } catch(e) { return null; }
+            });
+
+            // Persist dark mode preference & apply to document
+            React.useEffect(() => {
+                try { localStorage.setItem('yc_dark', darkMode ? '1' : '0'); } catch(e) {}
+                document.documentElement.style.colorScheme = darkMode ? 'dark' : 'light';
+                // Toggle html.dark class — drives all CSS dark-mode overrides
+                document.documentElement.classList.toggle('dark', darkMode);
+                // Also toggle body class for Tailwind bg-gray-50
+                document.body.classList.toggle('bg-gray-900', darkMode);
+                document.body.classList.toggle('bg-gray-50', !darkMode);
+            }, [darkMode]);
+
+            // Show any error the backend passed back via ?error= after Microsoft login
+            React.useEffect(() => {
+                if (window.MicrosoftAuth.loginError) {
+                    const msgs = {
+                        not_authorized:    'Your Microsoft account is not authorised for this app. Contact your administrator.',
+                        disallowed_domain: 'Your email domain is not allowed. Contact your administrator.',
+                        account_inactive:  'Your account is inactive. Contact your administrator.',
+                        session_expired:   'Your session has expired. Please sign in again.',
+                    };
+                    setAuthError(msgs[window.MicrosoftAuth.loginError] || ('Sign-in error: ' + window.MicrosoftAuth.loginError));
+                    setSignedOut(true);
+                }
+            }, []);
+
+            React.useEffect(() => {
+                const handleHashChange = () => {
+                    const hash = window.location.hash.slice(1) || 'dashboard';
+                    setCurrentPage(hash);
+                };
+                window.addEventListener('hashchange', handleHashChange);
+                return () => window.removeEventListener('hashchange', handleHashChange);
+            }, []);
+
+            const handlePageChange = (pageId) => {
+                window.location.hash = pageId;
+            };
+
+            // Sign Out — revoke backend session, clear local state (does NOT sign out from Microsoft Entra)
+            const handleSignOut = () => {
+                const BACKEND = window.location.hostname === 'localhost' ? 'http://localhost:4001' : 'https://yahweahcare-tkt-mgmt-hx48.vercel.app';
+                fetch(BACKEND + '/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
+                try { sessionStorage.removeItem('ms_current_user'); } catch(e) {}
+                try { sessionStorage.clear(); } catch(e) {}
+                try { localStorage.removeItem('authToken'); } catch(e) {}
+                setCurrentUser(null);
+                window.location.hash = '';
+                setCurrentPage('dashboard');
+                setAuthError(null);
+                setSignedOut(true);
+            };
+
+            // ── Silent token refresh ─────────────────────────────────────────────
+            // Access token lives 15 minutes. Refresh every 13 min via cookie+Bearer.
+            // refreshAccessToken() also updates sessionStorage so Bearer header stays fresh.
+            React.useEffect(() => {
+                if (!currentUser) return;
+                refreshAccessToken(); // once immediately on login
+                const t = setInterval(refreshAccessToken, 13 * 60 * 1000);
+                return () => clearInterval(t);
+            }, [currentUser]);
+
+            // Sign Back In — redirect to backend which handles PKCE with Microsoft
+            const handleSignBackIn = () => {
+                setAuthError(null);
+                window.MicrosoftAuth.signIn();
+            };
+
+            // handleEmailLogin removed — Microsoft Entra is the only login method
+
+            // ── Service Worker + Web Push setup ──────────────────────
+            React.useEffect(() => {
+                if (!currentUser) return;
+                if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+                // Convert VAPID base64url public key → Uint8Array (required by PushManager.subscribe)
+                const urlBase64ToUint8Array = (b64) => {
+                    const pad = '='.repeat((4 - b64.length % 4) % 4);
+                    const base64 = (b64 + pad).replace(/-/g, '+').replace(/_/g, '/');
+                    const raw = atob(base64);
+                    const arr = new Uint8Array(raw.length);
+                    for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+                    return arr;
+                };
+
+                // Safe ArrayBuffer → base64 string
+                const bufToBase64 = (buf) => {
+                    const bytes = new Uint8Array(buf);
+                    let bin = '';
+                    for (let i = 0; i < bytes.byteLength; i++) bin += String.fromCharCode(bytes[i]);
+                    return btoa(bin);
+                };
+
+                const setupPush = async () => {
+                    try {
+                        // 1. Register service worker and wait until active
+                        const swReg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+                        await navigator.serviceWorker.ready;
+
+                        // 2. Get VAPID public key from backend (unauthenticated endpoint)
+                        const keyRes = await fetch(`${HRMS_API}/push/vapid-public-key`);
+                        if (!keyRes.ok) { console.warn('[push] VAPID endpoint error', keyRes.status); return; }
+                        const { publicKey } = await keyRes.json();
+                        if (!publicKey) { console.warn('[push] no VAPID public key configured'); return; }
+
+                        // 3. If already subscribed, re-register with backend and exit
+                        const existing = await swReg.pushManager.getSubscription();
+                        if (existing) {
+                            await authFetch(`${HRMS_API}/push/subscribe`, {
+                                method: 'POST',
+                                body: JSON.stringify({
+                                    endpoint: existing.endpoint,
+                                    keys: {
+                                        p256dh: bufToBase64(existing.getKey('p256dh')),
+                                        auth:   bufToBase64(existing.getKey('auth')),
+                                    },
+                                }),
+                            }).catch(() => {});
+                            return;
+                        }
+
+                        // 4. Request notification permission — skip silently if already denied
+                        if (Notification.permission === 'denied') return;
+                        const permission = await Notification.requestPermission();
+                        if (permission !== 'granted') return; // user dismissed or denied
+
+                        // 5. Subscribe — applicationServerKey MUST be Uint8Array, not a plain string
+                        const sub = await swReg.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: urlBase64ToUint8Array(publicKey),
+                        });
+
+                        // 6. Save subscription to backend
+                        const subJson = sub.toJSON();
+                        const saveRes = await authFetch(`${HRMS_API}/push/subscribe`, {
+                            method: 'POST',
+                            body: JSON.stringify({ endpoint: subJson.endpoint, keys: subJson.keys }),
+                        });
+                        if (saveRes.ok) console.info('[push] subscription registered ✓');
+                        else console.warn('[push] save failed', saveRes.status);
+
+                    } catch(err) {
+                        console.warn('[push] setup failed:', err);
+                    }
+                };
+
+                const t = setTimeout(setupPush, 1500);
+                return () => clearTimeout(t);
+            }, [currentUser]);
+
+            if (signedOut || !currentUser) {
+                return <SignedOutScreen onSignBackIn={handleSignBackIn} authError={authError} />;
+            }
+
+            const allowedPages = getAccessiblePages(currentUser);
+            const renderPage = () => {
+                // Block direct URL access to pages outside the user's role
+                if (!allowedPages.includes(currentPage)) return <Dashboard />;
+                switch (currentPage) {
+                    case 'dashboard': return <Dashboard />;
+                    case 'create-ticket': return <CreateTicket />;
+                    case 'tickets': return <TicketsPage />;
+                    case 'calendar': return <CalendarPage />;
+                    case 'analytics': return <AnalyticsPage />;
+                    case 'org-chart': return <OrgChartPage />;
+                    case 'staff-performance': return <StaffPerformancePage />;
+                    case 'team-comparison': return <TeamComparisonPage />;
+                    case 'staff-management': return <StaffManagementPage />;
+                    case 'ticket-log': return <TicketLogPage />;
+                    case 'scheduled-reports': return <ScheduledReportsPage />;
+                    default: return <Dashboard />;
+                }
+            };
+
+            const appBg = darkMode ? '#0F172A' : '#F9FAFB';
+
+            return (
+                <DarkModeContext.Provider value={darkMode}>
+                <div style={{display:'flex', height:'100vh', background:appBg, overflow:'hidden', position:'relative'}}>
+
+                    {/* Desktop inline sidebar */}
+                    {sidebarOpen && (
+                        <Navigation
+                            currentPage={currentPage}
+                            setCurrentPage={p => { handlePageChange(p); }}
+                            onSignOut={handleSignOut}
+                            currentUser={currentUser}
+                            darkMode={darkMode}
+                        />
+                    )}
+
+                    {/* Mobile/tablet overlay sidebar */}
+                    {mobileOverlay && (
+                        <>
+                            <div className="yc-backdrop" onClick={closeMobileNav}/>
+                            <div className="yc-sidebar-overlay">
+                                <Navigation
+                                    currentPage={currentPage}
+                                    setCurrentPage={p => { handlePageChange(p); closeMobileNav(); }}
+                                    onSignOut={() => { handleSignOut(); closeMobileNav(); }}
+                                    currentUser={currentUser}
+                                    darkMode={darkMode}
+                                />
+                            </div>
+                        </>
+                    )}
+
+                    <div style={{display:'flex', flexDirection:'column', flex:1, minWidth:0, overflow:'hidden'}}>
+                        <TopBar
+                            sidebarOpen={sidebarOpen}
+                            setSidebarOpen={handleSidebarToggle}
+                            darkMode={darkMode}
+                            setDarkMode={setDarkMode}
+                            currentUser={currentUser}
+                            currentPage={currentPage}
+                            onSignOut={handleSignOut}
+                            setCurrentPage={handlePageChange}
+                        />
+                        <div style={{flex:1, overflow:'hidden', display:'flex', flexDirection:'column'}}>
+                            {renderPage()}
+                        </div>
+                    </div>
+                </div>
+                </DarkModeContext.Provider>
+            );
+        }
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    

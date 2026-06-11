@@ -2,13 +2,37 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
   "framework": null,
-  "buildCommand": null,
+  "buildCommand": "node build.js",
   "outputDirectory": ".",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "routes": [
-    { "src": "/sw\\.js", "dest": "/sw.js", "headers": { "Cache-Control": "no-store, must-revalidate", "Content-Type": "application/javascript; charset=utf-8", "Service-Worker-Allowed": "/" } }
+    {
+      "src": "/sw\\.js",
+      "dest": "/sw.js",
+      "headers": {
+        "Cache-Control": "no-store, must-revalidate",
+        "Content-Type": "application/javascript; charset=utf-8",
+        "Service-Worker-Allowed": "/"
+      }
+    },
+    {
+      "src": "/app\\.js",
+      "dest": "/app.js",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable",
+        "Content-Type": "application/javascript; charset=utf-8"
+      }
+    },
+    {
+      "src": "/enterprise-components-compiled\\.js",
+      "dest": "/enterprise-components-compiled.js",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable",
+        "Content-Type": "application/javascript; charset=utf-8"
+      }
+    }
   ],
   "headers": [
     {
