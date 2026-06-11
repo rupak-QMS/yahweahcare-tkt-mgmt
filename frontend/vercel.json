@@ -32,6 +32,22 @@
         "Cache-Control": "public, max-age=31536000, immutable",
         "Content-Type": "application/javascript; charset=utf-8"
       }
+    },
+    {
+      "src": "/react\\.production\\.min\\.js",
+      "dest": "/react.production.min.js",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable",
+        "Content-Type": "application/javascript; charset=utf-8"
+      }
+    },
+    {
+      "src": "/react-dom\\.production\\.min\\.js",
+      "dest": "/react-dom.production.min.js",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable",
+        "Content-Type": "application/javascript; charset=utf-8"
+      }
     }
   ],
   "headers": [
