@@ -57,15 +57,22 @@ self.addEventListener('push', event => {
   );
 });
 
-// ── Notification click — focus or open the app ───────────────────────────────
+// ── Notification click — navigate to the ticket or focus the app ─────────────
 self.addEventListener('notificationclick', event => {
   event.notification.close();
+  const targetUrl = (event.notification.data && event.notification.data.url) || '/';
+
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+      // If app is already open, navigate the existing tab to the ticket URL
       for (const client of clientList) {
-        if (client.url && 'focus' in client) return client.focus();
+        if ('navigate' in client && 'focus' in client) {
+          client.navigate(targetUrl);
+          return client.focus();
+        }
       }
-      if (self.clients.openWindow) return self.clients.openWindow('/');
+      // Otherwise open a new window at the ticket URL
+      if (self.clients.openWindow) return self.clients.openWindow(targetUrl);
     })
   );
 });
