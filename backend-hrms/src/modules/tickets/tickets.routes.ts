@@ -676,6 +676,21 @@ router.post('/', requireAuth, async (req, res, next) => {
       approverIds: resolvedApprovers, deptId,
     }).catch(() => {});
     notifyTicketCreated(ticketId, actorId!).catch(() => {});
+    // If critical/urgent priority — fire extra notification to escalation chain
+    try {
+      const { rows: priLabel } = await pool.query(
+        `SELECT label FROM yc_tkt_mgmt.priorities WHERE id = $1`, [resolvedPriority]
+      );
+      const label = (priLabel[0]?.label || '').toLowerCase();
+      if (label === 'critical' || label === 'urgent') {
+        notify({
+          type: 'ticket.critical', ticketId, ticketTitle: resolvedTitle,
+          actorId: actorId!, actorName, creatorId: actorId ?? undefined,
+          assigneeId: resolvedAssignee ? Number(resolvedAssignee) : undefined,
+          deptId,
+        }).catch(() => {});
+      }
+    } catch (_) {}
   } catch (err) { next(err); }
 });
 
@@ -994,7 +1009,7 @@ router.post('/:id/reopen', requireAuth, async (req, res, next) => {
     const { rows: tInfoR } = await pool.query(`SELECT title, created_by, assigned_to FROM yc_tkt_mgmt.tickets WHERE id=$1`, [id]);
     const deptIdR = await getTicketDept(tInfoR[0]?.created_by, tInfoR[0]?.assigned_to);
     notify({
-      type: 'ticket.rejected', ticketId: id, ticketTitle: tInfoR[0]?.title ?? `Ticket #${id}`,
+      type: 'ticket.reopened', ticketId: id, ticketTitle: tInfoR[0]?.title ?? `Ticket #${id}`,
       actorId: userId, actorName: actorNameR, creatorId: tInfoR[0]?.created_by ?? undefined,
       assigneeId: tInfoR[0]?.assigned_to ?? undefined, deptId: deptIdR,
     }).catch(() => {});
@@ -1050,6 +1065,13 @@ router.post('/:id/close', requireAuth, async (req, res, next) => {
 
     await logAudit({ userId, actorEmail: req.auth?.email, action: 'ticket.close', module: 'tickets', targetType: 'ticket', targetId: id, metadata: { title: tRows[0].title }, req });
     res.json({ ticket: t });
+
+    const deptIdC = await getTicketDept(tRows[0].created_by, tRows[0].assigned_to);
+    notify({
+      type: 'ticket.closed', ticketId: id, ticketTitle: tRows[0].title,
+      actorId: userId, actorName: closerName, creatorId: tRows[0].created_by ?? undefined,
+      assigneeId: tRows[0].assigned_to ?? undefined, deptId: deptIdC,
+    }).catch(() => {});
     notifyTicketClosed(id, userId).catch(() => {});
   } catch (err) { next(err); }
 });
@@ -1167,6 +1189,17 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
 
     await logAudit({ userId: actorId ?? undefined, actorEmail: req.auth?.email, action: 'ticket.update', module: 'tickets', targetType: 'ticket', targetId: id, metadata: req.body, req });
     res.json({ ticket: dbTicket(rows[0]) });
+
+    // Notify on assignee change (ticket.assigned → new assignee)
+    if ('assigneeId' in req.body && req.body.assigneeId && req.body.assigneeId !== old.assigned_to) {
+      const actorNameA = await getActorName(actorId);
+      const deptIdA    = await getTicketDept(old.created_by, req.body.assigneeId);
+      notify({
+        type: 'ticket.assigned', ticketId: id, ticketTitle: (old.title as string),
+        actorId: actorId!, actorName: actorNameA,
+        assigneeId: Number(req.body.assigneeId), deptId: deptIdA,
+      }).catch(() => {});
+    }
 
     // Notify on status change only
     if ('status' in req.body && req.body.status !== old.status) {
