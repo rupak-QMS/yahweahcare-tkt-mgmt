@@ -1564,6 +1564,26 @@ router.get('/:id/log', requireAuth, async (req, res, next) => {
       cmtRows = rows;
     } catch (_) { /* schema mismatch — skip */ }
 
+    // Resolve user IDs stored in assignment event details → names
+    const assignUserIds = new Set<number>();
+    for (const row of actRows) {
+      if (row.action === 'assigned') {
+        const d = row.details
+          ? (typeof row.details === 'string' ? JSON.parse(row.details as string) : row.details) as Record<string, unknown>
+          : {};
+        if (d.to   && !isNaN(Number(d.to)))   assignUserIds.add(Number(d.to));
+        if (d.from && !isNaN(Number(d.from))) assignUserIds.add(Number(d.from));
+      }
+    }
+    const userNameMap: Record<number, string> = {};
+    if (assignUserIds.size > 0) {
+      const ids = [...assignUserIds];
+      const { rows: uRows } = await pool.query(
+        `SELECT id, name FROM yc_tkt_mgmt.users WHERE id = ANY($1::int[])`, [ids]
+      );
+      for (const u of uRows) userNameMap[Number(u.id)] = u.name;
+    }
+
     // Build unified timeline
     const timeline: Record<string, unknown>[] = [];
 
@@ -1571,6 +1591,11 @@ router.get('/:id/log', requireAuth, async (req, res, next) => {
       const details = row.details
         ? (typeof row.details === 'string' ? JSON.parse(row.details as string) : row.details) as Record<string, unknown>
         : {};
+      // Enrich assignment events: replace numeric IDs with resolved names
+      if (row.action === 'assigned') {
+        if (details.to   && userNameMap[Number(details.to)])   details.toName   = userNameMap[Number(details.to)];
+        if (details.from && userNameMap[Number(details.from)]) details.fromName = userNameMap[Number(details.from)];
+      }
       timeline.push({ type: 'activity', action: row.action, actorId: row.user_id,
         actorName: row.actor_name || 'System', details, at: row.created_at });
     }

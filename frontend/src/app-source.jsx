@@ -419,6 +419,7 @@
                 'calendar':'Calendar','analytics':'Analytics','org-chart':'Org Chart',
                 'staff-performance':'Staff Performance','team-comparison':'Team Comparison',
                 'staff-management':'Staff Management','scheduled-reports':'Scheduled Reports',
+                'ticket-log':'Ticket Log',
             };
 
             React.useEffect(() => {
@@ -1483,6 +1484,8 @@
                     }
                     await API.tickets.create({ ...formData, attachments });
                     setSuccess(true);
+                    // Scroll the page back to the top so the success banner is visible
+                    document.querySelector('main.flex-1.overflow-auto')?.scrollTo({ top: 0, behavior: 'smooth' });
                     setFormData({
                         title_type: 'Service Request',
                         subtitle: '',
@@ -3155,7 +3158,7 @@
             // Stats
             const moPfx = `${year}-${pad(month+1)}`;
             const moTkts = tickets.filter(t => (t.dueAt||t.expectedCompletion||'').startsWith(moPfx));
-            const mDue = moTkts.length, mOD = moTkts.filter(isOverdue).length, mRes = moTkts.filter(isDone).length;
+            const mDue = moTkts.length, mOD = tickets.filter(isOverdue).length, mRes = moTkts.filter(isDone).length;
             const wkEnd = new Date(today); wkEnd.setDate(wkEnd.getDate()+7);
             const wkTkts = tickets.filter(t=>{const r=t.dueAt||t.expectedCompletion; if(!r)return false; const d=new Date(r); return d>=today&&d<=wkEnd&&!isDone(t);});
             const odList = tickets.filter(isOverdue).sort((a,b)=>new Date(a.dueAt)-new Date(b.dueAt)).slice(0,10);
@@ -5756,7 +5759,7 @@
                 const actor = entry.actorName || 'System';
                 switch (entry.action) {
                     case 'created':             return `Ticket created by ${actor}`;
-                    case 'assigned':            return `Assigned to ${d.to || d.assigneeName || 'someone'} by ${actor}`;
+                    case 'assigned':            return `Assigned to ${d.toName || d.assigneeName || d.to || 'someone'} by ${actor}`;
                     case 'status_changed':      return `Status changed: ${d.from || '—'} → ${d.to || '—'}`;
                     case 'priority_changed':    return `Priority changed: ${d.from || '—'} → ${d.to || '—'}`;
                     case 'approvers_updated':   return `Approvers updated by ${actor}`;
