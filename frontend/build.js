@@ -12,10 +12,15 @@
  * Vercel runs this automatically via the "build" script in package.json.
  */
 
-const fs    = require('fs');
-const path  = require('path');
-const babel = require('@babel/core');
+const fs     = require('fs');
+const path   = require('path');
+const crypto = require('crypto');
+const babel  = require('@babel/core');
 const { minify } = require('terser');
+
+function shortHash(content) {
+  return crypto.createHash('sha256').update(content).digest('hex').slice(0, 8);
+}
 
 const DIR = __dirname;
 
@@ -75,6 +80,20 @@ const minifiedEc = await terserMinify(ecCompiled.code);
 const ecJs = `/* ec build:${Date.now()} */\n${minifiedEc}`;
 fs.writeFileSync(path.join(DIR, 'enterprise-components-compiled.js'), ecJs);
 console.log(`[build] enterprise-components-compiled.js written (${Math.round(ecJs.length / 1024)}KB)`);
+
+// ── 4. Cache-bust index.html ──────────────────────────────────────────────────
+const appHash = shortHash(appJs);
+const ecHash  = shortHash(ecJs);
+const indexPath = path.join(DIR, 'index.html');
+let indexHtml = fs.readFileSync(indexPath, 'utf8');
+
+// Replace any existing ?v=... or bare app.js / enterprise-components-compiled.js refs
+indexHtml = indexHtml
+  .replace(/app\.js(\?v=[a-f0-9]+)?/g, `app.js?v=${appHash}`)
+  .replace(/enterprise-components-compiled\.js(\?v=[a-f0-9]+)?/g, `enterprise-components-compiled.js?v=${ecHash}`);
+
+fs.writeFileSync(indexPath, indexHtml);
+console.log(`[build] index.html updated — app.js?v=${appHash}, ec?v=${ecHash}`);
 
 console.log('[build] Done ✓');
 
