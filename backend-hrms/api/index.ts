@@ -35,6 +35,7 @@ import { ensureEmailTables } from '../src/services/email/email.migrate';
 import { processQueue }      from '../src/services/email/email.queue';
 import { sendOverdueReminders, sendDueTomorrowReminders } from '../src/services/email/notification.service';
 import emailAdminRoutes      from '../src/modules/email/email.routes';
+import { sendCronNotification, ensurePushTable } from '../src/modules/notifications/notifications.service';
 
 // Ensure email tables exist on first cold start (idempotent)
 ensureEmailTables().catch((e) => console.error('[startup] ensureEmailTables:', e));
@@ -214,6 +215,89 @@ app.post('/cron/overdue-reminders', async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     console.error('[cron/overdue-reminders]', err);
+    res.status(500).json({ ok: false, error: String(err) });
+  }
+});
+
+// ── Approval reminder cron — notifies approvers on tickets pending >24h ───────
+app.post('/cron/approval-reminders', async (req, res) => {
+  const secret   = env.CRON_SECRET;
+  const provided = req.headers['x-cron-secret'] || req.headers['authorization']?.replace('Bearer ', '');
+  if (secret && provided !== secret) return res.status(401).json({ error: 'unauthorized' });
+  try {
+    await ensurePushTable();
+    // Find tickets in pending_approval for >24h with their pending approvers
+    const { rows } = await pool.query(`
+      SELECT t.id AS ticket_id, t.title, ta.approver_user_id
+        FROM yc_tkt_mgmt.tickets t
+        JOIN yc_tkt_mgmt.ticket_approvers ta ON ta.ticket_id = t.id
+       WHERE t.status = 'pending_approval'
+         AND t.updated_at < NOW() - INTERVAL '24 hours'
+         AND ta.approval_status = 'Pending'
+    `);
+    let sent = 0;
+    for (const row of rows) {
+      await sendCronNotification({
+        recipientId:  row.approver_user_id,
+        ticketId:     row.ticket_id,
+        ticketTitle:  row.title,
+        subject:      `Approval Reminder: Ticket #${row.ticket_id}`,
+        body:         `Ticket #${row.ticket_id} "${row.title}" is awaiting your approval for over 24 hours`,
+      });
+      sent++;
+    }
+    res.json({ ok: true, sent });
+  } catch (err) {
+    console.error('[cron/approval-reminders]', err);
+    res.status(500).json({ ok: false, error: String(err) });
+  }
+});
+
+// ── Daily approvals summary cron — per-approver pending count ─────────────────
+app.post('/cron/daily-approvals-summary', async (req, res) => {
+  const secret   = env.CRON_SECRET;
+  const provided = req.headers['x-cron-secret'] || req.headers['authorization']?.replace('Bearer ', '');
+  if (secret && provided !== secret) return res.status(401).json({ error: 'unauthorized' });
+  try {
+    await ensurePushTable();
+    // Count pending approvals per approver
+    const { rows } = await pool.query(`
+      SELECT ta.approver_user_id,
+             COUNT(*) AS pending_count,
+             MIN(t.id) AS sample_ticket_id,
+             MIN(t.title) AS sample_title
+        FROM yc_tkt_mgmt.ticket_approvers ta
+        JOIN yc_tkt_mgmt.tickets t ON t.id = ta.ticket_id
+       WHERE t.status = 'pending_approval'
+         AND ta.approval_status = 'Pending'
+       GROUP BY ta.approver_user_id
+    `);
+    let sent = 0;
+    for (const row of rows) {
+      const count = Number(row.pending_count);
+      if (count === 0) continue;
+      // Insert in-app notification (no ticket ID for summary)
+      const subject = `Daily Summary: ${count} Ticket${count !== 1 ? 's' : ''} Awaiting Your Approval`;
+      const body    = `You have ${count} ticket${count !== 1 ? 's' : ''} pending your approval. Oldest: "${row.sample_title}"`;
+      await pool.query(
+        `INSERT INTO yc_tkt_mgmt.notifications
+           (recipient_id, ticket_id, channel, subject, body, status)
+         VALUES ($1, $2, 'push', $3, $4, 'pending')`,
+        [row.approver_user_id, row.sample_ticket_id, subject, body]
+      );
+      // Also send web push via the service
+      await sendCronNotification({
+        recipientId:  row.approver_user_id,
+        ticketId:     Number(row.sample_ticket_id),
+        ticketTitle:  row.sample_title,
+        subject,
+        body,
+      });
+      sent++;
+    }
+    res.json({ ok: true, sent });
+  } catch (err) {
+    console.error('[cron/daily-approvals-summary]', err);
     res.status(500).json({ ok: false, error: String(err) });
   }
 });
