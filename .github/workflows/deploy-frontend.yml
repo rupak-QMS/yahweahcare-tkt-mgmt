@@ -40,15 +40,6 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Inject production backend URL into meta tag
-        run: |
-          sed -i "s|content=\"http://localhost:4002\"|content=\"${{ secrets.PROD_BACKEND_URL }}\"|g" \
-            frontend/index.html
-          echo "✓ HRMS API URL set to ${{ secrets.PROD_BACKEND_URL }}"
-
-      - name: Verify injection
-        run: grep 'name="hrms-api"' frontend/index.html
-
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
 
