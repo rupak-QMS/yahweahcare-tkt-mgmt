@@ -375,17 +375,43 @@
             const [notifOpen,    setNotifOpen]    = React.useState(false);
             const [notifications, setNotifications] = React.useState([]);
             const [notifLoading,  setNotifLoading]  = React.useState(false);
+            const [notifLoadingMore, setNotifLoadingMore] = React.useState(false);
+            const [notifPage,     setNotifPage]     = React.useState(1);
+            const [notifHasMore,  setNotifHasMore]  = React.useState(false);
+            const [notifTotal,    setNotifTotal]    = React.useState(0);
             const [appToast,      setAppToast]      = React.useState('');
             const showToast = (msg) => { setAppToast(msg); setTimeout(() => setAppToast(''), 3500); };
 
-            // Load real notifications from backend
+            // Load notifications page 1 (replaces existing list)
             const loadNotifications = React.useCallback(() => {
                 setNotifLoading(true);
-                authFetch(`${HRMS_API}/notifications`)
-                    .then(r => r.ok ? r.json() : { notifications: [] })
-                    .then(d => setNotifications(Array.isArray(d.notifications) ? d.notifications : []))
+                setNotifPage(1);
+                authFetch(`${HRMS_API}/notifications?page=1&limit=20`)
+                    .then(r => r.ok ? r.json() : { notifications: [], hasMore: false, total: 0 })
+                    .then(d => {
+                        setNotifications(Array.isArray(d.notifications) ? d.notifications : []);
+                        setNotifHasMore(!!d.hasMore);
+                        setNotifTotal(Number(d.total) || 0);
+                    })
                     .catch(() => {})
                     .finally(() => setNotifLoading(false));
+            }, []);
+
+            // Load next page and append
+            const loadMoreNotifications = React.useCallback((currentPage) => {
+                const nextPage = currentPage + 1;
+                setNotifLoadingMore(true);
+                authFetch(`${HRMS_API}/notifications?page=${nextPage}&limit=20`)
+                    .then(r => r.ok ? r.json() : { notifications: [], hasMore: false })
+                    .then(d => {
+                        if (Array.isArray(d.notifications) && d.notifications.length) {
+                            setNotifications(prev => [...prev, ...d.notifications]);
+                        }
+                        setNotifHasMore(!!d.hasMore);
+                        setNotifPage(nextPage);
+                    })
+                    .catch(() => {})
+                    .finally(() => setNotifLoadingMore(false));
             }, []);
 
             React.useEffect(() => {
@@ -408,7 +434,22 @@
 
             const markRead = (id) => {
                 authFetch(`${HRMS_API}/notifications/${id}/read`, { method:'PATCH' })
-                    .then(() => loadNotifications()).catch(() => {});
+                    .then(() => {
+                        // Update local state immediately (optimistic)
+                        setNotifications(prev => prev.map(n => n.id === id ? { ...n, read_at: new Date().toISOString() } : n));
+                    })
+                    .catch(() => {});
+            };
+
+            // Click notification: mark read + navigate to ticket if applicable
+            const handleNotifClick = (n) => {
+                markRead(n.id);
+                setNotifOpen(false);
+                if (n.ticket_id) {
+                    setCurrentPage('tickets');
+                    // Dispatch custom event so TicketsPage can open the drawer
+                    window.dispatchEvent(new CustomEvent('yc:open-ticket', { detail: { ticketId: n.ticket_id } }));
+                }
             };
 
             const displayName = currentUser?.name || 'User';
@@ -513,23 +554,50 @@
                                             <p style={{fontSize:13, color:subC, margin:0}}>No notifications yet</p>
                                         </div>
                                     )}
-                                    {!notifLoading && notifications.slice(0,20).map(n => (
-                                        <div key={n.id} onClick={() => markRead(n.id)} style={{
+                                    {!notifLoading && notifications.map(n => {
+                                        const icon = n.subject?.includes('escalat') ? '⬆️'
+                                            : n.subject?.includes('Critical') || n.subject?.includes('critical') ? '🚨'
+                                            : n.subject?.includes('creat') ? '📋'
+                                            : n.subject?.includes('Approv') || n.subject?.includes('approv') ? '✅'
+                                            : n.subject?.includes('Reject') || n.subject?.includes('reject') ? '❌'
+                                            : n.subject?.includes('Closed') ? '🔒'
+                                            : n.subject?.includes('Reopen') || n.subject?.includes('reopen') ? '🔄'
+                                            : n.subject?.includes('Comment') ? '💬'
+                                            : n.subject?.includes('Attachment') ? '📎'
+                                            : n.subject?.includes('Extension') ? '📅'
+                                            : n.subject?.includes('Assign') ? '👤'
+                                            : n.subject?.includes('Summary') || n.subject?.includes('Reminder') ? '📊'
+                                            : n.subject?.includes('member') || n.subject?.includes('position') ? '👤'
+                                            : '🔔';
+                                        return (
+                                        <div key={n.id} onClick={() => handleNotifClick(n)} style={{
                                             padding:'10px 16px', borderBottom:`1px solid ${border}`,
                                             background: n.read_at ? 'transparent' : (darkMode ? '#1E3A5F22' : '#EEF2FF55'),
                                             cursor:'pointer', display:'flex', gap:10, alignItems:'flex-start',
+                                            transition:'background 0.15s',
                                         }}>
-                                            <span style={{fontSize:16,flexShrink:0,marginTop:1}}>
-                                                {n.subject?.includes('escalat') ? '⬆️' : n.subject?.includes('creat') ? '📋' : n.subject?.includes('approv') ? '✅' : n.subject?.includes('reject') ? '❌' : n.subject?.includes('member') || n.subject?.includes('position') ? '👤' : '🔔'}
-                                            </span>
+                                            <span style={{fontSize:16,flexShrink:0,marginTop:1}}>{icon}</span>
                                             <div style={{flex:1,minWidth:0}}>
                                                 <p style={{fontSize:12,fontWeight:n.read_at ? 400 : 700,color:textC,margin:'0 0 2px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{n.subject}</p>
                                                 <p style={{fontSize:11,color:subC,margin:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{n.body}</p>
-                                                <p style={{fontSize:10,color:subC,margin:'3px 0 0'}}>{n.created_at ? new Date(n.created_at).toLocaleString() : ''}</p>
+                                                <p style={{fontSize:10,color:subC,margin:'3px 0 0',display:'flex',alignItems:'center',gap:6}}>
+                                                    <span>{n.created_at ? new Date(n.created_at).toLocaleString() : ''}</span>
+                                                    {n.ticket_id && <span style={{color:darkMode?'#818cf8':'#4F46E5',fontWeight:600}}>→ #{n.ticket_id}</span>}
+                                                </p>
                                             </div>
                                             {!n.read_at && <span style={{width:7,height:7,borderRadius:'50%',background:'#6366F1',flexShrink:0,marginTop:5}}/>}
                                         </div>
-                                    ))}
+                                        );
+                                    })}
+                                    {notifHasMore && (
+                                        <div style={{padding:'10px 16px', textAlign:'center', borderTop:`1px solid ${border}`}}>
+                                            <button onClick={() => loadMoreNotifications(notifPage)}
+                                                disabled={notifLoadingMore}
+                                                style={{fontSize:11,fontWeight:600,color:darkMode?'#818cf8':'#4F46E5',background:'none',border:'none',cursor:notifLoadingMore?'default':'pointer',padding:0,opacity:notifLoadingMore?0.5:1}}>
+                                                {notifLoadingMore ? 'Loading…' : `Load more (${notifTotal - notifications.length} remaining)`}
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                                 {/* Footer: test notification button */}
                                 <div style={{padding:'10px 16px', borderTop:`1px solid ${border}`, flexShrink:0, display:'flex', gap:8, alignItems:'center', justifyContent:'space-between'}}>
@@ -1907,6 +1975,37 @@
                     }
                 } catch(_) {}
             };
+
+            // Listen for notification-click → open ticket drawer
+            React.useEffect(() => {
+                const handler = async (e) => {
+                    const { ticketId } = e.detail || {};
+                    if (!ticketId) return;
+                    // Try to find in already-loaded tickets first
+                    setTickets(prev => {
+                        const found = prev.find(t => t._dbId === Number(ticketId));
+                        if (found) {
+                            setSelectedTicket(found);
+                        } else {
+                            // Not loaded yet — fetch directly
+                            API.tickets.getById(Number(ticketId)).then(data => {
+                                if (data.ticket) {
+                                    if (!data.ticket.pendingApproverIds?.length) {
+                                        data.ticket.pendingApproverIds = (data.ticket.approvers || [])
+                                            .filter(a => (a.status || '').toLowerCase() === 'pending')
+                                            .map(a => a.userId);
+                                    }
+                                    setSelectedTicket(normalise(data.ticket));
+                                    if (data.ticket.approvers) setApprovers(data.ticket.approvers);
+                                }
+                            }).catch(() => {});
+                        }
+                        return prev;
+                    });
+                };
+                window.addEventListener('yc:open-ticket', handler);
+                return () => window.removeEventListener('yc:open-ticket', handler);
+            }, []);
 
             const filtered = tickets.filter(t => {
                 if (filter !== 'all' && t.status.toLowerCase() !== filter.toLowerCase()) return false;
