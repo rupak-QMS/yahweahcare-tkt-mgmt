@@ -1,16 +1,29 @@
 // ============================================================
 // Notifications Service — in-app + web push
-// Role-based routing:
-//   • Bootstrap admin + Director → ALL events
-//   • Dept manager → all events in their department
-//   • Regular staff → only events directly involving them
+//
+// Recipient logic is event-specific (not role-broadcast):
+//   ticket.created          → assignee + approvers
+//   ticket.assigned         → new assignee only
+//   ticket.completed        → approvers only
+//   ticket.approved         → assignee + creator
+//   ticket.rejected         → assignee + creator
+//   ticket.reopened         → assignee
+//   ticket.closed           → creator + assignee
+//   ticket.escalated        → escalated user + dept manager
+//   ticket.comment_added    → creator + assignee + approvers (minus actor)
+//   ticket.attachment_added → creator + assignee + approvers (minus actor)
+//   ticket.extension_requested → dept manager + approvers
+//   ticket.extension_approved  → assignee
+//   ticket.extension_denied    → assignee
+//   ticket.critical         → assignee + dept manager + director
+//   ticket.status_changed   → creator + assignee (legacy fallback)
 // ============================================================
 
 import webpush from 'web-push';
 import { pool } from '../../db/pool';
 import { sendTicketEventEmail, sendUserEventEmail } from './email.service';
 
-// ── VAPID setup (keys set in Vercel env vars) ─────────────
+// ── VAPID setup ───────────────────────────────────────────
 const VAPID_PUBLIC  = process.env.VAPID_PUBLIC_KEY  || '';
 const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY || '';
 const VAPID_SUBJECT = process.env.VAPID_SUBJECT     || 'mailto:admin@yahwehcare.com.au';
@@ -19,12 +32,11 @@ if (VAPID_PUBLIC && VAPID_PRIVATE) {
   webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
 }
 
-// ── DB migration: ensure push_subscriptions table exists ──
+// ── DB migration ──────────────────────────────────────────
 let migrationDone = false;
 export async function ensurePushTable() {
   if (migrationDone) return;
   try {
-    // push_subscriptions table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS yc_tkt_mgmt.push_subscriptions (
         id         SERIAL PRIMARY KEY,
@@ -36,7 +48,6 @@ export async function ensurePushTable() {
         UNIQUE(user_id, endpoint)
       )
     `);
-    // in-app notifications table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS yc_tkt_mgmt.notifications (
         id             SERIAL PRIMARY KEY,
@@ -51,7 +62,6 @@ export async function ensurePushTable() {
         created_at     TIMESTAMPTZ DEFAULT NOW()
       )
     `);
-    // Add ndis_related column if missing (safe ALTER TABLE)
     await pool.query(`
       ALTER TABLE yc_tkt_mgmt.tickets
         ADD COLUMN IF NOT EXISTS ndis_related BOOLEAN NOT NULL DEFAULT FALSE
@@ -66,23 +76,30 @@ export async function ensurePushTable() {
 export interface TicketEvent {
   type:
     | 'ticket.created'
-    | 'ticket.status_changed'
-    | 'ticket.escalated'
+    | 'ticket.assigned'
     | 'ticket.completed'
     | 'ticket.approved'
     | 'ticket.rejected'
+    | 'ticket.reopened'
+    | 'ticket.closed'
+    | 'ticket.escalated'
+    | 'ticket.comment_added'
+    | 'ticket.attachment_added'
     | 'ticket.extension_requested'
     | 'ticket.extension_approved'
-    | 'ticket.extension_denied';
+    | 'ticket.extension_denied'
+    | 'ticket.critical'
+    | 'ticket.status_changed'; // legacy
   ticketId:    number;
   ticketTitle: string;
   actorId:     number;
   actorName?:  string;
   creatorId?:  number;
   assigneeId?: number;
-  approverIds?: number[]; // all approver user IDs for the ticket
+  approverIds?: number[];
   deptId?:     number;
-  extra?:      string; // e.g. new status / new due date
+  escalatedToId?: number; // for ticket.escalated — the user being escalated to
+  extra?:      string;
 }
 
 export interface UserEvent {
@@ -95,132 +112,242 @@ export interface UserEvent {
   actorId:        number;
   actorName?:     string;
   deptId?:        number;
-  extra?:         string; // e.g. new position title
+  extra?:         string;
 }
 
 export type NotifyEvent = TicketEvent | UserEvent;
 
-// ── Resolve recipient user IDs based on event + role ──────
-async function resolveRecipients(ev: NotifyEvent): Promise<number[]> {
-  const set = new Set<number>();
-
-  // Always: bootstrap admins
-  const { rows: admins } = await pool.query(
-    `SELECT id FROM yc_tkt_mgmt.users WHERE is_bootstrap_admin = TRUE AND is_active = TRUE`
-  );
-  admins.forEach(r => set.add(r.id));
-
-  // Always: Directors (position_type = 'director')
-  const { rows: directors } = await pool.query(
+// ── DB lookup helpers ─────────────────────────────────────
+async function getDirectorIds(): Promise<number[]> {
+  const { rows } = await pool.query(
     `SELECT DISTINCT u.id
        FROM yc_tkt_mgmt.users u
        JOIN yc_tkt_mgmt.staff_positions sp ON sp.user_id = u.id AND sp.is_primary = TRUE
        JOIN yc_tkt_mgmt.positions p ON p.id = sp.position_id
       WHERE LOWER(COALESCE(p.position_type,'')) = 'director' AND u.is_active = TRUE`
   );
-  directors.forEach(r => set.add(r.id));
-
-  // Dept managers: get all events in their department
-  const deptId = 'deptId' in ev ? ev.deptId : undefined;
-  if (deptId) {
-    const { rows: mgrs } = await pool.query(
-      `SELECT DISTINCT u.id
-         FROM yc_tkt_mgmt.users u
-         JOIN yc_tkt_mgmt.staff_positions sp ON sp.user_id = u.id AND sp.is_primary = TRUE
-         JOIN yc_tkt_mgmt.positions p ON p.id = sp.position_id
-        WHERE LOWER(COALESCE(p.position_type,'')) = 'manager'
-          AND u.department_id = $1
-          AND u.is_active = TRUE`,
-      [deptId]
-    );
-    mgrs.forEach(r => set.add(r.id));
-  }
-
-  // Direct participants
-  if ('creatorId' in ev && ev.creatorId)   set.add(ev.creatorId);
-  if ('assigneeId' in ev && ev.assigneeId) set.add(ev.assigneeId);
-  if ('approverIds' in ev && Array.isArray(ev.approverIds)) {
-    ev.approverIds.forEach(id => { if (id) set.add(id); });
-  }
-  if ('targetUserId' in ev && ev.targetUserId) set.add(ev.targetUserId);
-  // actor who triggered the event also gets the notification (as issuer)
-  if (ev.actorId) set.add(ev.actorId);
-
-  return Array.from(set);
+  return rows.map(r => r.id);
 }
 
-// ── Build human-readable subject + body ───────────────────
+async function getDeptManagerIds(deptId: number): Promise<number[]> {
+  const { rows } = await pool.query(
+    `SELECT DISTINCT u.id
+       FROM yc_tkt_mgmt.users u
+       JOIN yc_tkt_mgmt.staff_positions sp ON sp.user_id = u.id AND sp.is_primary = TRUE
+       JOIN yc_tkt_mgmt.positions p ON p.id = sp.position_id
+      WHERE LOWER(COALESCE(p.position_type,'')) = 'manager'
+        AND u.department_id = $1 AND u.is_active = TRUE`,
+    [deptId]
+  );
+  return rows.map(r => r.id);
+}
+
+// ── Event-specific recipient resolution ───────────────────
+async function resolveRecipients(ev: NotifyEvent): Promise<number[]> {
+  const set = new Set<number>();
+
+  if (!('ticketId' in ev)) {
+    // UserEvent — send to bootstrap admins + directors
+    const { rows: admins } = await pool.query(
+      `SELECT id FROM yc_tkt_mgmt.users WHERE is_bootstrap_admin = TRUE AND is_active = TRUE`
+    );
+    admins.forEach(r => set.add(r.id));
+    (await getDirectorIds()).forEach(id => set.add(id));
+    set.add(ev.targetUserId);
+    return Array.from(set);
+  }
+
+  const te = ev as TicketEvent;
+
+  switch (te.type) {
+    case 'ticket.created':
+      // → assignee + approvers
+      if (te.assigneeId) set.add(te.assigneeId);
+      (te.approverIds || []).forEach(id => { if (id) set.add(id); });
+      break;
+
+    case 'ticket.assigned':
+      // → new assignee only
+      if (te.assigneeId) set.add(te.assigneeId);
+      break;
+
+    case 'ticket.completed':
+      // → approvers only (they need to review)
+      (te.approverIds || []).forEach(id => { if (id) set.add(id); });
+      break;
+
+    case 'ticket.approved':
+    case 'ticket.rejected':
+      // → assignee + creator
+      if (te.assigneeId) set.add(te.assigneeId);
+      if (te.creatorId)  set.add(te.creatorId);
+      break;
+
+    case 'ticket.reopened':
+      // → assignee
+      if (te.assigneeId) set.add(te.assigneeId);
+      break;
+
+    case 'ticket.closed':
+      // → creator + assignee
+      if (te.creatorId)  set.add(te.creatorId);
+      if (te.assigneeId) set.add(te.assigneeId);
+      break;
+
+    case 'ticket.escalated': {
+      // → escalated-to user + dept manager
+      const escalatedTo = te.escalatedToId || te.assigneeId;
+      if (escalatedTo) set.add(escalatedTo);
+      if (te.deptId) (await getDeptManagerIds(te.deptId)).forEach(id => set.add(id));
+      break;
+    }
+
+    case 'ticket.comment_added':
+    case 'ticket.attachment_added':
+      // → creator + assignee + approvers (minus actor)
+      if (te.creatorId)  set.add(te.creatorId);
+      if (te.assigneeId) set.add(te.assigneeId);
+      (te.approverIds || []).forEach(id => { if (id) set.add(id); });
+      set.delete(te.actorId); // don't notify the person who acted
+      break;
+
+    case 'ticket.extension_requested':
+      // → dept manager + approvers
+      if (te.deptId) (await getDeptManagerIds(te.deptId)).forEach(id => set.add(id));
+      (te.approverIds || []).forEach(id => { if (id) set.add(id); });
+      break;
+
+    case 'ticket.extension_approved':
+    case 'ticket.extension_denied':
+      // → assignee
+      if (te.assigneeId) set.add(te.assigneeId);
+      break;
+
+    case 'ticket.critical': {
+      // → assignee + dept manager + director
+      if (te.assigneeId) set.add(te.assigneeId);
+      if (te.deptId) (await getDeptManagerIds(te.deptId)).forEach(id => set.add(id));
+      (await getDirectorIds()).forEach(id => set.add(id));
+      break;
+    }
+
+    case 'ticket.status_changed':
+    default:
+      // legacy fallback → creator + assignee
+      if (te.creatorId)  set.add(te.creatorId);
+      if (te.assigneeId) set.add(te.assigneeId);
+      break;
+  }
+
+  return Array.from(set).filter(Boolean);
+}
+
+// ── Message templates ─────────────────────────────────────
 function buildMessage(ev: NotifyEvent): { subject: string; body: string } {
   const actor = ev.actorName || `User #${ev.actorId}`;
-  switch (ev.type) {
+
+  if (!('ticketId' in ev)) {
+    const ue = ev as UserEvent;
+    switch (ue.type) {
+      case 'user.created':
+        return { subject: `New member added: ${ue.targetUserName}`, body: `${actor} added ${ue.targetUserName} to the team` };
+      case 'user.position_changed':
+        return { subject: `Position changed: ${ue.targetUserName}`, body: `${actor} changed ${ue.targetUserName}'s position to "${ue.extra || 'new role'}"` };
+      case 'user.deleted':
+        return { subject: `Member removed: ${ue.targetUserName}`, body: `${actor} removed ${ue.targetUserName} from the team` };
+      default:
+        return { subject: 'Yahwehcare notification', body: 'You have a new notification.' };
+    }
+  }
+
+  const te = ev as TicketEvent;
+  const tid  = `#${te.ticketId}`;
+  const title = te.ticketTitle;
+
+  switch (te.type) {
     case 'ticket.created':
       return {
-        subject: `New ticket: ${(ev as TicketEvent).ticketTitle}`,
-        body:    `${actor} created ticket #${(ev as TicketEvent).ticketId} — "${(ev as TicketEvent).ticketTitle}"`,
+        subject: `New Ticket ${tid}: ${title}`,
+        body:    `A new ticket has been created and assigned to you: "${title}"`,
       };
-    case 'ticket.status_changed':
+    case 'ticket.assigned':
       return {
-        subject: `Ticket #${(ev as TicketEvent).ticketId} status updated`,
-        body:    `${actor} changed status to "${(ev as TicketEvent).extra || 'unknown'}" on "${(ev as TicketEvent).ticketTitle}"`,
-      };
-    case 'ticket.escalated':
-      return {
-        subject: `Ticket #${(ev as TicketEvent).ticketId} escalated`,
-        body:    `${actor} escalated "${(ev as TicketEvent).ticketTitle}"`,
+        subject: `Ticket ${tid} Assigned to You`,
+        body:    `You have been assigned ticket ${tid}: "${title}"`,
       };
     case 'ticket.completed':
       return {
-        subject: `Ticket #${(ev as TicketEvent).ticketId} completed`,
-        body:    `${actor} marked "${(ev as TicketEvent).ticketTitle}" as complete`,
+        subject: `Ticket ${tid} Ready for Approval`,
+        body:    `${actor} has submitted ticket ${tid} for your approval: "${title}"`,
       };
     case 'ticket.approved':
       return {
-        subject: `Ticket #${(ev as TicketEvent).ticketId} approved`,
-        body:    `${actor} approved "${(ev as TicketEvent).ticketTitle}"`,
+        subject: `Ticket ${tid} Approved`,
+        body:    `Your ticket ${tid} has been approved by ${actor}: "${title}"`,
       };
     case 'ticket.rejected':
       return {
-        subject: `Ticket #${(ev as TicketEvent).ticketId} rejected`,
-        body:    `${actor} rejected "${(ev as TicketEvent).ticketTitle}"`,
+        subject: `Ticket ${tid} Rejected`,
+        body:    `Your ticket ${tid} was rejected by ${actor}: "${title}"`,
+      };
+    case 'ticket.reopened':
+      return {
+        subject: `Ticket ${tid} Reopened`,
+        body:    `Ticket ${tid} has been reopened and requires your attention: "${title}"`,
+      };
+    case 'ticket.closed':
+      return {
+        subject: `Ticket ${tid} Closed`,
+        body:    `Ticket ${tid} has been closed: "${title}"`,
+      };
+    case 'ticket.escalated':
+      return {
+        subject: `Ticket ${tid} Escalated to You`,
+        body:    `Ticket ${tid} has been escalated to you by ${actor}: "${title}"`,
+      };
+    case 'ticket.comment_added':
+      return {
+        subject: `New Comment on Ticket ${tid}`,
+        body:    `${actor} commented on ticket ${tid}: "${title}"`,
+      };
+    case 'ticket.attachment_added':
+      return {
+        subject: `New Attachment on Ticket ${tid}`,
+        body:    `${actor} added an attachment to ticket ${tid}: "${title}"`,
       };
     case 'ticket.extension_requested':
       return {
-        subject: `Extension requested: Ticket #${(ev as TicketEvent).ticketId}`,
-        body:    `${actor} requested a deadline extension for "${(ev as TicketEvent).ticketTitle}"${(ev as TicketEvent).extra ? ` — new proposed date: ${(ev as TicketEvent).extra}` : ''}`,
+        subject: `Extension Requested: Ticket ${tid}`,
+        body:    `${actor} requested a deadline extension for ticket ${tid}: "${title}"${te.extra ? ` — proposed date: ${te.extra}` : ''}`,
       };
     case 'ticket.extension_approved':
       return {
-        subject: `Extension approved: Ticket #${(ev as TicketEvent).ticketId}`,
-        body:    `${actor} approved the deadline extension for "${(ev as TicketEvent).ticketTitle}"${(ev as TicketEvent).extra ? ` — new due date: ${(ev as TicketEvent).extra}` : ''}`,
+        subject: `Extension Approved: Ticket ${tid}`,
+        body:    `Your deadline extension for ticket ${tid} has been approved${te.extra ? ` — new due date: ${te.extra}` : ''}`,
       };
     case 'ticket.extension_denied':
       return {
-        subject: `Extension denied: Ticket #${(ev as TicketEvent).ticketId}`,
-        body:    `${actor} denied the deadline extension for "${(ev as TicketEvent).ticketTitle}"`,
+        subject: `Extension Denied: Ticket ${tid}`,
+        body:    `Your deadline extension request for ticket ${tid} was denied: "${title}"`,
       };
-    case 'user.created':
+    case 'ticket.critical':
       return {
-        subject: `New member added: ${(ev as UserEvent).targetUserName}`,
-        body:    `${actor} added ${(ev as UserEvent).targetUserName} to the team`,
+        subject: `Critical Ticket ${tid} Requires Attention`,
+        body:    `A critical priority ticket has been assigned: ${tid} — "${title}"`,
       };
-    case 'user.position_changed':
+    case 'ticket.status_changed':
       return {
-        subject: `Position changed: ${(ev as UserEvent).targetUserName}`,
-        body:    `${actor} changed ${(ev as UserEvent).targetUserName}'s position to "${(ev as UserEvent).extra || 'new role'}"`,
-      };
-    case 'user.deleted':
-      return {
-        subject: `Member removed: ${(ev as UserEvent).targetUserName}`,
-        body:    `${actor} removed ${(ev as UserEvent).targetUserName} from the team`,
+        subject: `Ticket ${tid} Status Updated`,
+        body:    `${actor} changed status of ticket ${tid} to "${te.extra || 'unknown'}": "${title}"`,
       };
     default:
       return { subject: 'Yahwehcare notification', body: 'You have a new notification.' };
   }
 }
 
-// ── Send web push to one subscription ─────────────────────
+// ── Web push to one user's subscriptions ──────────────────
 async function sendPush(userId: number, payload: object): Promise<void> {
-  if (!VAPID_PUBLIC || !VAPID_PRIVATE) return; // push not configured
+  if (!VAPID_PUBLIC || !VAPID_PRIVATE) return;
 
   const { rows: subs } = await pool.query(
     `SELECT endpoint, p256dh, auth FROM yc_tkt_mgmt.push_subscriptions WHERE user_id = $1`,
@@ -231,11 +358,10 @@ async function sendPush(userId: number, payload: object): Promise<void> {
       await webpush.sendNotification(
         { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
         JSON.stringify(payload),
-        { TTL: 60 * 60 } // 1 hour TTL
+        { TTL: 60 * 60 }
       );
     } catch (err: unknown) {
       const e = err as { statusCode?: number };
-      // 410 Gone = subscription expired; clean it up
       if (e.statusCode === 410) {
         await pool.query(
           `DELETE FROM yc_tkt_mgmt.push_subscriptions WHERE user_id = $1 AND endpoint = $2`,
@@ -256,19 +382,21 @@ export async function notify(ev: NotifyEvent): Promise<void> {
     const recipients = await resolveRecipients(ev);
     if (!recipients.length) return;
 
-    // Build push payload (shown in browser notification)
     const ticketId = 'ticketId' in ev ? (ev as TicketEvent).ticketId : undefined;
     const pushPayload = {
       title: subject,
       body,
       icon:  '/favicon.svg',
       badge: '/favicon.svg',
-      data:  { ticketId, type: ev.type, url: '/' },
+      data:  {
+        ticketId,
+        type: ev.type,
+        url:  ticketId ? `/tickets/${ticketId}` : '/',
+      },
     };
 
     await Promise.all(
       recipients.map(async (recipientId) => {
-        // Insert in-app notification
         try {
           await pool.query(
             `INSERT INTO yc_tkt_mgmt.notifications
@@ -279,13 +407,11 @@ export async function notify(ev: NotifyEvent): Promise<void> {
         } catch (dbErr) {
           console.warn('[notify] db insert error', dbErr);
         }
-        // Send web push (fire-and-forget errors handled inside)
         await sendPush(recipientId, pushPayload);
       })
     );
 
-    // ── Email notifications ───────────────────────────────
-    // Fetch emails for all recipients in one query
+    // Email notifications
     try {
       const { rows: emailRows } = await pool.query(
         `SELECT email FROM yc_tkt_mgmt.users WHERE id = ANY($1) AND is_active = TRUE AND email IS NOT NULL`,
@@ -305,5 +431,38 @@ export async function notify(ev: NotifyEvent): Promise<void> {
 
   } catch (err) {
     console.error('[notify] unhandled error', err);
+  }
+}
+
+// ── Cron: send a notification for a single ticket+user ────
+// Used by scheduled cron jobs (due tomorrow, overdue, etc.)
+export async function sendCronNotification(opts: {
+  recipientId: number;
+  ticketId:    number;
+  ticketTitle: string;
+  subject:     string;
+  body:        string;
+}): Promise<void> {
+  try {
+    await ensurePushTable();
+
+    const pushPayload = {
+      title: opts.subject,
+      body:  opts.body,
+      icon:  '/favicon.svg',
+      badge: '/favicon.svg',
+      data:  { ticketId: opts.ticketId, type: 'cron', url: `/tickets/${opts.ticketId}` },
+    };
+
+    await pool.query(
+      `INSERT INTO yc_tkt_mgmt.notifications
+         (recipient_id, ticket_id, channel, subject, body, status)
+       VALUES ($1, $2, 'push', $3, $4, 'pending')`,
+      [opts.recipientId, opts.ticketId, opts.subject, opts.body]
+    );
+
+    await sendPush(opts.recipientId, pushPayload);
+  } catch (err) {
+    console.error('[cron-notify] error', err);
   }
 }
