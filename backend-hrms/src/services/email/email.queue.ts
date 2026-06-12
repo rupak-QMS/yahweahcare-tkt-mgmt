@@ -1,15 +1,15 @@
 // ============================================================
-// Email queue — DB-backed fire-and-forget.
+// Email queue â DB-backed fire-and-forget.
 //
-// • enqueue()       — insert a row and immediately kick off
+// â¢ enqueue()       â insert a row and immediately kick off
 //                     an async attempt (setImmediate).
-// • processQueue()  — called by /cron/email-retry every 5 min;
+// â¢ processQueue()  â called by /cron/email-retry every 5 min;
 //                     retries rows that are pending / failed
 //                     with retry_count < 5.
-// • Backoff:        attempt 0→30s, 1→5m, 2→15m, 3→1h, 4→4h
+// â¢ Backoff:        attempt 0â30s, 1â5m, 2â15m, 3â1h, 4â4h
 // ============================================================
 
-import { v4 as uuid } from 'uuid';
+// uuid replaced with Node built-in (avoids ESM-only uuid pkg)
 import { pool } from '../../db/pool';
 import { buildTicketEmail } from './email.templates';
 import { buildAccountCreatedHtml, buildPasswordResetHtml } from './email.templates';
@@ -21,7 +21,7 @@ import type {
   QueuedEmailRow,
 } from './email.types';
 
-// ── Backoff schedule ─────────────────────────────────────────
+// ââ Backoff schedule âââââââââââââââââââââââââââââââââââââââââ
 const BACKOFF_SECONDS = [30, 5 * 60, 15 * 60, 60 * 60, 4 * 60 * 60];
 const MAX_RETRIES = 5;
 
@@ -30,7 +30,7 @@ function nextRetryAt(retryCount: number): Date {
   return new Date(Date.now() + delayMs);
 }
 
-// ── Enqueue ───────────────────────────────────────────────────
+// ââ Enqueue âââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 export interface EnqueueOptions {
   eventType:  EmailEventType;
@@ -41,10 +41,10 @@ export interface EnqueueOptions {
 
 /**
  * Insert into notification_queue, then kick off an immediate
- * async attempt. Never awaits the send — always returns fast.
+ * async attempt. Never awaits the send â always returns fast.
  */
 export async function enqueue(opts: EnqueueOptions): Promise<void> {
-  const id = uuid();
+  const id = crypto.randomUUID();
 
   try {
     await pool.query(
@@ -59,19 +59,19 @@ export async function enqueue(opts: EnqueueOptions): Promise<void> {
       ],
     );
   } catch (e) {
-    // DB insert failed — log and bail, don't crash the request
+    // DB insert failed â log and bail, don't crash the request
     console.error('[email-queue] failed to enqueue:', opts.eventType, e);
     return;
   }
 
-  // Fire-and-forget — do not await
+  // Fire-and-forget â do not await
   setImmediate(() => {
     attemptSend(id, opts.eventType, opts.recipients, opts.payload, opts.ticketId, 0)
       .catch((e) => console.error('[email-queue] immediate send error:', e));
   });
 }
 
-// ── Cron-driven retry ─────────────────────────────────────────
+// ââ Cron-driven retry âââââââââââââââââââââââââââââââââââââââââ
 
 /** Called by /cron/email-retry */
 export async function processQueue(): Promise<{ processed: number; errors: number }> {
@@ -118,7 +118,7 @@ export async function processQueue(): Promise<{ processed: number; errors: numbe
   return { processed, errors };
 }
 
-// ── Core send logic ───────────────────────────────────────────
+// ââ Core send logic âââââââââââââââââââââââââââââââââââââââââââ
 
 async function attemptSend(
   queueId:    string,
@@ -135,10 +135,10 @@ async function attemptSend(
   try {
     if (eventType === 'user.account_created') {
       html    = buildAccountCreatedHtml(payload as UserEmailPayload);
-      subject = 'Welcome to Yahweahcare TMS — Your Account is Ready';
+      subject = 'Welcome to Yahweahcare TMS â Your Account is Ready';
     } else if (eventType === 'user.password_reset') {
       html    = buildPasswordResetHtml(payload as UserEmailPayload);
-      subject = 'Password Reset Request — Yahweahcare TMS';
+      subject = 'Password Reset Request â Yahweahcare TMS';
     } else {
       const built = buildTicketEmail(eventType, payload as TicketEmailPayload);
       html        = built.html;
