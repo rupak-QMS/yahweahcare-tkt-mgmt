@@ -1813,6 +1813,10 @@
             const [ticketsLoading, setTicketsLoading] = React.useState(true);
             const [filter, setFilter] = React.useState('all');
             const [search, setSearch] = React.useState('');
+            const [priorityFilter, setPriorityFilter] = React.useState('');
+            const [assigneeFilter, setAssigneeFilter] = React.useState('');
+            const [dateFrom, setDateFrom] = React.useState('');
+            const [dateTo, setDateTo]     = React.useState('');
             const [selectedTicket, setSelectedTicket] = React.useState(null);
             const [approvers, setApprovers] = React.useState([]);
             const [actionLoading, setActionLoading] = React.useState(false);
@@ -1967,10 +1971,24 @@
                 {key:'closed',         label:'Closed',             match: t=>t.status==='Closed'},
                 {key:'overdue',        label:'Overdue',            match: t=>isOD(t)},
             ];
+            const uniqueAssignees = React.useMemo(() => {
+                const seen = new Set();
+                tickets.forEach(t => { if (t.assigned && t.assigned !== 'Unassigned') seen.add(t.assigned); });
+                return [...seen].sort();
+            }, [tickets]);
+
+            const hasActiveFilters = priorityFilter || assigneeFilter || dateFrom || dateTo;
+            const clearFilters = () => { setPriorityFilter(''); setAssigneeFilter(''); setDateFrom(''); setDateTo(''); };
+
             const filteredNew = tickets.filter(t => {
                 const grp = STATUS_GROUPS.find(g=>g.key===filter);
                 if (grp && !grp.match(t)) return false;
                 if (search && !t.title.toLowerCase().includes(search.toLowerCase()) && !t.id.toLowerCase().includes(search.toLowerCase())) return false;
+                if (priorityFilter && (t.priority||'').toLowerCase() !== priorityFilter.toLowerCase()) return false;
+                if (assigneeFilter && (t.assigned||'') !== assigneeFilter) return false;
+                const createdMs = t.createdAt ? new Date(t.createdAt).getTime() : null;
+                if (dateFrom && !(createdMs && createdMs >= new Date(dateFrom).getTime())) return false;
+                if (dateTo   && !(createdMs && createdMs <= new Date(dateTo + 'T23:59:59').getTime())) return false;
                 return true;
             });
 
@@ -2035,13 +2053,41 @@
                         {/* ── Search + table card ── */}
                         <div style={{background:cardBg,borderRadius:'14px',border:`1px solid ${borderC}`,overflow:'hidden',boxShadow:dm?'0 4px 6px rgba(0,0,0,0.4),0 16px 48px rgba(0,0,0,0.55),0 1px 0 rgba(255,255,255,0.04) inset':'0 1px 4px rgba(0,0,0,0.05)'}}>
 
-                            {/* Search bar */}
-                            <div style={{padding:'14px 16px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`,display:'flex',alignItems:'center',gap:'10px'}}>
-                                <span style={{fontSize:'15px',color:dm?'#4a607f':'#94A3B8'}}>🔍</span>
-                                <input type="text" placeholder="Search by title or ticket ID…" value={search} onChange={e=>setSearch(e.target.value)}
-                                    style={{flex:1,border:'none',outline:'none',fontSize:'13px',color:dm?'#c0cfec':'#334155',background:'transparent'}}/>
-                                {search && <button onClick={()=>setSearch('')} style={{border:'none',background:'none',color:dm?'#4a607f':'#94A3B8',cursor:'pointer',fontSize:'16px',padding:'0 4px'}}>×</button>}
-                                <span style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',whiteSpace:'nowrap'}}>{filteredNew.length} ticket{filteredNew.length!==1?'s':''}</span>
+                            {/* Search + filter bar */}
+                            <div style={{padding:'12px 16px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`,display:'flex',flexWrap:'wrap',gap:'8px',alignItems:'center'}}>
+                                {/* Search input */}
+                                <div style={{display:'flex',alignItems:'center',gap:'8px',flex:'1 1 220px',minWidth:'180px',background:dm?'rgba(8,16,36,0.5)':'#F8FAFF',border:`1px solid ${dm?'rgba(99,102,241,0.14)':'#E2E8F2'}`,borderRadius:'8px',padding:'6px 10px'}}>
+                                    <span style={{fontSize:'14px',color:dm?'#4a607f':'#94A3B8',flexShrink:0}}>🔍</span>
+                                    <input type="text" placeholder="Search by title or ticket ID…" value={search} onChange={e=>setSearch(e.target.value)}
+                                        style={{flex:1,border:'none',outline:'none',fontSize:'12.5px',color:dm?'#c0cfec':'#334155',background:'transparent',minWidth:0}}/>
+                                    {search && <button onClick={()=>setSearch('')} style={{border:'none',background:'none',color:dm?'#4a607f':'#94A3B8',cursor:'pointer',fontSize:'15px',padding:'0',lineHeight:1,flexShrink:0}}>×</button>}
+                                </div>
+                                {/* Priority */}
+                                <select value={priorityFilter} onChange={e=>setPriorityFilter(e.target.value)}
+                                    style={{flex:'0 1 130px',minWidth:'110px',border:`1px solid ${priorityFilter?'#6366F1':(dm?'rgba(99,102,241,0.14)':'#E2E8F2')}`,borderRadius:'8px',padding:'6px 10px',fontSize:'12px',background:dm?'rgba(8,16,36,0.5)':'#F8FAFF',color:priorityFilter?(dm?'#a5b4fc':'#4F46E5'):(dm?'#8fa4cc':'#64748B'),outline:'none',cursor:'pointer'}}>
+                                    <option value="">All Priorities</option>
+                                    <option value="Critical">🔴 Critical</option>
+                                    <option value="High">🟠 High</option>
+                                    <option value="Medium">🔵 Medium</option>
+                                    <option value="Low">🟢 Low</option>
+                                </select>
+                                {/* Assignee */}
+                                <select value={assigneeFilter} onChange={e=>setAssigneeFilter(e.target.value)}
+                                    style={{flex:'0 1 160px',minWidth:'130px',border:`1px solid ${assigneeFilter?'#6366F1':(dm?'rgba(99,102,241,0.14)':'#E2E8F2')}`,borderRadius:'8px',padding:'6px 10px',fontSize:'12px',background:dm?'rgba(8,16,36,0.5)':'#F8FAFF',color:assigneeFilter?(dm?'#a5b4fc':'#4F46E5'):(dm?'#8fa4cc':'#64748B'),outline:'none',cursor:'pointer'}}>
+                                    <option value="">All Assignees</option>
+                                    {uniqueAssignees.map(a=><option key={a} value={a}>{a}</option>)}
+                                </select>
+                                {/* Date From */}
+                                <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)} title="Created from"
+                                    style={{flex:'0 1 130px',minWidth:'110px',border:`1px solid ${dateFrom?'#6366F1':(dm?'rgba(99,102,241,0.14)':'#E2E8F2')}`,borderRadius:'8px',padding:'6px 10px',fontSize:'12px',background:dm?'rgba(8,16,36,0.5)':'#F8FAFF',color:dateFrom?(dm?'#a5b4fc':'#4F46E5'):(dm?'#8fa4cc':'#64748B'),outline:'none',colorScheme:dm?'dark':'light'}}/>
+                                {/* Date To */}
+                                <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)} title="Created to"
+                                    style={{flex:'0 1 130px',minWidth:'110px',border:`1px solid ${dateTo?'#6366F1':(dm?'rgba(99,102,241,0.14)':'#E2E8F2')}`,borderRadius:'8px',padding:'6px 10px',fontSize:'12px',background:dm?'rgba(8,16,36,0.5)':'#F8FAFF',color:dateTo?(dm?'#a5b4fc':'#4F46E5'):(dm?'#8fa4cc':'#64748B'),outline:'none',colorScheme:dm?'dark':'light'}}/>
+                                {/* Clear + count */}
+                                {hasActiveFilters && (
+                                    <button onClick={clearFilters} style={{border:'none',background:'none',color:dm?'#a5b4fc':'#6366F1',cursor:'pointer',fontSize:'12px',fontWeight:'600',padding:'6px 4px',flexShrink:0,whiteSpace:'nowrap'}}>✕ Clear</button>
+                                )}
+                                <span style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',marginLeft:'auto',whiteSpace:'nowrap',flexShrink:0}}>{filteredNew.length} ticket{filteredNew.length!==1?'s':''}</span>
                             </div>
 
                             {/* Table */}
