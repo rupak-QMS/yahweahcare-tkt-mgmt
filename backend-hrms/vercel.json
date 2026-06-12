@@ -32,7 +32,7 @@
     },
     {
       "path": "/cron/email-retry",
-      "schedule": "0 * * * *"
+      "schedule": "0 0 * * *"
     }
   ],
   "headers": [
