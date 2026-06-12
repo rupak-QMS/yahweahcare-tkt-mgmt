@@ -44,7 +44,6 @@ jobs:
         run: npm install -g vercel@latest
 
       - name: Pull Vercel environment
-        working-directory: frontend
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -53,7 +52,6 @@ jobs:
 
       - name: Deploy (production)
         id: deploy
-        working-directory: frontend
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -67,5 +65,5 @@ jobs:
         run: |
           sleep 10
           curl --fail --retry 5 --retry-delay 5 \
-            "${{ steps.deploy.outputs.url }}/" && \
+            "https://yahweahcare-tkt-mgmt.vercel.app/" && \
             echo "✓ Frontend responding OK"
