@@ -7,6 +7,20 @@ import { pool } from '../../db/pool';
 import { requireAuth, optionalAuth } from '../../middleware/auth.middleware';
 import { logAudit } from '../audit/audit.service';
 import { notify } from '../notifications/notifications.service';
+import {
+  notifyTicketCreated,
+  notifyResolutionSubmitted,
+  notifyTicketApproved,
+  notifyTicketRejected,
+  notifyTicketClosed,
+  notifyTicketReopened,
+  notifyTicketEscalated,
+  notifyCommentAdded,
+  notifyAttachmentAdded,
+  notifyExtensionRequested,
+  notifyExtensionApproved,
+  notifyExtensionRejected,
+} from '../../services/email/notification.service';
 
 // Helper: get actor name + ticket dept from DB
 async function getActorName(userId: number | null): Promise<string | undefined> {
@@ -661,6 +675,7 @@ router.post('/', requireAuth, async (req, res, next) => {
       assigneeId: resolvedAssignee ? Number(resolvedAssignee) : undefined,
       approverIds: resolvedApprovers, deptId,
     }).catch(() => {});
+    notifyTicketCreated(ticketId, actorId!).catch(() => {});
   } catch (err) { next(err); }
 });
 
@@ -743,6 +758,7 @@ router.post('/:id/complete', requireAuth, async (req, res, next) => {
       assigneeId: tRows[0].assigned_to ?? undefined,
       approverIds: apIdsC.map(r => r.approver_user_id), deptId,
     }).catch(() => {});
+    notifyResolutionSubmitted(id, actorId!).catch(() => {});
   } catch (err) { next(err); }
 });
 
@@ -829,6 +845,7 @@ router.post('/:id/approve', requireAuth, async (req, res, next) => {
       actorId: userId, actorName: actorName2, creatorId: tInfo2[0]?.created_by ?? undefined,
       assigneeId: tInfo2[0]?.assigned_to ?? undefined, deptId: deptId2,
     }).catch(() => {});
+    notifyTicketApproved(id, userId, acceptanceNote ?? undefined).catch(() => {});
   } catch (err) { next(err); }
 });
 
@@ -902,6 +919,7 @@ router.post('/:id/reject', requireAuth, async (req, res, next) => {
       actorId: userId, actorName: actorName3, creatorId: tInfo3[0]?.created_by ?? undefined,
       assigneeId: tInfo3[0]?.assigned_to ?? undefined, deptId: deptId3,
     }).catch(() => {});
+    notifyTicketRejected(id, userId, justification).catch(() => {});
   } catch (err) { next(err); }
 });
 
@@ -980,6 +998,7 @@ router.post('/:id/reopen', requireAuth, async (req, res, next) => {
       actorId: userId, actorName: actorNameR, creatorId: tInfoR[0]?.created_by ?? undefined,
       assigneeId: tInfoR[0]?.assigned_to ?? undefined, deptId: deptIdR,
     }).catch(() => {});
+    notifyTicketReopened(id, userId, justification).catch(() => {});
   } catch (err) { next(err); }
 });
 
@@ -1031,6 +1050,7 @@ router.post('/:id/close', requireAuth, async (req, res, next) => {
 
     await logAudit({ userId, actorEmail: req.auth?.email, action: 'ticket.close', module: 'tickets', targetType: 'ticket', targetId: id, metadata: { title: tRows[0].title }, req });
     res.json({ ticket: t });
+    notifyTicketClosed(id, userId).catch(() => {});
   } catch (err) { next(err); }
 });
 
@@ -1244,6 +1264,7 @@ router.post('/:id/request-extension', requireAuth, async (req, res, next) => {
       assigneeId: tRows[0].assigned_to ?? undefined,
       approverIds: allAp.map(r => r.approver_user_id), deptId, extra: newDueDate,
     }).catch(() => {});
+    notifyExtensionRequested(id, actorId!, newDueDate, note?.trim()).catch(() => {});
   } catch (err) { next(err); }
 });
 
@@ -1317,6 +1338,11 @@ router.post('/:id/respond-extension', requireAuth, async (req, res, next) => {
       approverIds: allAp.map(r => r.approver_user_id), deptId,
       extra: action === 'approve' ? tRows[0].extension_requested_due : undefined,
     }).catch(() => {});
+    if (action === 'approve') {
+      notifyExtensionApproved(id, actorId!, tRows[0].extension_requested_due).catch(() => {});
+    } else {
+      notifyExtensionRejected(id, actorId!, note?.trim()).catch(() => {});
+    }
   } catch (err) { next(err); }
 });
 
@@ -1405,6 +1431,7 @@ router.post('/:id/escalate', requireAuth, async (req, res, next) => {
       actorId: userId, actorName: actorNameE, creatorId: tRows[0].created_by ?? undefined,
       assigneeId: escalateToUserId, deptId: deptIdE,
     }).catch(() => {});
+    notifyTicketEscalated(id, userId, reason?.trim()).catch(() => {});
   } catch (err) { next(err); }
 });
 
@@ -1463,6 +1490,7 @@ router.post('/:id/attachments', requireAuth, async (req, res, next) => {
 
     const t = dbTicket(rows[0]);
     res.json({ ticket: t, attachments: t.attachments });
+    notifyAttachmentAdded(ticketId, actorId!, sanitised.map(a => a.name)).catch(() => {});
   } catch (err) { next(err); }
 });
 
@@ -1504,6 +1532,7 @@ router.post('/:id/comments', requireAuth, async (req, res, next) => {
       [ticketId, actorId]
     );
     res.status(201).json({ comment: dbComment(rows[0]) });
+    notifyCommentAdded(ticketId, actorId!, body.trim()).catch(() => {});
   } catch (err) { next(err); }
 });
 

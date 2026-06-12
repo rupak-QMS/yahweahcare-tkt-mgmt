@@ -2,9 +2,10 @@
 cd "$(dirname "$0")"
 rm -f .git/HEAD.lock .git/index.lock
 echo "Adding files..."
-git add frontend/index.html backend-hrms/src/modules/tickets/tickets.routes.ts backend-hrms/src/modules/schedules/schedules.routes.ts
+git add frontend/index.html
+git add backend-hrms/src/__tests__/frontend.ready_to_close.test.ts
 echo "Committing..."
-git commit -m "fix: enforce Assigned to Me tab strictly — Number() type-safe comparison + null-guard + backend scope=assigned_to_me"
+git commit -m "feat: Ready to Close tab — resolved tickets for creator to close inline (+ 23 unit tests)"
 echo "Pushing to GitHub..."
 git push origin main
 echo ""

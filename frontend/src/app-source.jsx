@@ -122,13 +122,16 @@
         const STAFF_PAGES    = ['dashboard','create-ticket','tickets','calendar','analytics'];
         const MANAGER_PAGES  = [...STAFF_PAGES, 'org-chart','staff-performance','team-comparison','ticket-log'];
         const HR_PAGES       = [...MANAGER_PAGES, 'staff-management'];
-        const DIRECTOR_PAGES = [...HR_PAGES, 'scheduled-reports'];
+        const DIRECTOR_PAGES    = [...HR_PAGES, 'scheduled-reports'];
+        const BOOTSTRAP_PAGES   = [...DIRECTOR_PAGES, 'email-config'];
 
         function getAccessiblePages(sessionUser) {
             if (!sessionUser) return STAFF_PAGES;
             const { isBootstrapAdmin, positionType, role } = sessionUser;
-            // Director level: bootstrap admin, director position, or admin/super_admin role
-            if (isBootstrapAdmin || positionType === 'director'
+            // Bootstrap admin gets everything including email-config
+            if (isBootstrapAdmin) return BOOTSTRAP_PAGES;
+            // Director level: director position, or admin/super_admin role
+            if (positionType === 'director'
                 || role === 'super_admin' || role === 'admin') return DIRECTOR_PAGES;
             // HR Manager: hr role
             if (role === 'hr')                                   return HR_PAGES;
@@ -640,6 +643,7 @@
                 { id: 'staff-management',  label: 'Staff Management',  icon: '👥' },
                 { id: 'ticket-log',        label: 'Ticket Log',        icon: '📜' },
                 { id: 'scheduled-reports', label: 'Scheduled Reports', icon: '📧' },
+                { id: 'email-config',      label: 'Email Config',       icon: '✉️' },
             ].filter(p => allowedPages.includes(p.id));
 
             // Close dropdown when clicking outside
@@ -6799,6 +6803,276 @@
                 </main>
             );
         }
+        // ── Email Config Page (Bootstrap Admin only) ──────────────────────────────
+        function EmailConfigPage() {
+            const dm = React.useContext(DarkModeContext);
+            const BACKEND = window.location.hostname === 'localhost' ? 'http://localhost:4001' : 'https://yahweahcare-tkt-mgmt-hx48.vercel.app';
+
+            const [tab, setTab]           = React.useState('logs');       // logs | queue | stats
+            const [logs, setLogs]         = React.useState([]);
+            const [queue, setQueue]       = React.useState([]);
+            const [stats, setStats]       = React.useState(null);
+            const [loading, setLoading]   = React.useState(false);
+            const [toastMsg, setToastMsg] = React.useState('');
+            const [testEmail, setTestEmail] = React.useState('');
+            const [logFilter, setLogFilter] = React.useState('');
+            const [logStatus, setLogStatus] = React.useState('');
+            const [page, setPage]           = React.useState(1);
+            const [total, setTotal]         = React.useState(0);
+            const PAGE_SIZE = 50;
+
+            const bg   = dm ? '#0F172A' : '#F9FAFB';
+            const card = dm ? '#1E293B' : '#FFFFFF';
+            const bdr  = dm ? '#334155' : '#E2E8F0';
+            const txt  = dm ? '#E2E8F0' : '#1E293B';
+            const muted = dm ? '#94A3B8' : '#6B7280';
+
+            const apiFetch = React.useCallback(async (path, opts = {}) => {
+                const r = await fetch(BACKEND + path, { credentials: 'include', ...opts });
+                if (!r.ok) throw new Error(await r.text());
+                return r.json();
+            }, []);
+
+            const showToast = (msg) => {
+                setToastMsg(msg);
+                setTimeout(() => setToastMsg(''), 3500);
+            };
+
+            const loadLogs = React.useCallback(async () => {
+                setLoading(true);
+                try {
+                    const params = new URLSearchParams({ page, limit: PAGE_SIZE });
+                    if (logStatus) params.set('status', logStatus);
+                    if (logFilter) params.set('search', logFilter);
+                    const d = await apiFetch('/email/logs?' + params);
+                    setLogs(d.logs || []);
+                    setTotal(d.total || 0);
+                } catch (e) { showToast('Failed to load logs: ' + e.message); }
+                finally { setLoading(false); }
+            }, [apiFetch, page, logStatus, logFilter]);
+
+            const loadQueue = React.useCallback(async () => {
+                setLoading(true);
+                try {
+                    const d = await apiFetch('/email/queue');
+                    setQueue(d.queue || []);
+                } catch (e) { showToast('Failed to load queue: ' + e.message); }
+                finally { setLoading(false); }
+            }, [apiFetch]);
+
+            const loadStats = React.useCallback(async () => {
+                setLoading(true);
+                try {
+                    const d = await apiFetch('/email/stats');
+                    setStats(d);
+                } catch (e) { showToast('Failed to load stats: ' + e.message); }
+                finally { setLoading(false); }
+            }, [apiFetch]);
+
+            React.useEffect(() => {
+                if (tab === 'logs')  loadLogs();
+                if (tab === 'queue') loadQueue();
+                if (tab === 'stats') loadStats();
+            }, [tab, page, logStatus]);
+
+            const handleTest = async () => {
+                if (!testEmail.trim()) return showToast('Enter a recipient email first');
+                try {
+                    setLoading(true);
+                    await apiFetch('/email/test', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ to: testEmail.trim() }) });
+                    showToast('Test email sent to ' + testEmail.trim());
+                } catch (e) { showToast('Test failed: ' + e.message); }
+                finally { setLoading(false); }
+            };
+
+            const handleRetry = async (id) => {
+                try {
+                    await apiFetch('/email/retry/' + id, { method: 'POST' });
+                    showToast('Retried — refreshing queue…');
+                    loadQueue();
+                } catch (e) { showToast('Retry failed: ' + e.message); }
+            };
+
+            const handleRetryAll = async () => {
+                try {
+                    setLoading(true);
+                    const d = await apiFetch('/email/retry-all', { method: 'POST' });
+                    showToast(`Queue flushed — ${d.processed || 0} processed`);
+                    loadQueue();
+                } catch (e) { showToast('Retry-all failed: ' + e.message); }
+                finally { setLoading(false); }
+            };
+
+            const statusBadge = (s) => {
+                const cfg = { sent: ['#10B981','#ECFDF5'], failed: ['#EF4444','#FEF2F2'], skipped: ['#6B7280','#F3F4F6'], pending: ['#F59E0B','#FFFBEB'], processing: ['#3B82F6','#EFF6FF'], permanently_failed: ['#991B1B','#FEF2F2'] };
+                const [c, bg2] = cfg[s] || ['#6B7280','#F3F4F6'];
+                return <span style={{padding:'2px 8px',borderRadius:12,background:bg2,color:c,fontSize:11,fontWeight:700}}>{s}</span>;
+            };
+
+            const tabStyle = (id) => ({
+                padding:'8px 18px', borderRadius:6, border:'none', cursor:'pointer', fontSize:13, fontWeight: tab === id ? 700 : 500,
+                background: tab === id ? '#4F46E5' : (dm ? '#1E293B' : '#F3F4F6'),
+                color: tab === id ? '#fff' : muted,
+            });
+
+            const totalPages = Math.ceil(total / PAGE_SIZE);
+
+            return (
+                <main style={{flex:1, overflowY:'auto', background:bg, padding:'24px'}}>
+                    {toastMsg && (
+                        <div style={{position:'fixed',top:20,right:20,background:'#1E293B',color:'#fff',padding:'10px 18px',borderRadius:10,zIndex:9999,fontSize:13,boxShadow:'0 4px 16px rgba(0,0,0,0.3)'}}>
+                            {toastMsg}
+                        </div>
+                    )}
+
+                    <div style={{maxWidth:1100, margin:'0 auto'}}>
+                        {/* Header */}
+                        <div style={{marginBottom:24}}>
+                            <h1 style={{fontSize:22,fontWeight:800,color:txt,margin:0}}>✉️ Email Configuration</h1>
+                            <p style={{fontSize:13,color:muted,margin:'4px 0 0'}}>Manage email delivery, view logs, and test configuration. Bootstrap Admin only.</p>
+                        </div>
+
+                        {/* Test email card */}
+                        <div style={{background:card,border:`1px solid ${bdr}`,borderRadius:12,padding:20,marginBottom:20,display:'flex',gap:12,alignItems:'flex-end',flexWrap:'wrap'}}>
+                            <div style={{flex:1,minWidth:200}}>
+                                <label style={{fontSize:12,fontWeight:600,color:muted,display:'block',marginBottom:6}}>Send Test Email</label>
+                                <input value={testEmail} onChange={e=>setTestEmail(e.target.value)} placeholder="recipient@example.com"
+                                    style={{width:'100%',padding:'9px 12px',borderRadius:8,border:`1px solid ${bdr}`,background:bg,color:txt,fontSize:13,boxSizing:'border-box'}}/>
+                            </div>
+                            <button onClick={handleTest} disabled={loading} style={{padding:'9px 20px',borderRadius:8,border:'none',background:'#4F46E5',color:'#fff',fontWeight:600,cursor:'pointer',fontSize:13}}>
+                                Send Test
+                            </button>
+                            <button onClick={handleRetryAll} disabled={loading} style={{padding:'9px 20px',borderRadius:8,border:`1px solid ${bdr}`,background:'transparent',color:txt,fontWeight:600,cursor:'pointer',fontSize:13}}>
+                                Flush Queue
+                            </button>
+                        </div>
+
+                        {/* Tabs */}
+                        <div style={{display:'flex',gap:8,marginBottom:16}}>
+                            {[['logs','Email Logs'],['queue','Queue'],['stats','Stats']].map(([id,label]) => (
+                                <button key={id} style={tabStyle(id)} onClick={() => { setTab(id); setPage(1); }}>{label}</button>
+                            ))}
+                        </div>
+
+                        {/* Email Logs tab */}
+                        {tab === 'logs' && (
+                            <div style={{background:card,border:`1px solid ${bdr}`,borderRadius:12,overflow:'hidden'}}>
+                                <div style={{padding:'14px 16px',borderBottom:`1px solid ${bdr}`,display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}>
+                                    <input value={logFilter} onChange={e=>{setLogFilter(e.target.value);setPage(1);}} placeholder="Search email / subject…"
+                                        style={{padding:'7px 10px',borderRadius:6,border:`1px solid ${bdr}`,background:bg,color:txt,fontSize:12,width:220}}/>
+                                    <select value={logStatus} onChange={e=>{setLogStatus(e.target.value);setPage(1);}}
+                                        style={{padding:'7px 10px',borderRadius:6,border:`1px solid ${bdr}`,background:bg,color:txt,fontSize:12}}>
+                                        <option value=''>All statuses</option>
+                                        <option value='sent'>Sent</option>
+                                        <option value='failed'>Failed</option>
+                                        <option value='skipped'>Skipped</option>
+                                    </select>
+                                    <button onClick={()=>loadLogs()} style={{padding:'7px 14px',borderRadius:6,border:`1px solid ${bdr}`,background:'transparent',color:muted,fontSize:12,cursor:'pointer'}}>↻ Refresh</button>
+                                    <span style={{marginLeft:'auto',fontSize:12,color:muted}}>{total} total</span>
+                                </div>
+                                <div style={{overflowX:'auto'}}>
+                                    <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+                                        <thead>
+                                            <tr style={{background:dm?'#0F172A':'#F8FAFC'}}>
+                                                {['To','Subject','Status','Ticket','Sent At'].map(h=>(
+                                                    <th key={h} style={{padding:'10px 14px',textAlign:'left',fontWeight:600,color:muted,borderBottom:`1px solid ${bdr}`,whiteSpace:'nowrap'}}>{h}</th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {loading && <tr><td colSpan={5} style={{padding:24,textAlign:'center',color:muted}}>Loading…</td></tr>}
+                                            {!loading && !logs.length && <tr><td colSpan={5} style={{padding:24,textAlign:'center',color:muted}}>No logs found</td></tr>}
+                                            {logs.map(l => (
+                                                <tr key={l.id} style={{borderBottom:`1px solid ${bdr}`}}>
+                                                    <td style={{padding:'9px 14px',color:txt,maxWidth:180,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.recipient_email}</td>
+                                                    <td style={{padding:'9px 14px',color:txt,maxWidth:280,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={l.subject}>{l.subject}</td>
+                                                    <td style={{padding:'9px 14px'}}>{statusBadge(l.status)}{l.error_message && <span title={l.error_message} style={{marginLeft:4,cursor:'help',color:'#EF4444'}}>⚠</span>}</td>
+                                                    <td style={{padding:'9px 14px',color:muted}}>{l.ticket_id ? `#${l.ticket_id}` : '—'}</td>
+                                                    <td style={{padding:'9px 14px',color:muted,whiteSpace:'nowrap'}}>{l.sent_at ? new Date(l.sent_at).toLocaleString('en-AU',{dateStyle:'short',timeStyle:'short'}) : '—'}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {totalPages > 1 && (
+                                    <div style={{padding:'12px 16px',display:'flex',gap:8,justifyContent:'flex-end',borderTop:`1px solid ${bdr}`}}>
+                                        <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1} style={{padding:'5px 12px',borderRadius:6,border:`1px solid ${bdr}`,background:'transparent',color:txt,cursor:'pointer',fontSize:12}}>← Prev</button>
+                                        <span style={{fontSize:12,color:muted,padding:'5px 0'}}>Page {page} / {totalPages}</span>
+                                        <button onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={page===totalPages} style={{padding:'5px 12px',borderRadius:6,border:`1px solid ${bdr}`,background:'transparent',color:txt,cursor:'pointer',fontSize:12}}>Next →</button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Queue tab */}
+                        {tab === 'queue' && (
+                            <div style={{background:card,border:`1px solid ${bdr}`,borderRadius:12,overflow:'hidden'}}>
+                                <div style={{padding:'14px 16px',borderBottom:`1px solid ${bdr}`,display:'flex',gap:10,alignItems:'center'}}>
+                                    <span style={{fontSize:13,fontWeight:600,color:txt}}>Notification Queue</span>
+                                    <button onClick={loadQueue} style={{marginLeft:'auto',padding:'6px 12px',borderRadius:6,border:`1px solid ${bdr}`,background:'transparent',color:muted,fontSize:12,cursor:'pointer'}}>↻ Refresh</button>
+                                </div>
+                                <div style={{overflowX:'auto'}}>
+                                    <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+                                        <thead>
+                                            <tr style={{background:dm?'#0F172A':'#F8FAFC'}}>
+                                                {['Event','Status','Retries','Next Retry','Created','Action'].map(h=>(
+                                                    <th key={h} style={{padding:'10px 14px',textAlign:'left',fontWeight:600,color:muted,borderBottom:`1px solid ${bdr}`,whiteSpace:'nowrap'}}>{h}</th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {loading && <tr><td colSpan={6} style={{padding:24,textAlign:'center',color:muted}}>Loading…</td></tr>}
+                                            {!loading && !queue.length && <tr><td colSpan={6} style={{padding:24,textAlign:'center',color:muted}}>Queue is empty</td></tr>}
+                                            {queue.map(q => (
+                                                <tr key={q.id} style={{borderBottom:`1px solid ${bdr}`}}>
+                                                    <td style={{padding:'9px 14px',color:txt}}>{q.event_name}</td>
+                                                    <td style={{padding:'9px 14px'}}>{statusBadge(q.status)}</td>
+                                                    <td style={{padding:'9px 14px',color:muted,textAlign:'center'}}>{q.retry_count}</td>
+                                                    <td style={{padding:'9px 14px',color:muted,whiteSpace:'nowrap'}}>{q.next_retry_at ? new Date(q.next_retry_at).toLocaleString('en-AU',{dateStyle:'short',timeStyle:'short'}) : '—'}</td>
+                                                    <td style={{padding:'9px 14px',color:muted,whiteSpace:'nowrap'}}>{new Date(q.created_at).toLocaleString('en-AU',{dateStyle:'short',timeStyle:'short'})}</td>
+                                                    <td style={{padding:'9px 14px'}}>
+                                                        {['failed','permanently_failed','pending'].includes(q.status) && (
+                                                            <button onClick={()=>handleRetry(q.id)} style={{padding:'4px 10px',borderRadius:6,border:`1px solid ${bdr}`,background:'transparent',color:'#4F46E5',fontSize:11,cursor:'pointer',fontWeight:600}}>Retry</button>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Stats tab */}
+                        {tab === 'stats' && stats && (
+                            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:16}}>
+                                {[
+                                    ['Total Emails Logged', stats.logs?.total, '#4F46E5'],
+                                    ['Sent Successfully', stats.logs?.sent, '#10B981'],
+                                    ['Failed', stats.logs?.failed, '#EF4444'],
+                                    ['Skipped (no API key)', stats.logs?.skipped, '#6B7280'],
+                                    ['Last 24h', stats.logs?.last_24h, '#F97316'],
+                                    ['Queue: Pending', stats.queue?.pending, '#F59E0B'],
+                                    ['Queue: Failed', stats.queue?.failed, '#EF4444'],
+                                    ['Queue: Perm. Failed', stats.queue?.permanently_failed, '#991B1B'],
+                                ].map(([label, val, color]) => (
+                                    <div key={label} style={{background:card,border:`1px solid ${bdr}`,borderRadius:12,padding:20}}>
+                                        <div style={{fontSize:24,fontWeight:800,color}}>{val ?? 0}</div>
+                                        <div style={{fontSize:12,color:muted,marginTop:4}}>{label}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        {tab === 'stats' && !stats && !loading && (
+                            <div style={{background:card,border:`1px solid ${bdr}`,borderRadius:12,padding:32,textAlign:'center',color:muted}}>
+                                <button onClick={loadStats} style={{padding:'9px 20px',borderRadius:8,border:`1px solid ${bdr}`,background:'transparent',color:txt,cursor:'pointer',fontSize:13}}>Load Stats</button>
+                            </div>
+                        )}
+                    </div>
+                </main>
+            );
+        }
+
         // Main App
         function App() {
             const [currentPage, setCurrentPage] = React.useState(() => {
@@ -7024,6 +7298,7 @@
                     case 'staff-management': return <StaffManagementPage />;
                     case 'ticket-log': return <TicketLogPage />;
                     case 'scheduled-reports': return <ScheduledReportsPage />;
+                    case 'email-config':      return <EmailConfigPage />;
                     default: return <Dashboard />;
                 }
             };

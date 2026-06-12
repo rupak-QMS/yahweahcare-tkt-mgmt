@@ -31,6 +31,13 @@ import lookupRoutes        from '../src/modules/lookup/lookup.routes';
 import orgRoutes           from '../src/modules/org/org.routes';
 import { pool }            from '../src/db/pool';
 import { sendEmail, buildSlaBreachHtml, type SlaBreachTicket } from '../src/modules/notifications/email.service';
+import { ensureEmailTables } from '../src/services/email/email.migrate';
+import { processQueue }      from '../src/services/email/email.queue';
+import { sendOverdueReminders, sendDueTomorrowReminders } from '../src/services/email/notification.service';
+import emailAdminRoutes      from '../src/modules/email/email.routes';
+
+// Ensure email tables exist on first cold start (idempotent)
+ensureEmailTables().catch((e) => console.error('[startup] ensureEmailTables:', e));
 
 // Build the Express app ONCE per cold start
 const app = express();
@@ -82,6 +89,8 @@ app.use('/notifications', notificationRoutes);
 app.use('/push',          pushRoutes);
 app.use('/lookup',        lookupRoutes);
 app.use('/org',           orgRoutes);
+app.use('/email',         apiLimiter);
+app.use('/email',         emailAdminRoutes);
 
 // ── SLA breach cron — called by Vercel Cron daily ─────────
 // Secured by CRON_SECRET header to prevent public access.
@@ -161,6 +170,50 @@ app.post('/cron/sla-check', async (req, res) => {
     res.json({ ok: true, alerted: breached.length, emailsSent: alertEmails.length });
   } catch (err) {
     console.error('[cron/sla-check]', err);
+    res.status(500).json({ ok: false, error: String(err) });
+  }
+});
+
+// ── Email queue retry cron — every 5 minutes ──────────────
+app.post('/cron/email-retry', async (req, res) => {
+  const secret   = env.CRON_SECRET;
+  const provided = req.headers['x-cron-secret'] || req.headers['authorization']?.replace('Bearer ', '');
+  if (secret && provided !== secret) return res.status(401).json({ error: 'unauthorized' });
+  try {
+    const result = await processQueue();
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    console.error('[cron/email-retry]', err);
+    res.status(500).json({ ok: false, error: String(err) });
+  }
+});
+
+// ── Due-tomorrow reminders — daily 7am ────────────────────
+app.post('/cron/due-tomorrow', async (req, res) => {
+  const secret   = env.CRON_SECRET;
+  const provided = req.headers['x-cron-secret'] || req.headers['authorization']?.replace('Bearer ', '');
+  if (secret && provided !== secret) return res.status(401).json({ error: 'unauthorized' });
+  try {
+    await sendDueTomorrowReminders();
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[cron/due-tomorrow]', err);
+    res.status(500).json({ ok: false, error: String(err) });
+  }
+});
+
+// ── Enhanced SLA overdue cron (replaces old standalone send) ──
+// The existing /cron/sla-check still runs the admin digest;
+// this new endpoint sends per-assignee overdue reminders via queue.
+app.post('/cron/overdue-reminders', async (req, res) => {
+  const secret   = env.CRON_SECRET;
+  const provided = req.headers['x-cron-secret'] || req.headers['authorization']?.replace('Bearer ', '');
+  if (secret && provided !== secret) return res.status(401).json({ error: 'unauthorized' });
+  try {
+    await sendOverdueReminders();
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[cron/overdue-reminders]', err);
     res.status(500).json({ ok: false, error: String(err) });
   }
 });
