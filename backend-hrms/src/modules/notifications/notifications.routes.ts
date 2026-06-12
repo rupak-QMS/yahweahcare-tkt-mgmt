@@ -12,18 +12,38 @@ import { ensurePushTable } from './notifications.service';
 const router = Router();
 router.use(requireAuth);
 
-// GET /notifications — current user's notifications
+// GET /notifications — current user's notifications (paginated)
+// ?page=1&limit=20 (defaults: page=1, limit=20, max limit=100)
 router.get('/', async (req, res, next) => {
   try {
-    await ensurePushTable(); // guarantee notifications table exists before querying
+    await ensurePushTable();
+    const limit  = Math.min(Number(req.query.limit)  || 20, 100);
+    const page   = Math.max(Number(req.query.page)   || 1,  1);
+    const offset = (page - 1) * limit;
+
     const { rows } = await pool.query(
       `SELECT * FROM yc_tkt_mgmt.notifications
        WHERE recipient_id = $1
        ORDER BY created_at DESC
-       LIMIT 100`,
+       LIMIT $2 OFFSET $3`,
+      [req.auth!.userId, limit, offset]
+    );
+
+    const { rows: countRows } = await pool.query(
+      `SELECT COUNT(*) AS total,
+              COUNT(*) FILTER (WHERE read_at IS NULL) AS unread
+       FROM yc_tkt_mgmt.notifications WHERE recipient_id = $1`,
       [req.auth!.userId]
     );
-    res.json({ notifications: rows });
+
+    res.json({
+      notifications: rows,
+      total:   Number(countRows[0]?.total  || 0),
+      unread:  Number(countRows[0]?.unread || 0),
+      page,
+      limit,
+      hasMore: offset + rows.length < Number(countRows[0]?.total || 0),
+    });
   } catch (err) { next(err); }
 });
 
@@ -70,10 +90,8 @@ router.post('/send-report-email', async (req, res, next) => {
     const dataRows: unknown[][] = Array.isArray(rows) ? rows : [];
     const dateStr = new Date().toISOString().slice(0, 10);
 
-    // ── Build Excel attachment ────────────────────────────────
     const wsData = hdrs.length ? [hdrs, ...dataRows.map(r => (r as unknown[]).map(c => c ?? ''))] : dataRows;
     const ws = XLSX.utils.aoa_to_sheet(wsData);
-    // Style header row bold (column widths auto)
     if (hdrs.length) {
       const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
       ws['!cols'] = hdrs.map(() => ({ wch: 20 }));
@@ -87,7 +105,6 @@ router.post('/send-report-email', async (req, res, next) => {
     const xlsxBuffer: Buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
     const filename = `${safeTitle.replace(/[\s/]+/g, '_')}_${dateStr}.xlsx`;
 
-    // ── Build HTML email body ─────────────────────────────────
     const previewRows = dataRows.slice(0, 10);
     const tableHtml = hdrs.length ? `
       <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:16px 0;font-size:12px;">
@@ -139,7 +156,6 @@ router.post('/send-report-email', async (req, res, next) => {
 </table>
 </body></html>`;
 
-    // ── Send via Resend with attachment ───────────────────────
     const resend = new Resend(apiKey);
     const from = process.env.EMAIL_FROM || 'Yahwehcare <onboarding@resend.dev>';
     const { error } = await resend.emails.send({
@@ -147,10 +163,7 @@ router.post('/send-report-email', async (req, res, next) => {
       to: recipients,
       subject: safeSubject,
       html,
-      attachments: [{
-        filename,
-        content: xlsxBuffer,
-      }],
+      attachments: [{ filename, content: xlsxBuffer }],
     });
 
     if (error) {
