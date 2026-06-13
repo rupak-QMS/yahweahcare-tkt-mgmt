@@ -1,6 +1,107 @@
 
         // All data sourced from API — no hardcoded fallbacks
 
+        // ── Professional SVG Icon System ──────────────────────────────────────
+        // Usage: <Icon name="dashboard" size={16} color="currentColor" />
+        function Icon({ name, size = 16, color = 'currentColor', style = {} }) {
+            const d = {
+                // Navigation
+                'dashboard':       'M3 3h7v7H3z M14 3h7v7h-7z M14 14h7v7h-7z M3 14h7v7H3z',
+                'plus-circle':     'M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z M12 8v8 M8 12h8',
+                'clipboard-list':  'M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2 M9 12h6 M9 16h6 M15 2H9a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z',
+                'calendar':        'M8 2v4 M16 2v4 M3 10h18 M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z',
+                'trending-up':     'M22 7l-8.5 8.5-5-5L2 17 M16 7h6v6',
+                'building-2':      'M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18z M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2 M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2 M10 6h4 M10 10h4 M10 14h4 M10 18h4',
+                'star':            'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z',
+                'refresh-cw':      'M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8 M21 3v5h-5 M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16 M3 21v-5h5',
+                'users':           'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75',
+                'scroll-text':     'M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z M14 2v4a2 2 0 0 0 2 2h4 M10 9H8 M16 13H8 M16 17H8',
+                'send':            'M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z M21.854 2.147l-10.94 10.939',
+                'mail':            'M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z M22 6l-10 7L2 6',
+                'mail-cog':        'M22 10.5V6l-8.29 5.26a2 2 0 0 1-2.22 0L2 6v12a2 2 0 0 0 2 2h7.5 M2 6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2 M19.12 17.86a2.04 2.04 0 1 0 .01 0h-.01 M22 14a4 4 0 0 0-5.27 1.55 M16.73 14a4 4 0 0 1 5.27 1.55',
+                // Status & Actions
+                'check-circle':    'M22 11.08V12a10 10 0 1 1-5.93-9.14 M22 4 12 14.01l-3-3',
+                'x-circle':        'M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z M15 9l-6 6 M9 9l6 6',
+                'alert-triangle':  'M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z M12 9v4 M12 17h.01',
+                'alert-octagon':   'M7.86 2h8.28L22 7.86v8.28L16.14 22H7.86L2 16.14V7.86z M12 8v4 M12 16h.01',
+                'alert-circle':    'M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z M12 8v4 M12 16h.01',
+                'clock':           'M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z M12 6v6l4 2',
+                'hourglass':       'M5 22h14 M5 2h14 M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22 M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2',
+                'arrow-up-circle': 'M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z M12 16V8 M8 12l4-4 4 4',
+                'user':            'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+                'award':           'M12 15a6 6 0 1 0 0-12 6 6 0 0 0 0 12z M8.21 13.89 7 23l5-3 5 3-1.21-9.12',
+                'sparkles':        'M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z M20 3v4 M22 5h-4 M4 17v2 M5 18H3',
+                'lock':            'M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z M7 11V7a5 5 0 0 1 10 0v4',
+                'lock-open':       'M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2z M7 11V7a5 5 0 0 1 9.9-1',
+                'bell':            'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9 M13.73 21a2 2 0 0 1-3.46 0',
+                'bell-ring':       'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9 M13.73 21a2 2 0 0 1-3.46 0 M2 8c0-3.31 1.34-6.31 3.5-8.49 M22 8c0-3.31-1.34-6.31-3.5-8.49',
+                'message-square':  'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z',
+                'paperclip':       'M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48',
+                'zap':             'M13 2 3 14h9l-1 8 10-12h-9l1-8z',
+                'pause-circle':    'M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z M10 15V9 M14 15V9',
+                'map-pin':         'M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0z M12 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
+                'settings':        'M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+                'log-out':         'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4 M16 17l5-5-5-5 M21 12H9',
+                'search':          'M21 21l-4.35-4.35 M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z',
+                // Ticket types
+                'ticket':          'M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z',
+                'inbox':           'M22 12h-6l-2 3h-4l-2-3H2 M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z',
+                'loader':          'M12 2v4 M12 18v4 M4.93 4.93l2.83 2.83 M16.24 16.24l2.83 2.83 M2 12h4 M18 12h4 M4.93 19.07l2.83-2.83 M16.24 7.76l2.83-2.83',
+                'tag':             'M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z M7.5 7.5h.01',
+                'file-edit':       'M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7 M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z',
+                // Charts & reports
+                'bar-chart':       'M3 3v18h18 M7 16v-5 M11 16V8 M15 16v-3 M19 16V5',
+                'bar-chart-2':     'M18 20V10 M12 20V4 M6 20v-6',
+                'pie-chart':       'M21.21 15.89A10 10 0 1 1 8 2.83 M22 12A10 10 0 0 0 12 2v10z',
+                'activity':        'M22 12h-4l-3 9L9 3l-3 9H2',
+                'target':          'M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z M12 6a6 6 0 1 0 0 12A6 6 0 0 0 12 6z M12 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4z',
+                'folder':          'M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z',
+                // Category icons
+                'user-check':      'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M16 11l2 2 4-4',
+                'key':             'M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4',
+                'shield':          'M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z',
+                'wrench':          'M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z',
+                'clipboard':       'M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2 M15 2H9a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z',
+                'hard-hat':        'M2 18a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1z M10 10V5a2 2 0 0 1 4 0v5 M5 15v-3a7 7 0 0 1 14 0v3',
+                'dollar-sign':     'M12 1v22 M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
+                'heart-handshake': 'M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7z M12 5 9.04 7.96a2.17 2.17 0 0 0 0 3.08c.82.82 2.13.85 3 .07l2.07-1.9a2.82 2.82 0 0 1 3.79 0l2.96 2.66 M18 15l2 2 M15 18l2 2',
+                'broom':           'M7 21l-4.3-4.3c-1-1-.9-2.5.1-3.4l9.6-8.8c.9-.8 2.3-.7 3.1.2l.4.4c.8.9.7 2.3-.2 3.1L8.7 16.6c-.9.8-.8 2.3.1 3.2L11 22',
+                'git-branch':      'M6 3v12 M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M18 9a9 9 0 0 1-9 9',
+                'git-compare':     'M16 3h5v5 M8 3H3v5 M21 3l-7.536 7.536A5 5 0 0 0 12 14.07V21 M3 3l7.536 7.536A5 5 0 0 1 12 14.07',
+                'info':            'M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z M12 8h.01 M12 12v4',
+                'percent':         'M19 5 5 19 M6.5 7a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z M17.5 21a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z',
+                'phone':           'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z',
+                'users-minus':     'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M22 11h-6',
+                'cpu':             'M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 0-2-2V9m0 0h18',
+                'layers':          'M12 2 2 7l10 5 10-5-10-5z M2 17l10 5 10-5 M2 12l10 5 10-5',
+                'chevron-right':   'M9 18l6-6-6-6',
+                'chevron-down':    'M6 9l6 6 6-6',
+                'check':           'M20 6 9 17l-5-5',
+                'x':               'M18 6 6 18 M6 6l12 12',
+                'download':        'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M7 10l5 5 5-5 M12 15V3',
+                'upload':          'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M17 8l-5-5-5 5 M12 3v12',
+                'external-link':   'M15 3h6v6 M10 14 21 3 M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6',
+                'link':            'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71 M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71',
+                'more-horizontal': 'M8 12h.01 M12 12h.01 M16 12h.01',
+                'eye':             'M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
+                'trash-2':         'M3 6h18 M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6 M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2 M10 11v6 M14 11v6',
+                'pencil':          'M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z',
+                'filter':          'M22 3H2l8 9.46V19l4 2v-8.54z',
+                'sort':            'M3 6h18 M7 12h10 M10 18h4',
+            }[name];
+            if (!d) return null;
+            return (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+                    stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"
+                    style={{display:'inline-block',verticalAlign:'middle',flexShrink:0,...style}}
+                    aria-hidden="true">
+                    <path d={d} />
+                </svg>
+            );
+        }
+
+
+
         // API Service Layer — all routes go to backend-hrms (HRMS_API)
         // API_BASE_URL kept for legacy references; both point to the same deployed backend.
         const HRMS_API = window.location.hostname === 'localhost'
@@ -555,20 +656,20 @@
                                         </div>
                                     )}
                                     {!notifLoading && notifications.map(n => {
-                                        const icon = n.subject?.includes('escalat') ? '⬆️'
-                                            : n.subject?.includes('Critical') || n.subject?.includes('critical') ? '🚨'
-                                            : n.subject?.includes('creat') ? '📋'
-                                            : n.subject?.includes('Approv') || n.subject?.includes('approv') ? '✅'
-                                            : n.subject?.includes('Reject') || n.subject?.includes('reject') ? '❌'
-                                            : n.subject?.includes('Closed') ? '🔒'
-                                            : n.subject?.includes('Reopen') || n.subject?.includes('reopen') ? '🔄'
-                                            : n.subject?.includes('Comment') ? '💬'
-                                            : n.subject?.includes('Attachment') ? '📎'
-                                            : n.subject?.includes('Extension') ? '📅'
-                                            : n.subject?.includes('Assign') ? '👤'
-                                            : n.subject?.includes('Summary') || n.subject?.includes('Reminder') ? '📊'
-                                            : n.subject?.includes('member') || n.subject?.includes('position') ? '👤'
-                                            : '🔔';
+                                        const icon = n.subject?.includes('escalat') ? 'arrow-up-circle'
+                                            : n.subject?.includes('Critical') || n.subject?.includes('critical') ? 'alert-octagon'
+                                            : n.subject?.includes('creat') ? 'clipboard-list'
+                                            : n.subject?.includes('Approv') || n.subject?.includes('approv') ? 'check-circle'
+                                            : n.subject?.includes('Reject') || n.subject?.includes('reject') ? 'x-circle'
+                                            : n.subject?.includes('Closed') ? 'lock'
+                                            : n.subject?.includes('Reopen') || n.subject?.includes('reopen') ? 'refresh-cw'
+                                            : n.subject?.includes('Comment') ? 'message-square'
+                                            : n.subject?.includes('Attachment') ? 'paperclip'
+                                            : n.subject?.includes('Extension') ? 'calendar'
+                                            : n.subject?.includes('Assign') ? 'user'
+                                            : n.subject?.includes('Summary') || n.subject?.includes('Reminder') ? 'bar-chart-2'
+                                            : n.subject?.includes('member') || n.subject?.includes('position') ? 'user'
+                                            : 'bell';
                                         return (
                                         <div key={n.id} onClick={() => handleNotifClick(n)} style={{
                                             padding:'10px 16px', borderBottom:`1px solid ${border}`,
@@ -576,7 +677,7 @@
                                             cursor:'pointer', display:'flex', gap:10, alignItems:'flex-start',
                                             transition:'background 0.15s',
                                         }}>
-                                            <span style={{fontSize:16,flexShrink:0,marginTop:1}}>{icon}</span>
+                                            <Icon name={icon} size={16} style={{flexShrink:0,marginTop:1}} />
                                             <div style={{flex:1,minWidth:0}}>
                                                 <p style={{fontSize:12,fontWeight:n.read_at ? 400 : 700,color:textC,margin:'0 0 2px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{n.subject}</p>
                                                 <p style={{fontSize:11,color:subC,margin:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{n.body}</p>
@@ -671,7 +772,7 @@
                                 {getAccessiblePages(currentUser).includes('staff-management') && (
                                 <button onClick={() => { setUserMenuOpen(false); setCurrentPage('staff-management'); }}
                                     style={{width:'100%',textAlign:'left',display:'flex',alignItems:'center',gap:10,padding:'10px 16px',background:'none',border:'none',cursor:'pointer',fontSize:13,color:textC}}>
-                                    <span style={{fontSize:15}}>⚙️</span>
+                                    <Icon name="settings" size={15} />
                                     <span style={{fontWeight:500}}>Settings</span>
                                 </button>
                                 )}
@@ -700,18 +801,18 @@
 
             const allowedPages = getAccessiblePages(currentUser);
             const pages = [
-                { id: 'dashboard',         label: 'Dashboard',         icon: '📊' },
-                { id: 'create-ticket',     label: 'Create Ticket',     icon: '➕' },
-                { id: 'tickets',           label: 'Tickets',           icon: '📋' },
-                { id: 'calendar',          label: 'Calendar',          icon: '📅' },
-                { id: 'analytics',         label: 'Analytics',         icon: '📈' },
-                { id: 'org-chart',         label: 'Org Chart',         icon: '🏢' },
-                { id: 'staff-performance', label: 'Staff Performance', icon: '⭐' },
-                { id: 'team-comparison',   label: 'Team Comparison',   icon: '🔄' },
-                { id: 'staff-management',  label: 'Staff Management',  icon: '👥' },
-                { id: 'ticket-log',        label: 'Ticket Log',        icon: '📜' },
-                { id: 'scheduled-reports', label: 'Scheduled Reports', icon: '📧' },
-                { id: 'email-config',      label: 'Email Config',       icon: '✉️' },
+                { id: 'dashboard',         label: 'Dashboard',         icon: 'dashboard' },
+                { id: 'create-ticket',     label: 'Create Ticket',     icon: 'plus-circle' },
+                { id: 'tickets',           label: 'Tickets',           icon: 'clipboard-list' },
+                { id: 'calendar',          label: 'Calendar',          icon: 'calendar' },
+                { id: 'analytics',         label: 'Analytics',         icon: 'trending-up' },
+                { id: 'org-chart',         label: 'Org Chart',         icon: 'building-2' },
+                { id: 'staff-performance', label: 'Staff Performance', icon: 'star' },
+                { id: 'team-comparison',   label: 'Team Comparison',   icon: 'refresh-cw' },
+                { id: 'staff-management',  label: 'Staff Management',  icon: 'users' },
+                { id: 'ticket-log',        label: 'Ticket Log',        icon: 'scroll-text' },
+                { id: 'scheduled-reports', label: 'Scheduled Reports', icon: 'send' },
+                { id: 'email-config',      label: 'Email Config',       icon: 'mail-cog' },
             ].filter(p => allowedPages.includes(p.id));
 
             // Close dropdown when clicking outside
@@ -776,7 +877,7 @@
                                     }}
                                     onMouseLeave={e => { if(!active) e.currentTarget.style.background = 'transparent'; }}
                                 >
-                                    <span style={{fontSize:15}}>{page.icon}</span>
+                                    <Icon name={page.icon} size={16} />
                                     <span>{page.label}</span>
                                 </button>
                             );
@@ -793,7 +894,7 @@
                             }}>
                                 {allowedPages.includes('staff-management') && (
                                 <button onClick={handleSettings} style={{width:'100%',textAlign:'left',display:'flex',alignItems:'center',gap:10,padding:'10px 14px',background:'none',border:'none',cursor:'pointer',fontSize:13,color:sidebarText}}>
-                                    <span style={{fontSize:15}}>⚙️</span>
+                                    <Icon name="settings" size={15} />
                                     <span style={{fontWeight:500}}>Settings</span>
                                 </button>
                                 )}
@@ -895,7 +996,7 @@
                         {/* Header */}
                         <div style={{padding:'20px 24px 16px',borderBottom:`1px solid ${borderC}`,position:'sticky',top:0,background:dm?'rgba(6,12,32,0.98)':'rgba(255,255,255,0.98)',zIndex:1,backdropFilter:'blur(8px)',display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:'12px'}}>
                             <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
-                                <div style={{width:44,height:44,borderRadius:'12px',background:data.iconBg||(dm?'rgba(99,102,241,0.15)':'#EEF2FF'),display:'flex',alignItems:'center',justifyContent:'center',fontSize:'22px',flexShrink:0}}>{data.icon}</div>
+                                <div style={{width:44,height:44,borderRadius:'12px',background:data.iconBg||(dm?'rgba(99,102,241,0.15)':'#EEF2FF'),display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><Icon name={data.icon} size={22} /></div>
                                 <div>
                                     <h2 style={{fontSize:'16px',fontWeight:'800',color:textP,margin:'0 0 2px'}}>{data.title}</h2>
                                     <p style={{fontSize:'11px',color:textM,margin:0}}>{data.subtitle}</p>
@@ -924,7 +1025,7 @@
                                             const s = TS[ins.type]||TS.info;
                                             return (
                                                 <div key={i} style={{display:'flex',gap:'10px',alignItems:'flex-start',padding:'11px 13px',borderRadius:'9px',background:s.bg,border:`1px solid ${s.b}`}}>
-                                                    <span style={{fontSize:'15px',flexShrink:0,marginTop:'1px'}}>{ins.icon}</span>
+                                                    <Icon name={ins.icon} size={15} style={{flexShrink:0,marginTop:'1px'}} />
                                                     <div>
                                                         {ins.title && <p style={{fontSize:'12px',fontWeight:'700',color:textP,margin:'0 0 2px'}}>{ins.title}</p>}
                                                         <p style={{fontSize:'12px',color:dm?'#c0cfec':'#374151',margin:0,lineHeight:'1.55'}}>{ins.text}</p>
@@ -1101,13 +1202,13 @@
                     const catMap={};tickets.forEach(t=>{const c=getCategory(t);catMap[c]=(catMap[c]||0)+1;});
                     const topCat=Object.entries(catMap).sort((a,b)=>b[1]-a[1])[0];
                     const openPct=total?Math.round((open/total)*100):0; const resPct2=total?Math.round((resolved/total)*100):0;
-                    return { title:'All Tickets', subtitle:`Complete overview of ${total} tickets in the system`, icon:'📋', iconBg:dm?'rgba(99,102,241,0.15)':'#EEF2FF',
+                    return { title:'All Tickets', subtitle:`Complete overview of ${total} tickets in the system`, icon:'clipboard-list', iconBg:dm?'rgba(99,102,241,0.15)':'#EEF2FF',
                         metrics:[{label:'Total',value:total,color:dm?'#818cf8':'#4F46E5'},{label:'Open',value:open,color:'#F97316'},{label:'Resolved',value:resolved,color:'#10B981'}],
                         insights:[
-                            {type:resPct2>=70?'good':'warn',icon:resPct2>=70?'✅':'⚠️',title:'Resolution Health',text:`${resPct2}% of all tickets have been resolved. ${resPct2>=70?'Team throughput is strong and demand is being managed well.':resPct2>=50?'Resolution rate is moderate — review workload allocation across staff.':'Resolution rate is below optimal — recommend triaging the backlog urgently.'}`},
-                            {type:openPct>50?'bad':openPct>25?'warn':'good',icon:openPct>50?'🔴':openPct>25?'🟡':'🟢',title:'Open Backlog Health',text:`${openPct}% of tickets are currently open (${open} tickets). ${openPct>50?'Backlog is growing — staff capacity may need to be reviewed or redistributed.':openPct>25?'Moderate open load — monitor closely to prevent accumulation.':'Healthy balance between open and resolved work.'}`},
-                            escalated>0?{type:'warn',icon:'⬆️',title:'Escalations Require Attention',text:`${escalated} ticket${escalated!==1?'s have':' has'} been escalated. Recurring escalations in the same category may signal a systemic workflow issue worth investigating.`}:{type:'good',icon:'🌟',title:'Zero Escalations',text:'No tickets have been escalated — this reflects strong first-contact resolution quality and effective service delivery.'},
-                            topCat?{type:'info',icon:'📌',title:'Highest Volume Category',text:`"${topCat[0].replace(/_/g,' ')}" accounts for ${topCat[1]} ticket${topCat[1]!==1?'s':''} (${Math.round((topCat[1]/total)*100)}% of total). Ensure adequate resource allocation and process documentation for this service area.`}:null,
+                            {type:resPct2>=70?'good':'warn',icon:resPct2>=70?'check-circle':'alert-triangle',title:'Resolution Health',text:`${resPct2}% of all tickets have been resolved. ${resPct2>=70?'Team throughput is strong and demand is being managed well.':resPct2>=50?'Resolution rate is moderate — review workload allocation across staff.':'Resolution rate is below optimal — recommend triaging the backlog urgently.'}`},
+                            {type:openPct>50?'bad':openPct>25?'warn':'good',icon:openPct>50?'alert-octagon':openPct>25?'alert-triangle':'check-circle',title:'Open Backlog Health',text:`${openPct}% of tickets are currently open (${open} tickets). ${openPct>50?'Backlog is growing — staff capacity may need to be reviewed or redistributed.':openPct>25?'Moderate open load — monitor closely to prevent accumulation.':'Healthy balance between open and resolved work.'}`},
+                            escalated>0?{type:'warn',icon:'arrow-up-circle',title:'Escalations Require Attention',text:`${escalated} ticket${escalated!==1?'s have':' has'} been escalated. Recurring escalations in the same category may signal a systemic workflow issue worth investigating.`}:{type:'good',icon:'sparkles',title:'Zero Escalations',text:'No tickets have been escalated — this reflects strong first-contact resolution quality and effective service delivery.'},
+                            topCat?{type:'info',icon:'map-pin',title:'Highest Volume Category',text:`"${topCat[0].replace(/_/g,' ')}" accounts for ${topCat[1]} ticket${topCat[1]!==1?'s':''} (${Math.round((topCat[1]/total)*100)}% of total). Ensure adequate resource allocation and process documentation for this service area.`}:null,
                         ].filter(Boolean),
                         breakdown:Object.entries(catMap).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([label,value])=>({label,value,bar:Math.round((value/total)*100),sub:`${Math.round((value/total)*100)}%`})),
                         breakdownTitle:'Volume by Category',
@@ -1119,12 +1220,12 @@
                     const byA={};openTkts.forEach(t=>{const a=getAssignee(t);byA[a]=(byA[a]||0)+1;});
                     const oldest=openTkts[0]; const oldDays=oldest?Math.floor((now2-new Date(oldest.createdAt||0))/86400000):0;
                     const topHolder=Object.entries(byA).sort((a,b)=>b[1]-a[1])[0];
-                    return { title:'Open Tickets', subtitle:`${open} tickets awaiting action`, icon:'⏱️', iconBg:dm?'rgba(14,165,233,0.12)':'#E0F2FE',
+                    return { title:'Open Tickets', subtitle:`${open} tickets awaiting action`, icon:'clock', iconBg:dm?'rgba(14,165,233,0.12)':'#E0F2FE',
                         metrics:[{label:'New',value:openTkts.filter(t=>getStatus(t)==='new').length,color:'#06B6D4'},{label:'Assigned',value:openTkts.filter(t=>getStatus(t)==='assigned').length,color:'#3B82F6'},{label:'Unassigned',value:unassigned,color:'#EF4444'}],
                         insights:[
-                            unassigned>0?{type:'bad',icon:'🚨',title:`${unassigned} Unassigned Ticket${unassigned!==1?'s':''}`,text:`${unassigned} open ticket${unassigned!==1?'s have':' has'} no assignee. Unassigned tickets risk being overlooked — assign them immediately to prevent SLA breaches.`}:{type:'good',icon:'✅',title:'All Open Tickets Assigned',text:'Every open ticket has an assignee — excellent queue management and accountability.'},
-                            oldest?{type:oldDays>7?'bad':oldDays>3?'warn':'info',icon:'⏳',title:'Oldest Open Ticket',text:`"${oldest.subtitle||oldest.title_type||'Untitled'}" has been open for ${oldDays} day${oldDays!==1?'s':''}. ${oldDays>7?'This warrants immediate review and escalation.':oldDays>3?'Consider prioritising resolution to prevent SLA breach.':'Within normal response window.'}`}:null,
-                            topHolder?{type:'info',icon:'👤',title:'Queue Distribution',text:`Open tickets span ${Object.keys(byA).length} staff. Top holder: ${topHolder[0]} (${topHolder[1]} ticket${topHolder[1]!==1?'s':''}). ${unassigned>0?`${unassigned} still awaiting assignment.`:''}`}:null,
+                            unassigned>0?{type:'bad',icon:'alert-octagon',title:`${unassigned} Unassigned Ticket${unassigned!==1?'s':''}`,text:`${unassigned} open ticket${unassigned!==1?'s have':' has'} no assignee. Unassigned tickets risk being overlooked — assign them immediately to prevent SLA breaches.`}:{type:'good',icon:'check-circle',title:'All Open Tickets Assigned',text:'Every open ticket has an assignee — excellent queue management and accountability.'},
+                            oldest?{type:oldDays>7?'bad':oldDays>3?'warn':'info',icon:'hourglass',title:'Oldest Open Ticket',text:`"${oldest.subtitle||oldest.title_type||'Untitled'}" has been open for ${oldDays} day${oldDays!==1?'s':''}. ${oldDays>7?'This warrants immediate review and escalation.':oldDays>3?'Consider prioritising resolution to prevent SLA breach.':'Within normal response window.'}`}:null,
+                            topHolder?{type:'info',icon:'user',title:'Queue Distribution',text:`Open tickets span ${Object.keys(byA).length} staff. Top holder: ${topHolder[0]} (${topHolder[1]} ticket${topHolder[1]!==1?'s':''}). ${unassigned>0?`${unassigned} still awaiting assignment.`:''}`}:null,
                         ].filter(Boolean),
                         rows:openTkts.map(tkRow), rowsTitle:'Open Tickets (oldest first)',
                     };
@@ -1134,12 +1235,12 @@
                     const byA={};inpTkts.forEach(t=>{const a=getAssignee(t);byA[a]=(byA[a]||0)+1;});
                     const waiting=inpTkts.filter(t=>getStatus(t)==='waiting').length;
                     const pendApp=inpTkts.filter(t=>getStatus(t)==='pending_approval').length;
-                    return { title:'In Progress', subtitle:`${inProg} tickets actively being worked`, icon:'⚙️', iconBg:dm?'rgba(245,158,11,0.12)':'#FFFBEB',
+                    return { title:'In Progress', subtitle:`${inProg} tickets actively being worked`, icon:'settings', iconBg:dm?'rgba(245,158,11,0.12)':'#FFFBEB',
                         metrics:[{label:'In Progress',value:inpTkts.filter(t=>getStatus(t)==='in_progress').length,color:'#F59E0B'},{label:'Waiting',value:waiting,color:'#8B5CF6'},{label:'Pending Approval',value:pendApp,color:'#EC4899'}],
                         insights:[
-                            waiting>0?{type:'warn',icon:'⏸️',title:`${waiting} Blocked on External Input`,text:`${waiting} ticket${waiting!==1?'s are':' is'} in "Waiting" status. Follow up with clients or third parties to unblock these and prevent SLA impact.`}:{type:'good',icon:'✅',title:'No Blocked Tickets',text:'No tickets are in "Waiting" status — all active work is progressing without external blockers.'},
-                            pendApp>0?{type:'warn',icon:'📋',title:`${pendApp} Awaiting Approval`,text:`${pendApp} ticket${pendApp!==1?'s require':' requires'} approval to proceed. Ensure approvers have been notified — approval delays directly extend resolution time.`}:null,
-                            Object.keys(byA).length>0?{type:'info',icon:'👥',title:'Active Team Workload',text:`Active work is distributed across ${Object.keys(byA).length} staff member${Object.keys(byA).length!==1?'s':''}. ${Object.entries(byA).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([n,c])=>`${n}: ${c}`).join(' · ')}.`}:null,
+                            waiting>0?{type:'warn',icon:'pause-circle',title:`${waiting} Blocked on External Input`,text:`${waiting} ticket${waiting!==1?'s are':' is'} in "Waiting" status. Follow up with clients or third parties to unblock these and prevent SLA impact.`}:{type:'good',icon:'check-circle',title:'No Blocked Tickets',text:'No tickets are in "Waiting" status — all active work is progressing without external blockers.'},
+                            pendApp>0?{type:'warn',icon:'clipboard-list',title:`${pendApp} Awaiting Approval`,text:`${pendApp} ticket${pendApp!==1?'s require':' requires'} approval to proceed. Ensure approvers have been notified — approval delays directly extend resolution time.`}:null,
+                            Object.keys(byA).length>0?{type:'info',icon:'users',title:'Active Team Workload',text:`Active work is distributed across ${Object.keys(byA).length} staff member${Object.keys(byA).length!==1?'s':''}. ${Object.entries(byA).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([n,c])=>`${n}: ${c}`).join(' · ')}.`}:null,
                         ].filter(Boolean),
                         rows:inpTkts.map(t=>{const s=getStatus(t);const SC={in_progress:{bg:dm?'rgba(245,158,11,0.15)':'#FFFBEB',c:dm?'#fcd34d':'#D97706'},waiting:{bg:dm?'rgba(139,92,246,0.15)':'#F5F3FF',c:dm?'#c4b5fd':'#7C3AED'},pending_approval:{bg:dm?'rgba(236,72,153,0.15)':'#FDF2F8',c:dm?'#f9a8d4':'#DB2777'}};const sc=SC[s]||SC.in_progress;return {title:t.title||t.subtitle||t.title_type||'Untitled',sub:`${getAssignee(t)} · ${fmtAge(t)}`,badge:s.replace(/_/g,' '),badgeBg:sc.bg,badgeColor:sc.c};}),
                         rowsTitle:'In-Progress Tickets',
@@ -1151,12 +1252,12 @@
                     const byA={};resTkts2.forEach(t=>{const a=getAssignee(t);byA[a]=(byA[a]||0)+1;});
                     const topRes=Object.entries(byA).sort((a,b)=>b[1]-a[1])[0];
                     const slaPctL=resTkts2.length>0?Math.round((slaOkL/resTkts2.length)*100):0;
-                    return { title:'Resolved Tickets', subtitle:`${resolved} tickets successfully closed`, icon:'✅', iconBg:dm?'rgba(16,185,129,0.12)':'#ECFDF5',
+                    return { title:'Resolved Tickets', subtitle:`${resolved} tickets successfully closed`, icon:'check-circle', iconBg:dm?'rgba(16,185,129,0.12)':'#ECFDF5',
                         metrics:[{label:'Resolved',value:resTkts2.filter(t=>getStatus(t)==='resolved').length,color:'#10B981'},{label:'Closed',value:resTkts2.filter(t=>getStatus(t)==='closed').length,color:'#6366F1'},{label:'SLA Met',value:`${slaPctL}%`,color:'#10B981'}],
                         insights:[
-                            {type:slaPctL>=80?'good':'warn',icon:'⏱️',title:'SLA Performance on Resolved',text:`${slaOkL} of ${resTkts2.length} resolved tickets met SLA requirements (${slaPctL}%). ${resTkts2.length-slaOkL>0?`${resTkts2.length-slaOkL} were closed late — review those cases for process improvements.`:'All resolutions were on time — excellent.'}`},
-                            topRes?{type:'good',icon:'🏆',title:'Top Resolver',text:`${topRes[0]} has resolved the most tickets (${topRes[1]}). Recognising high performers reinforces service excellence and motivates the broader team.`}:null,
-                            {type:'info',icon:'📊',title:'Resolution Rate',text:`${resRate}% of all tickets have been resolved. ${resRate>=80?'Excellent throughput — team capacity is well matched to demand.':resRate>=60?'Good throughput — check if any categories are creating resolution bottlenecks.':'Consider reviewing workflow — a lower resolution rate may indicate process or capacity gaps.'}`},
+                            {type:slaPctL>=80?'good':'warn',icon:'clock',title:'SLA Performance on Resolved',text:`${slaOkL} of ${resTkts2.length} resolved tickets met SLA requirements (${slaPctL}%). ${resTkts2.length-slaOkL>0?`${resTkts2.length-slaOkL} were closed late — review those cases for process improvements.`:'All resolutions were on time — excellent.'}`},
+                            topRes?{type:'good',icon:'award',title:'Top Resolver',text:`${topRes[0]} has resolved the most tickets (${topRes[1]}). Recognising high performers reinforces service excellence and motivates the broader team.`}:null,
+                            {type:'info',icon:'bar-chart-2',title:'Resolution Rate',text:`${resRate}% of all tickets have been resolved. ${resRate>=80?'Excellent throughput — team capacity is well matched to demand.':resRate>=60?'Good throughput — check if any categories are creating resolution bottlenecks.':'Consider reviewing workflow — a lower resolution rate may indicate process or capacity gaps.'}`},
                         ].filter(Boolean),
                         breakdown:Object.entries(byA).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([label,value])=>({label,value,bar:resTkts2.length?Math.round((value/resTkts2.length)*100):0,sub:`${resTkts2.length?Math.round((value/resTkts2.length)*100):0}%`})),
                         breakdownTitle:'Resolved by Staff Member',
@@ -1166,11 +1267,11 @@
                     const escTkts=tickets.filter(t=>t.isEscalated||t.escalated||t.status==='escalated');
                     const byCat={};escTkts.forEach(t=>{const c=getCategory(t);byCat[c]=(byCat[c]||0)+1;});
                     const stillOpen=escTkts.filter(t=>!isResolved(t)).length;
-                    return { title:'Escalated Tickets', subtitle:`${escalated} tickets flagged as escalated`, icon:'⬆️', iconBg:dm?'rgba(124,58,237,0.12)':'#F5F3FF',
+                    return { title:'Escalated Tickets', subtitle:`${escalated} tickets flagged as escalated`, icon:'arrow-up-circle', iconBg:dm?'rgba(124,58,237,0.12)':'#F5F3FF',
                         metrics:[{label:'Escalated',value:escalated,color:'#7C3AED'},{label:'% of Total',value:`${total?Math.round((escalated/total)*100):0}%`,color:'#8B5CF6'},{label:'Still Open',value:stillOpen,color:'#EF4444'}],
                         insights:[
-                            escalated===0?{type:'good',icon:'🌟',title:'Zero Escalations',text:'No escalated tickets — this reflects strong first-contact resolution, effective staff training, and proactive client communication.'}:{type:'warn',icon:'⚠️',title:'Escalation Pattern',text:`Escalations are concentrated in: ${Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([c,n])=>`${c.replace(/_/g,' ')} (${n})`).join(', ')}. Address these categories to reduce future escalation rates.`},
-                            stillOpen>0?{type:'bad',icon:'🚨',title:'Open Escalations Need Immediate Action',text:`${stillOpen} escalated ticket${stillOpen!==1?'s remain':' remains'} unresolved. Escalated open tickets carry the highest risk to client satisfaction and SLA compliance.`}:null,
+                            escalated===0?{type:'good',icon:'sparkles',title:'Zero Escalations',text:'No escalated tickets — this reflects strong first-contact resolution, effective staff training, and proactive client communication.'}:{type:'warn',icon:'alert-triangle',title:'Escalation Pattern',text:`Escalations are concentrated in: ${Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([c,n])=>`${c.replace(/_/g,' ')} (${n})`).join(', ')}. Address these categories to reduce future escalation rates.`},
+                            stillOpen>0?{type:'bad',icon:'alert-octagon',title:'Open Escalations Need Immediate Action',text:`${stillOpen} escalated ticket${stillOpen!==1?'s remain':' remains'} unresolved. Escalated open tickets carry the highest risk to client satisfaction and SLA compliance.`}:null,
                         ].filter(Boolean),
                         rows:escTkts.map(tkRow), rowsTitle:'Escalated Tickets',
                     };
@@ -1180,12 +1281,12 @@
                     const fmtOvd=t=>{const d=Math.floor((now2-new Date(t.dueAt))/86400000);return `${d}d overdue`;};
                     const critOvd=ovdTkts.filter(t=>['critical','urgent'].includes(getPriority(t).toLowerCase())).length;
                     const potentialSla=Math.round((slaOk+overdue)/Math.max(slaTotalEval,1)*100);
-                    return { title:'Overdue Tickets', subtitle:`${overdue} tickets past their due date`, icon:'⚠️', iconBg:dm?'rgba(239,68,68,0.12)':'#FEF2F2',
+                    return { title:'Overdue Tickets', subtitle:`${overdue} tickets past their due date`, icon:'alert-triangle', iconBg:dm?'rgba(239,68,68,0.12)':'#FEF2F2',
                         metrics:[{label:'Overdue',value:overdue,color:'#EF4444'},{label:'% of Open',value:`${open>0?Math.round((overdue/open)*100):0}%`,color:'#F97316'},{label:'Critical',value:critOvd,color:'#DC2626'}],
                         insights:[
-                            overdue===0?{type:'good',icon:'🎯',title:'No Overdue Tickets',text:'All active tickets are within their due dates — excellent deadline management and client commitment.'}:{type:'bad',icon:'🚨',title:'Immediate Action Required',text:`${overdue} ticket${overdue!==1?'s are':' is'} past due. Overdue tickets risk SLA breaches, client dissatisfaction, and potential compliance issues. Prioritise resolution today.`},
-                            critOvd>0?{type:'bad',icon:'🔴',title:`${critOvd} Critical/Urgent Overdue`,text:`${critOvd} overdue ticket${critOvd!==1?'s are':' is'} Critical or Urgent priority. These represent the highest business risk and should be escalated and resolved immediately.`}:null,
-                            overdue>0?{type:'warn',icon:'📉',title:'SLA Recovery Opportunity',text:`Resolving all ${overdue} overdue tickets would recover your SLA rate from ${slaPct}% to a potential ${potentialSla}% — a ${potentialSla-slaPct} point improvement.`}:null,
+                            overdue===0?{type:'good',icon:'target',title:'No Overdue Tickets',text:'All active tickets are within their due dates — excellent deadline management and client commitment.'}:{type:'bad',icon:'alert-octagon',title:'Immediate Action Required',text:`${overdue} ticket${overdue!==1?'s are':' is'} past due. Overdue tickets risk SLA breaches, client dissatisfaction, and potential compliance issues. Prioritise resolution today.`},
+                            critOvd>0?{type:'bad',icon:'alert-circle',title:`${critOvd} Critical/Urgent Overdue`,text:`${critOvd} overdue ticket${critOvd!==1?'s are':' is'} Critical or Urgent priority. These represent the highest business risk and should be escalated and resolved immediately.`}:null,
+                            overdue>0?{type:'warn',icon:'activity',title:'SLA Recovery Opportunity',text:`Resolving all ${overdue} overdue tickets would recover your SLA rate from ${slaPct}% to a potential ${potentialSla}% — a ${potentialSla-slaPct} point improvement.`}:null,
                         ].filter(Boolean),
                         rows:ovdTkts.map(t=>{const p=getPriority(t);const pb=pBadge(p);return{title:t.subtitle||t.title_type||'Untitled',sub:`${getAssignee(t)} · ${fmtOvd(t)} · ${getCategory(t)}`,badge:p,badgeBg:pb.bg,badgeColor:pb.color};}),
                         rowsTitle:'Overdue Tickets (most overdue first)',
@@ -1194,13 +1295,13 @@
                 if (type==='urgent') {
                     const urgTkts=tickets.filter(t=>['critical','urgent'].includes(getPriority(t).toLowerCase()));
                     const openUrg=urgTkts.filter(t=>!isResolved(t));
-                    return { title:'Urgent & Critical Tickets', subtitle:`${urgent} high-priority tickets`, icon:'🔴', iconBg:dm?'rgba(220,38,38,0.12)':'#FFF1F2',
+                    return { title:'Urgent & Critical Tickets', subtitle:`${urgent} high-priority tickets`, icon:'alert-circle', iconBg:dm?'rgba(220,38,38,0.12)':'#FFF1F2',
                         metrics:[{label:'Critical/Urgent',value:urgent,color:'#DC2626'},{label:'Still Open',value:openUrg.length,color:'#EF4444'},{label:'Resolved',value:urgTkts.length-openUrg.length,color:'#10B981'}],
                         insights:[
-                            urgent===0?{type:'good',icon:'✅',title:'No Critical Tickets',text:'No critical or urgent tickets — excellent risk management and proactive service delivery.'}:
-                            openUrg.length>0?{type:'bad',icon:'🚨',title:`${openUrg.length} Critical Ticket${openUrg.length!==1?'s':''} Unresolved`,text:`${openUrg.length} open critical/urgent ticket${openUrg.length!==1?'s require':' requires'} immediate resolution. Delays in critical tickets can cause significant service disruption and client escalations.`}:
-                            {type:'good',icon:'✅',title:'All Critical Tickets Resolved',text:`All ${urgent} critical/urgent ticket${urgent!==1?'s have':' has'} been resolved — excellent responsiveness to high-priority issues.`},
-                            urgent>0&&total>0?{type:Math.round((urgent/total)*100)>20?'bad':'info',icon:'📊',title:'Priority Distribution Risk',text:`Critical/Urgent tickets represent ${Math.round((urgent/total)*100)}% of all tickets. ${Math.round((urgent/total)*100)>20?'A high proportion of critical tickets may indicate systemic service issues — investigate root causes and consider preventative measures.':'This proportion is within a manageable range.'}`}:null,
+                            urgent===0?{type:'good',icon:'check-circle',title:'No Critical Tickets',text:'No critical or urgent tickets — excellent risk management and proactive service delivery.'}:
+                            openUrg.length>0?{type:'bad',icon:'alert-octagon',title:`${openUrg.length} Critical Ticket${openUrg.length!==1?'s':''} Unresolved`,text:`${openUrg.length} open critical/urgent ticket${openUrg.length!==1?'s require':' requires'} immediate resolution. Delays in critical tickets can cause significant service disruption and client escalations.`}:
+                            {type:'good',icon:'check-circle',title:'All Critical Tickets Resolved',text:`All ${urgent} critical/urgent ticket${urgent!==1?'s have':' has'} been resolved — excellent responsiveness to high-priority issues.`},
+                            urgent>0&&total>0?{type:Math.round((urgent/total)*100)>20?'bad':'info',icon:'bar-chart-2',title:'Priority Distribution Risk',text:`Critical/Urgent tickets represent ${Math.round((urgent/total)*100)}% of all tickets. ${Math.round((urgent/total)*100)>20?'A high proportion of critical tickets may indicate systemic service issues — investigate root causes and consider preventative measures.':'This proportion is within a manageable range.'}`}:null,
                         ].filter(Boolean),
                         rows:urgTkts.sort((a,b)=>isResolved(a)?1:-1).map(t=>{const s=getStatus(t);const res=isResolved(t);return{title:t.subtitle||t.title_type||'Untitled',sub:`${getAssignee(t)} · ${getCategory(t)} · ${fmtAge(t)}`,badge:s.replace(/_/g,' '),badgeBg:res?(dm?'rgba(16,185,129,0.15)':'#ECFDF5'):(dm?'rgba(239,68,68,0.15)':'#FEF2F2'),badgeColor:res?'#10B981':'#DC2626'};}),
                         rowsTitle:'Critical & Urgent Tickets',
@@ -1209,11 +1310,11 @@
                 if (type==='status-chart') {
                     const sMap={};tickets.forEach(t=>{const s=getStatus(t);sMap[s]=(sMap[s]||0)+1;});
                     const SC2={new:'#06B6D4',assigned:'#3B82F6',in_progress:'#F59E0B',waiting:'#8B5CF6',pending_approval:'#EC4899',resolved:'#10B981',closed:'#475569',escalated:'#7C3AED'};
-                    return { title:'Status Distribution', subtitle:'Full pipeline breakdown by current status', icon:'📊', iconBg:dm?'rgba(99,102,241,0.15)':'#EEF2FF',
+                    return { title:'Status Distribution', subtitle:'Full pipeline breakdown by current status', icon:'bar-chart-2', iconBg:dm?'rgba(99,102,241,0.15)':'#EEF2FF',
                         metrics:[{label:'Total Tickets',value:total,color:dm?'#818cf8':'#4F46E5'},{label:'Active',value:open+inProg,color:'#F59E0B'},{label:'Completed',value:resolved,color:'#10B981'}],
                         insights:[
-                            {type:'info',icon:'📈',title:'Pipeline Health',text:`${open+inProg} tickets are actively in the pipeline (${total?Math.round(((open+inProg)/total)*100):0}% of total). ${resolved} have been completed and ${overdue} are past due.`},
-                            inProg>open?{type:'good',icon:'⚙️',title:'Strong Throughput Velocity',text:'More tickets are in progress than waiting in queue — the team has excellent throughput and is actively servicing demand.'}:open>inProg*2?{type:'warn',icon:'⏸️',title:'Potential Queue Bottleneck',text:`${open} tickets are queued as "Open" versus only ${inProg} in progress. Consider reviewing team capacity or ticket assignment processes to prevent backlog growth.`}:{type:'info',icon:'⚖️',title:'Balanced Pipeline',text:'Open and in-progress tickets are in proportion — pipeline flow appears healthy with no major bottlenecks.'},
+                            {type:'info',icon:'trending-up',title:'Pipeline Health',text:`${open+inProg} tickets are actively in the pipeline (${total?Math.round(((open+inProg)/total)*100):0}% of total). ${resolved} have been completed and ${overdue} are past due.`},
+                            inProg>open?{type:'good',icon:'settings',title:'Strong Throughput Velocity',text:'More tickets are in progress than waiting in queue — the team has excellent throughput and is actively servicing demand.'}:open>inProg*2?{type:'warn',icon:'pause-circle',title:'Potential Queue Bottleneck',text:`${open} tickets are queued as "Open" versus only ${inProg} in progress. Consider reviewing team capacity or ticket assignment processes to prevent backlog growth.`}:{type:'info',icon:'layers',title:'Balanced Pipeline',text:'Open and in-progress tickets are in proportion — pipeline flow appears healthy with no major bottlenecks.'},
                         ],
                         breakdown:Object.entries(sMap).sort((a,b)=>b[1]-a[1]).map(([label,value])=>({label:label.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()),value,dot:SC2[label]||'#6366F1',bar:Math.round((value/Math.max(total,1))*100),sub:`${Math.round((value/Math.max(total,1))*100)}%`})),
                         breakdownTitle:'Status Breakdown',
@@ -1225,11 +1326,11 @@
                     const openByCat={};tickets.filter(t=>!isResolved(t)).forEach(t=>{const c=getCategory(t);openByCat[c]=(openByCat[c]||0)+1;});
                     const top=catE[0];
                     const top2vol=catE.slice(0,2).reduce((s,[,v])=>s+v,0);
-                    return { title:'Category Breakdown', subtitle:'Ticket volume and open load per service category', icon:'📑', iconBg:dm?'rgba(99,102,241,0.15)':'#EEF2FF',
+                    return { title:'Category Breakdown', subtitle:'Ticket volume and open load per service category', icon:'scroll-text', iconBg:dm?'rgba(99,102,241,0.15)':'#EEF2FF',
                         metrics:[{label:'Categories',value:catE.length,color:dm?'#818cf8':'#4F46E5'},{label:'Top Volume',value:top?top[1]:0,color:'#F97316'},{label:'Open in Top',value:top?openByCat[top[0]]||0:0,color:'#EF4444'}],
                         insights:[
-                            top?{type:'info',icon:'📌',title:`"${top[0].replace(/_/g,' ')}" Leads Volume`,text:`This category accounts for ${top[1]} ticket${top[1]!==1?'s':''} (${Math.round((top[1]/total)*100)}% of total). ${openByCat[top[0]]>0?`${openByCat[top[0]]} are still open.`:''} Ensure adequate resources and documented processes are in place.`}:null,
-                            catE.length>1?{type:top2vol/total>0.7?'warn':'info',icon:'⚖️',title:'Category Concentration',text:top2vol/total>0.7?`Top 2 categories represent ${Math.round(top2vol/total*100)}% of all tickets. High concentration may indicate a gap in service coverage or a recurring systemic issue in these areas.`:`Ticket volume is distributed across ${catE.length} categories — healthy service breadth with no extreme concentration.`}:null,
+                            top?{type:'info',icon:'map-pin',title:`"${top[0].replace(/_/g,' ')}" Leads Volume`,text:`This category accounts for ${top[1]} ticket${top[1]!==1?'s':''} (${Math.round((top[1]/total)*100)}% of total). ${openByCat[top[0]]>0?`${openByCat[top[0]]} are still open.`:''} Ensure adequate resources and documented processes are in place.`}:null,
+                            catE.length>1?{type:top2vol/total>0.7?'warn':'info',icon:'layers',title:'Category Concentration',text:top2vol/total>0.7?`Top 2 categories represent ${Math.round(top2vol/total*100)}% of all tickets. High concentration may indicate a gap in service coverage or a recurring systemic issue in these areas.`:`Ticket volume is distributed across ${catE.length} categories — healthy service breadth with no extreme concentration.`}:null,
                         ].filter(Boolean),
                         breakdown:catE.map(([label,value])=>({label:label.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()),value,bar:Math.round((value/total)*100),sub:`${openByCat[label]||0} open`})),
                         breakdownTitle:'Volume by Category',
@@ -1237,13 +1338,13 @@
                 }
                 if (type==='sla') {
                     const potSla=Math.round((slaOk+overdue)/Math.max(slaTotalEval,1)*100);
-                    return { title:'SLA Compliance', subtitle:'Service Level Agreement performance analysis', icon:'⏱️', iconBg:dm?'rgba(16,185,129,0.12)':'#ECFDF5',
+                    return { title:'SLA Compliance', subtitle:'Service Level Agreement performance analysis', icon:'clock', iconBg:dm?'rgba(16,185,129,0.12)':'#ECFDF5',
                         metrics:[{label:'SLA Rate',value:`${slaPct}%`,color:slaPct>=80?'#10B981':slaPct>=50?'#F59E0B':'#EF4444'},{label:'On Time',value:slaOk,color:'#10B981'},{label:'Breached',value:slaFailed+overdue,color:'#EF4444'}],
                         insights:[
-                            {type:slaPct>=90?'good':slaPct>=70?'warn':'bad',icon:slaPct>=90?'✅':slaPct>=70?'⚠️':'🚨',title:`SLA Compliance: ${slaPct}%`,text:slaPct>=90?'Excellent SLA performance — the team consistently meets service commitments, building strong client trust.':slaPct>=70?'SLA compliance is within an acceptable range but has clear room for improvement. Focus on reducing overdue tickets first.':'SLA compliance is below target. An immediate review of ticket resolution workflows, staff capacity, and escalation processes is recommended.'},
-                            overdue>0?{type:'bad',icon:'⏰',title:`${overdue} Active Overdue — Direct SLA Impact`,text:`${overdue} ticket${overdue!==1?'s are':' is'} currently open past their due date. Each is an active SLA breach. Resolving these would push SLA from ${slaPct}% to a potential ${potSla}%.`}:{type:'good',icon:'🎯',title:'No Active Overdue Tickets',text:'All active tickets are within their due dates — SLA pressure is only from historically late closures.'},
-                            slaFailed>0?{type:'warn',icon:'📋',title:`${slaFailed} Late Closures`,text:`${slaFailed} resolved ticket${slaFailed!==1?'s were':' was'} closed after their due date. Review these cases to identify patterns — common causes include under-staffing, unclear ownership, or complex category types.`}:null,
-                            {type:'info',icon:'🧮',title:'How SLA is Calculated',text:`SLA = on-time closures ÷ (all resolved + active overdue) = ${slaOk} ÷ ${slaTotalEval} = ${slaPct}%. Reducing active overdue to zero would result in ${Math.round(slaOk/Math.max(resTkts.length,1)*100)}% SLA.`},
+                            {type:slaPct>=90?'good':slaPct>=70?'warn':'bad',icon:slaPct>=90?'check-circle':slaPct>=70?'alert-triangle':'alert-octagon',title:`SLA Compliance: ${slaPct}%`,text:slaPct>=90?'Excellent SLA performance — the team consistently meets service commitments, building strong client trust.':slaPct>=70?'SLA compliance is within an acceptable range but has clear room for improvement. Focus on reducing overdue tickets first.':'SLA compliance is below target. An immediate review of ticket resolution workflows, staff capacity, and escalation processes is recommended.'},
+                            overdue>0?{type:'bad',icon:'clock',title:`${overdue} Active Overdue — Direct SLA Impact`,text:`${overdue} ticket${overdue!==1?'s are':' is'} currently open past their due date. Each is an active SLA breach. Resolving these would push SLA from ${slaPct}% to a potential ${potSla}%.`}:{type:'good',icon:'target',title:'No Active Overdue Tickets',text:'All active tickets are within their due dates — SLA pressure is only from historically late closures.'},
+                            slaFailed>0?{type:'warn',icon:'clipboard-list',title:`${slaFailed} Late Closures`,text:`${slaFailed} resolved ticket${slaFailed!==1?'s were':' was'} closed after their due date. Review these cases to identify patterns — common causes include under-staffing, unclear ownership, or complex category types.`}:null,
+                            {type:'info',icon:'info',title:'How SLA is Calculated',text:`SLA = on-time closures ÷ (all resolved + active overdue) = ${slaOk} ÷ ${slaTotalEval} = ${slaPct}%. Reducing active overdue to zero would result in ${Math.round(slaOk/Math.max(resTkts.length,1)*100)}% SLA.`},
                         ].filter(Boolean),
                         breakdown:[{label:'Resolved On Time',value:slaOk,dot:'#10B981',bar:slaTotalEval?Math.round((slaOk/slaTotalEval)*100):0,sub:'on time'},{label:'Resolved Late',value:slaFailed,dot:'#F97316',bar:slaTotalEval?Math.round((slaFailed/slaTotalEval)*100):0,sub:'late'},{label:'Active Overdue',value:overdue,dot:'#EF4444',bar:slaTotalEval?Math.round((overdue/slaTotalEval)*100):0,sub:'past due'},{label:'Active Staff',value:staffCount,dot:'#0EA5E9',bar:0,sub:'staff'}],
                         breakdownTitle:'SLA Components',
@@ -1253,13 +1354,13 @@
             };
 
             const statCards = [
-                { id:'total',      label:'Total Tickets',  value:total,     color:dm?'#818cf8':'#4F46E5', bg:'#EEF2FF', icon:'📋' },
-                { id:'open',       label:'Open',           value:open,      color:'#0EA5E9', bg:'#E0F2FE', icon:'⏱️' },
-                { id:'inprogress', label:'In Progress',    value:inProg,    color:'#F59E0B', bg:'#FFFBEB', icon:'⚙️' },
-                { id:'resolved',   label:'Resolved',       value:resolved,  color:'#10B981', bg:'#ECFDF5', icon:'✅' },
-                { id:'escalated',  label:'Escalated',      value:escalated, color:'#7C3AED', bg:'#F5F3FF', icon:'⬆️' },
-                { id:'overdue',    label:'Overdue',        value:overdue,   color:'#EF4444', bg:'#FEF2F2', icon:'⚠️' },
-                { id:'urgent',     label:'Urgent/Critical',value:urgent,    color:'#DC2626', bg:'#FFF1F2', icon:'🔴' },
+                { id:'total',      label:'Total Tickets',  value:total,     color:dm?'#818cf8':'#4F46E5', bg:'#EEF2FF', icon:'clipboard-list' },
+                { id:'open',       label:'Open',           value:open,      color:'#0EA5E9', bg:'#E0F2FE', icon:'clock' },
+                { id:'inprogress', label:'In Progress',    value:inProg,    color:'#F59E0B', bg:'#FFFBEB', icon:'settings' },
+                { id:'resolved',   label:'Resolved',       value:resolved,  color:'#10B981', bg:'#ECFDF5', icon:'check-circle' },
+                { id:'escalated',  label:'Escalated',      value:escalated, color:'#7C3AED', bg:'#F5F3FF', icon:'arrow-up-circle' },
+                { id:'overdue',    label:'Overdue',        value:overdue,   color:'#EF4444', bg:'#FEF2F2', icon:'alert-triangle' },
+                { id:'urgent',     label:'Urgent/Critical',value:urgent,    color:'#DC2626', bg:'#FFF1F2', icon:'alert-circle' },
             ];
 
             const card = {background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,
@@ -1639,7 +1740,7 @@
                                     {/* Ticket Details */}
                                     <div className={cardCls}>
                                         <div className={sectionHeadCls}>
-                                            <span style={{color:dm?'#818cf8':'#4F46E5', fontSize:'15px'}}>📋</span> Ticket Details
+                                            <Icon name='clipboard-list' size={15} color={dm?'#818cf8':'#4F46E5'} /> Ticket Details
                                         </div>
                                         <div className="grid gap-4 mb-4 yc-grid-2-col" style={{gridTemplateColumns:"repeat(2,1fr)"}} >
                                             <div>
@@ -1696,7 +1797,7 @@
                                                 <div style={{marginTop:8,display:'flex',flexDirection:'column',gap:4}}>
                                                     {attachments.map((a,i)=>(
                                                         <div key={i} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 10px',background:dm?'rgba(99,102,241,0.08)':'#EEF2FF',borderRadius:6,fontSize:12}}>
-                                                            <span>{a.type.startsWith('image/')?'🖼️':a.type.includes('pdf')?'📄':a.type.includes('sheet')||a.type.includes('excel')?'📊':'📝'}</span>
+                                                            <span>{a.type.startsWith('image/')?'🖼️':a.type.includes('pdf')?'📄':a.type.includes('sheet')||a.type.includes('excel')?'bar-chart-2':'file-edit'}</span>
                                                             <span style={{flex:1,color:dm?'#c7d2fe':'#1E1B4B',fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{a.name}</span>
                                                             <span style={{color:dm?'#4a607f':'#94A3B8',flexShrink:0}}>{(a.size/1024).toFixed(0)} KB</span>
                                                             <button type="button" onClick={()=>removeAttachment(i)} style={{background:'none',border:'none',cursor:'pointer',color:'#DC2626',fontSize:14,lineHeight:1,padding:'0 2px',flexShrink:0}}>✕</button>
@@ -1743,7 +1844,7 @@
                                         return (
                                         <div className={cardCls}>
                                             <div className={sectionHeadCls}>
-                                                <span style={{color:dm?'#818cf8':'#4F46E5',fontSize:'15px'}}>✅</span> Approvers <span className="text-red-400 normal-case font-normal tracking-normal text-xs ml-1">*</span>
+                                                <Icon name='check-circle' size={15} color={dm?'#818cf8':'#4F46E5'} /> Approvers <span className="text-red-400 normal-case font-normal tracking-normal text-xs ml-1">*</span>
                                             </div>
                                             <p className="text-xs text-gray-400 mb-3">Select who must approve the resolution. <strong>All</strong> selected approvers must approve before the ticket closes.</p>
                                             <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
@@ -1795,7 +1896,7 @@
                                     {/* Classification */}
                                     <div className={cardCls}>
                                         <div className={sectionHeadCls}>
-                                            <span style={{color:dm?'#818cf8':'#4F46E5', fontSize:'15px'}}>🏷️</span> Classification
+                                            <Icon name='tag' size={15} color={dm?'#818cf8':'#4F46E5'} /> Classification
                                         </div>
                                         <div className="mb-4">
                                             <label className={labelCls}>Priority <span className="text-red-400">*</span></label>
@@ -2134,7 +2235,7 @@
                                     <button key={g.key} onClick={()=>setFilter(g.key)}
                                         style={{display:'inline-flex',alignItems:'center',gap:'5px',padding:'5px 11px',borderRadius:'7px',border:`1px solid ${border}`,fontSize:'11.5px',fontWeight:'600',cursor:'pointer',transition:'all 0.15s',flexShrink:0,whiteSpace:'nowrap',background:bg,color,
                                             boxShadow:active?`0 1px 4px ${accentColor}44`:'none'}}>
-                                        {isMyApprovals&&hasAlert&&<span style={{fontSize:'11px'}}>🔔</span>}
+                                        {isMyApprovals&&hasAlert&&<Icon name='bell' size={11} />}
                                         {isRTC&&hasAlert&&<span style={{fontSize:'11px'}}>🔒</span>}
                                         {g.label}
                                         <span style={{fontSize:'10px',fontWeight:'700',borderRadius:'10px',padding:'1px 5px',minWidth:'16px',textAlign:'center',background:badge_bg,color:badge_color}}>{cnt}</span>
@@ -2438,7 +2539,7 @@
                                     {(()=>{
                                         const atts = selectedTicket.attachments || [];
                                         const canUpload = isAssignee || isBootAdmin || isCreator;
-                                        const fileIcon = (type='') => type.startsWith('image/') ? '🖼️' : type.includes('pdf') ? '📄' : type.includes('sheet')||type.includes('excel') ? '📊' : type.includes('word')||type.includes('doc') ? '📝' : '📎';
+                                        const fileIcon = (type='') => type.startsWith('image/') ? '🖼️' : type.includes('pdf') ? '📄' : type.includes('sheet')||type.includes('excel') ? 'bar-chart-2' : type.includes('word')||type.includes('doc') ? 'file-edit' : 'paperclip';
                                         const downloadFile = (att) => {
                                             try {
                                                 const bytes = Uint8Array.from(atob(att.content), c=>c.charCodeAt(0));
@@ -2585,14 +2686,14 @@
                                                             const s=(ap.status||'pending').toLowerCase();
                                                             const stBg={approved:dm?'rgba(16,185,129,0.1)':'#ECFDF5',rejected:dm?'rgba(239,68,68,0.1)':'#FEF2F2',pending:dm?'rgba(239,68,68,0.1)':'#FEF2F2'};
                                                             const stC={approved:dm?'#34d399':'#065F46',rejected:dm?'#fca5a5':'#991B1B',pending:dm?'#fca5a5':'#991B1B'};
-                                                            const stI={approved:'✅',rejected:'❌',pending:'⏳'};
+                                                            const stI={approved:'check-circle',rejected:'x-circle',pending:'hourglass'};
                                                             return (
                                                                 <div key={ap.id} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 10px',background:stBg[s]||stBg.pending,borderRadius:8}}>
                                                                     <div style={{width:28,height:28,borderRadius:'50%',background:dm?'rgba(255,255,255,0.1)':'white',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:12,color:stC[s]||stC.pending,flexShrink:0}}>
                                                                         {(ap.userName||ap.name||'?').charAt(0).toUpperCase()}
                                                                     </div>
                                                                     <div style={{flex:1,minWidth:0}}>
-                                                                        <p style={{fontSize:12,fontWeight:600,color:stC[s]||stC.pending,margin:0}}>{ap.userName||ap.name} {stI[s]||'⏳'} {s.charAt(0).toUpperCase()+s.slice(1)}</p>
+                                                                        <p style={{fontSize:12,fontWeight:600,color:stC[s]||stC.pending,margin:0}}>{ap.userName||ap.name} {stI[s]||'hourglass'} {s.charAt(0).toUpperCase()+s.slice(1)}</p>
                                                                     </div>
                                                                 </div>
                                                             );
@@ -2759,7 +2860,7 @@
                                                         const stBg={approved:dm?'rgba(16,185,129,0.08)':'#ECFDF5',rejected:dm?'rgba(239,68,68,0.08)':'#FEF2F2',pending:dm?'rgba(239,68,68,0.08)':'#FEF2F2'};
                                                         const stBorder={approved:dm?'rgba(16,185,129,0.2)':'#A7F3D0',rejected:dm?'rgba(239,68,68,0.2)':'#FECACA',pending:dm?'rgba(239,68,68,0.2)':'#FECACA'};
                                                         const stC={approved:dm?'#34d399':'#065F46',rejected:dm?'#fca5a5':'#991B1B',pending:dm?'#fca5a5':'#991B1B'};
-                                                        const stI={approved:'✅',rejected:'❌',pending:'⏳'};
+                                                        const stI={approved:'check-circle',rejected:'x-circle',pending:'hourglass'};
                                                         return (
                                                             <div key={ap.id} style={{display:'flex',alignItems:'flex-start',gap:10,padding:'10px 12px',borderRadius:10,background:stBg[s]||stBg.pending,border:`1px solid ${stBorder[s]||stBorder.pending}`}}>
                                                                 <div style={{width:30,height:30,borderRadius:'50%',background:'rgba(255,255,255,0.6)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:12,color:stC[s]||stC.pending,flexShrink:0}}>
@@ -2768,9 +2869,9 @@
                                                                 <div style={{flex:1,minWidth:0}}>
                                                                     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
                                                                         <p style={{fontSize:13,fontWeight:600,color:stC[s]||stC.pending,margin:0}}>{ap.userName||ap.name}</p>
-                                                                        <span style={{fontSize:11,fontWeight:700,color:stC[s]||stC.pending,flexShrink:0}}>{stI[s]||'⏳'} {s.charAt(0).toUpperCase()+s.slice(1)}</span>
+                                                                        <span style={{fontSize:11,fontWeight:700,color:stC[s]||stC.pending,flexShrink:0}}>{stI[s]||'hourglass'} {s.charAt(0).toUpperCase()+s.slice(1)}</span>
                                                                     </div>
-                                                                    {ap.justification && <p style={{fontSize:11,color:stC[s]||stC.pending,margin:'4px 0 0',opacity:0.8}}>{s==='approved'?'📝':'💬'} {ap.justification}</p>}
+                                                                    {ap.justification && <p style={{fontSize:11,color:stC[s]||stC.pending,margin:'4px 0 0',opacity:0.8}}>{s==='approved'?'file-edit':'message-square'} {ap.justification}</p>}
                                                                 </div>
                                                             </div>
                                                         );
@@ -3017,14 +3118,14 @@
                                                     const bg = isApproved ? (dm?'rgba(16,185,129,0.07)':'#ECFDF5') : isRejected ? (dm?'rgba(239,68,68,0.07)':'#FEF2F2') : isReopened ? (dm?'rgba(59,130,246,0.07)':'#EFF6FF') : (dm?'rgba(99,102,241,0.05)':'#F8FAFF');
                                                     const border = isApproved ? (dm?'rgba(16,185,129,0.18)':'#A7F3D0') : isRejected ? (dm?'rgba(239,68,68,0.18)':'#FECACA') : isReopened ? (dm?'rgba(59,130,246,0.2)':'#BFDBFE') : (dm?'rgba(99,102,241,0.12)':'#E0E7FF');
                                                     const col = isApproved ? (dm?'#34d399':'#065F46') : isRejected ? (dm?'#fca5a5':'#991B1B') : isReopened ? (dm?'#93c5fd':'#1E40AF') : (dm?'#818cf8':'#4338CA');
-                                                    const icon = isApproved ? '✅' : isRejected ? '❌' : isReopened ? '🔄' : '⏳';
+                                                    const icon = isApproved ? 'check-circle' : isRejected ? 'x-circle' : isReopened ? 'refresh-cw' : 'hourglass';
                                                     return (
                                                         <div key={h.id||i} style={{padding:'9px 12px',borderRadius:9,background:bg,border:`1px solid ${border}`}}>
                                                             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
-                                                                <span style={{fontSize:12,fontWeight:600,color:col}}>{icon} {h.approverName||'Unknown'}</span>
+                                                                <span style={{fontSize:12,fontWeight:600,color:col,display:'inline-flex',alignItems:'center',gap:3}}><Icon name={icon} size={12} color={col} />{h.approverName||'Unknown'}</span>
                                                                 <span style={{fontSize:10,color:dm?'#4a607f':'#94A3B8',flexShrink:0}}>Round {h.round||1} · {h.actedAt ? new Date(h.actedAt).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}) : ''}</span>
                                                             </div>
-                                                            {h.comments && <p style={{fontSize:11,color:col,margin:'4px 0 0',opacity:0.85}}>{isApproved?'📝':'💬'} {h.comments}</p>}
+                                                            {h.comments && <p style={{fontSize:11,color:col,margin:'4px 0 0',opacity:0.85}}>{isApproved?'file-edit':'message-square'} {h.comments}</p>}
                                                         </div>
                                                     );
                                                 })}
@@ -3321,13 +3422,13 @@
                         {/* ══ STATS CHIPS ══ */}
                         <div className='yc-analytics-bar' style={{display:'flex',gap:'10px',marginBottom:'16px',flexWrap:'wrap'}}>
                             {[
-                                { label:'Due This Month', value:mDue,          color:dm?'#818cf8':'#4F46E5', bg:'#EEF2FF', icon:'📅' },
-                                { label:'Overdue',        value:mOD,           color:'#EF4444', bg:'#FEF2F2', icon:'⚠️' },
-                                { label:'Resolved',       value:mRes,          color:'#10B981', bg:'#ECFDF5', icon:'✅' },
-                                { label:'Due This Week',  value:wkTkts.length, color:'#F59E0B', bg:'#FFFBEB', icon:'🔔' },
+                                { label:'Due This Month', value:mDue,          color:dm?'#818cf8':'#4F46E5', bg:'#EEF2FF', icon:'calendar' },
+                                { label:'Overdue',        value:mOD,           color:'#EF4444', bg:'#FEF2F2', icon:'alert-triangle' },
+                                { label:'Resolved',       value:mRes,          color:'#10B981', bg:'#ECFDF5', icon:'check-circle' },
+                                { label:'Due This Week',  value:wkTkts.length, color:'#F59E0B', bg:'#FFFBEB', icon:'bell' },
                             ].map(s=>(
                                 <div key={s.label} style={{display:'flex',alignItems:'center',gap:'8px',background:cardBg,borderRadius:'10px',border:`1px solid ${borderC}`,padding:'8px 14px',boxShadow:dm?'0 4px 12px rgba(0,0,0,0.4)':'0 1px 2px rgba(0,0,0,0.04)'}}>
-                                    <span style={{fontSize:'15px',background:s.bg,borderRadius:'6px',width:'28px',height:'28px',display:'flex',alignItems:'center',justifyContent:'center'}}>{s.icon}</span>
+                                    <span style={{background:s.bg,borderRadius:'6px',width:'28px',height:'28px',display:'flex',alignItems:'center',justifyContent:'center'}}><Icon name={s.icon} size={15} color={s.color} /></span>
                                     <div>
                                         <span style={{fontSize:'16px',fontWeight:'700',color:s.color,marginRight:'4px'}}>{s.value}</span>
                                         <span style={{fontSize:'11px',color:textM}}>{s.label}</span>
@@ -3491,7 +3592,7 @@
                                 {odList.length > 0 && (
                                 <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${dm?'rgba(239,68,68,0.25)':'#FECACA'}`,overflow:'hidden',boxShadow:dm?'0 4px 16px rgba(0,0,0,0.4)':'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
                                     <div style={{padding:'12px 16px',borderBottom:`1px solid ${dm?'rgba(239,68,68,0.12)':'#FEF2F2'}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                                        <span style={{fontSize:'13px',fontWeight:'700',color:'#EF4444'}}>⚠ Overdue Tickets</span>
+                                        <span style={{fontSize:'13px',fontWeight:'700',color:'#EF4444',display:'inline-flex',alignItems:'center',gap:5}}><Icon name='alert-triangle' size={13} color='#EF4444' />Overdue Tickets</span>
                                         <span style={{fontSize:'11px',background:dm?'rgba(239,68,68,0.15)':'#FEF2F2',color:dm?'#fca5a5':'#DC2626',borderRadius:'20px',padding:'2px 8px',fontWeight:'700'}}>{odList.length}</span>
                                     </div>
                                     <div style={{padding:'8px'}}>
@@ -3521,7 +3622,7 @@
                                 {wkTkts.length > 0 && (
                                 <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,overflow:'hidden',boxShadow:dm?'0 4px 16px rgba(0,0,0,0.4)':'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
                                     <div style={{padding:'12px 16px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.12)':'#EEF2F8'}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                                        <span style={{fontSize:'13px',fontWeight:'700',color:dm?'#c0cfec':'#334155'}}>🔔 Due This Week</span>
+                                        <span style={{fontSize:'13px',fontWeight:'700',color:dm?'#c0cfec':'#334155',display:'inline-flex',alignItems:'center',gap:5}}><Icon name='bell' size={13} />Due This Week</span>
                                         <span style={{fontSize:'11px',background:dm?'rgba(234,179,8,0.15)':'#FFFBEB',color:dm?'#fcd34d':'#D97706',borderRadius:'20px',padding:'2px 8px',fontWeight:'700'}}>{wkTkts.length}</span>
                                     </div>
                                     <div style={{padding:'8px'}}>
@@ -3755,36 +3856,36 @@
                         const ins = [];
                         if (metrics.length > 0) {
                             const top = metrics[0];
-                            if (top.resolved > 0) ins.push({ type:'positive', icon:'🏆', text:`${top.name} leads the team with ${top.resolved} ticket${top.resolved>1?'s':''} resolved${top.resRate!==null?' ('+top.resRate+'% resolution rate)':''}.` });
+                            if (top.resolved > 0) ins.push({ type:'positive', icon:'award', text:`${top.name} leads the team with ${top.resolved} ticket${top.resolved>1?'s':''} resolved${top.resRate!==null?' ('+top.resRate+'% resolution rate)':''}.` });
 
                             const withAvg = metrics.filter(m => m.avgHours !== null);
                             if (withAvg.length > 0) {
                                 const fastest = withAvg.reduce((a,b) => a.avgHours < b.avgHours ? a : b);
-                                ins.push({ type:'positive', icon:'⚡', text:`${fastest.name} resolves tickets fastest — average ${fastest.avgHours}h per ticket.` });
+                                ins.push({ type:'positive', icon:'zap', text:`${fastest.name} resolves tickets fastest — average ${fastest.avgHours}h per ticket.` });
                             }
 
                             const overdueStaff = metrics.filter(m => m.overdue > 0);
                             if (overdueStaff.length > 0) {
                                 const total = overdueStaff.reduce((a,m) => a+m.overdue, 0);
-                                ins.push({ type:'danger', icon:'🚨', text:`${total} overdue ticket${total>1?'s':''} across ${overdueStaff.length} staff member${overdueStaff.length>1?'s':''} (${overdueStaff.map(m=>m.name).join(', ')}) — immediate attention needed.` });
+                                ins.push({ type:'danger', icon:'alert-octagon', text:`${total} overdue ticket${total>1?'s':''} across ${overdueStaff.length} staff member${overdueStaff.length>1?'s':''} (${overdueStaff.map(m=>m.name).join(', ')}) — immediate attention needed.` });
                             }
 
                             const highEsc = [...metrics].sort((a,b)=>b.escalated-a.escalated)[0];
-                            if (highEsc && highEsc.escalated > 0) ins.push({ type:'warning', icon:'🔺', text:`${highEsc.name} has ${highEsc.escalated} escalated ticket${highEsc.escalated>1?'s':''} in their queue — review workload or complexity.` });
+                            if (highEsc && highEsc.escalated > 0) ins.push({ type:'warning', icon:'arrow-up-circle', text:`${highEsc.name} has ${highEsc.escalated} escalated ticket${highEsc.escalated>1?'s':''} in their queue — review workload or complexity.` });
 
                             const slaRisk = metrics.filter(m => m.sla !== null && m.sla < 70);
-                            if (slaRisk.length > 0) ins.push({ type:'warning', icon:'⏱️', text:`${slaRisk.map(m=>m.name+' ('+m.sla+'%)').join(', ')} ${slaRisk.length===1?'is':'are'} below 70% SLA — may need process support.` });
+                            if (slaRisk.length > 0) ins.push({ type:'warning', icon:'clock', text:`${slaRisk.map(m=>m.name+' ('+m.sla+'%)').join(', ')} ${slaRisk.length===1?'is':'are'} below 70% SLA — may need process support.` });
 
                             const perfect = metrics.filter(m => m.sla === 100 && m.resolved >= 3);
-                            if (perfect.length > 0) ins.push({ type:'positive', icon:'✨', text:`${perfect.map(m=>m.name).join(' & ')} ${perfect.length===1?'has':'have'} maintained 100% SLA compliance.` });
+                            if (perfect.length > 0) ins.push({ type:'positive', icon:'sparkles', text:`${perfect.map(m=>m.name).join(' & ')} ${perfect.length===1?'has':'have'} maintained 100% SLA compliance.` });
 
                             const highWorkload = metrics.filter(m => m.pending > 4);
-                            if (highWorkload.length > 0) ins.push({ type:'info', icon:'📋', text:`${highWorkload.map(m=>m.name+' ('+m.pending+' open)').join(', ')} ${highWorkload.length===1?'has':'have'} high open-ticket load — consider redistributing.` });
+                            if (highWorkload.length > 0) ins.push({ type:'info', icon:'clipboard-list', text:`${highWorkload.map(m=>m.name+' ('+m.pending+' open)').join(', ')} ${highWorkload.length===1?'has':'have'} high open-ticket load — consider redistributing.` });
 
                             const lowRes = metrics.filter(m => m.assigned >= 3 && m.resRate !== null && m.resRate < 30);
-                            if (lowRes.length > 0) ins.push({ type:'warning', icon:'📉', text:`${lowRes.map(m=>m.name).join(', ')} ${lowRes.length===1?'has':'have'} a low resolution rate (under 30%) — check for blockers.` });
+                            if (lowRes.length > 0) ins.push({ type:'warning', icon:'activity', text:`${lowRes.map(m=>m.name).join(', ')} ${lowRes.length===1?'has':'have'} a low resolution rate (under 30%) — check for blockers.` });
                         }
-                        if (ins.length === 0) ins.push({ type:'info', icon:'📊', text:'Assign tickets to staff members to start generating performance insights.' });
+                        if (ins.length === 0) ins.push({ type:'info', icon:'bar-chart-2', text:'Assign tickets to staff members to start generating performance insights.' });
 
                         setStaffMetrics(metrics);
                         setSummary({ totalTickets, totalResolved, totalAssigned, totalEscalated, totalOverdue, teamSla, teamAvgHours });
@@ -3867,15 +3968,15 @@
                         {/* ── KPI row ── */}
                         <div className="yc-stat-5 grid gap-4 mb-7" style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)"}}>
                             {[
-                                { label:'Total Tickets',   value: summary.totalTickets,              icon:'🎫', color:dm?'#818cf8':'#4F46E5' },
-                                { label:'Resolved',        value: summary.totalResolved,             icon:'✅', color:'#10B981' },
-                                { label:'Team SLA',        value: (summary.teamSla||0)+'%',          icon:'⏱️', color: summary.teamSla>=80?'#10B981':summary.teamSla>=60?'#F59E0B':'#EF4444' },
-                                { label:'Avg Resolve Time',value: summary.teamAvgHours!=null?summary.teamAvgHours+'h':'—', icon:'🕐', color:dm?'#818cf8':'#4F46E5' },
-                                { label:'Overdue',         value: summary.totalOverdue||0,           icon:'🚨', color: summary.totalOverdue>0?'#EF4444':'#10B981' },
+                                { label:'Total Tickets',   value: summary.totalTickets,              icon:'ticket', color:dm?'#818cf8':'#4F46E5' },
+                                { label:'Resolved',        value: summary.totalResolved,             icon:'check-circle', color:'#10B981' },
+                                { label:'Team SLA',        value: (summary.teamSla||0)+'%',          icon:'clock', color: summary.teamSla>=80?'#10B981':summary.teamSla>=60?'#F59E0B':'#EF4444' },
+                                { label:'Avg Resolve Time',value: summary.teamAvgHours!=null?summary.teamAvgHours+'h':'—', icon:'clock', color:dm?'#818cf8':'#4F46E5' },
+                                { label:'Overdue',         value: summary.totalOverdue||0,           icon:'alert-octagon', color: summary.totalOverdue>0?'#EF4444':'#10B981' },
                             ].map((s,i) => (
                                 <div key={i} style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,padding:'18px 20px',boxShadow:dm?'0 4px 24px rgba(0,0,0,0.4)':'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
                                     <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'8px'}}>
-                                        <span style={{fontSize:'16px'}}>{s.icon}</span>
+                                        <Icon name={s.icon} size={16} />
                                         <span style={{fontSize:'11px',fontWeight:'600',color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.05em'}}>{s.label}</span>
                                     </div>
                                     <div style={{fontSize:'28px',fontWeight:'800',color:s.color}}>{s.value}</div>
@@ -3891,7 +3992,7 @@
                             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(320px,1fr))',gap:'10px'}}>
                                 {insights.map((ins,i) => (
                                     <div key={i} style={{display:'flex',alignItems:'flex-start',gap:'10px',padding:'12px 14px',borderRadius:'10px',background:insightBg[ins.type],border:'1px solid '+insightBorder[ins.type]}}>
-                                        <span style={{fontSize:'16px',flexShrink:0,marginTop:'1px'}}>{ins.icon}</span>
+                                        <Icon name={ins.icon} size={16} style={{flexShrink:0,marginTop:'1px'}} />
                                         <p style={{fontSize:'12px',lineHeight:'1.6',color:insightText[ins.type],margin:0}}>{ins.text}</p>
                                     </div>
                                 ))}
@@ -4049,10 +4150,10 @@
         }
 
         const INSIGHT_STYLE = {
-            positive: { bg:'#F0FDF4', border:'#BBF7D0', text:'#166534', icon:'✅' },
-            warning:  { bg:'#FFFBEB', border:'#FDE68A', text:'#92400E', icon:'⚠️' },
-            danger:   { bg:'#FFF1F2', border:'#FECDD3', text:'#9F1239', icon:'🔴' },
-            info:     { bg:'#F0F9FF', border:'#BAE6FD', text:'#075985', icon:'ℹ️' },
+            positive: { bg:'#F0FDF4', border:'#BBF7D0', text:'#166534', icon:'check-circle' },
+            warning:  { bg:'#FFFBEB', border:'#FDE68A', text:'#92400E', icon:'alert-triangle' },
+            danger:   { bg:'#FFF1F2', border:'#FECDD3', text:'#9F1239', icon:'alert-circle' },
+            info:     { bg:'#F0F9FF', border:'#BAE6FD', text:'#075985', icon:'info' },
         };
 
         // Team Comparison Page
@@ -4210,15 +4311,15 @@
                         {/* Summary cards */}
                         <div className="yc-grid-6 grid gap-4 mb-6" style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)"}}>
                             {[
-                                { label:'Departments',    value:summary.totalDepts,    icon:'🏢', color:dm?'#818cf8':'#4F46E5' },
-                                { label:'Total Staff',    value:summary.totalStaff,    icon:'👥', color:'#0EA5E9' },
-                                { label:'Total Assigned', value:summary.totalAssigned, icon:'📋', color:'#8B5CF6' },
-                                { label:'Total Resolved', value:summary.totalResolved, icon:'✅', color:'#10B981' },
-                                { label:'Escalated',      value:summary.totalEscalated,icon:'⚠️', color:'#F97316' },
-                                { label:'Avg SLA',        value:summary.avgSla!=null?`${summary.avgSla}%`:'—', icon:'🎯', color:'#EC4899' },
+                                { label:'Departments',    value:summary.totalDepts,    icon:'building-2', color:dm?'#818cf8':'#4F46E5' },
+                                { label:'Total Staff',    value:summary.totalStaff,    icon:'users', color:'#0EA5E9' },
+                                { label:'Total Assigned', value:summary.totalAssigned, icon:'clipboard-list', color:'#8B5CF6' },
+                                { label:'Total Resolved', value:summary.totalResolved, icon:'check-circle', color:'#10B981' },
+                                { label:'Escalated',      value:summary.totalEscalated,icon:'alert-triangle', color:'#F97316' },
+                                { label:'Avg SLA',        value:summary.avgSla!=null?`${summary.avgSla}%`:'—', icon:'target', color:'#EC4899' },
                             ].map((c,i) => (
                                 <div key={i} style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,padding:'16px 18px',boxShadow:'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
-                                    <div style={{fontSize:'11px',color:textM,fontWeight:600,marginBottom:4}}>{c.icon} {c.label}</div>
+                                    <div style={{fontSize:'11px',color:textM,fontWeight:600,marginBottom:4}}><Icon name={c.icon} size={11} style={{marginRight:3}} />{c.label}</div>
                                     <div style={{fontSize:'26px',fontWeight:800,color:c.color}}>{c.value??'—'}</div>
                                 </div>
                             ))}
@@ -4413,7 +4514,7 @@
                                                             const st = INSIGHT_STYLE[ins.type]||INSIGHT_STYLE.info;
                                                             return (
                                                                 <div key={i} style={{display:'flex',gap:'10px',alignItems:'flex-start',background:st.bg,borderRadius:'8px',padding:'10px 12px',border:`1px solid ${st.border}`}}>
-                                                                    <span style={{fontSize:'16px',flexShrink:0}}>{st.icon}</span>
+                                                                    <Icon name={st.icon} size={16} style={{flexShrink:0}} />
                                                                     <span style={{fontSize:'13px',color:st.text,lineHeight:'1.4'}}>{ins.msg}</span>
                                                                 </div>
                                                             );
@@ -4624,13 +4725,13 @@
                     const catMap={};filtered.forEach(t=>{const c=getCategory(t);catMap[c]=(catMap[c]||0)+1;});
                     const topCat=Object.entries(catMap).sort((a,b)=>b[1]-a[1])[0];
                     const openPct=total?Math.round((open/total)*100):0;
-                    return { title:`All Tickets — Last ${range} Days`, subtitle:`${total} tickets created in this period`, icon:'🎫', iconBg:dm?'rgba(30,27,75,0.4)':'#EEF2FF',
+                    return { title:`All Tickets — Last ${range} Days`, subtitle:`${total} tickets created in this period`, icon:'ticket', iconBg:dm?'rgba(30,27,75,0.4)':'#EEF2FF',
                         metrics:[{label:'Total',value:total,color:dm?'#818cf8':'#4F46E5'},{label:'Open',value:open,color:'#F97316'},{label:'Resolved',value:resolved,color:'#10B981'}],
                         insights:[
-                            {type:resRate>=70?'good':'warn',icon:resRate>=70?'✅':'⚠️',title:`${resRate}% Resolution Rate`,text:`${resolved} of ${total} tickets in this period have been resolved. ${resRate>=70?'Strong throughput — team is keeping up with demand.':resRate>=50?'Moderate resolution rate — consider if there are workflow or capacity constraints.':'Lower resolution rate warrants investigation into potential bottlenecks or resourcing gaps.'}`},
-                            {type:openPct>50?'bad':openPct>25?'warn':'good',icon:openPct>50?'🔴':'🟡',title:'Open Backlog Risk',text:`${open} tickets (${openPct}%) remain open in this period. ${openPct>50?'Backlog is accumulating — review capacity allocation.':openPct>25?'Moderate open load.':'Healthy pipeline balance.'}`},
-                            topCat?{type:'info',icon:'📌',title:'Leading Category',text:`"${topCat[0].replace(/_/g,' ')}" is the top category with ${topCat[1]} tickets (${Math.round((topCat[1]/total)*100)}% of this period). Resource allocation and process quality here directly impacts overall performance.`}:null,
-                            escalated>0?{type:'warn',icon:'⬆️',title:`${escalated} Escalation${escalated!==1?'s':''}`,text:`${escalated} ticket${escalated!==1?'s were':' was'} escalated in this period. Investigate recurring categories to address root causes before they escalate.`}:{type:'good',icon:'🌟',title:'Zero Escalations',text:'No escalations in this period — indicates strong service delivery and proactive resolution.'},
+                            {type:resRate>=70?'good':'warn',icon:resRate>=70?'check-circle':'alert-triangle',title:`${resRate}% Resolution Rate`,text:`${resolved} of ${total} tickets in this period have been resolved. ${resRate>=70?'Strong throughput — team is keeping up with demand.':resRate>=50?'Moderate resolution rate — consider if there are workflow or capacity constraints.':'Lower resolution rate warrants investigation into potential bottlenecks or resourcing gaps.'}`},
+                            {type:openPct>50?'bad':openPct>25?'warn':'good',icon:openPct>50?'alert-circle':'alert-triangle',title:'Open Backlog Risk',text:`${open} tickets (${openPct}%) remain open in this period. ${openPct>50?'Backlog is accumulating — review capacity allocation.':openPct>25?'Moderate open load.':'Healthy pipeline balance.'}`},
+                            topCat?{type:'info',icon:'map-pin',title:'Leading Category',text:`"${topCat[0].replace(/_/g,' ')}" is the top category with ${topCat[1]} tickets (${Math.round((topCat[1]/total)*100)}% of this period). Resource allocation and process quality here directly impacts overall performance.`}:null,
+                            escalated>0?{type:'warn',icon:'arrow-up-circle',title:`${escalated} Escalation${escalated!==1?'s':''}`,text:`${escalated} ticket${escalated!==1?'s were':' was'} escalated in this period. Investigate recurring categories to address root causes before they escalate.`}:{type:'good',icon:'sparkles',title:'Zero Escalations',text:'No escalations in this period — indicates strong service delivery and proactive resolution.'},
                         ].filter(Boolean),
                         breakdown:Object.entries(catMap).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([label,value])=>({label,value,bar:Math.round((value/total)*100),sub:`${Math.round((value/total)*100)}%`})),
                         breakdownTitle:'Volume by Category',
@@ -4640,12 +4741,12 @@
                     const openTkts=filtered.filter(t=>!isRes(t)).sort((a,b)=>new Date(a.createdAt||0)-new Date(b.createdAt||0));
                     const byA={};openTkts.forEach(t=>{const a=getAssignee(t);byA[a]=(byA[a]||0)+1;});
                     const unassigned=openTkts.filter(t=>!t.assigneeName&&!t.assignedToName).length;
-                    return { title:'Open Tickets', subtitle:`${open} unresolved tickets in period`, icon:'🔓', iconBg:dm?'rgba(249,115,22,0.12)':'#FFF7ED',
+                    return { title:'Open Tickets', subtitle:`${open} unresolved tickets in period`, icon:'lock-open', iconBg:dm?'rgba(249,115,22,0.12)':'#FFF7ED',
                         metrics:[{label:'Open',value:open,color:'#F97316'},{label:'% of Period',value:`${total?Math.round((open/total)*100):0}%`,color:'#EF4444'},{label:'Unassigned',value:unassigned,color:'#DC2626'}],
                         insights:[
-                            unassigned>0?{type:'bad',icon:'🚨',title:`${unassigned} Without Assignee`,text:`${unassigned} open ticket${unassigned!==1?'s have':' has'} no assigned staff member. These are at highest risk of being missed — assign immediately.`}:{type:'good',icon:'✅',title:'All Open Tickets Assigned',text:'All open tickets have assigned staff — good ownership and accountability.'},
-                            overduePct>0?{type:'bad',icon:'⏰',title:`${overduePct} Actively Overdue`,text:`${overduePct} open ticket${overduePct!==1?'s are':' is'} past their due date. Each one is an active SLA breach. Prioritise resolution today.`}:null,
-                            Object.keys(byA).length>0?{type:'info',icon:'👥',title:'Open Load by Staff',text:`Open tickets distributed across ${Object.keys(byA).length} staff member${Object.keys(byA).length!==1?'s':''}. ${Object.entries(byA).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([n,c])=>`${n}: ${c}`).join(' · ')}.`}:null,
+                            unassigned>0?{type:'bad',icon:'alert-octagon',title:`${unassigned} Without Assignee`,text:`${unassigned} open ticket${unassigned!==1?'s have':' has'} no assigned staff member. These are at highest risk of being missed — assign immediately.`}:{type:'good',icon:'check-circle',title:'All Open Tickets Assigned',text:'All open tickets have assigned staff — good ownership and accountability.'},
+                            overduePct>0?{type:'bad',icon:'clock',title:`${overduePct} Actively Overdue`,text:`${overduePct} open ticket${overduePct!==1?'s are':' is'} past their due date. Each one is an active SLA breach. Prioritise resolution today.`}:null,
+                            Object.keys(byA).length>0?{type:'info',icon:'users',title:'Open Load by Staff',text:`Open tickets distributed across ${Object.keys(byA).length} staff member${Object.keys(byA).length!==1?'s':''}. ${Object.entries(byA).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([n,c])=>`${n}: ${c}`).join(' · ')}.`}:null,
                         ].filter(Boolean),
                         rows:openTkts.map(tkRow), rowsTitle:'Open Tickets (oldest first)',
                     };
@@ -4654,12 +4755,12 @@
                     const resTkts2=filtered.filter(isRes);
                     const byA={};resTkts2.forEach(t=>{const a=getAssignee(t);byA[a]=(byA[a]||0)+1;});
                     const topRes=Object.entries(byA).sort((a,b)=>b[1]-a[1])[0];
-                    return { title:'Resolved Tickets', subtitle:`${resolved} tickets closed in this period`, icon:'✅', iconBg:dm?'rgba(16,185,129,0.12)':'#ECFDF5',
+                    return { title:'Resolved Tickets', subtitle:`${resolved} tickets closed in this period`, icon:'check-circle', iconBg:dm?'rgba(16,185,129,0.12)':'#ECFDF5',
                         metrics:[{label:'Resolved',value:resolved,color:'#10B981'},{label:'Resolution Rate',value:`${resRate}%`,color:'#10B981'},{label:'SLA Met',value:`${slaRate}%`,color:slaRate>=80?'#10B981':'#F59E0B'}],
                         insights:[
-                            {type:resRate>=70?'good':'warn',icon:'📊',title:`${resRate}% Period Resolution Rate`,text:`${resRate>=70?'Excellent resolution velocity — the team is effectively closing out demand.':resRate>=50?'Moderate resolution rate. Consider whether complex tickets are causing delays.':'Lower resolution rate — investigate workflow friction, capacity constraints, or external dependencies.'}`},
-                            {type:slaRate>=80?'good':'warn',icon:'⏱️',title:`SLA Compliance: ${slaRate}%`,text:`${slaOkCount} of ${slaEval} evaluated tickets met SLA. ${slaBreached>0?`${slaBreached} resolved late.`:''} ${overduePct>0?`${overduePct} still open and overdue.`:''}`},
-                            topRes?{type:'good',icon:'🏆',title:'Top Resolver This Period',text:`${topRes[0]} resolved the most tickets (${topRes[1]}) in this period. High individual performers should be recognised and their practices shared with the team.`}:null,
+                            {type:resRate>=70?'good':'warn',icon:'bar-chart-2',title:`${resRate}% Period Resolution Rate`,text:`${resRate>=70?'Excellent resolution velocity — the team is effectively closing out demand.':resRate>=50?'Moderate resolution rate. Consider whether complex tickets are causing delays.':'Lower resolution rate — investigate workflow friction, capacity constraints, or external dependencies.'}`},
+                            {type:slaRate>=80?'good':'warn',icon:'clock',title:`SLA Compliance: ${slaRate}%`,text:`${slaOkCount} of ${slaEval} evaluated tickets met SLA. ${slaBreached>0?`${slaBreached} resolved late.`:''} ${overduePct>0?`${overduePct} still open and overdue.`:''}`},
+                            topRes?{type:'good',icon:'award',title:'Top Resolver This Period',text:`${topRes[0]} resolved the most tickets (${topRes[1]}) in this period. High individual performers should be recognised and their practices shared with the team.`}:null,
                         ].filter(Boolean),
                         breakdown:Object.entries(byA).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([label,value])=>({label,value,bar:resTkts2.length?Math.round((value/resTkts2.length)*100):0,sub:`${resTkts2.length?Math.round((value/resTkts2.length)*100):0}%`})),
                         breakdownTitle:'Resolved by Staff',
@@ -4667,13 +4768,13 @@
                 }
                 if (type==='sla') {
                     const potSla=Math.round((slaOkCount+overduePct)/Math.max(slaEval,1)*100);
-                    return { title:'SLA Compliance', subtitle:`Service level analysis · last ${range} days`, icon:'⏱️', iconBg:dm?'rgba(16,185,129,0.12)':'#ECFDF5',
+                    return { title:'SLA Compliance', subtitle:`Service level analysis · last ${range} days`, icon:'clock', iconBg:dm?'rgba(16,185,129,0.12)':'#ECFDF5',
                         metrics:[{label:'SLA Rate',value:`${slaRate}%`,color:slaRate>=80?'#10B981':slaRate>=60?'#F59E0B':'#EF4444'},{label:'On Time',value:slaOkCount,color:'#10B981'},{label:'Breached',value:slaBreached+overduePct,color:'#EF4444'}],
                         insights:[
-                            {type:slaRate>=90?'good':slaRate>=70?'warn':'bad',icon:slaRate>=90?'✅':slaRate>=70?'⚠️':'🚨',title:`SLA at ${slaRate}% in This Period`,text:slaRate>=90?'Outstanding SLA performance — the team is consistently meeting client commitments.':slaRate>=70?'SLA compliance is acceptable but improvable. Focus on reducing overdue tickets first.':'SLA compliance needs immediate attention. Review ticket assignment, staff capacity, and escalation processes.'},
-                            overduePct>0?{type:'bad',icon:'⏰',title:`${overduePct} Active Overdue`,text:`${overduePct} tickets are currently open past their due date. Resolving these would push SLA from ${slaRate}% to ~${potSla}%.`}:{type:'good',icon:'🎯',title:'No Active Overdue',text:'All active tickets are within their due dates this period.'},
-                            slaBreached>0?{type:'warn',icon:'📋',title:`${slaBreached} Late Closures`,text:`${slaBreached} ticket${slaBreached!==1?'s were':' was'} resolved after their due date. Analyse these for common causes — repeated patterns indicate a process or capacity issue.`}:null,
-                            {type:'info',icon:'🧮',title:'Calculation',text:`SLA = ${slaOkCount} on-time ÷ (${resTickets.length} resolved + ${overduePct} overdue) = ${slaRate}%.`},
+                            {type:slaRate>=90?'good':slaRate>=70?'warn':'bad',icon:slaRate>=90?'check-circle':slaRate>=70?'alert-triangle':'alert-octagon',title:`SLA at ${slaRate}% in This Period`,text:slaRate>=90?'Outstanding SLA performance — the team is consistently meeting client commitments.':slaRate>=70?'SLA compliance is acceptable but improvable. Focus on reducing overdue tickets first.':'SLA compliance needs immediate attention. Review ticket assignment, staff capacity, and escalation processes.'},
+                            overduePct>0?{type:'bad',icon:'clock',title:`${overduePct} Active Overdue`,text:`${overduePct} tickets are currently open past their due date. Resolving these would push SLA from ${slaRate}% to ~${potSla}%.`}:{type:'good',icon:'target',title:'No Active Overdue',text:'All active tickets are within their due dates this period.'},
+                            slaBreached>0?{type:'warn',icon:'clipboard-list',title:`${slaBreached} Late Closures`,text:`${slaBreached} ticket${slaBreached!==1?'s were':' was'} resolved after their due date. Analyse these for common causes — repeated patterns indicate a process or capacity issue.`}:null,
+                            {type:'info',icon:'info',title:'Calculation',text:`SLA = ${slaOkCount} on-time ÷ (${resTickets.length} resolved + ${overduePct} overdue) = ${slaRate}%.`},
                         ].filter(Boolean),
                         breakdown:[{label:'On Time',value:slaOkCount,dot:'#10B981',bar:slaEval?Math.round((slaOkCount/slaEval)*100):0,sub:'on time'},{label:'Resolved Late',value:slaBreached,dot:'#F97316',bar:slaEval?Math.round((slaBreached/slaEval)*100):0,sub:'late'},{label:'Active Overdue',value:overduePct,dot:'#EF4444',bar:slaEval?Math.round((overduePct/slaEval)*100):0,sub:'overdue'}],
                         breakdownTitle:'SLA Components',
@@ -4682,11 +4783,11 @@
                 if (type==='escalated') {
                     const escTkts=filtered.filter(t=>t.isEscalated);
                     const byCat={};escTkts.forEach(t=>{const c=getCategory(t);byCat[c]=(byCat[c]||0)+1;});
-                    return { title:'Escalated Tickets', subtitle:`${escalated} escalations in last ${range} days`, icon:'⬆️', iconBg:dm?'rgba(124,58,237,0.12)':'#F5F3FF',
+                    return { title:'Escalated Tickets', subtitle:`${escalated} escalations in last ${range} days`, icon:'arrow-up-circle', iconBg:dm?'rgba(124,58,237,0.12)':'#F5F3FF',
                         metrics:[{label:'Escalated',value:escalated,color:'#7C3AED'},{label:'% of Period',value:`${total?Math.round((escalated/total)*100):0}%`,color:'#8B5CF6'},{label:'Still Open',value:escTkts.filter(t=>!isRes(t)).length,color:'#EF4444'}],
                         insights:[
-                            escalated===0?{type:'good',icon:'🌟',title:'Zero Escalations This Period',text:`No tickets were escalated in the last ${range} days — reflects effective first-contact resolution and well-managed expectations.`}:{type:'warn',icon:'⚠️',title:'Escalation Categories',text:`Escalations in this period: ${Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([c,n])=>`${c.replace(/_/g,' ')} (${n})`).join(', ')}. Investigate root causes to build prevention strategies.`},
-                            escalated>0&&escTkts.filter(t=>!isRes(t)).length>0?{type:'bad',icon:'🚨',title:'Open Escalations',text:`${escTkts.filter(t=>!isRes(t)).length} escalated ticket${escTkts.filter(t=>!isRes(t)).length!==1?'s remain':' remains'} open — these represent the highest risk to client trust and SLA compliance.`}:null,
+                            escalated===0?{type:'good',icon:'sparkles',title:'Zero Escalations This Period',text:`No tickets were escalated in the last ${range} days — reflects effective first-contact resolution and well-managed expectations.`}:{type:'warn',icon:'alert-triangle',title:'Escalation Categories',text:`Escalations in this period: ${Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([c,n])=>`${c.replace(/_/g,' ')} (${n})`).join(', ')}. Investigate root causes to build prevention strategies.`},
+                            escalated>0&&escTkts.filter(t=>!isRes(t)).length>0?{type:'bad',icon:'alert-octagon',title:'Open Escalations',text:`${escTkts.filter(t=>!isRes(t)).length} escalated ticket${escTkts.filter(t=>!isRes(t)).length!==1?'s remain':' remains'} open — these represent the highest risk to client trust and SLA compliance.`}:null,
                         ].filter(Boolean),
                         rows:escTkts.map(tkRow), rowsTitle:'Escalated Tickets',
                     };
@@ -4697,12 +4798,12 @@
                     const ndisRes=ndisTkts.filter(isRes).length;
                     const ndisResRate=ndisTkts.length>0?Math.round((ndisRes/ndisTkts.length)*100):0;
                     const byCat={};ndisTkts.forEach(t=>{const c=getCategory(t);byCat[c]=(byCat[c]||0)+1;});
-                    return { title:'NDIS Related Tickets', subtitle:`NDIS compliance analysis · last ${range} days`, icon:'🏥', iconBg:dm?'rgba(6,182,212,0.12)':'#ECFEFF',
+                    return { title:'NDIS Related Tickets', subtitle:`NDIS compliance analysis · last ${range} days`, icon:'heart-handshake', iconBg:dm?'rgba(6,182,212,0.12)':'#ECFEFF',
                         metrics:[{label:'NDIS Tickets',value:ndis,color:'#06B6D4'},{label:'% of Total',value:`${total?Math.round((ndis/total)*100):0}%`,color:'#0EA5E9'},{label:'NDIS Resolved',value:ndisRes,color:'#10B981'}],
                         insights:[
-                            {type:'info',icon:'📋',title:'NDIS Compliance Obligation',text:`${ndis} NDIS-related ticket${ndis!==1?'s':''} in this period (${total?Math.round((ndis/total)*100):0}% of total). Ensure all NDIS tickets have complete documentation, appropriate response times, and comply with NDIS Practice Standards.`},
-                            {type:ndisResRate>=70?'good':'warn',icon:ndisResRate>=70?'✅':'⚠️',title:`NDIS Resolution Rate: ${ndisResRate}%`,text:`${ndisRes} of ${ndisTkts.length} NDIS tickets have been resolved. ${ndisResRate>=70?'Strong compliance throughput.':'Review NDIS ticket workflows — lower resolution rates may indicate complexity or resourcing gaps in NDIS service delivery.'}`},
-                            Object.keys(byCat).length>0?{type:'info',icon:'📌',title:'NDIS Category Distribution',text:`NDIS tickets span: ${Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([c,n])=>`${c.replace(/_/g,' ')} (${n})`).join(', ')}. Ensure service staff in these areas are trained in NDIS compliance requirements.`}:null,
+                            {type:'info',icon:'clipboard-list',title:'NDIS Compliance Obligation',text:`${ndis} NDIS-related ticket${ndis!==1?'s':''} in this period (${total?Math.round((ndis/total)*100):0}% of total). Ensure all NDIS tickets have complete documentation, appropriate response times, and comply with NDIS Practice Standards.`},
+                            {type:ndisResRate>=70?'good':'warn',icon:ndisResRate>=70?'check-circle':'alert-triangle',title:`NDIS Resolution Rate: ${ndisResRate}%`,text:`${ndisRes} of ${ndisTkts.length} NDIS tickets have been resolved. ${ndisResRate>=70?'Strong compliance throughput.':'Review NDIS ticket workflows — lower resolution rates may indicate complexity or resourcing gaps in NDIS service delivery.'}`},
+                            Object.keys(byCat).length>0?{type:'info',icon:'map-pin',title:'NDIS Category Distribution',text:`NDIS tickets span: ${Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([c,n])=>`${c.replace(/_/g,' ')} (${n})`).join(', ')}. Ensure service staff in these areas are trained in NDIS compliance requirements.`}:null,
                         ].filter(Boolean),
                         breakdown:Object.entries(byCat).sort((a,b)=>b[1]-a[1]).map(([label,value])=>({label:label.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()),value,bar:ndis?Math.round((value/ndis)*100):0,sub:`${ndis?Math.round((value/ndis)*100):0}%`})),
                         breakdownTitle:'NDIS Tickets by Category',
@@ -4714,11 +4815,11 @@
                     const recentAvg=recentTrend.reduce((a,b)=>a+b,0)/Math.max(recentTrend.length,1);
                     const prevAvg=prevTrend.reduce((a,b)=>a+b,0)/Math.max(prevTrend.length,1);
                     const trendDir=recentAvg>prevAvg*1.1?'up':recentAvg<prevAvg*0.9?'down':'stable';
-                    return { title:'Ticket Volume Trend', subtitle:'Monthly ticket creation over 6 months', icon:'📈', iconBg:dm?'rgba(99,102,241,0.15)':'#EEF2FF',
+                    return { title:'Ticket Volume Trend', subtitle:'Monthly ticket creation over 6 months', icon:'trending-up', iconBg:dm?'rgba(99,102,241,0.15)':'#EEF2FF',
                         metrics:[{label:'Peak Month',value:maxMonth,color:'#EF4444'},{label:'Monthly Avg',value:Math.round(monthData.reduce((a,b)=>a+b,0)/Math.max(monthData.length,1)),color:dm?'#818cf8':'#4F46E5'},{label:'Recent Avg',value:Math.round(recentAvg),color:'#10B981'}],
                         insights:[
-                            {type:trendDir==='up'?'warn':trendDir==='down'?'good':'info',icon:trendDir==='up'?'📈':trendDir==='down'?'📉':'➡️',title:`Volume Trend: ${trendDir==='up'?'Increasing':trendDir==='down'?'Decreasing':'Stable'}`,text:`Recent 3-month average (${Math.round(recentAvg)}/mo) vs prior 3-month (${Math.round(prevAvg)}/mo). ${trendDir==='up'?'Increasing volume may require capacity review to prevent SLA degradation.':trendDir==='down'?'Decreasing volume may indicate improved client self-service, seasonal variation, or reduced service demand.':'Volume is stable — predictable demand enables effective resource planning.'}`},
-                            {type:'info',icon:'📊',title:'Volume Distribution',text:`Peak month: ${monthLabels[monthData.indexOf(maxMonth)]} (${maxMonth} tickets). ${maxMonth>recentAvg*1.5?'Significant volume spikes suggest seasonal patterns or one-off events — investigate and plan for recurrence.':'Volume is relatively consistent across months — good for planning.'}`},
+                            {type:trendDir==='up'?'warn':trendDir==='down'?'good':'info',icon:trendDir==='up'?'trending-up':trendDir==='down'?'activity':'➡️',title:`Volume Trend: ${trendDir==='up'?'Increasing':trendDir==='down'?'Decreasing':'Stable'}`,text:`Recent 3-month average (${Math.round(recentAvg)}/mo) vs prior 3-month (${Math.round(prevAvg)}/mo). ${trendDir==='up'?'Increasing volume may require capacity review to prevent SLA degradation.':trendDir==='down'?'Decreasing volume may indicate improved client self-service, seasonal variation, or reduced service demand.':'Volume is stable — predictable demand enables effective resource planning.'}`},
+                            {type:'info',icon:'bar-chart-2',title:'Volume Distribution',text:`Peak month: ${monthLabels[monthData.indexOf(maxMonth)]} (${maxMonth} tickets). ${maxMonth>recentAvg*1.5?'Significant volume spikes suggest seasonal patterns or one-off events — investigate and plan for recurrence.':'Volume is relatively consistent across months — good for planning.'}`},
                         ],
                         breakdown:monthLabels.map((label,i)=>({label,value:monthData[i],bar:maxMonth?Math.round((monthData[i]/maxMonth)*100):0})),
                         breakdownTitle:'Monthly Volume',
@@ -4727,11 +4828,11 @@
                 if (type==='priority') {
                     const pMap=Object.entries(priorityCounts).filter(([,v])=>v>0);
                     const critUrgCount=(priorityCounts.critical||0)+(priorityCounts.urgent||0);
-                    return { title:'Priority Distribution', subtitle:`Ticket priority breakdown · last ${range} days`, icon:'🎯', iconBg:dm?'rgba(239,68,68,0.08)':'#FFF5F5',
+                    return { title:'Priority Distribution', subtitle:`Ticket priority breakdown · last ${range} days`, icon:'target', iconBg:dm?'rgba(239,68,68,0.08)':'#FFF5F5',
                         metrics:[{label:'Critical/Urgent',value:critUrgCount,color:'#EF4444'},{label:'High',value:priorityCounts.high||0,color:'#F97316'},{label:'Med/Low',value:(priorityCounts.medium||0)+(priorityCounts.low||0),color:'#6366F1'}],
                         insights:[
-                            {type:critUrgCount/Math.max(total,1)>0.2?'bad':critUrgCount>0?'warn':'good',icon:critUrgCount/Math.max(total,1)>0.2?'🚨':critUrgCount>0?'⚠️':'✅',title:'Critical Load Assessment',text:`${critUrgCount} critical/urgent ticket${critUrgCount!==1?'s':''} represent ${total?Math.round((critUrgCount/total)*100):0}% of the period's volume. ${critUrgCount/Math.max(total,1)>0.2?'High critical ratio may indicate service quality issues or insufficient preventative maintenance — investigate root causes.':critUrgCount>0?'Manageable critical load — monitor for any upward trend.':'No critical tickets — excellent risk management.'}`},
-                            {type:'info',icon:'📊',title:'Priority Balance',text:`Priority mix: ${pMap.map(([p,c])=>`${p}: ${c} (${Math.round((c/total)*100)}%)`).join(', ')}. A healthy service operation typically sees most tickets in the medium/low range.`},
+                            {type:critUrgCount/Math.max(total,1)>0.2?'bad':critUrgCount>0?'warn':'good',icon:critUrgCount/Math.max(total,1)>0.2?'alert-octagon':critUrgCount>0?'alert-triangle':'check-circle',title:'Critical Load Assessment',text:`${critUrgCount} critical/urgent ticket${critUrgCount!==1?'s':''} represent ${total?Math.round((critUrgCount/total)*100):0}% of the period's volume. ${critUrgCount/Math.max(total,1)>0.2?'High critical ratio may indicate service quality issues or insufficient preventative maintenance — investigate root causes.':critUrgCount>0?'Manageable critical load — monitor for any upward trend.':'No critical tickets — excellent risk management.'}`},
+                            {type:'info',icon:'bar-chart-2',title:'Priority Balance',text:`Priority mix: ${pMap.map(([p,c])=>`${p}: ${c} (${Math.round((c/total)*100)}%)`).join(', ')}. A healthy service operation typically sees most tickets in the medium/low range.`},
                         ],
                         breakdown:[{label:'Critical/Urgent',value:critUrgCount,dot:'#EF4444',bar:total?Math.round((critUrgCount/total)*100):0},{label:'High',value:priorityCounts.high||0,dot:'#F97316',bar:total?Math.round(((priorityCounts.high||0)/total)*100):0},{label:'Medium',value:priorityCounts.medium||0,dot:'#EAB308',bar:total?Math.round(((priorityCounts.medium||0)/total)*100):0},{label:'Low',value:priorityCounts.low||0,dot:'#6366F1',bar:total?Math.round(((priorityCounts.low||0)/total)*100):0}],
                         breakdownTitle:'Priority Breakdown',
@@ -4739,12 +4840,12 @@
                 }
                 if (type==='status') {
                     const SC2={new:'#06B6D4',assigned:'#3B82F6',in_progress:'#F59E0B',waiting:'#8B5CF6',pending_approval:'#EC4899',resolved:'#10B981',closed:'#475569'};
-                    return { title:'Status Breakdown', subtitle:`All ticket statuses · last ${range} days`, icon:'📋', iconBg:dm?'rgba(99,102,241,0.15)':'#EEF2FF',
+                    return { title:'Status Breakdown', subtitle:`All ticket statuses · last ${range} days`, icon:'clipboard-list', iconBg:dm?'rgba(99,102,241,0.15)':'#EEF2FF',
                         metrics:[{label:'Active Pipeline',value:open,color:'#F59E0B'},{label:'Resolved',value:resolved,color:'#10B981'},{label:'Waiting/Blocked',value:(statusCounts['waiting']||0)+(statusCounts['pending_approval']||0),color:'#8B5CF6'}],
                         insights:[
-                            {type:'info',icon:'📈',title:'Pipeline Flow',text:`${open} tickets in the open queue, ${Object.values(statusCounts).reduce((a,b)=>a+b,0)-resolved} actively being managed. A healthy pipeline has more tickets in "in_progress" than "new" or "assigned".`},
-                            (statusCounts['waiting']||0)>0?{type:'warn',icon:'⏸️',title:`${statusCounts['waiting']} Blocked Tickets`,text:`${statusCounts['waiting']} ticket${statusCounts['waiting']!==1?'s are':' is'} in "Waiting" — stalled on external input. Follow up to unblock and protect SLA.`}:null,
-                            (statusCounts['pending_approval']||0)>0?{type:'warn',icon:'📋',title:`${statusCounts['pending_approval']} Awaiting Approval`,text:`${statusCounts['pending_approval']} ticket${statusCounts['pending_approval']!==1?'s require':' requires'} approval. Approvers should be prompted to review to prevent delays.`}:null,
+                            {type:'info',icon:'trending-up',title:'Pipeline Flow',text:`${open} tickets in the open queue, ${Object.values(statusCounts).reduce((a,b)=>a+b,0)-resolved} actively being managed. A healthy pipeline has more tickets in "in_progress" than "new" or "assigned".`},
+                            (statusCounts['waiting']||0)>0?{type:'warn',icon:'pause-circle',title:`${statusCounts['waiting']} Blocked Tickets`,text:`${statusCounts['waiting']} ticket${statusCounts['waiting']!==1?'s are':' is'} in "Waiting" — stalled on external input. Follow up to unblock and protect SLA.`}:null,
+                            (statusCounts['pending_approval']||0)>0?{type:'warn',icon:'clipboard-list',title:`${statusCounts['pending_approval']} Awaiting Approval`,text:`${statusCounts['pending_approval']} ticket${statusCounts['pending_approval']!==1?'s require':' requires'} approval. Approvers should be prompted to review to prevent delays.`}:null,
                         ].filter(Boolean),
                         breakdown:Object.entries(statusCounts).sort((a,b)=>b[1]-a[1]).map(([label,value])=>({label:label.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()),value,dot:SC2[label]||'#6366F1',bar:Math.round((value/Math.max(total,1))*100),sub:`${Math.round((value/Math.max(total,1))*100)}%`})),
                         breakdownTitle:'Status Breakdown',
@@ -4753,11 +4854,11 @@
                 if (type==='category') {
                     const openByCat={};filtered.filter(t=>!isRes(t)).forEach(t=>{const c=getCategory(t);openByCat[c]=(openByCat[c]||0)+1;});
                     const top=topCats[0];
-                    return { title:'Top Categories', subtitle:`Service category analysis · last ${range} days`, icon:'🗂️', iconBg:dm?'rgba(99,102,241,0.15)':'#EEF2FF',
+                    return { title:'Top Categories', subtitle:`Service category analysis · last ${range} days`, icon:'folder', iconBg:dm?'rgba(99,102,241,0.15)':'#EEF2FF',
                         metrics:[{label:'Categories',value:topCats.length,color:dm?'#818cf8':'#4F46E5'},{label:'Top Volume',value:top?top[1]:0,color:'#F97316'},{label:'Open in Top',value:top?openByCat[top[0]]||0:0,color:'#EF4444'}],
                         insights:[
-                            top?{type:'info',icon:'📌',title:`"${top[0].replace(/_/g,' ')}" Leads Volume`,text:`Top category with ${top[1]} tickets (${Math.round((top[1]/total)*100)}% of period). ${openByCat[top[0]]>0?`${openByCat[top[0]]} remain open.`:''} Ensure staff capacity, process documentation, and quality standards are prioritised here.`}:null,
-                            {type:'info',icon:'⚖️',title:'Category Spread',text:topCats.slice(0,2).reduce((s,[,v])=>s+v,0)/total>0.7?`Top 2 categories account for ${Math.round(topCats.slice(0,2).reduce((s,[,v])=>s+v,0)/total*100)}% of tickets — high concentration. Investigate if this reflects a systemic issue.`:`Tickets are spread across ${topCats.length} categories — broad service delivery with no extreme concentration.`},
+                            top?{type:'info',icon:'map-pin',title:`"${top[0].replace(/_/g,' ')}" Leads Volume`,text:`Top category with ${top[1]} tickets (${Math.round((top[1]/total)*100)}% of period). ${openByCat[top[0]]>0?`${openByCat[top[0]]} remain open.`:''} Ensure staff capacity, process documentation, and quality standards are prioritised here.`}:null,
+                            {type:'info',icon:'layers',title:'Category Spread',text:topCats.slice(0,2).reduce((s,[,v])=>s+v,0)/total>0.7?`Top 2 categories account for ${Math.round(topCats.slice(0,2).reduce((s,[,v])=>s+v,0)/total*100)}% of tickets — high concentration. Investigate if this reflects a systemic issue.`:`Tickets are spread across ${topCats.length} categories — broad service delivery with no extreme concentration.`},
                         ].filter(Boolean),
                         breakdown:topCats.map(([label,value])=>({label:label.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()),value,bar:Math.round((value/total)*100),sub:`${openByCat[label]||0} open`})),
                         breakdownTitle:'Volume by Category',
@@ -4768,12 +4869,12 @@
                     const unassigned=filtered.filter(t=>!t.assigneeName&&!t.assignedToName).length;
                     const maxLoad=staffRows[0]?staffRows[0][1]:0;
                     const avgLoad=staffRows.length>0?Math.round(staffRows.reduce((s,[,v])=>s+v,0)/staffRows.length):0;
-                    return { title:'Staff Workload', subtitle:`Team capacity analysis · last ${range} days`, icon:'👥', iconBg:dm?'rgba(99,102,241,0.15)':'#EEF2FF',
+                    return { title:'Staff Workload', subtitle:`Team capacity analysis · last ${range} days`, icon:'users', iconBg:dm?'rgba(99,102,241,0.15)':'#EEF2FF',
                         metrics:[{label:'Active Staff',value:staffRows.length,color:dm?'#818cf8':'#4F46E5'},{label:'Avg Load',value:avgLoad,color:'#F59E0B'},{label:'Unassigned',value:unassigned,color:'#EF4444'}],
                         insights:[
-                            maxLoad>avgLoad*2?{type:'warn',icon:'⚠️',title:'Uneven Workload Distribution',text:`${staffRows[0]?staffRows[0][0]:'Top staff'} has ${maxLoad} tickets vs team average of ${avgLoad}. Significant imbalances risk burnout and SLA inconsistencies — consider redistributing open tickets.`}:{type:'good',icon:'⚖️',title:'Balanced Team Load',text:`Workload is relatively evenly distributed across ${staffRows.length} staff (avg ${avgLoad} tickets each). Balanced loads support consistent service quality.`},
-                            unassigned>0?{type:'bad',icon:'🚨',title:`${unassigned} Unassigned Tickets`,text:`${unassigned} ticket${unassigned!==1?'s have':' has'} no assigned staff. These are invisible to all team members and at risk of being missed entirely — assign immediately.`}:{type:'good',icon:'✅',title:'Full Ticket Coverage',text:'All tickets have an assigned staff member — complete ownership and accountability across the team.'},
-                            top3Staff.length>0?{type:'info',icon:'🏆',title:'Top Performers',text:`Highest load: ${top3Staff.map(([n,c])=>`${n} (${c})`).join(', ')}. Top performers should be recognised — their approaches may provide best practice learnings for the team.`}:null,
+                            maxLoad>avgLoad*2?{type:'warn',icon:'alert-triangle',title:'Uneven Workload Distribution',text:`${staffRows[0]?staffRows[0][0]:'Top staff'} has ${maxLoad} tickets vs team average of ${avgLoad}. Significant imbalances risk burnout and SLA inconsistencies — consider redistributing open tickets.`}:{type:'good',icon:'layers',title:'Balanced Team Load',text:`Workload is relatively evenly distributed across ${staffRows.length} staff (avg ${avgLoad} tickets each). Balanced loads support consistent service quality.`},
+                            unassigned>0?{type:'bad',icon:'alert-octagon',title:`${unassigned} Unassigned Tickets`,text:`${unassigned} ticket${unassigned!==1?'s have':' has'} no assigned staff. These are invisible to all team members and at risk of being missed entirely — assign immediately.`}:{type:'good',icon:'check-circle',title:'Full Ticket Coverage',text:'All tickets have an assigned staff member — complete ownership and accountability across the team.'},
+                            top3Staff.length>0?{type:'info',icon:'award',title:'Top Performers',text:`Highest load: ${top3Staff.map(([n,c])=>`${n} (${c})`).join(', ')}. Top performers should be recognised — their approaches may provide best practice learnings for the team.`}:null,
                         ].filter(Boolean),
                         breakdown:staffRows.slice(0,10).map(([label,value])=>({label,value,bar:maxLoad?Math.round((value/maxLoad)*100):0,sub:`${value} tickets`})),
                         breakdownTitle:'Tickets per Staff Member',
@@ -4791,7 +4892,7 @@
                     onMouseLeave={e=>e.currentTarget.style.transform=''}>
                     <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'8px'}}>
                         <p style={{fontSize:'11px', fontWeight:'700', color:dm?'#4a607f':'#94A3B8', textTransform:'uppercase', letterSpacing:'0.07em', margin:0}}>{label}</p>
-                        <span style={{fontSize:'20px'}}>{icon}</span>
+                        <Icon name={icon} size={20} />
                     </div>
                     <p style={{fontSize:'30px', fontWeight:'700', color, margin:'0 0 4px', lineHeight:1}}>{value}</p>
                     <p style={{fontSize:'12px', color:dm?'#4a607f':'#94A3B8', margin:'0 0 4px'}}>{sub}</p>
@@ -4845,12 +4946,12 @@
 
                         {/* ── KPI Cards ── */}
                         <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:'14px', marginBottom:'20px'}}>
-                            {card('Total Tickets', total, `in last ${range} days`, '#1E1B4B', '🎫', null, ()=>!loading&&setInsight(buildAnalyticsInsight('total')))}
-                            {card('Open', open, `${total ? Math.round((open/total)*100) : 0}% of total`, '#F97316', '🔓', null, ()=>!loading&&setInsight(buildAnalyticsInsight('open')))}
-                            {card('Resolved', resolved, `${resRate}% resolution rate`, '#10B981', '✅', null, ()=>!loading&&setInsight(buildAnalyticsInsight('resolved')))}
-                            {card('SLA Compliance', `${slaRate}%`, `${slaBreached} late closures · ${overduePct} active overdue`, slaRate>=90?'#10B981':slaRate>=70?'#F97316':'#EF4444', '⏱️', null, ()=>!loading&&setInsight(buildAnalyticsInsight('sla')))}
-                            {card('Escalated', escalated, `${total ? Math.round((escalated/total)*100) : 0}% of total`, '#8B5CF6', '⬆️', null, ()=>!loading&&setInsight(buildAnalyticsInsight('escalated')))}
-                            {card('NDIS Related', ndis, `${total ? Math.round((ndis/total)*100) : 0}% of total`, '#06B6D4', '🏥', null, ()=>!loading&&setInsight(buildAnalyticsInsight('ndis')))}
+                            {card('Total Tickets', total, `in last ${range} days`, '#1E1B4B', 'ticket', null, ()=>!loading&&setInsight(buildAnalyticsInsight('total')))}
+                            {card('Open', open, `${total ? Math.round((open/total)*100) : 0}% of total`, '#F97316', 'lock-open', null, ()=>!loading&&setInsight(buildAnalyticsInsight('open')))}
+                            {card('Resolved', resolved, `${resRate}% resolution rate`, '#10B981', 'check-circle', null, ()=>!loading&&setInsight(buildAnalyticsInsight('resolved')))}
+                            {card('SLA Compliance', `${slaRate}%`, `${slaBreached} late closures · ${overduePct} active overdue`, slaRate>=90?'#10B981':slaRate>=70?'#F97316':'#EF4444', 'clock', null, ()=>!loading&&setInsight(buildAnalyticsInsight('sla')))}
+                            {card('Escalated', escalated, `${total ? Math.round((escalated/total)*100) : 0}% of total`, '#8B5CF6', 'arrow-up-circle', null, ()=>!loading&&setInsight(buildAnalyticsInsight('escalated')))}
+                            {card('NDIS Related', ndis, `${total ? Math.round((ndis/total)*100) : 0}% of total`, '#06B6D4', 'heart-handshake', null, ()=>!loading&&setInsight(buildAnalyticsInsight('ndis')))}
                         </div>
 
                         {/* ── Row 1: Trend + Priority ── */}
@@ -4876,15 +4977,15 @@
                                 <p style={{fontSize:'11px', color:dm?'#4a607f':'#94A3B8', margin:'0 0 14px'}}>Auto-generated observations</p>
                                 <div style={{display:'flex', flexDirection:'column', gap:'10px'}}>
                                     {[
-                                        { icon:'🟢', text: resRate >= 80 ? `Strong resolution rate of ${resRate}% — team is performing well.` : `Resolution rate is ${resRate}% — consider reviewing workload distribution.`, good: resRate >= 80 },
-                                        { icon: slaRate >= 90 ? '🟢' : '🔴', text: `SLA compliance: ${slaRate}% (${slaOkCount} on-time / ${slaEval} evaluated). ${slaBreached} closed late; ${overduePct} still open & overdue.`, good: slaRate >= 90 },
-                                        { icon: escalated > 0 ? '🟡' : '🟢', text: escalated > 0 ? `${escalated} ticket${escalated!==1?'s':''} escalated — review underlying causes to prevent recurrence.` : 'No escalations in this period — excellent.', good: escalated === 0 },
-                                        { icon:'🔵', text: `${ndis} NDIS-related ticket${ndis!==1?'s':''} (${total ? Math.round((ndis/total)*100) : 0}%) — ensure compliance documentation is up to date.`, good: true },
-                                        { icon: topCats[0] ? '📌' : '📌', text: topCats[0] ? `Highest volume category: "${topCats[0][0].replace(/_/g,' ')}" with ${topCats[0][1]} ticket${topCats[0][1]!==1?'s':''}.` : 'No category data available.', good: true },
-                                        { icon: open > resolved ? '🔴' : '🟢', text: open > resolved ? `More open (${open}) than resolved (${resolved}) tickets — backlog may be building.` : `More resolved (${resolved}) than open (${open}) — healthy pipeline.`, good: open <= resolved },
+                                        { icon:'check-circle', text: resRate >= 80 ? `Strong resolution rate of ${resRate}% — team is performing well.` : `Resolution rate is ${resRate}% — consider reviewing workload distribution.`, good: resRate >= 80 },
+                                        { icon: slaRate >= 90 ? 'check-circle' : 'alert-circle', text: `SLA compliance: ${slaRate}% (${slaOkCount} on-time / ${slaEval} evaluated). ${slaBreached} closed late; ${overduePct} still open & overdue.`, good: slaRate >= 90 },
+                                        { icon: escalated > 0 ? 'alert-triangle' : 'check-circle', text: escalated > 0 ? `${escalated} ticket${escalated!==1?'s':''} escalated — review underlying causes to prevent recurrence.` : 'No escalations in this period — excellent.', good: escalated === 0 },
+                                        { icon:'info', text: `${ndis} NDIS-related ticket${ndis!==1?'s':''} (${total ? Math.round((ndis/total)*100) : 0}%) — ensure compliance documentation is up to date.`, good: true },
+                                        { icon: topCats[0] ? 'map-pin' : 'map-pin', text: topCats[0] ? `Highest volume category: "${topCats[0][0].replace(/_/g,' ')}" with ${topCats[0][1]} ticket${topCats[0][1]!==1?'s':''}.` : 'No category data available.', good: true },
+                                        { icon: open > resolved ? 'alert-circle' : 'check-circle', text: open > resolved ? `More open (${open}) than resolved (${resolved}) tickets — backlog may be building.` : `More resolved (${resolved}) than open (${open}) — healthy pipeline.`, good: open <= resolved },
                                     ].map((ins,i) => (
                                         <div key={i} style={{display:'flex', gap:'8px', alignItems:'flex-start', padding:'8px 10px', borderRadius:'8px', background: ins.good ? '#F0FDF4' : '#FFF7ED', border:`1px solid ${ins.good ? '#BBF7D0' : '#FED7AA'}`}}>
-                                            <span style={{flexShrink:0, fontSize:'13px'}}>{ins.icon}</span>
+                                            <Icon name={ins.icon} size={13} style={{flexShrink:0}} />
                                             <p style={{fontSize:'11px', color:dm?'#c0cfec':'#334155', margin:0, lineHeight:'1.5'}}>{ins.text}</p>
                                         </div>
                                     ))}
@@ -5179,7 +5280,7 @@
                                     {sysRoles.map((r,i)=>(
                                         <div key={i} style={{display:'flex',gap:'12px',marginBottom:'12px',padding:'12px',background:dm?'rgba(99,102,241,0.08)':'#F8F9FF',borderRadius:'12px',border:'1.5px solid #E0E7FF',alignItems:'flex-start'}}>
                                             <div style={{width:'40px',height:'40px',borderRadius:'50%',background: i===0 ? '#DBEAFE' : '#EDE9FE',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'20px',flexShrink:0}}>
-                                                {i===0 ? '👤' : '🛡️'}
+                                                {i===0 ? 'user' : 'shield'}
                                             </div>
                                             <div style={{flex:1,minWidth:0}}>
                                                 <p style={{fontSize:'14px',fontWeight:'700',color:dm?'#c7d2fe':'#1E1B4B',margin:'0 0 2px'}}>{r.name}</p>
@@ -5831,29 +5932,29 @@
             const entryConfig = (entry) => {
                 const { type, action } = entry;
                 if (type === 'approval') {
-                    if ((action||'').toLowerCase() === 'approved') return { icon:'✅', color:'#10B981', bg:dm?'rgba(16,185,129,0.1)':'#ECFDF5', label:'Approved' };
-                    if ((action||'').toLowerCase() === 'rejected') return { icon:'❌', color:'#EF4444', bg:dm?'rgba(239,68,68,0.1)':'#FEF2F2', label:'Rejected' };
-                    return { icon:'🔓', color:'#D97706', bg:dm?'rgba(217,119,6,0.1)':'#FFFBEB', label:'Reopened' };
+                    if ((action||'').toLowerCase() === 'approved') return { icon:'check-circle', color:'#10B981', bg:dm?'rgba(16,185,129,0.1)':'#ECFDF5', label:'Approved' };
+                    if ((action||'').toLowerCase() === 'rejected') return { icon:'x-circle', color:'#EF4444', bg:dm?'rgba(239,68,68,0.1)':'#FEF2F2', label:'Rejected' };
+                    return { icon:'lock-open', color:'#D97706', bg:dm?'rgba(217,119,6,0.1)':'#FFFBEB', label:'Reopened' };
                 }
-                if (type === 'comment') return { icon:'💬', color:'#64748B', bg:dm?'rgba(100,116,139,0.1)':'#F8FAFC', label:'Comment' };
+                if (type === 'comment') return { icon:'message-square', color:'#64748B', bg:dm?'rgba(100,116,139,0.1)':'#F8FAFC', label:'Comment' };
                 const map = {
-                    created:              { icon:'🎫', color:'#6366F1', bg:dm?'rgba(99,102,241,0.1)':'#EEF2FF', label:'Created' },
-                    assigned:             { icon:'👤', color:'#0EA5E9', bg:dm?'rgba(14,165,233,0.1)':'#F0F9FF', label:'Assigned' },
-                    status_changed:       { icon:'🔄', color:'#8B5CF6', bg:dm?'rgba(139,92,246,0.1)':'#F5F3FF', label:'Status Changed' },
-                    priority_changed:     { icon:'⚡', color:'#F59E0B', bg:dm?'rgba(245,158,11,0.1)':'#FFFBEB', label:'Priority Changed' },
-                    approvers_updated:    { icon:'👥', color:'#6366F1', bg:dm?'rgba(99,102,241,0.1)':'#EEF2FF', label:'Approvers Updated' },
-                    extension_requested:  { icon:'📅', color:'#D97706', bg:dm?'rgba(217,119,6,0.1)':'#FFFBEB', label:'Extension Requested' },
-                    extension_responded:  { icon:'📋', color:'#0EA5E9', bg:dm?'rgba(14,165,233,0.1)':'#F0F9FF', label:'Extension Responded' },
-                    reopened:             { icon:'🔓', color:'#D97706', bg:dm?'rgba(217,119,6,0.1)':'#FFFBEB', label:'Reopened' },
-                    commented:            { icon:'💬', color:'#64748B', bg:dm?'rgba(100,116,139,0.1)':'#F8FAFC', label:'Comment' },
-                    attachment_added:     { icon:'📎', color:'#64748B', bg:dm?'rgba(100,116,139,0.1)':'#F8FAFC', label:'Attachment Added' },
-                    escalated:            { icon:'🚨', color:'#EF4444', bg:dm?'rgba(239,68,68,0.1)':'#FEF2F2', label:'Escalated' },
-                    'pending_approval':   { icon:'⏳', color:'#D97706', bg:dm?'rgba(217,119,6,0.1)':'#FFFBEB', label:'Sent for Approval' },
+                    created:              { icon:'ticket', color:'#6366F1', bg:dm?'rgba(99,102,241,0.1)':'#EEF2FF', label:'Created' },
+                    assigned:             { icon:'user', color:'#0EA5E9', bg:dm?'rgba(14,165,233,0.1)':'#F0F9FF', label:'Assigned' },
+                    status_changed:       { icon:'refresh-cw', color:'#8B5CF6', bg:dm?'rgba(139,92,246,0.1)':'#F5F3FF', label:'Status Changed' },
+                    priority_changed:     { icon:'zap', color:'#F59E0B', bg:dm?'rgba(245,158,11,0.1)':'#FFFBEB', label:'Priority Changed' },
+                    approvers_updated:    { icon:'users', color:'#6366F1', bg:dm?'rgba(99,102,241,0.1)':'#EEF2FF', label:'Approvers Updated' },
+                    extension_requested:  { icon:'calendar', color:'#D97706', bg:dm?'rgba(217,119,6,0.1)':'#FFFBEB', label:'Extension Requested' },
+                    extension_responded:  { icon:'clipboard-list', color:'#0EA5E9', bg:dm?'rgba(14,165,233,0.1)':'#F0F9FF', label:'Extension Responded' },
+                    reopened:             { icon:'lock-open', color:'#D97706', bg:dm?'rgba(217,119,6,0.1)':'#FFFBEB', label:'Reopened' },
+                    commented:            { icon:'message-square', color:'#64748B', bg:dm?'rgba(100,116,139,0.1)':'#F8FAFC', label:'Comment' },
+                    attachment_added:     { icon:'paperclip', color:'#64748B', bg:dm?'rgba(100,116,139,0.1)':'#F8FAFC', label:'Attachment Added' },
+                    escalated:            { icon:'alert-octagon', color:'#EF4444', bg:dm?'rgba(239,68,68,0.1)':'#FEF2F2', label:'Escalated' },
+                    'pending_approval':   { icon:'hourglass', color:'#D97706', bg:dm?'rgba(217,119,6,0.1)':'#FFFBEB', label:'Sent for Approval' },
                     // activity entries from approve/reject endpoints
-                    approved:             { icon:'✅', color:'#10B981', bg:dm?'rgba(16,185,129,0.1)':'#ECFDF5', label:'Approved' },
-                    rejected:             { icon:'❌', color:'#EF4444', bg:dm?'rgba(239,68,68,0.1)':'#FEF2F2', label:'Rejected' },
+                    approved:             { icon:'check-circle', color:'#10B981', bg:dm?'rgba(16,185,129,0.1)':'#ECFDF5', label:'Approved' },
+                    rejected:             { icon:'x-circle', color:'#EF4444', bg:dm?'rgba(239,68,68,0.1)':'#FEF2F2', label:'Rejected' },
                 };
-                return map[action] || { icon:'📝', color:'#6366F1', bg:dm?'rgba(99,102,241,0.1)':'#EEF2FF', label: (action||'').replace(/_/g,' ') };
+                return map[action] || { icon:'file-edit', color:'#6366F1', bg:dm?'rgba(99,102,241,0.1)':'#EEF2FF', label: (action||'').replace(/_/g,' ') };
             };
 
             // Human-readable description of an entry
@@ -5887,12 +5988,12 @@
 
             // Phase timeline — derive reached phases from the log
             const PHASES = [
-                { key: 'created',          label: 'Created',     icon: '🎫' },
-                { key: 'open',             label: 'Open',        icon: '📬' },
-                { key: 'in_progress',      label: 'In Progress', icon: '⚙️' },
-                { key: 'pending_approval', label: 'Approval',    icon: '⏳' },
-                { key: 'resolved',         label: 'Resolved',    icon: '✅' },
-                { key: 'closed',           label: 'Closed',      icon: '🔒' },
+                { key: 'created',          label: 'Created',     icon: 'ticket' },
+                { key: 'open',             label: 'Open',        icon: 'inbox' },
+                { key: 'in_progress',      label: 'In Progress', icon: 'loader' },
+                { key: 'pending_approval', label: 'Approval',    icon: 'hourglass' },
+                { key: 'resolved',         label: 'Resolved',    icon: 'check-circle' },
+                { key: 'closed',           label: 'Closed',      icon: 'lock' },
             ];
             const getReachedPhases = (timeline, ticket) => {
                 const reached = new Set(['created']);
@@ -6104,7 +6205,7 @@
                                                                     background: isCurrent ? '#6366F1' : reached ? (dm?'rgba(16,185,129,0.2)':'#ECFDF5') : (dm?'rgba(255,255,255,0.05)':'#F1F5F9'),
                                                                     border: isCurrent ? '2px solid #6366F1' : reached ? '2px solid #10B981' : `2px solid ${borderC}`,
                                                                     boxShadow: isCurrent ? '0 0 0 3px rgba(99,102,241,0.25)' : 'none'}}>
-                                                                    {ph.icon}
+                                                                    <Icon name={ph.icon} size={16} color={isCurrent ? '#fff' : reached ? '#10B981' : '#94a3b8'} />
                                                                 </div>
                                                                 <span style={{fontSize:10,fontWeight: isCurrent||reached ? 700 : 400,
                                                                     color: isCurrent ? '#6366F1' : reached ? '#10B981' : textS,
@@ -6371,34 +6472,34 @@
             // ── report type definitions ────────────────────────────────────────
             const REPORT_GROUPS = [
                 { group:'General', types:[
-                    { id:'activity_log',      label:'Activity Log',         icon:'📋' },
-                    { id:'open_aging',        label:'Open Tickets Aging',   icon:'🕐' },
-                    { id:'monthly_trend',     label:'Monthly Trend',        icon:'📈' },
+                    { id:'activity_log',      label:'Activity Log',         icon:'clipboard-list' },
+                    { id:'open_aging',        label:'Open Tickets Aging',   icon:'clock' },
+                    { id:'monthly_trend',     label:'Monthly Trend',        icon:'trending-up' },
                 ]},
                 { group:'Status & Priority', types:[
-                    { id:'overdue_tickets',   label:'Overdue Tickets',      icon:'⚠️'  },
-                    { id:'critical_urgent',   label:'Critical & Urgent',    icon:'🚨' },
-                    { id:'unassigned',        label:'Unassigned Tickets',   icon:'👤' },
-                    { id:'pending_approval',  label:'Pending Approval',     icon:'⏳' },
-                    { id:'escalated',         label:'Escalation Report',    icon:'⬆️'  },
-                    { id:'resolved_period',   label:'Resolved This Period', icon:'✔️'  },
+                    { id:'overdue_tickets',   label:'Overdue Tickets',      icon:'alert-triangle'  },
+                    { id:'critical_urgent',   label:'Critical & Urgent',    icon:'alert-octagon' },
+                    { id:'unassigned',        label:'Unassigned Tickets',   icon:'user' },
+                    { id:'pending_approval',  label:'Pending Approval',     icon:'hourglass' },
+                    { id:'escalated',         label:'Escalation Report',    icon:'arrow-up-circle'  },
+                    { id:'resolved_period',   label:'Resolved This Period', icon:'check'  },
                 ]},
                 { group:'Performance & SLA', types:[
-                    { id:'staff_performance', label:'Staff Performance',    icon:'⭐' },
-                    { id:'sla_compliance',    label:'SLA Compliance',       icon:'✅' },
-                    { id:'resolution_time',   label:'Resolution Time',      icon:'⏱️'  },
-                    { id:'team_comparison',   label:'Team Comparison',      icon:'🔄' },
-                    { id:'priority_analysis', label:'Priority Analysis',    icon:'🎯' },
+                    { id:'staff_performance', label:'Staff Performance',    icon:'star' },
+                    { id:'sla_compliance',    label:'SLA Compliance',       icon:'check-circle' },
+                    { id:'resolution_time',   label:'Resolution Time',      icon:'clock'  },
+                    { id:'team_comparison',   label:'Team Comparison',      icon:'refresh-cw' },
+                    { id:'priority_analysis', label:'Priority Analysis',    icon:'target' },
                 ]},
                 { group:'Category Reports', types:[
-                    { id:'category_breakdown',label:'Category Breakdown',   icon:'📂' },
-                    { id:'ndis_compliance',   label:'NDIS Compliance',      icon:'🏥' },
-                    { id:'client_issues',     label:'Client Issues',        icon:'👥' },
-                    { id:'hr_issues',         label:'HR Issues',            icon:'👔' },
-                    { id:'safety_incidents',  label:'Safety & Incidents',   icon:'🦺' },
-                    { id:'equipment_issues',  label:'Equipment Issues',     icon:'🔧' },
-                    { id:'cleaning_quality',  label:'Cleaning Quality',     icon:'🧹' },
-                    { id:'account_finance',   label:'Account & Finance',    icon:'💰' },
+                    { id:'category_breakdown',label:'Category Breakdown',   icon:'folder' },
+                    { id:'ndis_compliance',   label:'NDIS Compliance',      icon:'heart-handshake' },
+                    { id:'client_issues',     label:'Client Issues',        icon:'users' },
+                    { id:'hr_issues',         label:'HR Issues',            icon:'users-minus' },
+                    { id:'safety_incidents',  label:'Safety & Incidents',   icon:'hard-hat' },
+                    { id:'equipment_issues',  label:'Equipment Issues',     icon:'wrench' },
+                    { id:'cleaning_quality',  label:'Cleaning Quality',     icon:'broom' },
+                    { id:'account_finance',   label:'Account & Finance',    icon:'dollar-sign' },
                 ]},
             ];
             const REPORT_TYPES = REPORT_GROUPS.flatMap(g => g.types);
@@ -6733,7 +6834,7 @@
                             </div>
                             {/* Active filter chips */}
                             <div style={{marginTop:10,display:'flex',gap:6,flexWrap:'wrap'}}>
-                                {period!=='all_time'&&<span style={{fontSize:11,background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:'#4F46E5',padding:'3px 10px',borderRadius:20,fontWeight:600}}>📅 {PERIOD_OPTS.find(o=>o.v===period)?.l||period}</span>}
+                                {period!=='all_time'&&<span style={{fontSize:11,background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:'#4F46E5',padding:'3px 10px',borderRadius:20,fontWeight:600,display:'inline-flex',alignItems:'center',gap:4}}><Icon name='calendar' size={11} color='#4F46E5' />{PERIOD_OPTS.find(o=>o.v===period)?.l||period}</span>}
                                 {categoryFilter!=='all'&&<span style={{fontSize:11,background:'#F0FDF4',color:'#166534',padding:'3px 10px',borderRadius:20,fontWeight:600}}>📂 {categoryFilter}</span>}
                                 {priorityFilter!=='all'&&<span style={{fontSize:11,background:dm?'rgba(249,115,22,0.15)':'#FFF7ED',color:dm?'#fdba74':'#C2410C',padding:'3px 10px',borderRadius:20,fontWeight:600}}>🎯 {priorityFilter}</span>}
                                 <span style={{fontSize:11,background:dm?'rgba(4,8,20,0.6)':'#F8FAFF',color:textM,padding:'3px 10px',borderRadius:20,fontWeight:600}}>{preview.rows.length} records match</span>
@@ -6751,7 +6852,7 @@
                                             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:5}}>
                                                 {g.types.map(r=>(
                                                     <button key={r.id} onClick={()=>setReportType(r.id)} style={{padding:'8px 10px',borderRadius:8,border:`2px solid ${reportType===r.id?'#4F46E5':'#E5E7EB'}`,background:reportType===r.id?'#EEF2FF':'white',cursor:'pointer',textAlign:'left',transition:'all 0.12s'}}>
-                                                        <span style={{fontSize:13}}>{r.icon}</span>
+                                                        <Icon name={r.icon} size={13} />
                                                         <span style={{display:'block',fontSize:11,fontWeight:700,color:reportType===r.id?'#4F46E5':(dm?'#f0f4ff':'#0F172A'),marginTop:2,lineHeight:1.3}}>{r.label}</span>
                                                     </button>
                                                 ))}
@@ -6766,7 +6867,7 @@
                                 {/* Selected report info */}
                                 <div style={{...s.card,background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',border:'2px solid #C7D2FE'}}>
                                     <p style={{fontSize:13,fontWeight:700,color:'#4338CA'}}>
-                                        {REPORT_TYPES.find(r=>r.id===reportType)?.icon} {REPORT_TYPES.find(r=>r.id===reportType)?.label}
+                                        {REPORT_TYPES.find(r=>r.id===reportType)?.label}
                                     </p>
                                     <p style={{fontSize:22,fontWeight:800,color:textP,marginTop:4}}>{preview.rows.length} <span style={{fontSize:13,fontWeight:500,color:textM}}>records ready to export</span></p>
                                     {preview.rows.length===0&&<p style={{fontSize:12,color:'#DC2626',marginTop:4}}>⚠ No records match — try "All Time" or adjust your filters</p>}
@@ -6846,7 +6947,7 @@
                                     <select value={schedReportType} onChange={e=>setSchedReportType(e.target.value)} style={s.sel}>
                                         {REPORT_GROUPS.map(g=>(
                                             <optgroup key={g.group} label={g.group}>
-                                                {g.types.map(r=><option key={r.id} value={r.id}>{r.icon} {r.label}</option>)}
+                                                {g.types.map(r=><option key={r.id} value={r.id}>{r.label}</option>)}
                                             </optgroup>
                                         ))}
                                     </select>
