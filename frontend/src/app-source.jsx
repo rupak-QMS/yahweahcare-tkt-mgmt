@@ -651,7 +651,7 @@
                                     {notifLoading && <div style={{padding:'16px',textAlign:'center',fontSize:12,color:subC}}>Loading…</div>}
                                     {!notifLoading && notifications.length === 0 && (
                                         <div style={{padding:'24px 16px', textAlign:'center'}}>
-                                            <div style={{fontSize:28, marginBottom:8}}>🔔</div>
+                                            <div style={{marginBottom:8}}><Icon name='bell' size={28} color={dm?'#818cf8':'#4F46E5'} /></div>
                                             <p style={{fontSize:13, color:subC, margin:0}}>No notifications yet</p>
                                         </div>
                                     )}
@@ -779,7 +779,7 @@
                                 <div style={{height:1, background:border, margin:'0 12px'}}/>
                                 <button onClick={() => { setUserMenuOpen(false); onSignOut(); }}
                                     style={{width:'100%',textAlign:'left',display:'flex',alignItems:'center',gap:10,padding:'10px 16px',background:'none',border:'none',cursor:'pointer',fontSize:13,color:'#DC2626',fontWeight:600}}>
-                                    <span style={{fontSize:15}}>↪️</span>
+                                    <Icon name='log-out' size={15} />
                                     <span>Sign Out</span>
                                 </button>
                             </div>
@@ -900,7 +900,7 @@
                                 )}
                                 <div style={{height:1, background:sidebarBorder, margin:'0 12px'}}/>
                                 <button onClick={handleSignOut} style={{width:'100%',textAlign:'left',display:'flex',alignItems:'center',gap:10,padding:'10px 14px',background:'none',border:'none',cursor:'pointer',fontSize:13,color:'#DC2626',fontWeight:600}}>
-                                    <span style={{fontSize:15}}>↪️</span>
+                                    <Icon name='log-out' size={15} />
                                     <span>Sign Out</span>
                                 </button>
                             </div>
@@ -1019,7 +1019,7 @@
                             {/* Business Insights */}
                             {data.insights?.length > 0 && (
                                 <div style={{marginBottom:'22px'}}>
-                                    <p style={{fontSize:'10px',fontWeight:'700',color:dm?'#818cf8':'#4F46E5',textTransform:'uppercase',letterSpacing:'0.07em',margin:'0 0 10px'}}>💡 Business Insights</p>
+                                    <p style={{fontSize:'10px',fontWeight:'700',color:dm?'#818cf8':'#4F46E5',textTransform:'uppercase',letterSpacing:'0.07em',margin:'0 0 10px'}}><Icon name='zap' size={11} style={{marginRight:4}} />Business Insights</p>
                                     <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
                                         {data.insights.map((ins,i) => {
                                             const s = TS[ins.type]||TS.info;
@@ -1392,7 +1392,7 @@
                                                 {loading ? '—' : c.value}
                                             </p>
                                         </div>
-                                        <span style={{fontSize:'20px',background:c.bg,borderRadius:'8px',width:'36px',height:'36px',display:'flex',alignItems:'center',justifyContent:'center'}}>{c.icon}</span>
+                                        <span style={{background:c.bg,borderRadius:'8px',width:'36px',height:'36px',display:'flex',alignItems:'center',justifyContent:'center'}}><Icon name={c.icon} size={20} color={c.color} /></span>
                                     </div>
                                     {!loading && <p style={{fontSize:'9px',color:dm?'rgba(99,102,241,0.5)':'rgba(99,102,241,0.4)',margin:'8px 0 0',fontWeight:'600',letterSpacing:'0.06em'}}>CLICK FOR INSIGHTS →</p>}
                                 </div>
@@ -1403,7 +1403,7 @@
                         <div className='yc-chart-grid-2' style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px',marginBottom:'16px'}}>
                             <div onClick={()=>!loading&&setInsight(buildInsight('status-chart'))} style={{...card,padding:'20px',cursor:loading?'default':'pointer',transition:'transform 0.12s'}} onMouseEnter={e=>{if(!loading)e.currentTarget.style.transform='translateY(-2px)'}} onMouseLeave={e=>e.currentTarget.style.transform=''}>
                                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'14px'}}>
-                                    <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,margin:0}}>📊 Status Distribution</h2>
+                                    <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,margin:0,display:'flex',alignItems:'center',gap:6}}><Icon name="bar-chart-2" size={14} />Status Distribution</h2>
                                     {!loading && <span style={{fontSize:'9px',color:dm?'rgba(99,102,241,0.5)':'rgba(99,102,241,0.4)',fontWeight:'700',letterSpacing:'0.06em'}}>CLICK FOR INSIGHTS</span>}
                                 </div>
                                 <div style={{height:'220px',position:'relative'}}>
@@ -1429,7 +1429,7 @@
                             {/* SLA Compliance */}
                             <div onClick={()=>!loading&&setInsight(buildInsight('sla'))} style={{...card,padding:'20px',cursor:loading?'default':'pointer',transition:'transform 0.12s'}} onMouseEnter={e=>{if(!loading)e.currentTarget.style.transform='translateY(-2px)'}} onMouseLeave={e=>e.currentTarget.style.transform=''}>
                                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'16px'}}>
-                                    <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,margin:0}}>⏱️ SLA Compliance</h2>
+                                    <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,margin:0}}><Icon name='clock' size={14} style={{marginRight:5}} />SLA Compliance</h2>
                                     {!loading && <span style={{fontSize:'9px',color:dm?'rgba(99,102,241,0.5)':'rgba(99,102,241,0.4)',fontWeight:'700',letterSpacing:'0.06em'}}>CLICK FOR INSIGHTS</span>}
                                 </div>
                                 <div style={{display:'flex',alignItems:'center',gap:'24px'}}>
@@ -1463,7 +1463,7 @@
                             {/* Recent Activity */}
                             <div style={{...card,padding:'20px'}}>
                                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'14px'}}>
-                                    <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,margin:0}}>📌 Recent Activity</h2>
+                                    <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,margin:0}}><Icon name='map-pin' size={14} style={{marginRight:5}} />Recent Activity</h2>
                                     <span style={{fontSize:'10px',background:'#ECFDF5',color:'#059669',borderRadius:'20px',padding:'2px 8px',fontWeight:'600'}}>Live</span>
                                 </div>
                                 {loading ? (
@@ -1916,7 +1916,7 @@
                                     {/* Assignment */}
                                     <div className={cardCls}>
                                         <div className={sectionHeadCls}>
-                                            <span style={{color:dm?'#818cf8':'#4F46E5', fontSize:'15px'}}>👥</span> Assignment
+                                            <Icon name='users' size={15} color={dm?'#818cf8':'#4F46E5'} /> Assignment
                                         </div>
                                         <div>
                                             <label className={labelCls}>Assign To <span className="text-red-400">*</span></label>
@@ -2513,7 +2513,7 @@
                                         const issueText = selectedTicket.description||selectedTicket.issueDetails||selectedTicket.issue_details||'';
                                         return (
                                             <div style={{marginBottom:20,paddingBottom:20,borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
-                                                <p style={{fontSize:10,fontWeight:700,color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 8px'}}>📋 Issue Details / Description</p>
+                                                <p style={{fontSize:10,fontWeight:700,color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 8px'}}><Icon name='clipboard-list' size={10} style={{marginRight:4}} />Issue Details / Description</p>
                                                 {issueText ? (
                                                     <p style={{fontSize:13,color:dm?'#c0cfec':'#334155',lineHeight:1.7,margin:0,whiteSpace:'pre-wrap',background:dm?'rgba(99,102,241,0.04)':'#F8FAFF',padding:'12px 14px',borderRadius:8,border:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
                                                         {issueText}
@@ -2528,7 +2528,7 @@
                                     {/* ── Resolution Note (set when marked complete) ── */}
                                     {selectedTicket.resolutionNote && (
                                         <div style={{marginBottom:20,paddingBottom:20,borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
-                                            <p style={{fontSize:10,fontWeight:700,color:dm?'#34d399':'#065F46',textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 8px'}}>✅ Resolution Note</p>
+                                            <p style={{fontSize:10,fontWeight:700,color:dm?'#34d399':'#065F46',textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 8px'}}><Icon name='check-circle' size={10} style={{marginRight:4}} color={dm?'#34d399':'#065F46'} />Resolution Note</p>
                                             <p style={{fontSize:13,color:dm?'#6ee7b7':'#065F46',lineHeight:1.7,margin:0,whiteSpace:'pre-wrap',background:dm?'rgba(16,185,129,0.06)':'#ECFDF5',padding:'12px 14px',borderRadius:8,border:`1px solid ${dm?'rgba(16,185,129,0.15)':'#A7F3D0'}`}}>
                                                 {selectedTicket.resolutionNote}
                                             </p>
@@ -6246,8 +6246,8 @@
                                                                 {/* Dot */}
                                                                 <div style={{position:'absolute',left:-32,top:3,width:24,height:24,borderRadius:'50%',
                                                                     background:cfg.bg,border:`2px solid ${cfg.color}`,
-                                                                    display:'flex',alignItems:'center',justifyContent:'center',fontSize:11}}>
-                                                                    {cfg.icon}
+                                                                    display:'flex',alignItems:'center',justifyContent:'center'}}>
+                                                                    <Icon name={cfg.icon} size={13} color={cfg.color} />
                                                                 </div>
 
                                                                 {/* Card */}
