@@ -44,19 +44,27 @@ const notifRows = [
 describe('GET /notifications', () => {
   it('returns notifications for the current user', async () => {
     const app = makeApp();
-    mockPool.query.mockResolvedValueOnce({ rows: notifRows });
+    // Route does 2 queries: list rows + count/unread
+    mockPool.query
+      .mockResolvedValueOnce({ rows: notifRows })
+      .mockResolvedValueOnce({ rows: [{ total: '2', unread: '1' }] });
     const res = await request(app).get('/notifications');
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.notifications)).toBe(true);
     expect(res.body.notifications).toHaveLength(2);
+    expect(res.body.total).toBe(2);
+    expect(res.body.unread).toBe(1);
   });
 
   it('returns empty array when user has no notifications', async () => {
     const app = makeApp();
-    mockPool.query.mockResolvedValueOnce({ rows: [] });
+    mockPool.query
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ total: '0', unread: '0' }] });
     const res = await request(app).get('/notifications');
     expect(res.status).toBe(200);
     expect(res.body.notifications).toHaveLength(0);
+    expect(res.body.total).toBe(0);
   });
 });
 
