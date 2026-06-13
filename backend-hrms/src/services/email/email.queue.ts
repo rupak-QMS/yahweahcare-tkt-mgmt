@@ -9,7 +9,7 @@
 // â¢ Backoff:        attempt 0â30s, 1â5m, 2â15m, 3â1h, 4â4h
 // ============================================================
 
-// uuid replaced with Node built-in (avoids ESM-only uuid pkg)
+// uuid replaced with Node built-in crypto.randomUUID() (Node 14.17+, avoids ESM-only uuid pkg)
 import { pool } from '../../db/pool';
 import { buildTicketEmail } from './email.templates';
 import { buildAccountCreatedHtml, buildPasswordResetHtml } from './email.templates';

@@ -12,7 +12,7 @@ import { env } from '../config/env';
 
 export const pool = new Pool({
   connectionString: env.DATABASE_URL,
-  max: 5,
+  max: 5,          // keep low for serverless — each function instance gets its own pool
   idleTimeoutMillis: 10_000,
   connectionTimeoutMillis: 5_000,
 });

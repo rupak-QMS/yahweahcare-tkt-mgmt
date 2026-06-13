@@ -1004,7 +1004,7 @@ router.post('/:id/reopen', requireAuth, async (req, res, next) => {
     await logAudit({ userId, actorEmail: req.auth?.email, action: 'ticket.reopen', module: 'tickets', targetType: 'ticket', targetId: id, metadata: { justification }, req });
     res.json({ ticket: t });
 
-    // Notify (reuse 'rejected' notification type — ticket is sent back to assignee)
+    // Notify — ticket is sent back to assignee for rework
     const actorNameR = await getActorName(userId);
     const { rows: tInfoR } = await pool.query(`SELECT title, created_by, assigned_to FROM yc_tkt_mgmt.tickets WHERE id=$1`, [id]);
     const deptIdR = await getTicketDept(tInfoR[0]?.created_by, tInfoR[0]?.assigned_to);
