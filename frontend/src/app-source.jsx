@@ -7015,6 +7015,7 @@
             const [loading, setLoading]   = React.useState(false);
             const [toastMsg, setToastMsg] = React.useState('');
             const [testEmail, setTestEmail] = React.useState('');
+            const [emailConfigStatus, setEmailConfigStatus] = React.useState(null); // {configured, from} | null
             const [logFilter, setLogFilter] = React.useState('');
             const [logStatus, setLogStatus] = React.useState('');
             const [page, setPage]           = React.useState(1);
@@ -7029,7 +7030,11 @@
 
             const apiFetch = React.useCallback(async (path, opts = {}) => {
                 const r = await fetch(BACKEND + path, { credentials: 'include', ...opts });
-                if (!r.ok) throw new Error(await r.text());
+                if (!r.ok) {
+                    const text = await r.text();
+                    try { const j = JSON.parse(text); throw new Error(j.message || j.error || text); }
+                    catch (parseErr) { if (parseErr instanceof SyntaxError) throw new Error(text); throw parseErr; }
+                }
                 return r.json();
             }, []);
 
@@ -7068,6 +7073,13 @@
                 } catch (e) { showToast('Failed to load stats: ' + e.message); }
                 finally { setLoading(false); }
             }, [apiFetch]);
+
+            // Load config status once on mount
+            React.useEffect(() => {
+                apiFetch('/email/config')
+                    .then(d => setEmailConfigStatus(d))
+                    .catch(() => {});
+            }, []);
 
             React.useEffect(() => {
                 if (tab === 'logs')  loadLogs();
@@ -7132,11 +7144,37 @@
                             <p style={{fontSize:13,color:muted,margin:'4px 0 0'}}>Manage email delivery, view logs, and test configuration. Bootstrap Admin only.</p>
                         </div>
 
+                        {/* Config status banner */}
+                        {emailConfigStatus !== null && (
+                            <div style={{
+                                display:'flex',alignItems:'center',gap:10,padding:'10px 16px',
+                                borderRadius:8,marginBottom:14,fontSize:13,fontWeight:500,
+                                background: emailConfigStatus.configured
+                                    ? (dm?'rgba(16,185,129,0.12)':'#ECFDF5')
+                                    : (dm?'rgba(239,68,68,0.12)':'#FEF2F2'),
+                                border: `1px solid ${emailConfigStatus.configured
+                                    ? (dm?'rgba(16,185,129,0.3)':'#A7F3D0')
+                                    : (dm?'rgba(239,68,68,0.3)':'#FECACA')}`,
+                                color: emailConfigStatus.configured
+                                    ? (dm?'#34d399':'#065F46')
+                                    : (dm?'#f87171':'#991B1B'),
+                            }}>
+                                <Icon name={emailConfigStatus.configured?'check-circle':'alert-octagon'} size={15}
+                                    color={emailConfigStatus.configured?(dm?'#34d399':'#10B981'):(dm?'#f87171':'#EF4444')} />
+                                {emailConfigStatus.configured
+                                    ? <span>Resend configured — sending from <strong>{emailConfigStatus.from}</strong></span>
+                                    : <span><strong>RESEND_API_KEY not set.</strong> Add it to Vercel environment variables and redeploy.</span>
+                                }
+                            </div>
+                        )}
+
                         {/* Test email card */}
                         <div style={{background:card,border:`1px solid ${bdr}`,borderRadius:12,padding:20,marginBottom:20,display:'flex',gap:12,alignItems:'flex-end',flexWrap:'wrap'}}>
                             <div style={{flex:1,minWidth:200}}>
                                 <label style={{fontSize:12,fontWeight:600,color:muted,display:'block',marginBottom:6}}>Send Test Email</label>
-                                <input value={testEmail} onChange={e=>setTestEmail(e.target.value)} placeholder="recipient@example.com"
+                                <input value={testEmail} onChange={e=>setTestEmail(e.target.value)}
+                                    onKeyDown={e=>e.key==='Enter'&&!loading&&handleTest()}
+                                    placeholder="recipient@example.com"
                                     style={{width:'100%',padding:'9px 12px',borderRadius:8,border:`1px solid ${bdr}`,background:bg,color:txt,fontSize:13,boxSizing:'border-box'}}/>
                             </div>
                             <button onClick={handleTest} disabled={loading} style={{padding:'9px 20px',borderRadius:8,border:'none',background:'#4F46E5',color:'#fff',fontWeight:600,cursor:'pointer',fontSize:13}}>

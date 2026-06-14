@@ -120,9 +120,26 @@ router.get('/queue', requireAuth, requireBootstrapAdmin, async (req, res, next) 
   } catch (err) { next(err); }
 });
 
+// ── GET /email/config ─────────────────────────────────────────
+// Returns whether Resend is configured — safe to expose to bootstrap admin
+router.get('/config', requireAuth, requireBootstrapAdmin, async (_req, res) => {
+  res.json({
+    configured: !!env.RESEND_API_KEY,
+    from: env.EMAIL_FROM,
+  });
+});
+
 // ── POST /email/test ──────────────────────────────────────────
 router.post('/test', requireAuth, requireBootstrapAdmin, async (req, res, next) => {
   try {
+    // Fail fast if Resend isn't configured — don't silently skip
+    if (!env.RESEND_API_KEY) {
+      return res.status(503).json({
+        error: 'not_configured',
+        message: 'RESEND_API_KEY is not set. Add it to your Vercel environment variables and redeploy.',
+      });
+    }
+
     const { to } = req.body || {};
     if (!to || !isValidEmail(String(to))) {
       return res.status(400).json({ error: 'invalid_email', message: 'A valid recipient email is required' });
@@ -133,11 +150,12 @@ router.post('/test', requireAuth, requireBootstrapAdmin, async (req, res, next) 
       to: String(to),
       subject: '[TMS] Email Configuration Test',
       html: `
-        <div style="font-family:sans-serif;padding:24px;">
-          <h2 style="color:#4F46E5;">Email Configuration Test</h2>
-          <p>This is a test email from the Yahweahcare Ticket Management System.</p>
-          <p style="color:#6B7280;font-size:13px;">Sent from: <strong>${from}</strong></p>
-          <p style="color:#6B7280;font-size:13px;">Time: <strong>${new Date().toISOString()}</strong></p>
+        <div style="font-family:sans-serif;padding:24px;max-width:480px;">
+          <h2 style="color:#4F46E5;margin:0 0 12px;">✅ Email Configuration Test</h2>
+          <p style="color:#374151;margin:0 0 8px;">This is a test email from the <strong>Yahweahcare Ticket Management System</strong>.</p>
+          <hr style="border:none;border-top:1px solid #E5E7EB;margin:16px 0;" />
+          <p style="color:#6B7280;font-size:13px;margin:0 0 4px;">From: <strong>${from}</strong></p>
+          <p style="color:#6B7280;font-size:13px;margin:0;">Sent at: <strong>${new Date().toISOString()}</strong></p>
         </div>
       `,
     });
