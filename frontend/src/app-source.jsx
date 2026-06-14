@@ -1791,20 +1791,73 @@
                                                 <input type="text" name="subtitle" value={formData.subtitle} onChange={handleChange} placeholder="Brief description" className={inputCls}/>
                                             </div>
                                         </div>
-                                        <div className="grid gap-4 mb-4 yc-grid-2-col" style={{gridTemplateColumns:"repeat(2,1fr)"}} >
-                                            <div>
-                                                <label className={labelCls}>Category <span className="text-red-400">*</span></label>
-                                                <select name="category_id" value={formData.category_id} onChange={handleChange} className={inputCls}>
-                                                    <option value="">— Select category —</option>
-                                                    {(lookups?.categories || []).map(c => (
-                                                        <option key={c.id} value={c.id}>{c.icon ? c.icon + ' ' : ''}{c.label}</option>
-                                                    ))}
-                                                </select>
+                                        {/* Category visual picker */}
+                                        <div className="mb-4">
+                                            <label className={labelCls}>Category <span className="text-red-400">*</span></label>
+                                            <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(120px,1fr))', gap:'10px', marginTop:'6px'}}>
+                                                {(lookups?.categories || []).map(c => {
+                                                    const idKey = String(c.id).toLowerCase();
+                                                    const labelKey = Object.keys(CATEGORY_VISUAL).find(k => k !== idKey && c.label.toLowerCase().includes(k));
+                                                    const vis = CATEGORY_VISUAL[idKey] || CATEGORY_VISUAL[labelKey] || {};
+                                                    const icon  = vis.icon  || c.icon || 'folder';
+                                                    const color = vis.color || '#6366F1';
+                                                    const bg    = vis.bg    || '#EEF2FF';
+                                                    const border= vis.border|| '#C7D2FE';
+                                                    const isSelected = String(formData.category_id) === String(c.id);
+                                                    return (
+                                                        <button
+                                                            key={c.id}
+                                                            type="button"
+                                                            onClick={() => setFormData(prev => ({...prev, category_id: c.id}))}
+                                                            style={{
+                                                                position:'relative',
+                                                                display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+                                                                gap:'8px', padding:'14px 10px', borderRadius:'12px', cursor:'pointer',
+                                                                border: isSelected ? `2px solid ${color}` : `1.5px solid ${isSelected?border:'#E2E8F0'}`,
+                                                                background: isSelected ? bg : (dm?'rgba(17,30,58,0.5)':'#FAFAFA'),
+                                                                boxShadow: isSelected ? `0 4px 14px ${color}30` : 'none',
+                                                                transform: isSelected ? 'translateY(-2px)' : 'none',
+                                                                transition:'all 0.18s ease',
+                                                                outline:'none',
+                                                            }}
+                                                            onMouseEnter={e=>{ if(!isSelected){ e.currentTarget.style.border=`1.5px solid ${border}`; e.currentTarget.style.background=bg+'99'; } }}
+                                                            onMouseLeave={e=>{ if(!isSelected){ e.currentTarget.style.border='1.5px solid #E2E8F0'; e.currentTarget.style.background=dm?'rgba(17,30,58,0.5)':'#FAFAFA'; } }}
+                                                        >
+                                                            {/* Icon circle */}
+                                                            <div style={{
+                                                                width:'44px', height:'44px', borderRadius:'10px', flexShrink:0,
+                                                                display:'flex', alignItems:'center', justifyContent:'center',
+                                                                background: isSelected ? color : (dm?'rgba(99,102,241,0.1)':bg),
+                                                                transition:'background 0.18s',
+                                                            }}>
+                                                                <Icon name={icon} size={22} color={isSelected ? '#fff' : color} />
+                                                            </div>
+                                                            {/* Label */}
+                                                            <span style={{
+                                                                fontSize:'11px', fontWeight: isSelected ? 700 : 500,
+                                                                color: isSelected ? color : (dm?'#8fa4cc':'#475569'),
+                                                                textAlign:'center', lineHeight:1.3,
+                                                                transition:'color 0.18s',
+                                                            }}>{c.label}</span>
+                                                            {/* Selected tick */}
+                                                            {isSelected && (
+                                                                <div style={{
+                                                                    position:'absolute', top:'6px', right:'6px',
+                                                                    width:'16px', height:'16px', borderRadius:'50%',
+                                                                    background:color, display:'flex', alignItems:'center', justifyContent:'center',
+                                                                }}>
+                                                                    <Icon name='check' size={10} color='#fff' />
+                                                                </div>
+                                                            )}
+                                                        </button>
+                                                    );
+                                                })}
                                             </div>
-                                            <div>
-                                                <label className={labelCls}>Subcategory</label>
-                                                <input type="text" name="subcategory" value={formData.subcategory} onChange={handleChange} placeholder="Optional subcategory" className={inputCls}/>
-                                            </div>
+                                        </div>
+                                        {/* Subcategory — stays as a text input */}
+                                        <div className="mb-4">
+                                            <label className={labelCls}>Subcategory</label>
+                                            <input type="text" name="subcategory" value={formData.subcategory} onChange={handleChange} placeholder="Optional subcategory" className={inputCls}/>
                                         </div>
                                         <div>
                                             <label className={labelCls}>Issue Details <span className="text-red-400">*</span></label>
@@ -1924,43 +1977,41 @@
                                 {/* RIGHT COLUMN — sidebar (sticky on desktop, full-width on mobile) */}
                                 <div style={{flex:'0 1 280px', minWidth:'240px', width:'100%', position:'sticky', top:'16px', alignSelf:'flex-start'}}>
 
-                                    {/* Category visual card — updates live as user changes the dropdown */}
+                                    {/* Selected category summary card */}
                                     <div style={{
                                         borderRadius:'14px', marginBottom:'20px', overflow:'hidden',
-                                        border: catVisual ? `1.5px solid ${catVisual.border||'#E2E8F0'}` : '1.5px solid #E2E8F0',
+                                        border: catVisual ? `1.5px solid ${catVisual.border||'#E2E8F0'}` : `1.5px solid ${dm?'rgba(99,102,241,0.16)':'#E2E8F0'}`,
                                         background: catVisual ? catVisual.bg : (dm?'rgba(17,30,58,0.6)':'#F8F9FB'),
                                         transition:'all 0.25s ease',
                                     }}>
-                                        <div style={{padding:'18px 20px', display:'flex', alignItems:'center', gap:'14px'}}>
+                                        <div style={{padding:'16px 18px', display:'flex', alignItems:'center', gap:'12px'}}>
                                             <div style={{
-                                                width:'52px', height:'52px', borderRadius:'12px', flexShrink:0,
+                                                width:'46px', height:'46px', borderRadius:'11px', flexShrink:0,
                                                 display:'flex', alignItems:'center', justifyContent:'center',
                                                 background: catVisual ? catVisual.color : (dm?'#1e2d4a':'#E2E8F0'),
-                                                boxShadow: catVisual ? `0 4px 14px ${catVisual.color}40` : 'none',
+                                                boxShadow: catVisual ? `0 4px 12px ${catVisual.color}40` : 'none',
                                                 transition:'all 0.25s ease',
                                             }}>
-                                                <Icon name={catVisual?.icon || 'folder'} size={26} color='#fff' />
+                                                <Icon name={catVisual?.icon || 'folder'} size={22} color='#fff' />
                                             </div>
                                             <div style={{minWidth:0}}>
                                                 <div style={{
-                                                    fontSize:'15px', fontWeight:700, lineHeight:1.2,
-                                                    color: catVisual ? catVisual.color : (dm?'#8fa4cc':'#94A3B8'),
+                                                    fontSize:'13px', fontWeight:700, lineHeight:1.2,
+                                                    color: catVisual ? catVisual.color : (dm?'#4a607f':'#94A3B8'),
                                                     transition:'color 0.2s',
                                                 }}>
-                                                    {catVisual ? catVisual.label : 'Select a category'}
+                                                    {catVisual ? catVisual.label : 'No category selected'}
                                                 </div>
-                                                <div style={{fontSize:'11px', color: catVisual ? (dm?'#6b7280':'#64748B') : (dm?'#4a607f':'#B0BEC5'), marginTop:'3px', lineHeight:1.4}}>
-                                                    {catVisual ? catVisual.desc : 'Choose a category to see details here.'}
+                                                <div style={{fontSize:'11px', color:dm?'#6b7280':'#64748B', marginTop:'3px', lineHeight:1.4}}>
+                                                    {catVisual ? catVisual.desc : 'Pick one from the grid on the left.'}
                                                 </div>
                                             </div>
                                         </div>
-                                        {catVisual && (
-                                            <div style={{
-                                                height:'4px',
-                                                background:`linear-gradient(90deg, ${catVisual.color}, ${catVisual.color}88)`,
-                                                transition:'background 0.25s ease',
-                                            }}/>
-                                        )}
+                                        <div style={{
+                                            height:'3px',
+                                            background: catVisual ? `linear-gradient(90deg,${catVisual.color},${catVisual.color}55)` : (dm?'rgba(99,102,241,0.1)':'#E2E8F0'),
+                                            transition:'background 0.25s ease',
+                                        }}/>
                                     </div>
 
                                     {/* Classification */}
