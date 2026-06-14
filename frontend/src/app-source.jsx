@@ -78,6 +78,7 @@
                 'help-circle':     'M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3 M12 17h.01',
                 'tool':            'M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z',
                 'building':        'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22V12h6v10',
+                'briefcase':       'M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16 M2 9h20v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z',
                 'layers':          'M12 2 2 7l10 5 10-5-10-5z M2 17l10 5 10-5 M2 12l10 5 10-5',
                 'chevron-right':   'M9 18l6-6-6-6',
                 'chevron-down':    'M6 9l6 6 6-6',
@@ -1539,6 +1540,7 @@
             const [success, setSuccess] = React.useState(false);
             const [attachments, setAttachments] = React.useState([]);
             const [attachError, setAttachError] = React.useState('');
+            const [approverSearch, setApproverSearch] = React.useState('');
 
             React.useEffect(() => {
                 fetchLookups();
@@ -1712,14 +1714,14 @@
                 // ── LOOKUPS_MOCK string IDs ──────────────────────────
                 client:    { icon:'user',          color:'#3B82F6', bg:'#EFF6FF', border:'#BFDBFE', desc:'Issues affecting client care, communication, or service delivery.' },
                 account:   { icon:'key',            color:'#8B5CF6', bg:'#F5F3FF', border:'#DDD6FE', desc:'Account access, billing, credentials, or login concerns.' },
-                hr:        { icon:'users',          color:'#10B981', bg:'#ECFDF5', border:'#A7F3D0', desc:'HR matters: leave, payroll, onboarding, performance, or staff disputes.' },
+                hr:        { icon:'briefcase',       color:'#10B981', bg:'#ECFDF5', border:'#A7F3D0', desc:'HR matters: leave, payroll, onboarding, performance, or staff disputes.' },
                 cleaning:  { icon:'sparkles',       color:'#F59E0B', bg:'#FFFBEB', border:'#FDE68A', desc:'Cleaning standards, hygiene, or facility presentation issues.' },
                 safety:    { icon:'shield',         color:'#EF4444', bg:'#FEF2F2', border:'#FECACA', desc:'Workplace safety, hazards, incidents, or compliance concerns.' },
                 equipment: { icon:'tool',           color:'#6366F1', bg:'#EEF2FF', border:'#C7D2FE', desc:'Equipment faults, maintenance, or asset requests.' },
                 ndis:      { icon:'clipboard-list', color:'#0EA5E9', bg:'#F0F9FF', border:'#BAE6FD', desc:'NDIS compliance, participant plans, or regulatory requirements.' },
                 // ── Real DB label keywords (longest match wins) ──────
                 'it support':       { icon:'monitor',       color:'#6366F1', bg:'#EEF2FF', border:'#C7D2FE', desc:'IT infrastructure, software, hardware, or network support.' },
-                'hr & payroll':     { icon:'users',         color:'#10B981', bg:'#ECFDF5', border:'#A7F3D0', desc:'HR matters: leave, payroll, onboarding, performance, or staff disputes.' },
+                'hr & payroll':     { icon:'briefcase',     color:'#10B981', bg:'#ECFDF5', border:'#A7F3D0', desc:'HR matters: leave, payroll, onboarding, performance, or staff disputes.' },
                 'facilities & mai': { icon:'building',      color:'#64748B', bg:'#F8FAFC', border:'#CBD5E1', desc:'Building, vehicle, or infrastructure maintenance requests.' },
                 'care coord':       { icon:'heart',         color:'#EC4899', bg:'#FDF2F8', border:'#FBCFE8', desc:'Care coordination, participant support planning, or service delivery.' },
                 'clinical':         { icon:'activity',      color:'#0EA5E9', bg:'#F0F9FF', border:'#BAE6FD', desc:'Clinical assessments, health records, or medical matters.' },
@@ -1727,7 +1729,7 @@
                 'finance':          { icon:'dollar-sign',   color:'#D97706', bg:'#FFFBEB', border:'#FDE68A', desc:'Financial transactions, invoicing, or budget concerns.' },
                 'general enquiry':  { icon:'help-circle',   color:'#64748B', bg:'#F8FAFC', border:'#CBD5E1', desc:'General enquiries and other support requests.' },
                 // ── Shorter fallback keywords (matched last) ─────────
-                'payroll':          { icon:'users',         color:'#10B981', bg:'#ECFDF5', border:'#A7F3D0', desc:'Payroll processing, pay queries, or salary corrections.' },
+                'payroll':          { icon:'briefcase',     color:'#10B981', bg:'#ECFDF5', border:'#A7F3D0', desc:'Payroll processing, pay queries, or salary corrections.' },
                 'facilities':       { icon:'building',      color:'#64748B', bg:'#F8FAFC', border:'#CBD5E1', desc:'Facility and building maintenance requests.' },
                 'maintenance':      { icon:'tool',          color:'#64748B', bg:'#F8FAFC', border:'#CBD5E1', desc:'Equipment and infrastructure maintenance requests.' },
                 'safety':           { icon:'shield',        color:'#EF4444', bg:'#FEF2F2', border:'#FECACA', desc:'Workplace safety, hazards, or incident reports.' },
@@ -1953,9 +1955,48 @@
                                                 <Icon name='check-circle' size={15} color={dm?'#818cf8':'#4F46E5'} /> Approvers <span className="text-red-400 normal-case font-normal tracking-normal text-xs ml-1">*</span>
                                             </div>
                                             <p className="text-xs text-gray-400 mb-3">Select who must approve the resolution. Click to toggle. <strong>All</strong> selected approvers must approve before the ticket closes.</p>
+                                            {/* Search bar */}
+                                            <div style={{position:'relative', marginBottom:'10px'}}>
+                                                <div style={{position:'absolute', left:'10px', top:'50%', transform:'translateY(-50%)', pointerEvents:'none'}}>
+                                                    <Icon name='search' size={13} color={dm?'#4a607f':'#94A3B8'} />
+                                                </div>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Search approvers…"
+                                                    value={approverSearch}
+                                                    onChange={e => setApproverSearch(e.target.value)}
+                                                    style={{
+                                                        width:'100%', boxSizing:'border-box',
+                                                        padding:'7px 10px 7px 30px',
+                                                        border:`1.5px solid ${dm?'rgba(99,102,241,0.2)':'#E2E8F0'}`,
+                                                        borderRadius:'8px', fontSize:'12px',
+                                                        background: dm?'rgba(17,30,58,0.5)':'#F8FAFC',
+                                                        color: dm?'#c0cfec':'#334155',
+                                                        outline:'none',
+                                                    }}
+                                                    onFocus={e => e.target.style.borderColor='#6366F1'}
+                                                    onBlur={e => e.target.style.borderColor=dm?'rgba(99,102,241,0.2)':'#E2E8F0'}
+                                                />
+                                                {approverSearch && (
+                                                    <button type="button" onClick={() => setApproverSearch('')}
+                                                        style={{position:'absolute', right:'8px', top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:dm?'#4a607f':'#94A3B8', fontSize:'14px', lineHeight:1, padding:0}}>
+                                                        ×
+                                                    </button>
+                                                )}
+                                            </div>
                                             {/* Approver grid */}
+                                            {(() => {
+                                                const filtered = approverSearch.trim()
+                                                    ? approverList.filter(u => (u.name||u.email||'').toLowerCase().includes(approverSearch.toLowerCase()) || (u.role||'').toLowerCase().includes(approverSearch.toLowerCase()))
+                                                    : approverList;
+                                                return (
                                             <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(110px,1fr))', gap:'8px', maxHeight:'260px', overflowY:'auto', paddingRight:'2px'}}>
-                                                {approverList.map(u => {
+                                                {filtered.length === 0 && (
+                                                    <div style={{gridColumn:'1/-1', textAlign:'center', padding:'16px', fontSize:'12px', color:dm?'#4a607f':'#94A3B8'}}>
+                                                        No approvers match "{approverSearch}"
+                                                    </div>
+                                                )}
+                                                {filtered.map(u => {
                                                     const selected = formData.approver_ids.includes(u.id);
                                                     const initials = (u.name || u.email || '?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
                                                     // Generate a stable hue from the user id
@@ -2013,6 +2054,7 @@
                                                     );
                                                 })}
                                             </div>
+                                                ); })()}
                                             {formData.approver_ids.length > 0 && (
                                                 <p style={{fontSize:'11px', color:'#6366F1', fontWeight:600, marginTop:'8px'}}>
                                                     {formData.approver_ids.length} approver{formData.approver_ids.length > 1 ? 's' : ''} selected
