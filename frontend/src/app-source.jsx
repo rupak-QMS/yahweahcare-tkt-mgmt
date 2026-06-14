@@ -1701,9 +1701,10 @@
             const sectionHeadCls = "text-sm font-semibold text-gray-400 uppercase tracking-widest mb-5 flex items-center gap-2";
 
             // ── Category visual config ─────────────────────────────
-            // Merges DB icon with colour/description per category id or label keyword
+            // Keys: exact DB id strings OR label substrings (longer keys take priority).
+            // Add an entry here whenever a new category is added to the DB.
             const CATEGORY_VISUAL = {
-                // by DB id
+                // ── LOOKUPS_MOCK string IDs ──────────────────────────
                 client:    { icon:'user',          color:'#3B82F6', bg:'#EFF6FF', border:'#BFDBFE', desc:'Issues affecting client care, communication, or service delivery.' },
                 account:   { icon:'key',            color:'#8B5CF6', bg:'#F5F3FF', border:'#DDD6FE', desc:'Account access, billing, credentials, or login concerns.' },
                 hr:        { icon:'users',          color:'#10B981', bg:'#ECFDF5', border:'#A7F3D0', desc:'HR matters: leave, payroll, onboarding, performance, or staff disputes.' },
@@ -1711,21 +1712,35 @@
                 safety:    { icon:'shield',         color:'#EF4444', bg:'#FEF2F2', border:'#FECACA', desc:'Workplace safety, hazards, incidents, or compliance concerns.' },
                 equipment: { icon:'tool',           color:'#6366F1', bg:'#EEF2FF', border:'#C7D2FE', desc:'Equipment faults, maintenance, or asset requests.' },
                 ndis:      { icon:'clipboard-list', color:'#0EA5E9', bg:'#F0F9FF', border:'#BAE6FD', desc:'NDIS compliance, participant plans, or regulatory requirements.' },
-                // by label keyword fallbacks
-                'it':      { icon:'monitor',        color:'#6366F1', bg:'#EEF2FF', border:'#C7D2FE', desc:'IT infrastructure, software, hardware, or network support.' },
-                'payroll': { icon:'dollar-sign',    color:'#10B981', bg:'#ECFDF5', border:'#A7F3D0', desc:'Payroll processing, pay queries, or salary corrections.' },
-                'finance': { icon:'dollar-sign',    color:'#D97706', bg:'#FFFBEB', border:'#FDE68A', desc:'Financial transactions, invoicing, or budget concerns.' },
-                'maintenance': { icon:'tool',       color:'#64748B', bg:'#F8FAFC', border:'#E2E8F0', desc:'Building, vehicle, or infrastructure maintenance requests.' },
+                // ── Real DB label keywords (longest match wins) ──────
+                'it support':       { icon:'monitor',       color:'#6366F1', bg:'#EEF2FF', border:'#C7D2FE', desc:'IT infrastructure, software, hardware, or network support.' },
+                'hr & payroll':     { icon:'users',         color:'#10B981', bg:'#ECFDF5', border:'#A7F3D0', desc:'HR matters: leave, payroll, onboarding, performance, or staff disputes.' },
+                'facilities & mai': { icon:'tool',          color:'#64748B', bg:'#F8FAFC', border:'#CBD5E1', desc:'Building, vehicle, or infrastructure maintenance requests.' },
+                'care coord':       { icon:'heart',         color:'#EC4899', bg:'#FDF2F8', border:'#FBCFE8', desc:'Care coordination, participant support planning, or service delivery.' },
+                'clinical':         { icon:'activity',      color:'#0EA5E9', bg:'#F0F9FF', border:'#BAE6FD', desc:'Clinical assessments, health records, or medical matters.' },
+                'compliance':       { icon:'shield',        color:'#8B5CF6', bg:'#F5F3FF', border:'#DDD6FE', desc:'Regulatory, compliance, or quality assurance concerns.' },
+                'finance':          { icon:'dollar-sign',   color:'#D97706', bg:'#FFFBEB', border:'#FDE68A', desc:'Financial transactions, invoicing, or budget concerns.' },
+                'general enquiry':  { icon:'help-circle',   color:'#64748B', bg:'#F8FAFC', border:'#CBD5E1', desc:'General enquiries and other support requests.' },
+                // ── Shorter fallback keywords (matched last) ─────────
+                'payroll':          { icon:'users',         color:'#10B981', bg:'#ECFDF5', border:'#A7F3D0', desc:'Payroll processing, pay queries, or salary corrections.' },
+                'facilities':       { icon:'tool',          color:'#64748B', bg:'#F8FAFC', border:'#CBD5E1', desc:'Facility and building maintenance requests.' },
+                'maintenance':      { icon:'tool',          color:'#64748B', bg:'#F8FAFC', border:'#CBD5E1', desc:'Equipment and infrastructure maintenance requests.' },
+                'safety':           { icon:'shield',        color:'#EF4444', bg:'#FEF2F2', border:'#FECACA', desc:'Workplace safety, hazards, or incident reports.' },
+                'care':             { icon:'heart',         color:'#EC4899', bg:'#FDF2F8', border:'#FBCFE8', desc:'Care and participant support matters.' },
+                'general':          { icon:'help-circle',   color:'#64748B', bg:'#F8FAFC', border:'#CBD5E1', desc:'General enquiries and other requests.' },
             };
             const getCategoryVisual = () => {
                 if (!formData.category_id || !lookups) return null;
                 const cat = (lookups.categories || []).find(c => String(c.id) === String(formData.category_id));
                 if (!cat) return null;
-                const idKey = String(cat.id).toLowerCase();
-                const labelKey = Object.keys(CATEGORY_VISUAL).find(k => k !== idKey && cat.label.toLowerCase().includes(k));
+                const idKey  = String(cat.id).toLowerCase();
+                const label  = cat.label.toLowerCase();
+                // Longest-key match wins — prevents short keys like 'it' matching 'facilities'
+                const labelKey = Object.keys(CATEGORY_VISUAL)
+                    .filter(k => k !== idKey && label.includes(k))
+                    .sort((a, b) => b.length - a.length)[0];
                 const visual = CATEGORY_VISUAL[idKey] || CATEGORY_VISUAL[labelKey] || null;
-                // Use DB icon if no explicit override, fall back to 'folder'
-                const icon = (visual?.icon) || cat.icon || 'folder';
+                const icon   = visual?.icon || cat.icon || 'folder';
                 return { ...visual, icon, label: cat.label };
             };
             const catVisual = getCategoryVisual();
@@ -1797,7 +1812,10 @@
                                             <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(120px,1fr))', gap:'10px', marginTop:'6px'}}>
                                                 {(lookups?.categories || []).map(c => {
                                                     const idKey = String(c.id).toLowerCase();
-                                                    const labelKey = Object.keys(CATEGORY_VISUAL).find(k => k !== idKey && c.label.toLowerCase().includes(k));
+                                                    const label = c.label.toLowerCase();
+                                                    const labelKey = Object.keys(CATEGORY_VISUAL)
+                                                        .filter(k => k !== idKey && label.includes(k))
+                                                        .sort((a, b) => b.length - a.length)[0];
                                                     const vis = CATEGORY_VISUAL[idKey] || CATEGORY_VISUAL[labelKey] || {};
                                                     const icon  = vis.icon  || c.icon || 'folder';
                                                     const color = vis.color || '#6366F1';
