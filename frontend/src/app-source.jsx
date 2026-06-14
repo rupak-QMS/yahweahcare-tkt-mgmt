@@ -1700,6 +1700,36 @@
             const cardCls = "bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-5";
             const sectionHeadCls = "text-sm font-semibold text-gray-400 uppercase tracking-widest mb-5 flex items-center gap-2";
 
+            // ── Category visual config ─────────────────────────────
+            // Merges DB icon with colour/description per category id or label keyword
+            const CATEGORY_VISUAL = {
+                // by DB id
+                client:    { icon:'user',          color:'#3B82F6', bg:'#EFF6FF', border:'#BFDBFE', desc:'Issues affecting client care, communication, or service delivery.' },
+                account:   { icon:'key',            color:'#8B5CF6', bg:'#F5F3FF', border:'#DDD6FE', desc:'Account access, billing, credentials, or login concerns.' },
+                hr:        { icon:'users',          color:'#10B981', bg:'#ECFDF5', border:'#A7F3D0', desc:'HR matters: leave, payroll, onboarding, performance, or staff disputes.' },
+                cleaning:  { icon:'sparkles',       color:'#F59E0B', bg:'#FFFBEB', border:'#FDE68A', desc:'Cleaning standards, hygiene, or facility presentation issues.' },
+                safety:    { icon:'shield',         color:'#EF4444', bg:'#FEF2F2', border:'#FECACA', desc:'Workplace safety, hazards, incidents, or compliance concerns.' },
+                equipment: { icon:'tool',           color:'#6366F1', bg:'#EEF2FF', border:'#C7D2FE', desc:'Equipment faults, maintenance, or asset requests.' },
+                ndis:      { icon:'clipboard-list', color:'#0EA5E9', bg:'#F0F9FF', border:'#BAE6FD', desc:'NDIS compliance, participant plans, or regulatory requirements.' },
+                // by label keyword fallbacks
+                'it':      { icon:'monitor',        color:'#6366F1', bg:'#EEF2FF', border:'#C7D2FE', desc:'IT infrastructure, software, hardware, or network support.' },
+                'payroll': { icon:'dollar-sign',    color:'#10B981', bg:'#ECFDF5', border:'#A7F3D0', desc:'Payroll processing, pay queries, or salary corrections.' },
+                'finance': { icon:'dollar-sign',    color:'#D97706', bg:'#FFFBEB', border:'#FDE68A', desc:'Financial transactions, invoicing, or budget concerns.' },
+                'maintenance': { icon:'tool',       color:'#64748B', bg:'#F8FAFC', border:'#E2E8F0', desc:'Building, vehicle, or infrastructure maintenance requests.' },
+            };
+            const getCategoryVisual = () => {
+                if (!formData.category_id || !lookups) return null;
+                const cat = (lookups.categories || []).find(c => String(c.id) === String(formData.category_id));
+                if (!cat) return null;
+                const idKey = String(cat.id).toLowerCase();
+                const labelKey = Object.keys(CATEGORY_VISUAL).find(k => k !== idKey && cat.label.toLowerCase().includes(k));
+                const visual = CATEGORY_VISUAL[idKey] || CATEGORY_VISUAL[labelKey] || null;
+                // Use DB icon if no explicit override, fall back to 'folder'
+                const icon = (visual?.icon) || cat.icon || 'folder';
+                return { ...visual, icon, label: cat.label };
+            };
+            const catVisual = getCategoryVisual();
+
             return (
                 <main className="flex-1 overflow-auto" style={{background:'#F8F9FB'}}>
                     <div style={{maxWidth:'1100px', margin:'0 auto', padding:'clamp(16px,4vw,32px) clamp(12px,4vw,32px)'}}>
@@ -1893,6 +1923,46 @@
 
                                 {/* RIGHT COLUMN — sidebar (sticky on desktop, full-width on mobile) */}
                                 <div style={{flex:'0 1 280px', minWidth:'240px', width:'100%', position:'sticky', top:'16px', alignSelf:'flex-start'}}>
+
+                                    {/* Category visual card — updates live as user changes the dropdown */}
+                                    <div style={{
+                                        borderRadius:'14px', marginBottom:'20px', overflow:'hidden',
+                                        border: catVisual ? `1.5px solid ${catVisual.border||'#E2E8F0'}` : '1.5px solid #E2E8F0',
+                                        background: catVisual ? catVisual.bg : (dm?'rgba(17,30,58,0.6)':'#F8F9FB'),
+                                        transition:'all 0.25s ease',
+                                    }}>
+                                        <div style={{padding:'18px 20px', display:'flex', alignItems:'center', gap:'14px'}}>
+                                            <div style={{
+                                                width:'52px', height:'52px', borderRadius:'12px', flexShrink:0,
+                                                display:'flex', alignItems:'center', justifyContent:'center',
+                                                background: catVisual ? catVisual.color : (dm?'#1e2d4a':'#E2E8F0'),
+                                                boxShadow: catVisual ? `0 4px 14px ${catVisual.color}40` : 'none',
+                                                transition:'all 0.25s ease',
+                                            }}>
+                                                <Icon name={catVisual?.icon || 'folder'} size={26} color='#fff' />
+                                            </div>
+                                            <div style={{minWidth:0}}>
+                                                <div style={{
+                                                    fontSize:'15px', fontWeight:700, lineHeight:1.2,
+                                                    color: catVisual ? catVisual.color : (dm?'#8fa4cc':'#94A3B8'),
+                                                    transition:'color 0.2s',
+                                                }}>
+                                                    {catVisual ? catVisual.label : 'Select a category'}
+                                                </div>
+                                                <div style={{fontSize:'11px', color: catVisual ? (dm?'#6b7280':'#64748B') : (dm?'#4a607f':'#B0BEC5'), marginTop:'3px', lineHeight:1.4}}>
+                                                    {catVisual ? catVisual.desc : 'Choose a category to see details here.'}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {catVisual && (
+                                            <div style={{
+                                                height:'4px',
+                                                background:`linear-gradient(90deg, ${catVisual.color}, ${catVisual.color}88)`,
+                                                transition:'background 0.25s ease',
+                                            }}/>
+                                        )}
+                                    </div>
+
                                     {/* Classification */}
                                     <div className={cardCls}>
                                         <div className={sectionHeadCls}>
