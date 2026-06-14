@@ -73,6 +73,11 @@
                 'phone':           'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z',
                 'users-minus':     'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M22 11h-6',
                 'cpu':             'M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 0-2-2V9m0 0h18',
+                'monitor':         'M20 16V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v9 M2 16h20 M8 21h8 M12 16v5',
+                'heart':           'M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z',
+                'help-circle':     'M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3 M12 17h.01',
+                'tool':            'M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z',
+                'building':        'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22V12h6v10',
                 'layers':          'M12 2 2 7l10 5 10-5-10-5z M2 17l10 5 10-5 M2 12l10 5 10-5',
                 'chevron-right':   'M9 18l6-6-6-6',
                 'chevron-down':    'M6 9l6 6 6-6',
@@ -1715,7 +1720,7 @@
                 // ── Real DB label keywords (longest match wins) ──────
                 'it support':       { icon:'monitor',       color:'#6366F1', bg:'#EEF2FF', border:'#C7D2FE', desc:'IT infrastructure, software, hardware, or network support.' },
                 'hr & payroll':     { icon:'users',         color:'#10B981', bg:'#ECFDF5', border:'#A7F3D0', desc:'HR matters: leave, payroll, onboarding, performance, or staff disputes.' },
-                'facilities & mai': { icon:'tool',          color:'#64748B', bg:'#F8FAFC', border:'#CBD5E1', desc:'Building, vehicle, or infrastructure maintenance requests.' },
+                'facilities & mai': { icon:'building',      color:'#64748B', bg:'#F8FAFC', border:'#CBD5E1', desc:'Building, vehicle, or infrastructure maintenance requests.' },
                 'care coord':       { icon:'heart',         color:'#EC4899', bg:'#FDF2F8', border:'#FBCFE8', desc:'Care coordination, participant support planning, or service delivery.' },
                 'clinical':         { icon:'activity',      color:'#0EA5E9', bg:'#F0F9FF', border:'#BAE6FD', desc:'Clinical assessments, health records, or medical matters.' },
                 'compliance':       { icon:'shield',        color:'#8B5CF6', bg:'#F5F3FF', border:'#DDD6FE', desc:'Regulatory, compliance, or quality assurance concerns.' },
@@ -1723,7 +1728,7 @@
                 'general enquiry':  { icon:'help-circle',   color:'#64748B', bg:'#F8FAFC', border:'#CBD5E1', desc:'General enquiries and other support requests.' },
                 // ── Shorter fallback keywords (matched last) ─────────
                 'payroll':          { icon:'users',         color:'#10B981', bg:'#ECFDF5', border:'#A7F3D0', desc:'Payroll processing, pay queries, or salary corrections.' },
-                'facilities':       { icon:'tool',          color:'#64748B', bg:'#F8FAFC', border:'#CBD5E1', desc:'Facility and building maintenance requests.' },
+                'facilities':       { icon:'building',      color:'#64748B', bg:'#F8FAFC', border:'#CBD5E1', desc:'Facility and building maintenance requests.' },
                 'maintenance':      { icon:'tool',          color:'#64748B', bg:'#F8FAFC', border:'#CBD5E1', desc:'Equipment and infrastructure maintenance requests.' },
                 'safety':           { icon:'shield',        color:'#EF4444', bg:'#FEF2F2', border:'#FECACA', desc:'Workplace safety, hazards, or incident reports.' },
                 'care':             { icon:'heart',         color:'#EC4899', bg:'#FDF2F8', border:'#FBCFE8', desc:'Care and participant support matters.' },
@@ -1947,43 +1952,69 @@
                                             <div className={sectionHeadCls}>
                                                 <Icon name='check-circle' size={15} color={dm?'#818cf8':'#4F46E5'} /> Approvers <span className="text-red-400 normal-case font-normal tracking-normal text-xs ml-1">*</span>
                                             </div>
-                                            <p className="text-xs text-gray-400 mb-3">Select who must approve the resolution. <strong>All</strong> selected approvers must approve before the ticket closes.</p>
-                                            <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                                            <p className="text-xs text-gray-400 mb-3">Select who must approve the resolution. Click to toggle. <strong>All</strong> selected approvers must approve before the ticket closes.</p>
+                                            {/* Approver grid */}
+                                            <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(110px,1fr))', gap:'8px', maxHeight:'260px', overflowY:'auto', paddingRight:'2px'}}>
                                                 {approverList.map(u => {
                                                     const selected = formData.approver_ids.includes(u.id);
+                                                    const initials = (u.name || u.email || '?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+                                                    // Generate a stable hue from the user id
+                                                    const hues = ['#6366F1','#10B981','#F59E0B','#EF4444','#8B5CF6','#0EA5E9','#EC4899','#D97706'];
+                                                    const hue  = hues[(u.id || 0) % hues.length];
                                                     return (
-                                                        <label key={u.id} className={`flex items-center gap-3 p-2.5 rounded-lg cursor-pointer border transition ${selected ? 'border-indigo-300 bg-indigo-50' : 'border-gray-100 hover:bg-gray-50'}`}>
-                                                            <div className="relative flex-shrink-0">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    className="sr-only"
-                                                                    checked={selected}
-                                                                    onChange={() => setFormData(prev => ({
-                                                                        ...prev,
-                                                                        approver_ids: selected
-                                                                            ? prev.approver_ids.filter(id => id !== u.id)
-                                                                            : [...prev.approver_ids, u.id]
-                                                                    }))}
-                                                                />
-                                                                <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition ${selected ? 'bg-indigo-600 border-indigo-600' : 'border-gray-300'}`}>
-                                                                    {selected && <span className="text-white text-xs leading-none">✓</span>}
+                                                        <button
+                                                            key={u.id}
+                                                            type="button"
+                                                            onClick={() => setFormData(prev => ({
+                                                                ...prev,
+                                                                approver_ids: selected
+                                                                    ? prev.approver_ids.filter(id => id !== u.id)
+                                                                    : [...prev.approver_ids, u.id]
+                                                            }))}
+                                                            style={{
+                                                                position:'relative', display:'flex', flexDirection:'column',
+                                                                alignItems:'center', gap:'6px', padding:'12px 8px',
+                                                                borderRadius:'12px', cursor:'pointer', outline:'none',
+                                                                border: selected ? `2px solid ${hue}` : '1.5px solid #E2E8F0',
+                                                                background: selected ? `${hue}12` : (dm?'rgba(17,30,58,0.4)':'#FAFAFA'),
+                                                                boxShadow: selected ? `0 2px 10px ${hue}25` : 'none',
+                                                                transition:'all 0.15s ease',
+                                                            }}
+                                                        >
+                                                            {/* Avatar */}
+                                                            <div style={{
+                                                                width:'40px', height:'40px', borderRadius:'50%', flexShrink:0,
+                                                                display:'flex', alignItems:'center', justifyContent:'center',
+                                                                background: selected ? hue : `${hue}22`,
+                                                                fontSize:'13px', fontWeight:700,
+                                                                color: selected ? '#fff' : hue,
+                                                                transition:'all 0.15s',
+                                                            }}>{initials}</div>
+                                                            {/* Name */}
+                                                            <span style={{
+                                                                fontSize:'11px', fontWeight: selected ? 700 : 500,
+                                                                color: selected ? hue : (dm?'#8fa4cc':'#475569'),
+                                                                textAlign:'center', lineHeight:1.3,
+                                                                wordBreak:'break-word',
+                                                            }}>{(u.name || u.email || '').split(' ')[0]}</span>
+                                                            {/* Role */}
+                                                            {u.role && <span style={{fontSize:'9px', color:dm?'#4a607f':'#94A3B8', textAlign:'center', lineHeight:1.2}}>{u.role}</span>}
+                                                            {/* Selected tick badge */}
+                                                            {selected && (
+                                                                <div style={{
+                                                                    position:'absolute', top:'5px', right:'5px',
+                                                                    width:'15px', height:'15px', borderRadius:'50%',
+                                                                    background:hue, display:'flex', alignItems:'center', justifyContent:'center',
+                                                                }}>
+                                                                    <Icon name='check' size={9} color='#fff' />
                                                                 </div>
-                                                            </div>
-                                                            <div className="flex items-center gap-2 min-w-0">
-                                                                <div className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center justify-center flex-shrink-0">
-                                                                    {(u.name || u.email || '?').charAt(0).toUpperCase()}
-                                                                </div>
-                                                                <div className="min-w-0">
-                                                                    <p className="text-sm font-medium text-gray-800 truncate">{u.name || u.email}</p>
-                                                                    {u.role && <p className="text-xs text-gray-400 truncate">{u.role}</p>}
-                                                                </div>
-                                                            </div>
-                                                        </label>
+                                                            )}
+                                                        </button>
                                                     );
                                                 })}
                                             </div>
                                             {formData.approver_ids.length > 0 && (
-                                                <p className="text-xs text-indigo-600 font-medium mt-2">
+                                                <p style={{fontSize:'11px', color:'#6366F1', fontWeight:600, marginTop:'8px'}}>
                                                     {formData.approver_ids.length} approver{formData.approver_ids.length > 1 ? 's' : ''} selected
                                                 </p>
                                             )}
