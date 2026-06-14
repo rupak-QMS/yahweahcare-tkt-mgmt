@@ -106,6 +106,75 @@
             );
         }
 
+        // ── Global category visual lookup ──────────────────────────
+        // Shared by Create Ticket, Tickets table, detail drawer, etc.
+        // Pass a category label string → returns { icon, color, bg, border }
+        const CAT_VISUAL_MAP = {
+            // DB string id matches
+            client:    { icon:'user',          color:'#3B82F6', bg:'#EFF6FF', border:'#BFDBFE' },
+            account:   { icon:'key',            color:'#8B5CF6', bg:'#F5F3FF', border:'#DDD6FE' },
+            hr:        { icon:'briefcase',      color:'#10B981', bg:'#ECFDF5', border:'#A7F3D0' },
+            cleaning:  { icon:'sparkles',       color:'#F59E0B', bg:'#FFFBEB', border:'#FDE68A' },
+            safety:    { icon:'shield',         color:'#EF4444', bg:'#FEF2F2', border:'#FECACA' },
+            equipment: { icon:'tool',           color:'#6366F1', bg:'#EEF2FF', border:'#C7D2FE' },
+            ndis:      { icon:'clipboard-list', color:'#0EA5E9', bg:'#F0F9FF', border:'#BAE6FD' },
+            // Label keyword matches (longest wins)
+            'it support':       { icon:'monitor',       color:'#6366F1', bg:'#EEF2FF', border:'#C7D2FE' },
+            'hr & payroll':     { icon:'briefcase',     color:'#10B981', bg:'#ECFDF5', border:'#A7F3D0' },
+            'facilities & mai': { icon:'building',      color:'#64748B', bg:'#F8FAFC', border:'#CBD5E1' },
+            'care coord':       { icon:'heart',         color:'#EC4899', bg:'#FDF2F8', border:'#FBCFE8' },
+            'clinical':         { icon:'activity',      color:'#0EA5E9', bg:'#F0F9FF', border:'#BAE6FD' },
+            'compliance':       { icon:'shield',        color:'#8B5CF6', bg:'#F5F3FF', border:'#DDD6FE' },
+            'finance':          { icon:'dollar-sign',   color:'#D97706', bg:'#FFFBEB', border:'#FDE68A' },
+            'general enquiry':  { icon:'help-circle',   color:'#64748B', bg:'#F8FAFC', border:'#CBD5E1' },
+            'payroll':          { icon:'briefcase',     color:'#10B981', bg:'#ECFDF5', border:'#A7F3D0' },
+            'facilities':       { icon:'building',      color:'#64748B', bg:'#F8FAFC', border:'#CBD5E1' },
+            'maintenance':      { icon:'tool',          color:'#64748B', bg:'#F8FAFC', border:'#CBD5E1' },
+            'safety':           { icon:'shield',        color:'#EF4444', bg:'#FEF2F2', border:'#FECACA' },
+            'care':             { icon:'heart',         color:'#EC4899', bg:'#FDF2F8', border:'#FBCFE8' },
+            'general':          { icon:'help-circle',   color:'#64748B', bg:'#F8FAFC', border:'#CBD5E1' },
+            'ndis':             { icon:'clipboard-list',color:'#0EA5E9', bg:'#F0F9FF', border:'#BAE6FD' },
+            'client':           { icon:'user',          color:'#3B82F6', bg:'#EFF6FF', border:'#BFDBFE' },
+            'account':          { icon:'key',           color:'#8B5CF6', bg:'#F5F3FF', border:'#DDD6FE' },
+            'equipment':        { icon:'tool',          color:'#6366F1', bg:'#EEF2FF', border:'#C7D2FE' },
+            'it':               { icon:'monitor',       color:'#6366F1', bg:'#EEF2FF', border:'#C7D2FE' },
+        };
+        function getCatVisual(label) {
+            if (!label) return { icon:'folder', color:'#94A3B8', bg:'#F8FAFC', border:'#E2E8F0' };
+            const low = label.toLowerCase();
+            // Exact id key first
+            if (CAT_VISUAL_MAP[low]) return { ...CAT_VISUAL_MAP[low], label };
+            // Longest substring match
+            const key = Object.keys(CAT_VISUAL_MAP)
+                .filter(k => low.includes(k))
+                .sort((a,b) => b.length - a.length)[0];
+            return key ? { ...CAT_VISUAL_MAP[key], label } : { icon:'folder', color:'#94A3B8', bg:'#F8FAFC', border:'#E2E8F0', label };
+        }
+        // Inline category badge — icon pill used in tables and drawers
+        function CatBadge({ label, size='sm' }) {
+            const v = getCatVisual(label);
+            const isLg = size === 'lg';
+            return (
+                <span style={{
+                    display:'inline-flex', alignItems:'center', gap: isLg ? '6px' : '4px',
+                    padding: isLg ? '4px 10px 4px 6px' : '2px 8px 2px 4px',
+                    borderRadius:'20px',
+                    background: v.bg, border:`1px solid ${v.border}`,
+                    fontSize: isLg ? '12px' : '11px', fontWeight:600, color: v.color,
+                    whiteSpace:'nowrap',
+                }}>
+                    <span style={{
+                        width: isLg ? '20px' : '16px', height: isLg ? '20px' : '16px',
+                        borderRadius:'50%', background: v.color,
+                        display:'inline-flex', alignItems:'center', justifyContent:'center', flexShrink:0,
+                    }}>
+                        <Icon name={v.icon} size={isLg ? 11 : 9} color='#fff' />
+                    </span>
+                    {label || '—'}
+                </span>
+            );
+        }
+
 
 
         // API Service Layer — all routes go to backend-hrms (HRMS_API)
@@ -1707,50 +1776,30 @@
             const cardCls = "bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-5";
             const sectionHeadCls = "text-sm font-semibold text-gray-400 uppercase tracking-widest mb-5 flex items-center gap-2";
 
-            // ── Category visual config ─────────────────────────────
-            // Keys: exact DB id strings OR label substrings (longer keys take priority).
-            // Add an entry here whenever a new category is added to the DB.
-            const CATEGORY_VISUAL = {
-                // ── LOOKUPS_MOCK string IDs ──────────────────────────
-                client:    { icon:'user',          color:'#3B82F6', bg:'#EFF6FF', border:'#BFDBFE', desc:'Issues affecting client care, communication, or service delivery.' },
-                account:   { icon:'key',            color:'#8B5CF6', bg:'#F5F3FF', border:'#DDD6FE', desc:'Account access, billing, credentials, or login concerns.' },
-                hr:        { icon:'briefcase',       color:'#10B981', bg:'#ECFDF5', border:'#A7F3D0', desc:'HR matters: leave, payroll, onboarding, performance, or staff disputes.' },
-                cleaning:  { icon:'sparkles',       color:'#F59E0B', bg:'#FFFBEB', border:'#FDE68A', desc:'Cleaning standards, hygiene, or facility presentation issues.' },
-                safety:    { icon:'shield',         color:'#EF4444', bg:'#FEF2F2', border:'#FECACA', desc:'Workplace safety, hazards, incidents, or compliance concerns.' },
-                equipment: { icon:'tool',           color:'#6366F1', bg:'#EEF2FF', border:'#C7D2FE', desc:'Equipment faults, maintenance, or asset requests.' },
-                ndis:      { icon:'clipboard-list', color:'#0EA5E9', bg:'#F0F9FF', border:'#BAE6FD', desc:'NDIS compliance, participant plans, or regulatory requirements.' },
-                // ── Real DB label keywords (longest match wins) ──────
-                'it support':       { icon:'monitor',       color:'#6366F1', bg:'#EEF2FF', border:'#C7D2FE', desc:'IT infrastructure, software, hardware, or network support.' },
-                'hr & payroll':     { icon:'briefcase',     color:'#10B981', bg:'#ECFDF5', border:'#A7F3D0', desc:'HR matters: leave, payroll, onboarding, performance, or staff disputes.' },
-                'facilities & mai': { icon:'building',      color:'#64748B', bg:'#F8FAFC', border:'#CBD5E1', desc:'Building, vehicle, or infrastructure maintenance requests.' },
-                'care coord':       { icon:'heart',         color:'#EC4899', bg:'#FDF2F8', border:'#FBCFE8', desc:'Care coordination, participant support planning, or service delivery.' },
-                'clinical':         { icon:'activity',      color:'#0EA5E9', bg:'#F0F9FF', border:'#BAE6FD', desc:'Clinical assessments, health records, or medical matters.' },
-                'compliance':       { icon:'shield',        color:'#8B5CF6', bg:'#F5F3FF', border:'#DDD6FE', desc:'Regulatory, compliance, or quality assurance concerns.' },
-                'finance':          { icon:'dollar-sign',   color:'#D97706', bg:'#FFFBEB', border:'#FDE68A', desc:'Financial transactions, invoicing, or budget concerns.' },
-                'general enquiry':  { icon:'help-circle',   color:'#64748B', bg:'#F8FAFC', border:'#CBD5E1', desc:'General enquiries and other support requests.' },
-                // ── Shorter fallback keywords (matched last) ─────────
-                'payroll':          { icon:'briefcase',     color:'#10B981', bg:'#ECFDF5', border:'#A7F3D0', desc:'Payroll processing, pay queries, or salary corrections.' },
-                'facilities':       { icon:'building',      color:'#64748B', bg:'#F8FAFC', border:'#CBD5E1', desc:'Facility and building maintenance requests.' },
-                'maintenance':      { icon:'tool',          color:'#64748B', bg:'#F8FAFC', border:'#CBD5E1', desc:'Equipment and infrastructure maintenance requests.' },
-                'safety':           { icon:'shield',        color:'#EF4444', bg:'#FEF2F2', border:'#FECACA', desc:'Workplace safety, hazards, or incident reports.' },
-                'care':             { icon:'heart',         color:'#EC4899', bg:'#FDF2F8', border:'#FBCFE8', desc:'Care and participant support matters.' },
-                'general':          { icon:'help-circle',   color:'#64748B', bg:'#F8FAFC', border:'#CBD5E1', desc:'General enquiries and other requests.' },
-            };
-            const getCategoryVisual = () => {
+            // Use global getCatVisual() + CAT_VISUAL_MAP (defined above Icon component)
+            const catVisual = (() => {
                 if (!formData.category_id || !lookups) return null;
                 const cat = (lookups.categories || []).find(c => String(c.id) === String(formData.category_id));
                 if (!cat) return null;
-                const idKey  = String(cat.id).toLowerCase();
-                const label  = cat.label.toLowerCase();
-                // Longest-key match wins — prevents short keys like 'it' matching 'facilities'
-                const labelKey = Object.keys(CATEGORY_VISUAL)
-                    .filter(k => k !== idKey && label.includes(k))
-                    .sort((a, b) => b.length - a.length)[0];
-                const visual = CATEGORY_VISUAL[idKey] || CATEGORY_VISUAL[labelKey] || null;
-                const icon   = visual?.icon || cat.icon || 'folder';
-                return { ...visual, icon, label: cat.label };
-            };
-            const catVisual = getCategoryVisual();
+                const v = getCatVisual(cat.label);
+                // desc strings specific to Create Ticket context
+                const DESC_MAP = {
+                    monitor:        'IT infrastructure, software, hardware, or network support.',
+                    briefcase:      'HR matters: leave, payroll, onboarding, performance, or staff disputes.',
+                    building:       'Building, vehicle, or infrastructure maintenance requests.',
+                    heart:          'Care coordination, participant support planning, or service delivery.',
+                    activity:       'Clinical assessments, health records, or medical matters.',
+                    shield:         'Regulatory, compliance, or workplace safety concerns.',
+                    'dollar-sign':  'Financial transactions, invoicing, or budget concerns.',
+                    'help-circle':  'General enquiries and other support requests.',
+                    user:           'Issues affecting client care, communication, or service delivery.',
+                    key:            'Account access, billing, credentials, or login concerns.',
+                    sparkles:       'Cleaning standards, hygiene, or facility presentation issues.',
+                    tool:           'Equipment faults, maintenance, or asset requests.',
+                    'clipboard-list':'NDIS compliance, participant plans, or regulatory requirements.',
+                };
+                return { ...v, label: cat.label, desc: DESC_MAP[v.icon] || '' };
+            })();
 
             return (
                 <main className="flex-1 overflow-auto" style={{background:'#F8F9FB'}}>
@@ -1818,16 +1867,11 @@
                                             <label className={labelCls}>Category <span className="text-red-400">*</span></label>
                                             <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(120px,1fr))', gap:'10px', marginTop:'6px'}}>
                                                 {(lookups?.categories || []).map(c => {
-                                                    const idKey = String(c.id).toLowerCase();
-                                                    const label = c.label.toLowerCase();
-                                                    const labelKey = Object.keys(CATEGORY_VISUAL)
-                                                        .filter(k => k !== idKey && label.includes(k))
-                                                        .sort((a, b) => b.length - a.length)[0];
-                                                    const vis = CATEGORY_VISUAL[idKey] || CATEGORY_VISUAL[labelKey] || {};
-                                                    const icon  = vis.icon  || c.icon || 'folder';
-                                                    const color = vis.color || '#6366F1';
-                                                    const bg    = vis.bg    || '#EEF2FF';
-                                                    const border= vis.border|| '#C7D2FE';
+                                                    const vis   = getCatVisual(c.label);
+                                                    const icon  = vis.icon;
+                                                    const color = vis.color;
+                                                    const bg    = vis.bg;
+                                                    const border= vis.border;
                                                     const isSelected = String(formData.category_id) === String(c.id);
                                                     return (
                                                         <button
@@ -2570,9 +2614,9 @@
                                                                 {t.isEscalated && <span style={{fontSize:'10px',fontWeight:'700',padding:'1px 7px',borderRadius:20,background:dm?'rgba(249,115,22,0.15)':'#FFF7ED',color:dm?'#fdba74':'#C2410C',border:`1px solid ${dm?'rgba(249,115,22,0.3)':'#FED7AA'}`,flexShrink:0}}>⬆ Escalated</span>}
                                                                 {od && <span style={{fontSize:'10px',fontWeight:'700',padding:'1px 7px',borderRadius:20,background:dm?'rgba(239,68,68,0.15)':'#FEF2F2',color:dm?'#fca5a5':'#991B1B',border:'1px solid #FECACA',flexShrink:0}}>Overdue</span>}
                                                             </div>
-                                                            {t.category && <div style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8',marginTop:'2px'}}>{t.category}</div>}
+                                                            {t.category && <div style={{marginTop:'4px'}}><CatBadge label={t.categoryLabel||t.category} /></div>}
                                                         </td>
-                                                        <td style={{padding:'12px 14px',fontSize:'12px',color:textM,whiteSpace:'nowrap'}}>{t.category}</td>
+                                                        <td style={{padding:'12px 14px'}}><CatBadge label={t.categoryLabel||t.category} /></td>
                                                         <td style={{padding:'12px 14px'}}>
                                                             <span style={{display:'inline-flex',alignItems:'center',gap:'5px',fontSize:11,fontWeight:600,padding:'3px 9px',borderRadius:20,background:ps.bg,color:ps.color,border:`1px solid ${ps.border}`}}>
                                                                 <span style={{width:6,height:6,borderRadius:'50%',background:ps.dot,flexShrink:0}}/>
@@ -2666,7 +2710,7 @@
                                                         {hasPendingExt && <span style={{fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:20,background:'#FFF7ED',color:'#92400E',border:'1px solid #FDE68A'}}>⏳ Extension Requested</span>}
                                                     </div>
                                                     <h2 style={{fontSize:'15px',fontWeight:'700',color:textP,margin:0,lineHeight:1.3}}>{selectedTicket.title}</h2>
-                                                    {selectedTicket.category && <p style={{fontSize:'12px',color:textM,margin:'4px 0 0'}}>{selectedTicket.category}</p>}
+                                                    {selectedTicket.category && <div style={{margin:'6px 0 0'}}><CatBadge label={selectedTicket.categoryLabel||selectedTicket.category} size='lg' /></div>}
                                                 </div>
                                                 <button onClick={closeDrawer}
                                                     style={{background:dm?'rgba(99,102,241,0.08)':'white',border:`1px solid ${borderC}`,borderRadius:'8px',width:32,height:32,fontSize:18,cursor:'pointer',color:textM,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>×</button>
@@ -2698,7 +2742,7 @@
                                                 <span style={{fontSize:13,color:textP,fontWeight:500,display:'block'}}>{selectedTicket.requesterName||'—'}</span>
                                                 {selectedTicket.requesterEmail && <span style={{fontSize:11,color:textM}}>{selectedTicket.requesterEmail}</span>}
                                             </div>},
-                                            {label:'Category',    node: <span style={{fontSize:13,color:textP}}>{selectedTicket.categoryLabel||selectedTicket.category||'—'}</span>},
+                                            {label:'Category',    node: <CatBadge label={selectedTicket.categoryLabel||selectedTicket.category} size='lg' />},
                                             {label:'Sub-Category',node: <span style={{fontSize:13,color:selectedTicket.subcategory?(dm?'#c0cfec':'#334155'):(dm?'#4a607f':'#94A3B8'),fontStyle:selectedTicket.subcategory?'normal':'italic'}}>{selectedTicket.subcategory||'Not specified'}</span>},
                                             {label:'Created',     node: <span style={{fontSize:13,color:dm?'#c0cfec':'#334155'}}>{selectedTicket.date}</span>},
                                             {label:'Due Date',    node: raw
@@ -6396,7 +6440,7 @@
                                             <div style={{display:'flex',gap:16,flexWrap:'wrap',fontSize:11,color:textM}}>
                                                 <span>👤 Raised by: <strong>{ticket.requesterName||'—'}</strong></span>
                                                 <span>🛠 Assigned to: <strong>{ticket.assigneeName||'Unassigned'}</strong></span>
-                                                {ticket.categoryLabel && <span>🏷 {ticket.categoryLabel}</span>}
+                                                {ticket.categoryLabel && <CatBadge label={ticket.categoryLabel} />}
                                                 <span>📅 Created: <strong>{fmtTime(ticket.createdAt)}</strong></span>
                                                 {ticket.closedAt && <span>🔒 Closed: <strong>{fmtTime(ticket.closedAt)}</strong></span>}
                                             </div>
