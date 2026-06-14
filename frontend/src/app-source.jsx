@@ -2226,10 +2226,10 @@
             const scopeLabel = React.useMemo(() => {
                 if (!sessionUser) return '';
                 const { isBootstrapAdmin, positionType } = sessionUser;
-                if (isBootstrapAdmin || positionType === 'director') return '👁 Viewing: All Tickets';
+                if (isBootstrapAdmin || positionType === 'director') return 'Viewing: All Tickets';
                 if (['ops','finance','strategic'].includes(positionType))
-                    return `👁 Viewing: ${sessionUser.dept || 'Your Department'} Tickets`;
-                if (scopeParams.scope === 'mine') return '👁 Viewing: Your Tickets';
+                    return `Viewing: ${sessionUser.dept || 'Your Department'} Tickets`;
+                if (scopeParams.scope === 'mine') return 'Viewing: Your Tickets';
                 return '';
             }, []);
 
@@ -2463,7 +2463,12 @@
                         <div className='yc-toolbar' style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'20px',flexWrap:'wrap',gap:'10px'}}>
                             <div>
                                 <h1 style={{fontSize:'20px',fontWeight:'700',color:textP,margin:0}}>Tickets</h1>
-                                <p style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',margin:'3px 0 0'}}>{scopeLabel || 'Manage and track support tickets'}</p>
+                                <p style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',margin:'3px 0 0',display:'flex',alignItems:'center',gap:'5px'}}>
+                                    {scopeLabel
+                                        ? <><Icon name='ticket' size={13} color={dm?'#6366F1':'#6366F1'} />{scopeLabel}</>
+                                        : <><Icon name='clipboard-list' size={13} color={dm?'#4a607f':'#94A3B8'} />Manage and track support tickets</>
+                                    }
+                                </p>
                             </div>
                             <button onClick={()=>{ window.location.hash='create-ticket'; }}
                                 style={{display:'flex',alignItems:'center',gap:'6px',background:'#6366F1',color:'white',border:'none',borderRadius:'9px',padding:'9px 18px',fontSize:'13px',fontWeight:'600',cursor:'pointer',boxShadow:'0 1px 4px rgba(99,102,241,0.35)'}}>
