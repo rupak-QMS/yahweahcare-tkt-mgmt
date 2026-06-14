@@ -21,7 +21,7 @@
 
 import webpush from 'web-push';
 import { pool } from '../../db/pool';
-import { sendTicketEventEmail, sendUserEventEmail } from './email.service';
+import { sendTicketEventEmailToRole, sendTicketEventEmail, sendUserEventEmail, type RecipientRole } from './email.service';
 
 // ── VAPID setup ───────────────────────────────────────────
 const VAPID_PUBLIC  = process.env.VAPID_PUBLIC_KEY  || '';
@@ -374,6 +374,107 @@ async function sendPush(userId: number, payload: object): Promise<void> {
   }
 }
 
+// ── Role-aware email dispatch for ticket events ───────────
+// Resolves each role group separately and sends a role-specific
+// email so each recipient knows exactly why they received it.
+async function sendRoleAwareTicketEmails(te: TicketEvent): Promise<void> {
+  // Helper: fetch emails for a list of user IDs, de-duplicate
+  async function emailsFor(ids: number[]): Promise<string[]> {
+    const unique = [...new Set(ids.filter(Boolean))];
+    if (!unique.length) return [];
+    const { rows } = await pool.query(
+      `SELECT email FROM yc_tkt_mgmt.users WHERE id = ANY($1) AND is_active = TRUE AND email IS NOT NULL`,
+      [unique]
+    );
+    return rows.map((r: { email: string }) => r.email).filter(Boolean);
+  }
+
+  // Build role → user-id groups from the event
+  type RoleGroup = { role: RecipientRole; ids: number[] };
+  const groups: RoleGroup[] = [];
+
+  switch (te.type) {
+    case 'ticket.created':
+      if (te.assigneeId) groups.push({ role: 'assignee', ids: [te.assigneeId] });
+      if (te.approverIds?.length) groups.push({ role: 'approver', ids: te.approverIds });
+      break;
+
+    case 'ticket.assigned':
+      if (te.assigneeId) groups.push({ role: 'assignee', ids: [te.assigneeId] });
+      break;
+
+    case 'ticket.completed':
+      if (te.approverIds?.length) groups.push({ role: 'approver', ids: te.approverIds });
+      break;
+
+    case 'ticket.approved':
+      if (te.assigneeId) groups.push({ role: 'assignee', ids: [te.assigneeId] });
+      if (te.creatorId)  groups.push({ role: 'creator',  ids: [te.creatorId] });
+      break;
+
+    case 'ticket.rejected':
+      if (te.assigneeId) groups.push({ role: 'assignee', ids: [te.assigneeId] });
+      if (te.creatorId)  groups.push({ role: 'creator',  ids: [te.creatorId] });
+      break;
+
+    case 'ticket.escalated': {
+      const escalatedTo = te.escalatedToId || te.assigneeId;
+      if (escalatedTo) groups.push({ role: 'assignee', ids: [escalatedTo] });
+      if (te.approverIds?.length) groups.push({ role: 'approver', ids: te.approverIds });
+      break;
+    }
+
+    case 'ticket.comment_added':
+    case 'ticket.attachment_added': {
+      const actorId = te.actorId;
+      const assigneeIds = te.assigneeId && te.assigneeId !== actorId ? [te.assigneeId] : [];
+      const approverIds = (te.approverIds || []).filter(id => id && id !== actorId);
+      const creatorIds  = te.creatorId && te.creatorId !== actorId ? [te.creatorId] : [];
+      if (assigneeIds.length) groups.push({ role: 'assignee', ids: assigneeIds });
+      if (approverIds.length) groups.push({ role: 'approver', ids: approverIds });
+      if (creatorIds.length)  groups.push({ role: 'creator',  ids: creatorIds });
+      break;
+    }
+
+    case 'ticket.extension_requested':
+      if (te.approverIds?.length) groups.push({ role: 'approver', ids: te.approverIds });
+      break;
+
+    case 'ticket.extension_approved':
+    case 'ticket.extension_denied':
+    case 'ticket.reopened':
+      if (te.assigneeId) groups.push({ role: 'assignee', ids: [te.assigneeId] });
+      break;
+
+    case 'ticket.critical': {
+      if (te.assigneeId) groups.push({ role: 'assignee', ids: [te.assigneeId] });
+      if (te.approverIds?.length) groups.push({ role: 'approver', ids: te.approverIds });
+      break;
+    }
+
+    case 'ticket.closed':
+      if (te.creatorId)  groups.push({ role: 'creator',  ids: [te.creatorId] });
+      if (te.assigneeId) groups.push({ role: 'assignee', ids: [te.assigneeId] });
+      break;
+
+    default:
+      // status_changed and unknown events — send admin-style to both creator + assignee
+      if (te.assigneeId) groups.push({ role: 'assignee', ids: [te.assigneeId] });
+      if (te.creatorId)  groups.push({ role: 'creator',  ids: [te.creatorId] });
+      break;
+  }
+
+  // Send one email per role group (parallel)
+  await Promise.all(
+    groups.map(async ({ role, ids }) => {
+      const emails = await emailsFor(ids);
+      if (emails.length) {
+        await sendTicketEventEmailToRole(te, emails, role);
+      }
+    })
+  );
+}
+
 // ── Main entry point ──────────────────────────────────────
 export async function notify(ev: NotifyEvent): Promise<void> {
   try {
@@ -411,17 +512,18 @@ export async function notify(ev: NotifyEvent): Promise<void> {
       })
     );
 
-    // Email notifications
+    // Email notifications — role-aware per-group sending
     try {
-      const { rows: emailRows } = await pool.query(
-        `SELECT email FROM yc_tkt_mgmt.users WHERE id = ANY($1) AND is_active = TRUE AND email IS NOT NULL`,
-        [recipients]
-      );
-      const recipientEmails = emailRows.map((r: { email: string }) => r.email).filter(Boolean);
-      if (recipientEmails.length) {
-        if ('ticketId' in ev) {
-          await sendTicketEventEmail(ev as TicketEvent, recipientEmails);
-        } else {
+      if ('ticketId' in ev) {
+        await sendRoleAwareTicketEmails(ev as TicketEvent);
+      } else {
+        // User events: send to all recipients with a single generic email
+        const { rows: emailRows } = await pool.query(
+          `SELECT email FROM yc_tkt_mgmt.users WHERE id = ANY($1) AND is_active = TRUE AND email IS NOT NULL`,
+          [recipients]
+        );
+        const recipientEmails = emailRows.map((r: { email: string }) => r.email).filter(Boolean);
+        if (recipientEmails.length) {
           await sendUserEventEmail(ev as UserEvent, recipientEmails);
         }
       }
