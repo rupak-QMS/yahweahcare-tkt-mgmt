@@ -367,6 +367,12 @@ app.get('/api/dashboard', auth, requireRole('agent', 'manager', 'admin'), async 
 });
 
 // ============================================================
+// PUSH NOTIFICATION ROUTES
+// ============================================================
+const pushRoutes = require('./push-routes.js')(pool, auth);
+app.use('/api', pushRoutes);
+
+// ============================================================
 // ENTERPRISE APPROVAL WORKFLOW ROUTES
 // ============================================================
 const enterpriseRoutes = require('./enterprise-routes.js')(pool);
