@@ -7783,7 +7783,20 @@
                 };
 
                 const t = setTimeout(setupPush, 1500);
-                return () => clearTimeout(t);
+
+                // Handle SW_NAVIGATE messages from the service worker (notification clicks)
+                // The SW posts this instead of calling client.navigate() to avoid a full page reload
+                const handleSwMessage = (event) => {
+                    if (event.data?.type === 'SW_NAVIGATE' && event.data?.hash) {
+                        window.location.hash = event.data.hash;
+                    }
+                };
+                navigator.serviceWorker.addEventListener('message', handleSwMessage);
+
+                return () => {
+                    clearTimeout(t);
+                    navigator.serviceWorker.removeEventListener('message', handleSwMessage);
+                };
             }, [currentUser]);
 
             if (signedOut || !currentUser) {

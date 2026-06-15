@@ -57,21 +57,23 @@ self.addEventListener('push', event => {
   );
 });
 
-// ── Notification click — navigate to the ticket or focus the app ─────────────
+// ── Notification click — focus the app and update hash without a full reload ──
 self.addEventListener('notificationclick', event => {
   event.notification.close();
-  const targetUrl = (event.notification.data && event.notification.data.url) || '/';
+  const targetUrl = (event.notification.data && event.notification.data.url) || '/#dashboard';
+  // Extract just the hash fragment (e.g. "/#tickets" → "#tickets")
+  const hash = targetUrl.includes('#') ? targetUrl.slice(targetUrl.indexOf('#')) : '';
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
-      // If app is already open, navigate the existing tab to the ticket URL
+      // If the SPA is already open — post a message so it navigates internally (no reload)
       for (const client of clientList) {
-        if ('navigate' in client && 'focus' in client) {
-          client.navigate(targetUrl);
+        if ('focus' in client) {
+          if (hash) client.postMessage({ type: 'SW_NAVIGATE', hash });
           return client.focus();
         }
       }
-      // Otherwise open a new window at the ticket URL
+      // App not open — open a new window at the full URL
       if (self.clients.openWindow) return self.clients.openWindow(targetUrl);
     })
   );
