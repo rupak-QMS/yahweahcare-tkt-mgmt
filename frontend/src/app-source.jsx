@@ -2800,7 +2800,7 @@
                                     {(()=>{
                                         const atts = selectedTicket.attachments || [];
                                         const canUpload = isAssignee || isBootAdmin || isCreator;
-                                        const fileIcon = (type='') => type.startsWith('image/') ? '🖼️' : type.includes('pdf') ? '📄' : type.includes('sheet')||type.includes('excel') ? 'bar-chart-2' : type.includes('word')||type.includes('doc') ? 'file-edit' : 'paperclip';
+                                        const fileIcon = (type='') => { const n=type.startsWith('image/')?'eye':type.includes('pdf')?'scroll-text':type.includes('sheet')||type.includes('excel')?'bar-chart-2':type.includes('word')||type.includes('doc')?'file-edit':'paperclip'; return <Icon name={n} size={16} color={dm?'#818cf8':'#4F46E5'} />; };
                                         const downloadFile = (att) => {
                                             try {
                                                 const bytes = Uint8Array.from(atob(att.content), c=>c.charCodeAt(0));
@@ -2831,11 +2831,11 @@
                                         return (
                                             <div style={{marginBottom:20,paddingBottom:20,borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
                                                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
-                                                    <p style={{fontSize:10,fontWeight:700,color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.06em',margin:0}}>📎 Attachments {atts.length > 0 ? `(${atts.length})` : ''}</p>
+                                                    <p style={{fontSize:10,fontWeight:700,color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.06em',margin:0,display:'flex',alignItems:'center',gap:'5px'}}><Icon name='paperclip' size={11} color={dm?'#4a607f':'#94A3B8'} />Attachments{atts.length > 0 ? ` (${atts.length})` : ''}</p>
                                                     {canUpload && (
                                                         <label style={{display:'inline-flex',alignItems:'center',gap:5,padding:'4px 10px',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:dm?'#818cf8':'#4F46E5',border:`1px solid ${dm?'rgba(99,102,241,0.25)':'#C7D2FE'}`,borderRadius:6,fontSize:11,fontWeight:600,cursor:attUploadLoading?'not-allowed':'pointer',opacity:attUploadLoading?0.5:1}}>
                                                             <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.rtf,.jpg,.jpeg,.png,.gif,.bmp,.heic" onChange={handleAttachUpload} style={{display:'none'}} disabled={attUploadLoading}/>
-                                                            {attUploadLoading ? '⏳ Uploading…' : '➕ Attach File'}
+                                                            {attUploadLoading ? <><Icon name='loader' size={11} color={dm?'#818cf8':'#4F46E5'} />Uploading…</> : <><Icon name='plus-circle' size={11} color={dm?'#818cf8':'#4F46E5'} />Attach File</>}
                                                         </label>
                                                     )}
                                                 </div>
@@ -2846,14 +2846,14 @@
                                                     <div style={{display:'flex',flexDirection:'column',gap:6}}>
                                                         {atts.map((att,i)=>(
                                                             <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:dm?'rgba(99,102,241,0.06)':'#F8FAFF',borderRadius:8,border:`1px solid ${dm?'rgba(99,102,241,0.12)':'#E2E8F0'}`}}>
-                                                                <span style={{fontSize:18,flexShrink:0}}>{fileIcon(att.type)}</span>
+                                                                <span style={{flexShrink:0,display:'flex',alignItems:'center'}}>{fileIcon(att.type)}</span>
                                                                 <div style={{flex:1,minWidth:0}}>
                                                                     <div style={{fontSize:12,fontWeight:600,color:textP,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{att.name}</div>
                                                                     <div style={{fontSize:11,color:textM}}>{att.size ? `${(att.size/1024).toFixed(0)} KB` : ''}</div>
                                                                 </div>
                                                                 <button onClick={()=>downloadFile(att)}
-                                                                    style={{padding:'5px 12px',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:dm?'#818cf8':'#4F46E5',border:`1px solid ${dm?'rgba(99,102,241,0.25)':'#C7D2FE'}`,borderRadius:6,fontSize:11,fontWeight:600,cursor:'pointer',flexShrink:0}}>
-                                                                    ⬇ Download
+                                                                    style={{padding:'5px 12px',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:dm?'#818cf8':'#4F46E5',border:`1px solid ${dm?'rgba(99,102,241,0.25)':'#C7D2FE'}`,borderRadius:6,fontSize:11,fontWeight:600,cursor:'pointer',flexShrink:0,display:'inline-flex',alignItems:'center',gap:'4px'}}>
+                                                                    <Icon name='download' size={11} color={dm?'#818cf8':'#4F46E5'} />Download
                                                                 </button>
                                                             </div>
                                                         ))}
@@ -2885,7 +2885,7 @@
                                         };
                                         return (
                                             <div style={{marginBottom:20,paddingBottom:20,borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
-                                                <p style={{fontSize:10,fontWeight:700,color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 10px'}}>🔧 Resolution Details / Steps Taken</p>
+                                                <p style={{fontSize:10,fontWeight:700,color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 10px',display:'flex',alignItems:'center',gap:'5px'}}><Icon name='wrench' size={11} color={dm?'#4a607f':'#94A3B8'} />Resolution Details / Steps Taken</p>
                                                 {workNotes.length === 0 ? (
                                                     <p style={{fontSize:12,color:dm?'#4a607f':'#94A3B8',fontStyle:'italic',margin:'0 0 10px',padding:'10px 14px',background:dm?'rgba(99,102,241,0.03)':'#F8FAFF',borderRadius:8,border:`1px dashed ${dm?'rgba(99,102,241,0.1)':'#E2E8F0'}`}}>No work notes yet. Use the field below to document steps taken during resolution.</p>
                                                 ) : (
@@ -2907,8 +2907,8 @@
                                                             placeholder="Document a step taken, update, or note about the resolution process…"
                                                             style={{width:'100%',border:`1px solid ${dm?'rgba(245,158,11,0.25)':'#FDE68A'}`,borderRadius:8,padding:'8px 10px',fontSize:13,resize:'vertical',boxSizing:'border-box',background:dm?'rgba(8,16,36,0.5)':'#FFFBEB',color:textP,outline:'none',marginBottom:8,fontFamily:'inherit',lineHeight:1.5}}/>
                                                         <button disabled={workNoteLoading||!workNote.trim()} onClick={addWorkNote}
-                                                            style={{padding:'8px 16px',background:(workNoteLoading||!workNote.trim())?'#94A3B8':'#D97706',color:'white',border:'none',borderRadius:8,fontSize:12,fontWeight:600,cursor:(workNoteLoading||!workNote.trim())?'not-allowed':'pointer',opacity:workNoteLoading?0.5:1}}>
-                                                            {workNoteLoading?'Saving…':'📝 Add Work Note'}
+                                                            style={{padding:'8px 16px',background:(workNoteLoading||!workNote.trim())?'#94A3B8':'#D97706',color:'white',border:'none',borderRadius:8,fontSize:12,fontWeight:600,cursor:(workNoteLoading||!workNote.trim())?'not-allowed':'pointer',opacity:workNoteLoading?0.5:1,display:'inline-flex',alignItems:'center',gap:'5px'}}>
+                                                            {workNoteLoading?<><Icon name='loader' size={13} color='#fff' />Saving…</>:<><Icon name='file-edit' size={13} color='#fff' />Add Work Note</>}
                                                         </button>
                                                     </div>
                                                 )}
@@ -2925,7 +2925,7 @@
                                         return (
                                         <div style={{marginBottom:20,padding:16,background:dm?'rgba(99,102,241,0.08)':'#EEF2FF',borderRadius:12,border:`1px solid ${dm?'rgba(99,102,241,0.2)':'#C7D2FE'}`}}>
                                             <p style={{fontSize:12,fontWeight:700,color:dm?'#818cf8':'#4338CA',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>
-                                                {selectedTicket.status === 'Pending Approval' ? '⏳ Your Actions (Assignee)' : wasReopened ? '🔄 Your Actions (Assignee)' : '✏️ Your Actions (Assignee)'}
+                                                <span style={{display:'inline-flex',alignItems:'center',gap:'5px'}}>{selectedTicket.status === 'Pending Approval' ? <><Icon name='hourglass' size={12} color={dm?'#818cf8':'#4338CA'} />Your Actions (Assignee)</> : wasReopened ? <><Icon name='refresh-cw' size={12} color={dm?'#818cf8':'#4338CA'} />Your Actions (Assignee)</> : <><Icon name='pencil' size={12} color={dm?'#818cf8':'#4338CA'} />Your Actions (Assignee)</>}</span>
                                             </p>
                                             {actionError && <div style={{fontSize:12,color:'#DC2626',background:'#FEF2F2',border:'1px solid #FECACA',borderRadius:8,padding:'8px 12px',marginBottom:10}}>{actionError}</div>}
 
@@ -2933,7 +2933,7 @@
                                             {selectedTicket.status === 'Pending Approval' && (
                                                 <div>
                                                     <div style={{padding:14,background:dm?'rgba(16,185,129,0.07)':'#ECFDF5',borderRadius:10,border:`1px solid ${dm?'rgba(16,185,129,0.2)':'#A7F3D0'}`,marginBottom:12}}>
-                                                        <p style={{fontSize:13,fontWeight:700,color:dm?'#34d399':'#065F46',margin:'0 0 4px'}}>✅ Resolution submitted — awaiting approval</p>
+                                                        <p style={{fontSize:13,fontWeight:700,color:dm?'#34d399':'#065F46',margin:'0 0 4px',display:'flex',alignItems:'center',gap:'5px'}}><Icon name='check-circle' size={14} color={dm?'#34d399':'#065F46'} />Resolution submitted — awaiting approval</p>
                                                         <p style={{fontSize:12,color:dm?'#6ee7b7':'#047857',margin:0}}>Your resolution has been sent to the approver(s) below. You will be notified when they respond.</p>
                                                     </div>
                                                     {selectedTicket.resolutionNote && (
@@ -2954,7 +2954,7 @@
                                                                         {(ap.userName||ap.name||'?').charAt(0).toUpperCase()}
                                                                     </div>
                                                                     <div style={{flex:1,minWidth:0}}>
-                                                                        <p style={{fontSize:12,fontWeight:600,color:stC[s]||stC.pending,margin:0}}>{ap.userName||ap.name} {stI[s]||'hourglass'} {s.charAt(0).toUpperCase()+s.slice(1)}</p>
+                                                                        <p style={{fontSize:12,fontWeight:600,color:stC[s]||stC.pending,margin:0,display:'inline-flex',alignItems:'center',gap:'4px'}}>{ap.userName||ap.name} <Icon name={stI[s]||'hourglass'} size={12} color={stC[s]||stC.pending} />{s.charAt(0).toUpperCase()+s.slice(1)}</p>
                                                                     </div>
                                                                 </div>
                                                             );
@@ -2966,7 +2966,7 @@
                                             {/* ── REOPENED: rejection callout before re-submit form ── */}
                                             {selectedTicket.status !== 'Pending Approval' && wasReopened && (
                                                 <div style={{padding:14,background:dm?'rgba(239,68,68,0.08)':'#FEF2F2',borderRadius:10,border:`1px solid ${dm?'rgba(239,68,68,0.25)':'#FECACA'}`,marginBottom:14}}>
-                                                    <p style={{fontSize:13,fontWeight:700,color:dm?'#fca5a5':'#991B1B',margin:'0 0 8px'}}>🔄 This ticket was reopened — revision required</p>
+                                                    <p style={{fontSize:13,fontWeight:700,color:dm?'#fca5a5':'#991B1B',margin:'0 0 8px',display:'flex',alignItems:'center',gap:'5px'}}><Icon name='refresh-cw' size={13} color={dm?'#fca5a5':'#991B1B'} />This ticket was reopened — revision required</p>
                                                     {rejectedApprovers.map(ap => (
                                                         <div key={ap.id} style={{marginBottom:6}}>
                                                             <p style={{fontSize:12,fontWeight:600,color:dm?'#fca5a5':'#DC2626',margin:'0 0 2px'}}>{ap.userName||ap.name} said:</p>
@@ -2996,9 +2996,9 @@
                                                         catch(e){ setActionError(e.message); }
                                                         finally{ setActionLoading(false); }
                                                     }} style={{width:'100%',padding:'11px 20px',background:(hasPendingExt||!resolutionNote.trim())?'#94A3B8':wasReopened?'#DC2626':'#4F46E5',color:'white',border:'none',borderRadius:9,fontSize:13,fontWeight:700,cursor:(hasPendingExt||!resolutionNote.trim())?'not-allowed':'pointer',opacity:actionLoading?0.5:1}}>
-                                                        {actionLoading?'⏳ Submitting…':wasReopened?'🔄 Resubmit Revised Resolution':'✔ Mark as Complete & Submit for Approval'}
+                                                        {actionLoading?<><Icon name='loader' size={13} color='#fff' />Submitting…</>:wasReopened?<><Icon name='refresh-cw' size={13} color='#fff' />Resubmit Revised Resolution</>:<><Icon name='check-circle' size={13} color='#fff' />Mark as Complete & Submit for Approval</>}
                                                     </button>
-                                                    {hasPendingExt && <p style={{fontSize:11,color:'#D97706',marginTop:6}}>⏳ Cannot submit for approval while an extension request is pending.</p>}
+                                                    {hasPendingExt && <p style={{fontSize:11,color:'#D97706',marginTop:6,display:'flex',alignItems:'center',gap:'4px'}}><Icon name='hourglass' size={11} color='#D97706' />Cannot submit for approval while an extension request is pending.</p>}
                                                     {!resolutionNote.trim() && !hasPendingExt && <p style={{fontSize:11,color:dm?'#6b80a4':'#94A3B8',marginTop:6}}>Enter a resolution note above to enable submission.</p>}
                                                 </div>
                                             )}
@@ -3008,8 +3008,8 @@
                                                 <div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${dm?'rgba(99,102,241,0.15)':'#C7D2FE'}`}}>
                                                     {!extMode ? (
                                                         <button onClick={()=>{setExtMode(true);setActionError('');}}
-                                                            style={{padding:'8px 16px',background:'none',border:`1px solid ${dm?'rgba(99,102,241,0.3)':'#C7D2FE'}`,color:dm?'#818cf8':'#4338CA',borderRadius:8,fontSize:12,fontWeight:600,cursor:'pointer'}}>
-                                                            📅 Request Time Extension
+                                                            style={{padding:'8px 16px',background:'none',border:`1px solid ${dm?'rgba(99,102,241,0.3)':'#C7D2FE'}`,color:dm?'#818cf8':'#4338CA',borderRadius:8,fontSize:12,fontWeight:600,cursor:'pointer',display:'inline-flex',alignItems:'center',gap:'5px'}}>
+                                                            <Icon name='calendar' size={12} color={dm?'#818cf8':'#4338CA'} />Request Time Extension
                                                         </button>
                                                     ) : (
                                                         <div>
@@ -3031,7 +3031,7 @@
                                                                     catch(e){ setActionError(e.message); }
                                                                     finally{ setActionLoading(false); }
                                                                 }} style={{flex:1,padding:'9px',background:'#D97706',color:'white',border:'none',borderRadius:9,fontSize:13,fontWeight:600,cursor:'pointer',opacity:(actionLoading||!extDate)?0.5:1}}>
-                                                                    {actionLoading?'⏳…':'📅 Submit Extension Request'}
+                                                                    {actionLoading?<><Icon name='loader' size={13} color='#fff' />…</>:<><Icon name='calendar' size={13} color='#fff' />Submit Extension Request</>}
                                                                 </button>
                                                                 <button onClick={()=>{setExtMode(false);setExtDate('');setExtNote('');setActionError('');}}
                                                                     style={{padding:'9px 14px',background:dm?'rgba(6,9,22,0.7)':'#F5F7FF',color:dm?'#c0cfec':'#334155',border:'none',borderRadius:9,fontSize:13,fontWeight:600,cursor:'pointer'}}>Cancel</button>
@@ -3044,7 +3044,7 @@
                                             {/* Show pending extension status to assignee */}
                                             {hasPendingExt && (
                                                 <div style={{marginTop:12,padding:12,background:dm?'rgba(245,158,11,0.08)':'#FFFBEB',borderRadius:10,border:`1px solid ${dm?'rgba(245,158,11,0.2)':'#FDE68A'}`}}>
-                                                    <p style={{fontSize:12,fontWeight:600,color:'#92400E',margin:'0 0 4px'}}>⏳ Extension Request Pending</p>
+                                                    <p style={{fontSize:12,fontWeight:600,color:'#92400E',margin:'0 0 4px',display:'flex',alignItems:'center',gap:'5px'}}><Icon name='hourglass' size={12} color='#92400E' />Extension Request Pending</p>
                                                     <p style={{fontSize:11,color:dm?'#fcd34d':'#D97706',margin:0}}>Proposed: <strong>{selectedTicket.extensionRequestedDue ? new Date(selectedTicket.extensionRequestedDue).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}) : '—'}</strong></p>
                                                     {selectedTicket.extensionRequestNote && <p style={{fontSize:11,color:dm?'#8fa4cc':'#64748B',margin:'4px 0 0'}}>Note: {selectedTicket.extensionRequestNote}</p>}
                                                     <p style={{fontSize:11,color:dm?'#4a607f':'#94A3B8',margin:'4px 0 0'}}>Waiting for an approver to respond.</p>
@@ -3057,7 +3057,7 @@
                                     {/* ── Approver: Extension Response Panel ── */}
                                     {isAnyApprover && hasPendingExt && (
                                         <div style={{marginBottom:20,padding:16,background:dm?'rgba(245,158,11,0.08)':'#FFFBEB',borderRadius:12,border:`1px solid ${dm?'rgba(245,158,11,0.25)':'#FDE68A'}`}}>
-                                            <p style={{fontSize:12,fontWeight:700,color:'#92400E',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:10}}>📅 Extension Request — Your Decision</p>
+                                            <p style={{fontSize:12,fontWeight:700,color:'#92400E',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:10,display:'flex',alignItems:'center',gap:'5px'}}><Icon name='calendar' size={12} color='#92400E' />Extension Request — Your Decision</p>
                                             <p style={{fontSize:13,color:dm?'#c0cfec':'#374151',marginBottom:4}}>
                                                 The assignee <strong>{selectedTicket.assigned||'Assignee'}</strong> is requesting a time extension.
                                             </p>
@@ -3078,7 +3078,7 @@
                                                     catch(e){ setActionError(e.message); }
                                                     finally{ setActionLoading(false); }
                                                 }} style={{flex:1,padding:'10px',background:'#059669',color:'white',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer',opacity:actionLoading?0.5:1}}>
-                                                    {actionLoading?'⏳…':'✅ Approve Extension'}
+                                                    {actionLoading?<><Icon name='loader' size={13} color='#fff' />…</>:<><Icon name='check-circle' size={13} color='#fff' />Approve Extension</>}
                                                 </button>
                                                 <button disabled={actionLoading} onClick={async()=>{
                                                     setActionLoading(true); setActionError('');
@@ -3086,7 +3086,7 @@
                                                     catch(e){ setActionError(e.message); }
                                                     finally{ setActionLoading(false); }
                                                 }} style={{flex:1,padding:'10px',background:'#DC2626',color:'white',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer',opacity:actionLoading?0.5:1}}>
-                                                    {actionLoading?'⏳…':'❌ Deny Extension'}
+                                                    {actionLoading?<><Icon name='loader' size={13} color='#fff' />…</>:<><Icon name='x-circle' size={13} color='#fff' />Deny Extension</>}
                                                 </button>
                                             </div>
                                         </div>
@@ -3100,8 +3100,8 @@
                                         return (
                                         <div style={{marginBottom:20,paddingBottom:20,borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
                                             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
-                                                <p style={{fontSize:10,fontWeight:700,color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.06em',margin:0}}>
-                                                    ✅ Approvers {displayApprovers.length > 0 ? `(${displayApprovers.length})` : ''}
+                                                <p style={{fontSize:10,fontWeight:700,color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.06em',margin:0,display:'flex',alignItems:'center',gap:'5px'}}>
+                                                    <Icon name='user-check' size={11} color={dm?'#4a607f':'#94A3B8'} />Approvers{displayApprovers.length > 0 ? ` (${displayApprovers.length})` : ''}
                                                 </p>
                                                 <div style={{display:'flex',alignItems:'center',gap:8}}>
                                                     {selectedTicket.status === 'Pending Approval' && (
@@ -3130,9 +3130,9 @@
                                                                 <div style={{flex:1,minWidth:0}}>
                                                                     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
                                                                         <p style={{fontSize:13,fontWeight:600,color:stC[s]||stC.pending,margin:0}}>{ap.userName||ap.name}</p>
-                                                                        <span style={{fontSize:11,fontWeight:700,color:stC[s]||stC.pending,flexShrink:0}}>{stI[s]||'hourglass'} {s.charAt(0).toUpperCase()+s.slice(1)}</span>
+                                                                        <span style={{fontSize:11,fontWeight:700,color:stC[s]||stC.pending,flexShrink:0,display:'inline-flex',alignItems:'center',gap:'3px'}}><Icon name={stI[s]||'hourglass'} size={11} color={stC[s]||stC.pending} />{s.charAt(0).toUpperCase()+s.slice(1)}</span>
                                                                     </div>
-                                                                    {ap.justification && <p style={{fontSize:11,color:stC[s]||stC.pending,margin:'4px 0 0',opacity:0.8}}>{s==='approved'?'file-edit':'message-square'} {ap.justification}</p>}
+                                                                    {ap.justification && <p style={{fontSize:11,color:stC[s]||stC.pending,margin:'4px 0 0',opacity:0.8,display:'flex',alignItems:'center',gap:'3px'}}><Icon name={s==='approved'?'file-edit':'message-square'} size={11} color={stC[s]||stC.pending} />{ap.justification}</p>}
                                                                 </div>
                                                             </div>
                                                         );
@@ -3146,7 +3146,7 @@
                                     {/* Escalation trail */}
                                     {(escalations.length > 0 || selectedTicket.isEscalated) && (
                                         <div className="mb-5 p-4 bg-orange-50 border border-orange-100 rounded-xl">
-                                            <p className="text-xs font-semibold text-orange-700 uppercase tracking-widest mb-3">⬆ Escalation Trail</p>
+                                            <p className="text-xs font-semibold text-orange-700 uppercase tracking-widest mb-3" style={{display:'flex',alignItems:'center',gap:'5px'}}><Icon name='arrow-up-circle' size={11} color='#C2410C' />Escalation Trail</p>
                                             <div className="space-y-2">
                                                 {escalations.map((e, i) => (
                                                     <div key={e.id || i} className="text-xs text-orange-800">
@@ -3170,7 +3170,7 @@
                                                     onClick={() => { setEscalateMode(true); setActionError(''); }}
                                                     className="w-full py-2.5 border-2 border-orange-300 text-orange-700 text-sm font-semibold rounded-xl hover:bg-orange-50 transition flex items-center justify-center gap-2"
                                                 >
-                                                    ⬆ Escalate This Ticket
+                                                    <Icon name='arrow-up-circle' size={14} color='#C2410C' />Escalate This Ticket
                                                 </button>
                                             ) : (
                                                 <div className="border-2 border-orange-200 rounded-xl p-4 bg-orange-50">
@@ -3226,7 +3226,7 @@
                                                             }}
                                                             className="flex-1 py-2.5 bg-orange-600 text-white text-sm font-semibold rounded-xl hover:bg-orange-700 transition disabled:opacity-50"
                                                         >
-                                                            {actionLoading ? '⏳…' : '⬆ Confirm Escalation'}
+                                                            {actionLoading ? <><Icon name='loader' size={13} color='#fff' />…</> : <><Icon name='arrow-up-circle' size={13} color='#fff' />Confirm Escalation</>}
                                                         </button>
                                                         <button
                                                             onClick={() => { setEscalateMode(false); setEscalateTo(''); setEscalateReason(''); setActionError(''); }}
@@ -3242,7 +3242,7 @@
 
                                     {selectedTicket.status === 'Pending Approval' && isApprover && (
                                         <div style={{marginTop:16,padding:16,background:dm?'rgba(249,115,22,0.10)':'#FFF7ED',borderRadius:12,border:`1px solid ${dm?'rgba(249,115,22,0.25)':'#FED7AA'}`}}>
-                                            <p style={{fontSize:12,fontWeight:700,color:'#C2410C',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:4}}>⚖ Your Decision (Approver)</p>
+                                            <p style={{fontSize:12,fontWeight:700,color:'#C2410C',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:4,display:'flex',alignItems:'center',gap:'5px'}}><Icon name='check-circle' size={12} color='#C2410C' />Your Decision (Approver)</p>
                                             <p style={{fontSize:11,color:dm?'#fcd34d':'#92400E',marginBottom:12}}>Approve to close the ticket, or Reopen to send it back to the assignee for more work.</p>
                                             {actionError && <div style={{fontSize:12,color:'#DC2626',background:'#FEF2F2',border:'1px solid #FECACA',borderRadius:8,padding:'8px 12px',marginBottom:10}}>{actionError}</div>}
                                             {!rejectMode ? (
@@ -3264,11 +3264,11 @@
                                                         } catch(e){ setActionError(e.message); }
                                                         finally{ setActionLoading(false); }
                                                     }} style={{flex:1,padding:'10px',background:'#059669',color:'white',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer',opacity:actionLoading?0.5:1}}>
-                                                        {actionLoading?'⏳…':'✅ Approve'}
+                                                        {actionLoading?<><Icon name='loader' size={13} color='#fff' />…</>:<><Icon name='check-circle' size={13} color='#fff' />Approve</>}
                                                     </button>
                                                     <button disabled={actionLoading} onClick={()=>{setRejectMode(true);setActionError('');}}
-                                                        style={{flex:1,padding:'10px',background:'#DC2626',color:'white',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer',opacity:actionLoading?0.5:1}}>
-                                                        🔄 Reopen Ticket
+                                                        style={{flex:1,padding:'10px',background:'#DC2626',color:'white',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer',opacity:actionLoading?0.5:1,display:'inline-flex',alignItems:'center',justifyContent:'center',gap:'5px'}}>
+                                                        <Icon name='refresh-cw' size={13} color='#fff' />Reopen Ticket
                                                     </button>
                                                 </div>
                                                 </div>
@@ -3290,7 +3290,7 @@
                                                             } catch(e){ setActionError(e.message); }
                                                             finally{ setActionLoading(false); }
                                                         }} style={{flex:1,padding:'9px',background:'#DC2626',color:'white',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer',opacity:(actionLoading||!justification.trim())?0.5:1}}>
-                                                            {actionLoading?'⏳…':'🔄 Confirm Reopen'}
+                                                            {actionLoading?<><Icon name='loader' size={13} color='#fff' />…</>:<><Icon name='refresh-cw' size={13} color='#fff' />Confirm Reopen</>}
                                                         </button>
                                                         <button onClick={()=>{setRejectMode(false);setJustification('');setActionError('');}}
                                                             style={{padding:'9px 16px',background:dm?'rgba(6,9,22,0.7)':'#F5F7FF',color:dm?'#c0cfec':'#334155',border:'none',borderRadius:10,fontSize:13,fontWeight:600,cursor:'pointer'}}>
@@ -3304,7 +3304,7 @@
                                     {/* ── Close Ticket panel — requester confirms resolution → Closed ── */}
                                     {selectedTicket.status === 'Resolved' && (isCreator || isBootAdmin) && (
                                         <div style={{marginTop:16,padding:16,background:dm?'rgba(16,185,129,0.10)':'#ECFDF5',borderRadius:12,border:`1px solid ${dm?'rgba(16,185,129,0.25)':'#6EE7B7'}`}}>
-                                            <p style={{fontSize:12,fontWeight:700,color:dm?'#34d399':'#065F46',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:4}}>✅ Confirm & Close Ticket</p>
+                                            <p style={{fontSize:12,fontWeight:700,color:dm?'#34d399':'#065F46',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:4,display:'flex',alignItems:'center',gap:'5px'}}><Icon name='check-circle' size={12} color={dm?'#34d399':'#065F46'} />Confirm & Close Ticket</p>
                                             <p style={{fontSize:11,color:dm?'#6ee7b7':'#047857',marginBottom:12}}>
                                                 Are you satisfied with the resolution? Closing the ticket finalises it permanently.
                                             </p>
@@ -3321,7 +3321,7 @@
                                                     finally{ setActionLoading(false); }
                                                 }}
                                                 style={{width:'100%',padding:'10px',background:actionLoading?'#6EE7B7':'#059669',color:'white',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:actionLoading?'not-allowed':'pointer',opacity:actionLoading?0.6:1}}>
-                                                {actionLoading ? '⏳ Closing…' : '🔒 Close Ticket'}
+                                                {actionLoading ? <><Icon name='loader' size={13} color='#fff' />Closing…</> : <><Icon name='lock' size={13} color='#fff' />Close Ticket</>}
                                             </button>
                                         </div>
                                     )}
@@ -3329,13 +3329,13 @@
                                     {/* ── Reopen panel — any approver can reopen a resolved/closed ticket ── */}
                                     {['Resolved','Closed'].includes(selectedTicket.status) && isAnyApprover && (
                                         <div style={{marginTop:16,padding:16,background:dm?'rgba(59,130,246,0.10)':'#EFF6FF',borderRadius:12,border:`1px solid ${dm?'rgba(59,130,246,0.25)':'#BFDBFE'}`}}>
-                                            <p style={{fontSize:12,fontWeight:700,color:dm?'#93c5fd':'#1E40AF',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:4}}>🔄 Reopen Ticket</p>
+                                            <p style={{fontSize:12,fontWeight:700,color:dm?'#93c5fd':'#1E40AF',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:4,display:'flex',alignItems:'center',gap:'5px'}}><Icon name='refresh-cw' size={12} color={dm?'#93c5fd':'#1E40AF'} />Reopen Ticket</p>
                                             <p style={{fontSize:11,color:dm?'#93c5fd':'#1D4ED8',marginBottom:12}}>As an approver, you can reopen this ticket if further work is needed. This will reset all approver decisions and send the ticket back to the assignee.</p>
                                             {actionError && <div style={{fontSize:12,color:'#DC2626',background:'#FEF2F2',border:'1px solid #FECACA',borderRadius:8,padding:'8px 12px',marginBottom:10}}>{actionError}</div>}
                                             {!reopenMode ? (
                                                 <button onClick={()=>{setReopenMode(true);setReopenJustification('');setActionError('');}}
-                                                    style={{width:'100%',padding:'10px',background:'#1D4ED8',color:'white',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer'}}>
-                                                    🔄 Reopen This Ticket
+                                                    style={{width:'100%',padding:'10px',background:'#1D4ED8',color:'white',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer',display:'inline-flex',alignItems:'center',justifyContent:'center',gap:'6px'}}>
+                                                    <Icon name='refresh-cw' size={13} color='#fff' />Reopen This Ticket
                                                 </button>
                                             ) : (
                                                 <div>
@@ -3355,7 +3355,7 @@
                                                             } catch(e){ setActionError(e.message); }
                                                             finally{ setActionLoading(false); }
                                                         }} style={{flex:1,padding:'9px',background:'#1D4ED8',color:'white',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer',opacity:(actionLoading||!reopenJustification.trim())?0.5:1}}>
-                                                            {actionLoading?'⏳…':'🔄 Confirm Reopen'}
+                                                            {actionLoading?<><Icon name='loader' size={13} color='#fff' />…</>:<><Icon name='refresh-cw' size={13} color='#fff' />Confirm Reopen</>}
                                                         </button>
                                                         <button onClick={()=>{setReopenMode(false);setReopenJustification('');setActionError('');}}
                                                             style={{padding:'9px 16px',background:dm?'rgba(6,9,22,0.7)':'#F5F7FF',color:dm?'#c0cfec':'#334155',border:'none',borderRadius:10,fontSize:13,fontWeight:600,cursor:'pointer'}}>
@@ -3370,7 +3370,7 @@
                                     {/* ── Approval History (immutable audit trail) ── */}
                                     {Array.isArray(selectedTicket.approvalHistory) && selectedTicket.approvalHistory.length > 0 && (
                                         <div style={{marginBottom:20,paddingBottom:20,borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
-                                            <p style={{fontSize:10,fontWeight:700,color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 10px'}}>📋 Approval History</p>
+                                            <p style={{fontSize:10,fontWeight:700,color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 10px',display:'flex',alignItems:'center',gap:'5px'}}><Icon name='clipboard-list' size={11} color={dm?'#4a607f':'#94A3B8'} />Approval History</p>
                                             <div style={{display:'flex',flexDirection:'column',gap:6}}>
                                                 {selectedTicket.approvalHistory.map((h,i) => {
                                                     const isApproved = (h.action||'').toLowerCase() === 'approved';
@@ -3386,7 +3386,7 @@
                                                                 <span style={{fontSize:12,fontWeight:600,color:col,display:'inline-flex',alignItems:'center',gap:3}}><Icon name={icon} size={12} color={col} />{h.approverName||'Unknown'}</span>
                                                                 <span style={{fontSize:10,color:dm?'#4a607f':'#94A3B8',flexShrink:0}}>Round {h.round||1} · {h.actedAt ? new Date(h.actedAt).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}) : ''}</span>
                                                             </div>
-                                                            {h.comments && <p style={{fontSize:11,color:col,margin:'4px 0 0',opacity:0.85}}>{isApproved?'file-edit':'message-square'} {h.comments}</p>}
+                                                            {h.comments && <p style={{fontSize:11,color:col,margin:'4px 0 0',opacity:0.85,display:'flex',alignItems:'center',gap:'3px'}}><Icon name={isApproved?'file-edit':'message-square'} size={11} color={col} />{h.comments}</p>}
                                                         </div>
                                                     );
                                                 })}
@@ -3399,12 +3399,12 @@
                                         <div style={{marginTop:20,paddingTop:16,borderTop:`1px solid ${dm?'rgba(239,68,68,0.15)':'#FEE2E2'}`}}>
                                             {!deleteMode ? (
                                                 <button onClick={()=>{setDeleteMode(true);setDeleteJustification('');setActionError('');}}
-                                                    style={{width:'100%',padding:'9px',background:'none',border:'1px solid #FCA5A5',color:'#DC2626',borderRadius:9,fontSize:12,fontWeight:600,cursor:'pointer'}}>
-                                                    🗑 Delete Ticket (Admin Only)
+                                                    style={{width:'100%',padding:'9px',background:'none',border:'1px solid #FCA5A5',color:'#DC2626',borderRadius:9,fontSize:12,fontWeight:600,cursor:'pointer',display:'inline-flex',alignItems:'center',justifyContent:'center',gap:'5px'}}>
+                                                    <Icon name='trash-2' size={12} color='#DC2626' />Delete Ticket (Admin Only)
                                                 </button>
                                             ) : (
                                                 <div style={{padding:14,background:dm?'rgba(239,68,68,0.08)':'#FEF2F2',borderRadius:10,border:'1px solid #FECACA'}}>
-                                                    <p style={{fontSize:12,fontWeight:700,color:'#991B1B',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>🗑 Confirm Ticket Deletion</p>
+                                                    <p style={{fontSize:12,fontWeight:700,color:'#991B1B',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8,display:'flex',alignItems:'center',gap:'5px'}}><Icon name='trash-2' size={12} color='#991B1B' />Confirm Ticket Deletion</p>
                                                     <p style={{fontSize:12,color:dm?'#fca5a5':'#DC2626',marginBottom:10}}>This action is permanent and cannot be undone. A justification is required.</p>
                                                     <textarea rows="3" value={deleteJustification} onChange={e=>setDeleteJustification(e.target.value)}
                                                         placeholder="Justification for deleting this ticket…"
