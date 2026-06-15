@@ -5079,7 +5079,7 @@
                     return { title:'Ticket Volume Trend', subtitle:'Monthly ticket creation over 6 months', icon:'trending-up', iconBg:dm?'rgba(99,102,241,0.15)':'#EEF2FF',
                         metrics:[{label:'Peak Month',value:maxMonth,color:'#EF4444'},{label:'Monthly Avg',value:Math.round(monthData.reduce((a,b)=>a+b,0)/Math.max(monthData.length,1)),color:dm?'#818cf8':'#4F46E5'},{label:'Recent Avg',value:Math.round(recentAvg),color:'#10B981'}],
                         insights:[
-                            {type:trendDir==='up'?'warn':trendDir==='down'?'good':'info',icon:trendDir==='up'?'trending-up':trendDir==='down'?'activity':'➡️',title:`Volume Trend: ${trendDir==='up'?'Increasing':trendDir==='down'?'Decreasing':'Stable'}`,text:`Recent 3-month average (${Math.round(recentAvg)}/mo) vs prior 3-month (${Math.round(prevAvg)}/mo). ${trendDir==='up'?'Increasing volume may require capacity review to prevent SLA degradation.':trendDir==='down'?'Decreasing volume may indicate improved client self-service, seasonal variation, or reduced service demand.':'Volume is stable — predictable demand enables effective resource planning.'}`},
+                            {type:trendDir==='up'?'warn':trendDir==='down'?'good':'info',icon:trendDir==='up'?'trending-up':trendDir==='down'?'activity':'chevron-right',title:`Volume Trend: ${trendDir==='up'?'Increasing':trendDir==='down'?'Decreasing':'Stable'}`,text:`Recent 3-month average (${Math.round(recentAvg)}/mo) vs prior 3-month (${Math.round(prevAvg)}/mo). ${trendDir==='up'?'Increasing volume may require capacity review to prevent SLA degradation.':trendDir==='down'?'Decreasing volume may indicate improved client self-service, seasonal variation, or reduced service demand.':'Volume is stable — predictable demand enables effective resource planning.'}`},
                             {type:'info',icon:'bar-chart-2',title:'Volume Distribution',text:`Peak month: ${monthLabels[monthData.indexOf(maxMonth)]} (${maxMonth} tickets). ${maxMonth>recentAvg*1.5?'Significant volume spikes suggest seasonal patterns or one-off events — investigate and plan for recurrence.':'Volume is relatively consistent across months — good for planning.'}`},
                         ],
                         breakdown:monthLabels.map((label,i)=>({label,value:monthData[i],bar:maxMonth?Math.round((monthData[i]/maxMonth)*100):0})),
@@ -5183,7 +5183,7 @@
                         {/* Header */}
                         <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'22px', flexWrap:'wrap', gap:'12px'}}>
                             <div>
-                                <h1 style={{fontSize:'22px', fontWeight:'700', color:dm?'#c7d2fe':'#1E1B4B', margin:0}}>📊 Analytics</h1>
+                                <h1 style={{fontSize:'22px', fontWeight:'700', color:dm?'#c7d2fe':'#1E1B4B', margin:0, display:'flex', alignItems:'center', gap:'8px'}}><Icon name='bar-chart' size={20} color={dm?'#818cf8':'#4F46E5'} />Analytics</h1>
                                 <p style={{fontSize:'12px', color:dm?'#4a607f':'#94A3B8', margin:'4px 0 0'}}>Business insights · {tickets.length} tickets loaded · as of {new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</p>
                             </div>
                             <div style={{display:'flex', alignItems:'center', gap:'8px', background:cardBg, border:`1.5px solid ${borderC}`, borderRadius:'10px', padding:'8px 14px'}}>
@@ -5200,7 +5200,7 @@
 
                         {loading ? (
                             <div style={{textAlign:'center', padding:'60px', color:dm?'#4a607f':'#94A3B8'}}>
-                                <p style={{fontSize:'32px', marginBottom:'8px'}}>⏳</p>
+                                <div style={{display:'flex',justifyContent:'center',marginBottom:'8px'}}><Icon name='loader' size={32} color={dm?'#4a607f':'#94A3B8'} /></div>
                                 <p>Loading analytics…</p>
                             </div>
                         ) : (<>
@@ -5234,7 +5234,7 @@
 
                             {/* Key Insights card */}
                             <div style={{background:cardBg, borderRadius:'16px', border:`1.5px solid ${borderC}`, padding:'20px', boxShadow:dm?'0 4px 24px rgba(0,0,0,0.4)':'0 1px 6px rgba(99,102,241,0.07)'}}>
-                                <p style={{fontSize:'14px', fontWeight:'700', color:dm?'#c7d2fe':'#1E1B4B', margin:'0 0 2px'}}>💡 Key Insights</p>
+                                <p style={{fontSize:'14px', fontWeight:'700', color:dm?'#c7d2fe':'#1E1B4B', margin:'0 0 2px', display:'flex', alignItems:'center', gap:'6px'}}><Icon name='sparkles' size={14} color={dm?'#818cf8':'#4F46E5'} />Key Insights</p>
                                 <p style={{fontSize:'11px', color:dm?'#4a607f':'#94A3B8', margin:'0 0 14px'}}>Auto-generated observations</p>
                                 <div style={{display:'flex', flexDirection:'column', gap:'10px'}}>
                                     {[
@@ -5256,7 +5256,7 @@
 
                         {/* ── Summary table: Priority × Status ── */}
                         <div style={{background:cardBg, borderRadius:'16px', border:`1.5px solid ${borderC}`, padding:'20px', boxShadow:dm?'0 4px 24px rgba(0,0,0,0.4)':'0 1px 6px rgba(99,102,241,0.07)', marginBottom:'16px'}}>
-                            <p style={{fontSize:'14px', fontWeight:'700', color:dm?'#c7d2fe':'#1E1B4B', margin:'0 0 2px'}}>📋 Ticket Summary Table</p>
+                            <p style={{fontSize:'14px', fontWeight:'700', color:dm?'#c7d2fe':'#1E1B4B', margin:'0 0 2px', display:'flex', alignItems:'center', gap:'6px'}}><Icon name='clipboard-list' size={14} color={dm?'#818cf8':'#4F46E5'} />Ticket Summary Table</p>
                             <p style={{fontSize:'11px', color:dm?'#4a607f':'#94A3B8', margin:'0 0 14px'}}>Breakdown by category, priority and status</p>
                             <div className="yc-table-scroll">
                                 <table style={{width:'100%', borderCollapse:'collapse', fontSize:'12px'}}>
