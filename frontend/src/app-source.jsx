@@ -1141,7 +1141,6 @@
 
         // ── Dedicated Logout Page (/#logout) ─────────────────────────────────────
         function LogoutPage() {
-            const [hovered, setHovered] = React.useState(false);
             const handleLogin = () => { window.location.hash = ''; window.MicrosoftAuth.signIn(); };
 
             return (
@@ -1195,31 +1194,8 @@
                             Your Microsoft account remains active.
                         </p>
 
-                        {/* Primary CTA */}
-                        <button
-                            onClick={handleLogin}
-                            onMouseEnter={() => setHovered(true)}
-                            onMouseLeave={() => setHovered(false)}
-                            style={{
-                                width:'100%',display:'flex',alignItems:'center',justifyContent:'center',gap:10,
-                                padding:'13px 0',borderRadius:12,border:'none',cursor:'pointer',
-                                background: hovered ? 'linear-gradient(135deg,#4F46E5,#7C3AED)' : 'linear-gradient(135deg,#6366F1,#8B5CF6)',
-                                color:'white',fontSize:14,fontWeight:700,
-                                boxShadow: hovered ? '0 8px 24px rgba(99,102,241,0.5)' : '0 4px 16px rgba(99,102,241,0.35)',
-                                transition:'all 0.2s',marginBottom:16,
-                            }}
-                        >
-                            <svg width="18" height="18" viewBox="0 0 21 21" fill="none" style={{flexShrink:0}}>
-                                <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
-                                <rect x="11" y="1" width="9" height="9" fill="#7FBA00"/>
-                                <rect x="1" y="11" width="9" height="9" fill="#00A4EF"/>
-                                <rect x="11" y="11" width="9" height="9" fill="#FFB900"/>
-                            </svg>
-                            Sign in with Microsoft
-                        </button>
-
-                        {/* Text link */}
-                        <p style={{margin:0,fontSize:13,color:'#64748B'}}>
+                        {/* Login link */}
+                        <p style={{margin:0,fontSize:14,color:'#64748B'}}>
                             <a
                                 href="#"
                                 onClick={(e)=>{ e.preventDefault(); handleLogin(); }}
