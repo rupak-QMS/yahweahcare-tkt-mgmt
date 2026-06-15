@@ -559,7 +559,7 @@
             const [notifTotal,    setNotifTotal]    = React.useState(0);
             const [appToast,      setAppToast]      = React.useState('');
             const showToast = (msg) => { setAppToast(msg); setTimeout(() => setAppToast(''), 3500); };
-            const [pushStatus, setPushStatus] = React.useState('idle'); // idle | loading | subscribed | denied | unsupported | error
+
 
             // Load notifications page 1 (replaces existing list)
             const loadNotifications = React.useCallback(() => {
@@ -777,67 +777,6 @@
                                             </button>
                                         </div>
                                     )}
-                                </div>
-                                {/* Footer: push toggle + test button */}
-                                <div style={{padding:'10px 16px', borderTop:`1px solid ${border}`, flexShrink:0}}>
-                                    {/* Push status row */}
-                                    {(() => {
-                                        const perm = typeof Notification !== 'undefined' ? Notification.permission : 'unsupported';
-                                        const isBlocked = perm === 'denied';
-                                        const isUnsupported = !('PushManager' in window);
-                                        return (
-                                            <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8}}>
-                                                <div style={{display:'flex', alignItems:'center', gap:6}}>
-                                                    <span style={{fontSize:13}}>{isBlocked ? '🔕' : isUnsupported ? '⚠️' : pushStatus === 'subscribed' ? '🔔' : '🔔'}</span>
-                                                    <div>
-                                                        <p style={{fontSize:11, fontWeight:600, color:textC, margin:0}}>
-                                                            {isUnsupported ? 'Push not supported' : isBlocked ? 'Notifications blocked' : pushStatus === 'subscribed' ? 'Push notifications on' : 'Push notifications'}
-                                                        </p>
-                                                        {isBlocked && (
-                                                            <p style={{fontSize:10, color:'#DC2626', margin:'1px 0 0', lineHeight:1.3}}>
-                                                                Allow in browser settings to enable push
-                                                            </p>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                                {!isUnsupported && !isBlocked && (
-                                                    <button
-                                                        disabled={pushStatus === 'loading'}
-                                                        onClick={async () => {
-                                                            setPushStatus('loading');
-                                                            const result = await subscribePush();
-                                                            setPushStatus(result);
-                                                            if (result === 'subscribed') showToast('🔔 Push notifications enabled!');
-                                                            else if (result === 'denied') showToast('Notifications blocked — allow in browser settings');
-                                                            else if (result === 'error') showToast('Could not enable push — check VAPID keys');
-                                                        }}
-                                                        style={{fontSize:11, fontWeight:600, padding:'4px 12px', borderRadius:6, border:'none', cursor: pushStatus === 'loading' ? 'default' : 'pointer', opacity: pushStatus === 'loading' ? 0.6 : 1,
-                                                            background: pushStatus === 'subscribed' ? (darkMode ? '#14532D' : '#DCFCE7') : (darkMode ? 'rgba(99,102,241,0.2)' : '#EEF2FF'),
-                                                            color: pushStatus === 'subscribed' ? (darkMode ? '#86EFAC' : '#15803D') : (darkMode ? '#818cf8' : '#4F46E5'),
-                                                        }}>
-                                                        {pushStatus === 'loading' ? 'Enabling…' : pushStatus === 'subscribed' ? '✓ Enabled' : 'Enable'}
-                                                    </button>
-                                                )}
-                                            </div>
-                                        );
-                                    })()}
-                                    {/* Test button */}
-                                    <button onClick={async () => {
-                                        try {
-                                            const r = await authFetch(`${HRMS_API}/push/test`, { method:'POST', noRedirect: true });
-                                            if (r.ok) {
-                                                const data = await r.json().catch(() => ({}));
-                                                loadNotifications();
-                                                showToast(data.pushSent > 0 ? '🔔 Push notification sent to your browser!' : '📬 In-app notification created (enable push to receive browser alerts)');
-                                            } else if (r.status === 401) {
-                                                showToast('Session expired — please sign in again');
-                                            } else {
-                                                showToast('Push test failed — check server configuration');
-                                            }
-                                        } catch { showToast('Failed to send test notification'); }
-                                    }} style={{width:'100%', fontSize:11, fontWeight:600, color:darkMode?'#818cf8':'#4F46E5', background:darkMode?'rgba(99,102,241,0.08)':'#F5F7FF', border:`1px solid ${darkMode?'rgba(99,102,241,0.25)':'#E0E7FF'}`, borderRadius:6, padding:'6px 0', cursor:'pointer', textAlign:'center'}}>
-                                        Send test notification
-                                    </button>
                                 </div>
                             </div>
                         )}
@@ -7988,82 +7927,6 @@
 
             // handleEmailLogin removed — Microsoft Entra is the only login method
 
-            // ── Push Notification Setup (fresh implementation) ────────────────────
-            // Helpers used by both auto-setup and manual toggle
-            const urlBase64ToUint8Array = (b64) => {
-                const pad = '='.repeat((4 - b64.length % 4) % 4);
-                const base64 = (b64 + pad).replace(/-/g, '+').replace(/_/g, '/');
-                const raw = atob(base64);
-                const arr = new Uint8Array(raw.length);
-                for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
-                return arr;
-            };
-            const bufToBase64 = (buf) => {
-                const bytes = new Uint8Array(buf);
-                let bin = '';
-                for (let i = 0; i < bytes.byteLength; i++) bin += String.fromCharCode(bytes[i]);
-                return btoa(bin);
-            };
-
-            // Core subscribe function — called on login and from manual toggle
-            // Returns: 'subscribed' | 'denied' | 'unsupported' | 'error'
-            const subscribePush = React.useCallback(async () => {
-                if (!('serviceWorker' in navigator) || !('PushManager' in window)) return 'unsupported';
-                try {
-                    const swReg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-                    await navigator.serviceWorker.ready;
-
-                    const keyRes = await fetch(`${HRMS_API}/push/vapid-public-key`);
-                    if (!keyRes.ok) return 'error';
-                    const { publicKey } = await keyRes.json();
-                    if (!publicKey) return 'error';
-
-                    // If already subscribed, just refresh the backend record
-                    const existing = await swReg.pushManager.getSubscription();
-                    if (existing) {
-                        const subJson = existing.toJSON();
-                        await authFetch(`${HRMS_API}/push/subscribe`, {
-                            method: 'POST', noRedirect: true,
-                            body: JSON.stringify({ endpoint: subJson.endpoint, keys: subJson.keys }),
-                        }).catch(() => {});
-                        return 'subscribed';
-                    }
-
-                    // Ask permission — if denied, can't proceed
-                    if (Notification.permission === 'denied') return 'denied';
-                    const permission = await Notification.requestPermission();
-                    if (permission !== 'granted') return permission === 'denied' ? 'denied' : 'error';
-
-                    // Create push subscription
-                    const sub = await swReg.pushManager.subscribe({
-                        userVisibleOnly: true,
-                        applicationServerKey: urlBase64ToUint8Array(publicKey),
-                    });
-                    const subJson = sub.toJSON();
-                    const saveRes = await authFetch(`${HRMS_API}/push/subscribe`, {
-                        method: 'POST', noRedirect: true,
-                        body: JSON.stringify({ endpoint: subJson.endpoint, keys: subJson.keys }),
-                    });
-                    return saveRes.ok ? 'subscribed' : 'error';
-                } catch (e) {
-                    return 'error';
-                }
-            }, [currentUser]);
-
-            // Auto-run on login — silent, no UI interruption
-            React.useEffect(() => {
-                if (!currentUser) return;
-                subscribePush(); // fire-and-forget; UI toggle in notification panel handles feedback
-
-                // Handle SW_NAVIGATE messages (push notification click → navigate in-app without reload)
-                const handleSwMessage = (event) => {
-                    if (event.data?.type === 'SW_NAVIGATE' && event.data?.hash) {
-                        window.location.hash = event.data.hash;
-                    }
-                };
-                navigator.serviceWorker?.addEventListener('message', handleSwMessage);
-                return () => navigator.serviceWorker?.removeEventListener('message', handleSwMessage);
-            }, [currentUser]);
 
             // /#logout — explicit sign-out destination
             if (currentPage === 'logout') {
