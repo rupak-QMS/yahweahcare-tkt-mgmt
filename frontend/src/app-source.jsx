@@ -4222,7 +4222,7 @@
 
                         {loading ? (
                             <div className="flex items-center justify-center py-24">
-                                <div className="text-center"><div className="text-4xl mb-3">⏳</div><p className="text-gray-400 text-sm">Loading performance data…</p></div>
+                                <div className="text-center"><div style={{display:'flex',justifyContent:'center',marginBottom:'12px'}}><Icon name='loader' size={36} color='#94A3B8' /></div><p className="text-gray-400 text-sm">Loading performance data…</p></div>
                             </div>
                         ) : (
                         <>
@@ -4248,7 +4248,7 @@
                         {/* ── Insights ── */}
                         <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,padding:'20px 24px',marginBottom:'24px',boxShadow:dm?'0 4px 24px rgba(0,0,0,0.4)':'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
                             <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,marginBottom:'14px',display:'flex',alignItems:'center',gap:'8px'}}>
-                                <span>💡</span> Performance Insights
+                                <Icon name='sparkles' size={15} color={dm?'#818cf8':'#4F46E5'} /> Performance Insights
                             </h2>
                             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(320px,1fr))',gap:'10px'}}>
                                 {insights.map((ins,i) => (
@@ -4263,7 +4263,7 @@
                         {/* ── Top performers podium ── */}
                         {top3.length > 0 && (
                         <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,padding:'20px 24px',marginBottom:'24px',boxShadow:dm?'0 4px 24px rgba(0,0,0,0.4)':'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
-                            <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,marginBottom:'16px'}}>⭐ Top Performers</h2>
+                            <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,marginBottom:'16px',display:'flex',alignItems:'center',gap:'6px'}}><Icon name='star' size={14} color='#F59E0B' />Top Performers</h2>
                             <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'14px'}}>
                                 {top3.map((s,idx) => (
                                     <div key={s.id} style={{border:`1px solid ${dm?'rgba(99,102,241,0.2)':(idx===0?'#FDE68A':idx===1?'#D1D5DB':'#E5E7EB')}`,borderRadius:'12px',padding:'20px',textAlign:'center',background:dm?(idx===0?'rgba(234,179,8,0.12)':idx===1?'rgba(99,102,241,0.08)':'rgba(99,102,241,0.05)'):(idx===0?'linear-gradient(135deg,#FFFBEB,#FEF3C7)':idx===1?'linear-gradient(135deg,#F8FAFC,#F1F5F9)':'#FAFAFA')}}>
@@ -4276,8 +4276,8 @@
                                             <div><div style={{fontWeight:'800',fontSize:'18px',color:dm?'#818cf8':'#4F46E5'}}>{s.assigned}</div><div style={{fontSize:'10px',color:dm?'#4a607f':'#94A3B8'}}>Assigned</div></div>
                                             <div><div style={{fontWeight:'800',fontSize:'18px',color:slaColor(s.sla)}}>{s.sla!==null?s.sla+'%':'—'}</div><div style={{fontSize:'10px',color:dm?'#4a607f':'#94A3B8'}}>SLA</div></div>
                                         </div>
-                                        {s.avgHours!==null && <div style={{marginTop:'10px',fontSize:'11px',color:textM}}>⚡ Avg {s.avgHours}h resolve time</div>}
-                                        {s.escalated>0 && <div style={{marginTop:'4px',fontSize:'11px',color:'#EF4444'}}>🔺 {s.escalated} escalated</div>}
+                                        {s.avgHours!==null && <div style={{marginTop:'10px',fontSize:'11px',color:textM,display:'flex',alignItems:'center',justifyContent:'center',gap:'4px'}}><Icon name='zap' size={11} color={textM} /> Avg {s.avgHours}h resolve time</div>}
+                                        {s.escalated>0 && <div style={{marginTop:'4px',fontSize:'11px',color:'#EF4444',display:'flex',alignItems:'center',justifyContent:'center',gap:'4px'}}><Icon name='arrow-up-circle' size={11} color='#EF4444' /> {s.escalated} escalated</div>}
                                     </div>
                                 ))}
                             </div>
@@ -4288,7 +4288,7 @@
                         {staffMetrics.length > 0 ? (
                         <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,padding:'20px 24px',marginBottom:'24px',boxShadow:dm?'0 4px 24px rgba(0,0,0,0.4)':'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
                             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'16px'}}>
-                                <h2 style={{fontSize:'14px',fontWeight:'700',color:textP}}>📋 All Staff Metrics</h2>
+                                <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,display:'flex',alignItems:'center',gap:'6px'}}><Icon name='clipboard-list' size={14} color={dm?'#818cf8':'#4F46E5'} />All Staff Metrics</h2>
                                 <span style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8'}}>Click column headers to sort</span>
                             </div>
                             <div className="yc-table-scroll">
@@ -4357,7 +4357,7 @@
                         </div>
                         ) : (
                         <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,padding:'48px',textAlign:'center',marginBottom:'24px'}}>
-                            <div style={{fontSize:'40px',marginBottom:'12px'}}>📭</div>
+                            <div style={{display:'flex',justifyContent:'center',marginBottom:'12px'}}><Icon name='inbox' size={40} color={dm?'#4a607f':'#94A3B8'} /></div>
                             <p style={{color:dm?'#4a607f':'#94A3B8',fontSize:'14px'}}>No tickets assigned to staff yet — metrics appear once tickets have assignees.</p>
                         </div>
                         )}
@@ -4365,7 +4365,7 @@
                         {/* ── Chart ── */}
                         {staffMetrics.length > 0 && (
                         <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,padding:'20px 24px',boxShadow:dm?'0 4px 24px rgba(0,0,0,0.4)':'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
-                            <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,marginBottom:'16px'}}>📊 Assigned / Resolved / Escalated by Staff</h2>
+                            <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,marginBottom:'16px',display:'flex',alignItems:'center',gap:'6px'}}><Icon name='bar-chart' size={14} color={dm?'#818cf8':'#4F46E5'} />Assigned / Resolved / Escalated by Staff</h2>
                             <div className="chart-container"><canvas id="perfChart"></canvas></div>
                         </div>
                         )}
@@ -4614,7 +4614,7 @@
 
                         {/* Chart — canvas always mounted so ref is available when deptMetrics loads */}
                         <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,padding:'20px 24px',marginBottom:'20px',boxShadow:'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)',display:deptMetrics.length>0?'block':'none'}}>
-                            <h2 style={{fontSize:'14px',fontWeight:700,color:textP,marginBottom:'16px'}}>📊 Department Metrics Comparison</h2>
+                            <h2 style={{fontSize:'14px',fontWeight:700,color:textP,marginBottom:'16px',display:'flex',alignItems:'center',gap:'6px'}}><Icon name='bar-chart' size={14} color={dm?'#818cf8':'#4F46E5'} />Department Metrics Comparison</h2>
                             <div className="chart-container"><canvas ref={canvasRef}></canvas></div>
                         </div>
 
@@ -4622,7 +4622,7 @@
                         {deptMetrics.length>0 ? (
                         <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,boxShadow:dm?'0 4px 24px rgba(0,0,0,0.4)':'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)',overflow:'hidden'}}>
                             <div style={{padding:'16px 20px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`}}>
-                                <h2 style={{fontSize:'14px',fontWeight:700,color:textP}}>📋 Full Department Breakdown</h2>
+                                <h2 style={{fontSize:'14px',fontWeight:700,color:textP,display:'flex',alignItems:'center',gap:'6px'}}><Icon name='clipboard-list' size={14} color={dm?'#818cf8':'#4F46E5'} />Full Department Breakdown</h2>
                                 <p style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8',marginTop:2}}>Click column headers to sort</p>
                             </div>
                             <div className="yc-table-scroll">
@@ -5784,7 +5784,7 @@
                         {/* Header */}
                         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'20px'}}>
                             <div>
-                                <h1 style={{fontSize:'22px',fontWeight:'700',color:dm?'#c7d2fe':'#1E1B4B',margin:0}}>👥 Staff Management</h1>
+                                <h1 style={{fontSize:'22px',fontWeight:'700',color:dm?'#c7d2fe':'#1E1B4B',margin:0,display:'flex',alignItems:'center',gap:'8px'}}><Icon name='users' size={20} color={dm?'#818cf8':'#4F46E5'} />Staff Management</h1>
                                 <p style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',margin:'4px 0 0'}}>Add, manage, and organise Yahweh Care staff — changes update the Org Chart instantly</p>
                             </div>
                             <div style={{display:'flex',gap:'10px'}}>
@@ -5815,8 +5815,8 @@
 
                         {/* Error */}
                         {error && !showModal && (
-                            <div style={{background:dm?'rgba(239,68,68,0.12)':'#FEF2F2',border:`1px solid ${dm?'rgba(239,68,68,0.3)':'#FECACA'}`,borderRadius:'8px',padding:'10px 14px',marginBottom:'12px',fontSize:'13px',color:'#DC2626'}}>
-                                ⚠️ {error}
+                            <div style={{background:dm?'rgba(239,68,68,0.12)':'#FEF2F2',border:`1px solid ${dm?'rgba(239,68,68,0.3)':'#FECACA'}`,borderRadius:'8px',padding:'10px 14px',marginBottom:'12px',fontSize:'13px',color:'#DC2626',display:'flex',alignItems:'center',gap:'6px'}}>
+                                <Icon name='alert-triangle' size={13} color='#DC2626' /> {error}
                             </div>
                         )}
 
@@ -5844,8 +5844,8 @@
                                                         <div>
                                                             <div style={{fontSize:'13px',fontWeight:'700',color:textP,display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}>
                                                                 {m.name}
-                                                                {m.is_bootstrap_admin && <span title="System Administration — not part of org hierarchy" style={{fontSize:'9px',fontWeight:'700',background:dm?'rgba(234,179,8,0.15)':'#FEF3C7',color:dm?'#fcd34d':'#D97706',padding:'1px 6px',borderRadius:'10px',border:'1px solid #FDE68A'}}>⭐ Bootstrap Admin</span>}
-                                                                {!m.is_bootstrap_admin && (m.positions||[]).some(p=>(p.type||p.position_type||'').toLowerCase()==='director') && <span title="Organisational Leadership — part of org hierarchy" style={{fontSize:'9px',fontWeight:'700',background:dm?'rgba(22,163,74,0.15)':'#DCFCE7',color:dm?'#4ade80':'#15803D',padding:'1px 6px',borderRadius:'10px',border:'1px solid #86EFAC'}}>🏢 Director</span>}
+                                                                {m.is_bootstrap_admin && <span title="System Administration — not part of org hierarchy" style={{fontSize:'9px',fontWeight:'700',background:dm?'rgba(234,179,8,0.15)':'#FEF3C7',color:dm?'#fcd34d':'#D97706',padding:'1px 6px',borderRadius:'10px',border:'1px solid #FDE68A',display:'inline-flex',alignItems:'center',gap:'2px'}}><Icon name='star' size={9} color={dm?'#fcd34d':'#D97706'} />Bootstrap Admin</span>}
+                                                                {!m.is_bootstrap_admin && (m.positions||[]).some(p=>(p.type||p.position_type||'').toLowerCase()==='director') && <span title="Organisational Leadership — part of org hierarchy" style={{fontSize:'9px',fontWeight:'700',background:dm?'rgba(22,163,74,0.15)':'#DCFCE7',color:dm?'#4ade80':'#15803D',padding:'1px 6px',borderRadius:'10px',border:'1px solid #86EFAC',display:'inline-flex',alignItems:'center',gap:'2px'}}><Icon name='building-2' size={9} color={dm?'#4ade80':'#15803D'} />Director</span>}
                                                             </div>
                                                             <div style={{fontSize:'11px',color:textM}}>{m.email}</div>
                                                             {m.phone && <div style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8'}}>{m.phone}</div>}
@@ -5926,13 +5926,13 @@
                                 {/* Modal header */}
                                 <div style={{padding:'20px 24px',borderBottom:`1px solid ${borderC}`,display:'flex',justifyContent:'space-between',alignItems:'center',background:'linear-gradient(135deg,#6366F1,#7C3AED)',borderRadius:'16px 16px 0 0'}}>
                                     <h2 style={{fontSize:'16px',fontWeight:'700',color:'white',margin:0}}>
-                                        {modalMode==='add'?'➕ Add New Staff Member':'✏️ Edit Staff Member'}
+                                        <span style={{display:'flex',alignItems:'center',gap:'6px'}}>{modalMode==='add'?<Icon name='plus-circle' size={16} color='white' />:<Icon name='pencil' size={16} color='white' />}{modalMode==='add'?'Add New Staff Member':'Edit Staff Member'}</span>
                                     </h2>
                                     <button onClick={()=>setShowModal(false)} style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',borderRadius:'50%',width:'28px',height:'28px',cursor:'pointer',fontSize:'14px'}}>✕</button>
                                 </div>
 
                                 <div style={{padding:'20px 24px'}}>
-                                    {error && <div style={{background:dm?'rgba(239,68,68,0.12)':'#FEF2F2',border:`1px solid ${dm?'rgba(239,68,68,0.3)':'#FECACA'}`,borderRadius:'8px',padding:'8px 12px',marginBottom:'14px',fontSize:'12px',color:'#DC2626'}}>⚠️ {error}</div>}
+                                    {error && <div style={{background:dm?'rgba(239,68,68,0.12)':'#FEF2F2',border:`1px solid ${dm?'rgba(239,68,68,0.3)':'#FECACA'}`,borderRadius:'8px',padding:'8px 12px',marginBottom:'14px',fontSize:'12px',color:'#DC2626',display:'flex',alignItems:'center',gap:'6px'}}><Icon name='alert-triangle' size={12} color='#DC2626' />{error}</div>}
 
                                     {/* Login method notice */}
                                     <div style={{background:'#EFF6FF',border:'1px solid #BFDBFE',borderRadius:'8px',padding:'10px 14px',marginBottom:'16px',fontSize:'12px',color:dm?'#93c5fd':'#1E40AF'}}>
@@ -5964,12 +5964,12 @@
                                                 placeholder="jane@yahwehcare.com.au"
                                             />
                                             {form.email && !['yahwehcare.com.au','yahwehpc.com.au'].includes(form.email.split('@')[1]||'') && (
-                                                <p style={{fontSize:12,color:'#B45309',marginTop:4}}>
-                                                    ⚠️ Must be a <strong>@yahwehcare.com.au</strong> or <strong>@yahwehpc.com.au</strong> address — this must match their Microsoft Entra account exactly.
+                                                <p style={{fontSize:12,color:'#B45309',marginTop:4,display:'flex',alignItems:'flex-start',gap:'4px'}}>
+                                                    <Icon name='alert-triangle' size={12} color='#B45309' style={{flexShrink:0,marginTop:'2px'}} />Must be a <strong>@yahwehcare.com.au</strong> or <strong>@yahwehpc.com.au</strong> address — this must match their Microsoft Entra account exactly.
                                                 </p>
                                             )}
                                             {form.email && ['yahwehcare.com.au','yahwehpc.com.au'].includes(form.email.split('@')[1]||'') && (
-                                                <p style={{fontSize:12,color:'#16A34A',marginTop:4}}>✅ Valid organisation domain</p>
+                                                <p style={{fontSize:12,color:'#16A34A',marginTop:4,display:'flex',alignItems:'center',gap:'4px'}}><Icon name='check-circle' size={12} color='#16A34A' />Valid organisation domain</p>
                                             )}
                                         </div>
                                         {/* Phone */}
@@ -5997,7 +5997,7 @@
                                                 ))}
                                             </div>
                                             {form.position_ids.length>0 && (
-                                                <p style={{fontSize:'11px',color:dm?'#818cf8':'#4F46E5',marginTop:'4px'}}>✓ {form.position_ids.length} position(s) selected — first is primary</p>
+                                                <p style={{fontSize:'11px',color:dm?'#818cf8':'#4F46E5',marginTop:'4px',display:'flex',alignItems:'center',gap:'4px'}}><Icon name='check' size={11} color={dm?'#818cf8':'#4F46E5'} />{form.position_ids.length} position(s) selected — first is primary</p>
                                             )}
                                         </div>
                                     </div>
@@ -6019,7 +6019,7 @@
                         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1100,display:'flex',alignItems:'center',justifyContent:'center',padding:'20px'}}>
                             <div style={{background:cardBg,borderRadius:'14px',width:'100%',maxWidth:'440px',boxShadow:'0 20px 60px rgba(0,0,0,0.25)'}}>
                                 <div style={{padding:'16px 20px',borderBottom:`1px solid ${borderC}`,background:'linear-gradient(135deg,#6366F1,#7C3AED)',borderRadius:'14px 14px 0 0',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                                    <h3 style={{fontSize:'14px',fontWeight:'700',color:'white',margin:0}}>🏷️ Create New Position</h3>
+                                    <h3 style={{fontSize:'14px',fontWeight:'700',color:'white',margin:0,display:'flex',alignItems:'center',gap:'6px'}}><Icon name='tag' size={14} color='white' />Create New Position</h3>
                                     <button onClick={()=>setShowPosModal(false)} style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',borderRadius:'50%',width:'26px',height:'26px',cursor:'pointer'}}>✕</button>
                                 </div>
                                 <div style={{padding:'16px 20px',display:'grid',gap:'12px'}}>
@@ -6055,7 +6055,7 @@
                         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}>
                             <div style={{background:cardBg,borderRadius:'14px',width:'420px',boxShadow:'0 20px 60px rgba(0,0,0,0.25)',overflow:'hidden'}}>
                                 <div style={{padding:'20px 24px',textAlign:'center'}}>
-                                    <div style={{fontSize:'40px',marginBottom:'12px'}}>⚠️</div>
+                                    <div style={{display:'flex',justifyContent:'center',marginBottom:'12px'}}><Icon name='alert-triangle' size={40} color='#EF4444' /></div>
                                     <h3 style={{fontSize:'16px',fontWeight:'700',color:textP,margin:'0 0 8px'}}>Deactivate Staff Member?</h3>
                                     <p style={{fontSize:'13px',color:textM,margin:'0 0 8px'}}>
                                         <strong>{delConfirm.name}</strong> will be deactivated and removed from all org chart positions.
@@ -6300,7 +6300,7 @@
                 <main style={{flex:1,overflowY:'auto',padding:'24px',background:pageBg}}>
                     {/* Header */}
                     <div style={{marginBottom:24}}>
-                        <h1 style={{fontSize:22,fontWeight:700,color:textP,margin:0}}>📜 Ticket Log</h1>
+                        <h1 style={{fontSize:22,fontWeight:700,color:textP,margin:0,display:'flex',alignItems:'center',gap:'8px'}}><Icon name='scroll-text' size={20} color={dm?'#818cf8':'#4F46E5'} />Ticket Log</h1>
                         <p style={{fontSize:13,color:textM,marginTop:4}}>Full lifecycle audit of every ticket — phase by phase, event by event.</p>
                     </div>
 
@@ -6318,7 +6318,7 @@
                             {/* Filter panel */}
                             <div style={{background:cardBg,border:`1px solid ${borderC}`,borderRadius:12,padding:'12px',display:'flex',flexDirection:'column',gap:8}}>
                                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                                    <span style={{fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:textM}}>🔍 Filters</span>
+                                    <span style={{fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:textM,display:'inline-flex',alignItems:'center',gap:'4px'}}><Icon name='filter' size={11} color={textM} />Filters</span>
                                     {hasActiveFilters && (
                                         <button onClick={clearFilters}
                                             style={{fontSize:11,color:'#6366F1',background:'none',border:'none',cursor:'pointer',padding:0,fontWeight:600}}>
@@ -6413,12 +6413,12 @@
                             {!selected ? (
                                 <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
                                     height:'100%',gap:12,color:textM}}>
-                                    <span style={{fontSize:48}}>📜</span>
+                                    <Icon name='scroll-text' size={48} color={dm?'#4a607f':'#CBD5E1'} />
                                     <p style={{fontSize:14,margin:0}}>Select a ticket to view its full log</p>
                                 </div>
                             ) : logLoading ? (
-                                <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:textM,fontSize:14}}>
-                                    ⏳ Loading log…
+                                <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:textM,fontSize:14,gap:'8px'}}>
+                                    <Icon name='loader' size={18} color={textM} /> Loading log…
                                 </div>
                             ) : logError ? (
                                 <div style={{padding:24,color:'#EF4444',fontSize:13}}>{logError}</div>
@@ -6438,16 +6438,16 @@
                                                     <span style={{fontSize:10,fontWeight:600,padding:'3px 9px',borderRadius:20,background:sb,color:sc}}>{ticket.status}</span>
                                                 </div>
                                                 {ticket.priorityLabel && (
-                                                    <span style={{fontSize:11,color:textM}}>🔥 {ticket.priorityLabel}</span>
+                                                    <span style={{fontSize:11,color:textM,display:'inline-flex',alignItems:'center',gap:'3px'}}><Icon name='zap' size={11} color={textM} />{ticket.priorityLabel}</span>
                                                 )}
                                             </div>
                                             <h2 style={{fontSize:16,fontWeight:700,color:textP,margin:'0 0 6px'}}>{ticket.title}</h2>
                                             <div style={{display:'flex',gap:16,flexWrap:'wrap',fontSize:11,color:textM}}>
-                                                <span>👤 Raised by: <strong>{ticket.requesterName||'—'}</strong></span>
-                                                <span>🛠 Assigned to: <strong>{ticket.assigneeName||'Unassigned'}</strong></span>
+                                                <span style={{display:'inline-flex',alignItems:'center',gap:'3px'}}><Icon name='user' size={11} color={textM} />Raised by: <strong>{ticket.requesterName||'—'}</strong></span>
+                                                <span style={{display:'inline-flex',alignItems:'center',gap:'3px'}}><Icon name='wrench' size={11} color={textM} />Assigned to: <strong>{ticket.assigneeName||'Unassigned'}</strong></span>
                                                 {ticket.categoryLabel && <CatBadge label={ticket.categoryLabel} />}
-                                                <span>📅 Created: <strong>{fmtTime(ticket.createdAt)}</strong></span>
-                                                {ticket.closedAt && <span>🔒 Closed: <strong>{fmtTime(ticket.closedAt)}</strong></span>}
+                                                <span style={{display:'inline-flex',alignItems:'center',gap:'3px'}}><Icon name='calendar' size={11} color={textM} />Created: <strong>{fmtTime(ticket.createdAt)}</strong></span>
+                                                {ticket.closedAt && <span style={{display:'inline-flex',alignItems:'center',gap:'3px'}}><Icon name='lock' size={11} color={textM} />Closed: <strong>{fmtTime(ticket.closedAt)}</strong></span>}
                                             </div>
                                         </div>
 
@@ -6531,7 +6531,7 @@
                                                                         <div style={{marginTop:6,padding:'6px 10px',background:dm?'rgba(255,255,255,0.03)':'#F8FAFC',
                                                                             borderRadius:7,fontSize:12,color:textM,borderLeft:`3px solid ${cfg.color}`}}>
                                                                             "{d.text}"
-                                                                            {d.isInternal && <span style={{fontSize:10,color:'#D97706',marginLeft:8}}>🔒 Internal</span>}
+                                                                            {d.isInternal && <span style={{fontSize:10,color:'#D97706',marginLeft:8,display:'inline-flex',alignItems:'center',gap:'2px'}}><Icon name='lock' size={10} color='#D97706' />Internal</span>}
                                                                         </div>
                                                                     )}
                                                                     {entry.type === 'approval' && d.comments && (
@@ -7051,7 +7051,7 @@
                         {/* Page header */}
                         <div style={{marginBottom:20,display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:12}}>
                             <div>
-                                <h1 style={{fontSize:22,fontWeight:800,color:textP,marginBottom:2}}>📊 Reports</h1>
+                                <h1 style={{fontSize:22,fontWeight:800,color:textP,marginBottom:2,display:'flex',alignItems:'center',gap:'8px'}}><Icon name='bar-chart' size={20} color={dm?'#818cf8':'#4F46E5'} />Reports</h1>
                                 <p style={{fontSize:13,color:textM}}>
                                     {loading ? 'Loading...' : `${allTickets.length} tickets from live data`}
                                 </p>
@@ -7060,7 +7060,7 @@
 
                         {/* ── Filters row ── */}
                         <div style={{...s.card, marginBottom:16}}>
-                            <p style={{fontSize:12,fontWeight:700,color:dm?'#c0cfec':'#334155',marginBottom:12}}>🔍 Filters — applied to all exports</p>
+                            <p style={{fontSize:12,fontWeight:700,color:dm?'#c0cfec':'#334155',marginBottom:12,display:'flex',alignItems:'center',gap:'5px'}}><Icon name='filter' size={12} color={dm?'#c0cfec':'#334155'} />Filters — applied to all exports</p>
                             <div style={{display:'grid',gridTemplateColumns:period==='custom'?'2fr 1fr 1fr 1fr 1fr':'2fr 1fr 1fr',gap:12,alignItems:'end'}}>
                                 {/* Period */}
                                 <div>
@@ -7096,8 +7096,8 @@
                             {/* Active filter chips */}
                             <div style={{marginTop:10,display:'flex',gap:6,flexWrap:'wrap'}}>
                                 {period!=='all_time'&&<span style={{fontSize:11,background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:'#4F46E5',padding:'3px 10px',borderRadius:20,fontWeight:600,display:'inline-flex',alignItems:'center',gap:4}}><Icon name='calendar' size={11} color='#4F46E5' />{PERIOD_OPTS.find(o=>o.v===period)?.l||period}</span>}
-                                {categoryFilter!=='all'&&<span style={{fontSize:11,background:'#F0FDF4',color:'#166534',padding:'3px 10px',borderRadius:20,fontWeight:600}}>📂 {categoryFilter}</span>}
-                                {priorityFilter!=='all'&&<span style={{fontSize:11,background:dm?'rgba(249,115,22,0.15)':'#FFF7ED',color:dm?'#fdba74':'#C2410C',padding:'3px 10px',borderRadius:20,fontWeight:600}}>🎯 {priorityFilter}</span>}
+                                {categoryFilter!=='all'&&<span style={{fontSize:11,background:'#F0FDF4',color:'#166534',padding:'3px 10px',borderRadius:20,fontWeight:600,display:'inline-flex',alignItems:'center',gap:'3px'}}><Icon name='folder' size={11} color='#166534' />{categoryFilter}</span>}
+                                {priorityFilter!=='all'&&<span style={{fontSize:11,background:dm?'rgba(249,115,22,0.15)':'#FFF7ED',color:dm?'#fdba74':'#C2410C',padding:'3px 10px',borderRadius:20,fontWeight:600,display:'inline-flex',alignItems:'center',gap:'3px'}}><Icon name='target' size={11} color={dm?'#fdba74':'#C2410C'} />{priorityFilter}</span>}
                                 <span style={{fontSize:11,background:dm?'rgba(4,8,20,0.6)':'#F8FAFF',color:textM,padding:'3px 10px',borderRadius:20,fontWeight:600}}>{preview.rows.length} records match</span>
                             </div>
                         </div>
@@ -7105,7 +7105,7 @@
                         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}>
                             {/* ── LEFT: Report type selector ── */}
                             <div style={s.card}>
-                                <p style={{fontSize:13,fontWeight:700,color:textP,marginBottom:14}}>📋 Report Type</p>
+                                <p style={{fontSize:13,fontWeight:700,color:textP,marginBottom:14,display:'flex',alignItems:'center',gap:'6px'}}><Icon name='clipboard-list' size={14} color={textP} />Report Type</p>
                                 <div style={{display:'flex',flexDirection:'column',gap:12,maxHeight:480,overflowY:'auto',paddingRight:4}}>
                                     {REPORT_GROUPS.map(g=>(
                                         <div key={g.group}>
@@ -7131,25 +7131,25 @@
                                         {REPORT_TYPES.find(r=>r.id===reportType)?.label}
                                     </p>
                                     <p style={{fontSize:22,fontWeight:800,color:textP,marginTop:4}}>{preview.rows.length} <span style={{fontSize:13,fontWeight:500,color:textM}}>records ready to export</span></p>
-                                    {preview.rows.length===0&&<p style={{fontSize:12,color:'#DC2626',marginTop:4}}>⚠ No records match — try "All Time" or adjust your filters</p>}
+                                    {preview.rows.length===0&&<p style={{fontSize:12,color:'#DC2626',marginTop:4,display:'flex',alignItems:'center',gap:'4px'}}><Icon name='alert-triangle' size={12} color='#DC2626' />No records match — try "All Time" or adjust your filters</p>}
                                 </div>
 
                                 {/* Export Only */}
                                 <div style={s.card}>
-                                    <p style={{fontSize:13,fontWeight:700,color:textP,marginBottom:12}}>📥 Export</p>
+                                    <p style={{fontSize:13,fontWeight:700,color:textP,marginBottom:12,display:'flex',alignItems:'center',gap:'6px'}}><Icon name='download' size={14} color={textP} />Export</p>
                                     <div style={{display:'flex',gap:10}}>
                                         <button onClick={handleExportXLSX} disabled={exporting} style={{...s.btnPri,flex:1,opacity:exporting?0.6:1}}>
-                                            <span>📊</span>{exporting?'Exporting…':'Excel (.xlsx)'}
+                                            <Icon name='bar-chart' size={14} color='#fff' />{exporting?'Exporting…':'Excel (.xlsx)'}
                                         </button>
                                         <button onClick={handleExportCSV} style={{...s.btnPri,flex:1}}>
-                                            <span>📄</span>CSV (.csv)
+                                            <Icon name='scroll-text' size={14} color='#fff' />CSV (.csv)
                                         </button>
                                     </div>
                                 </div>
 
                                 {/* Email */}
                                 <div style={s.card}>
-                                    <p style={{fontSize:13,fontWeight:700,color:textP,marginBottom:12}}>📧 Email Report</p>
+                                    <p style={{fontSize:13,fontWeight:700,color:textP,marginBottom:12,display:'flex',alignItems:'center',gap:'6px'}}><Icon name='mail' size={14} color={textP} />Email Report</p>
                                     <div style={{marginBottom:10}}>
                                         <span style={s.lbl}>Recipient(s)</span>
                                         <input type="text" value={emailTo} onChange={e=>setEmailTo(e.target.value)} placeholder="email@company.com, another@co.com" style={s.inp}/>
@@ -7160,10 +7160,10 @@
                                     </div>
                                     <div style={{display:'flex',gap:8}}>
                                         <button onClick={handleSendEmail} disabled={sending||!emailTo.trim()} style={{...s.btnPri,flex:1,opacity:(sending||!emailTo.trim())?0.6:1}}>
-                                            <span>📤</span>{sending?'Sending…':'Send Report'}
+                                            <Icon name='send' size={14} color='#fff' />{sending?'Sending…':'Send Report'}
                                         </button>
                                         <button onClick={handleExportAndSend} disabled={exporting||sending||!emailTo.trim()} style={{...s.btnPri,flex:1,opacity:(exporting||sending||!emailTo.trim())?0.6:1}}>
-                                            <span>⚡</span>Export & Send
+                                            <Icon name='zap' size={14} color='#fff' />Export & Send
                                         </button>
                                     </div>
                                 </div>
@@ -7171,7 +7171,7 @@
                                 {/* Schedule */}
                                 <div style={s.card}>
                                     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
-                                        <p style={{fontSize:13,fontWeight:700,color:textP}}>🕐 Schedules</p>
+                                        <p style={{fontSize:13,fontWeight:700,color:textP,display:'flex',alignItems:'center',gap:'6px'}}><Icon name='clock' size={14} color={textP} />Schedules</p>
                                         <button onClick={()=>{ setSchedReportType(reportType); setShowSchedModal(true); }} style={{...s.btnPri,padding:'6px 12px',fontSize:12}}>+ Add</button>
                                     </div>
                                     {schedules.length===0?(
@@ -7201,7 +7201,7 @@
                     {showSchedModal&&(
                         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={()=>{setShowSchedModal(false);setSchedRecipients([]);}}>
                             <div style={{background:cardBg,borderRadius:16,padding:28,width:480,maxWidth:'92vw',boxShadow:'0 20px 60px rgba(0,0,0,0.2)',maxHeight:'90vh',overflowY:'auto'}} onClick={e=>e.stopPropagation()}>
-                                <h3 style={{fontSize:16,fontWeight:700,color:textP,marginBottom:20}}>🕐 Schedule a Report</h3>
+                                <h3 style={{fontSize:16,fontWeight:700,color:textP,marginBottom:20,display:'flex',alignItems:'center',gap:'7px'}}><Icon name='clock' size={16} color={textP} />Schedule a Report</h3>
 
                                 <div style={{marginBottom:14}}>
                                     <span style={s.lbl}>Report Type</span>
@@ -7255,7 +7255,7 @@
                                 </div>
 
                                 <div style={{display:'flex',gap:10}}>
-                                    <button onClick={handleSaveSchedule} style={{...s.btnPri,flex:1}}>✅ Save Schedule</button>
+                                    <button onClick={handleSaveSchedule} style={{...s.btnPri,flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}}><Icon name='check-circle' size={14} color='#fff' />Save Schedule</button>
                                     <button onClick={()=>{setShowSchedModal(false);setSchedRecipients([]);}} style={{...s.btnOut,flex:1}}>Cancel</button>
                                 </div>
                             </div>
@@ -7401,7 +7401,7 @@
                     <div style={{maxWidth:1100, margin:'0 auto'}}>
                         {/* Header */}
                         <div style={{marginBottom:24}}>
-                            <h1 style={{fontSize:22,fontWeight:800,color:txt,margin:0}}>✉️ Email Configuration</h1>
+                            <h1 style={{fontSize:22,fontWeight:800,color:txt,margin:0,display:'flex',alignItems:'center',gap:'8px'}}><Icon name='mail-cog' size={22} color={txt} />Email Configuration</h1>
                             <p style={{fontSize:13,color:muted,margin:'4px 0 0'}}>Manage email delivery, view logs, and test configuration. Bootstrap Admin only.</p>
                         </div>
 
@@ -7485,7 +7485,7 @@
                                                 <tr key={l.id} style={{borderBottom:`1px solid ${bdr}`}}>
                                                     <td style={{padding:'9px 14px',color:txt,maxWidth:180,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.recipient_email}</td>
                                                     <td style={{padding:'9px 14px',color:txt,maxWidth:280,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={l.subject}>{l.subject}</td>
-                                                    <td style={{padding:'9px 14px'}}>{statusBadge(l.status)}{l.error_message && <span title={l.error_message} style={{marginLeft:4,cursor:'help',color:'#EF4444'}}>⚠</span>}</td>
+                                                    <td style={{padding:'9px 14px'}}>{statusBadge(l.status)}{l.error_message && <span title={l.error_message} style={{marginLeft:4,cursor:'help',color:'#EF4444',display:'inline-flex',alignItems:'center'}}><Icon name='alert-triangle' size={13} color='#EF4444' /></span>}</td>
                                                     <td style={{padding:'9px 14px',color:muted}}>{l.ticket_id ? `#${l.ticket_id}` : '—'}</td>
                                                     <td style={{padding:'9px 14px',color:muted,whiteSpace:'nowrap'}}>{l.sent_at ? new Date(l.sent_at).toLocaleString('en-AU',{dateStyle:'short',timeStyle:'short'}) : '—'}</td>
                                                 </tr>
