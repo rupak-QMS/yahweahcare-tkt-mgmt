@@ -223,20 +223,22 @@
         }
 
         // Authenticated fetch — on 401, auto-refresh token and retry once.
-        // On second 401, redirects to login page.
+        // On second 401, redirects to login page UNLESS opts.noRedirect is true.
         async function authFetch(url, opts = {}) {
-            const res = await fetch(url, { credentials: 'include', ...opts, headers: authHeaders(opts.headers || {}) });
+            const { noRedirect, ...fetchOpts } = opts;
+            const res = await fetch(url, { credentials: 'include', ...fetchOpts, headers: authHeaders(fetchOpts.headers || {}) });
             if (res.status !== 401) return res;
             // Try refreshing token once
             const refreshed = await refreshAccessToken();
             if (!refreshed) {
+                if (noRedirect) return res; // caller handles the 401 gracefully
                 // Token and refresh both failed — bounce to login
                 sessionStorage.clear();
                 window.location.href = window.location.pathname + '?session_expired=1';
                 return res;
             }
             // Retry with fresh token
-            return fetch(url, { credentials: 'include', ...opts, headers: authHeaders(opts.headers || {}) });
+            return fetch(url, { credentials: 'include', ...fetchOpts, headers: authHeaders(fetchOpts.headers || {}) });
         }
 
         // Schedule a token refresh 2 minutes before the 15-minute access token expiry
@@ -779,9 +781,16 @@
                                 <div style={{padding:'10px 16px', borderTop:`1px solid ${border}`, flexShrink:0, display:'flex', gap:8, alignItems:'center', justifyContent:'space-between'}}>
                                     <button onClick={async () => {
                                         try {
-                                            const r = await authFetch(`${HRMS_API}/push/test`, { method:'POST' });
-                                            if (r.ok) { loadNotifications(); showToast('🔔 Demo notification sent!'); }
-                                            else showToast('Push not set up yet — check VAPID keys');
+                                            const r = await authFetch(`${HRMS_API}/push/test`, { method:'POST', noRedirect: true });
+                                            if (r.ok) {
+                                                const data = await r.json().catch(() => ({}));
+                                                loadNotifications();
+                                                showToast(data.pushSent > 0 ? '🔔 Push notification sent!' : '📬 In-app notification sent (allow browser notifications for push)');
+                                            } else if (r.status === 401) {
+                                                showToast('Session expired — please sign in again');
+                                            } else {
+                                                showToast('Push not configured — check VAPID keys in Vercel');
+                                            }
                                         } catch { showToast('Failed to send test notification'); }
                                     }} style={{fontSize:11,fontWeight:600,color:darkMode?'#818cf8':'#4F46E5',background:darkMode?'rgba(99,102,241,0.1)':'#EEF2FF',border:`1px solid ${darkMode?'rgba(99,102,241,0.3)':'#C7D2FE'}`,borderRadius:6,padding:'5px 10px',cursor:'pointer'}}>
                                         🔔 Send test notification
@@ -7685,6 +7694,21 @@
                 return () => clearInterval(t);
             }, [currentUser]);
 
+            // ── Session heartbeat ────────────────────────────────────────────────
+            // The backend revokes sessions after 30 min of inactivity (no authenticated calls).
+            // Ping /auth/me every 20 min to keep the session alive while the page is open.
+            React.useEffect(() => {
+                if (!currentUser) return;
+                const ping = () => {
+                    fetch(`${HRMS_API}/auth/me`, {
+                        credentials: 'include',
+                        headers: authHeaders(),
+                    }).catch(() => {}); // silent — just keeping the session alive
+                };
+                const hb = setInterval(ping, 20 * 60 * 1000);
+                return () => clearInterval(hb);
+            }, [currentUser]);
+
             // Sign Back In — redirect to backend which handles PKCE with Microsoft
             const handleSignBackIn = () => {
                 setAuthError(null);
@@ -7739,6 +7763,7 @@
                             console.info('[push] existing subscription found — refreshing with backend ✓');
                             await authFetch(`${HRMS_API}/push/subscribe`, {
                                 method: 'POST',
+                                noRedirect: true,
                                 body: JSON.stringify({
                                     endpoint: existing.endpoint,
                                     keys: {
@@ -7772,6 +7797,7 @@
                         const subJson = sub.toJSON();
                         const saveRes = await authFetch(`${HRMS_API}/push/subscribe`, {
                             method: 'POST',
+                            noRedirect: true,
                             body: JSON.stringify({ endpoint: subJson.endpoint, keys: subJson.keys }),
                         });
                         if (saveRes.ok) console.info('[push] subscription saved to backend ✓ — push notifications active');
