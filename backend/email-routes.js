@@ -153,8 +153,10 @@ module.exports = function emailRoutes(pool, auth) {
       for (const entry of rows) await processQueueEntry(entry);
     } catch (e) { console.error('[email-worker] error:', e.message); }
   }
-  // Delay first run 5s (let DB/tables settle on cold start)
-  setTimeout(() => { runWorker(); setInterval(runWorker, 60000); }, 5000);
+  // Delay first run 5s — skip in test environment
+  if (process.env.NODE_ENV !== 'test') {
+    setTimeout(() => { runWorker(); setInterval(runWorker, 60000); }, 5000);
+  }
 
   // ── GET /email/config ────────────────────────────────────────
   router.get('/email/config', (req, res) => {

@@ -94,10 +94,10 @@ module.exports = function pushRoutes(pool, auth) {
       });
       const results = await Promise.allSettled(
         rows.map(sub =>
-          webpush.sendNotification(
+          Promise.resolve(webpush.sendNotification(
             { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
             payload
-          ).catch(async err => {
+          )).catch(async err => {
             // 410 Gone = subscription expired — remove it
             if (err.statusCode === 410) {
               await pool.query('DELETE FROM yc_tkt_mgmt.push_subscriptions WHERE endpoint = $1', [sub.endpoint]);
