@@ -6,7 +6,11 @@
 
 const express = require('express');
 
-module.exports = function(pool) {
+module.exports = function(pool, sendPushToUser, queueEmail) {
+    // Fallback no-ops so callers don't need to pass them
+    if (typeof sendPushToUser !== 'function') sendPushToUser = async () => {};
+    if (typeof queueEmail    !== 'function') queueEmail    = async () => {};
+
     const router = express.Router();
 
     // ==================== CREATE TICKET WITH APPROVERS ====================
@@ -61,12 +65,12 @@ module.exports = function(pool) {
                 [ticket.id, 'Created', JSON.stringify(ticket), created_by]
             );
 
-            // Create notifications for approvers
+            // Create notifications for approvers + push + email
             for (const approverId of approver_ids) {
                 await client.query(
                     `INSERT INTO yc_tkt_mgmt.notifications
-                    (user_id, ticket_id, notification_type, title, message, related_user_id)
-                    VALUES ($1, $2, $3, $4, $5, $6)`,
+                    (user_id, ticket_id, notification_type, title, message, related_user_id, push_sent)
+                    VALUES ($1, $2, $3, $4, $5, $6, false)`,
                     [
                         approverId,
                         ticket.id,
@@ -76,6 +80,28 @@ module.exports = function(pool) {
                         created_by
                     ]
                 );
+                // Push notification
+                sendPushToUser(pool, approverId, {
+                    title: `Approval Required: ${title}`,
+                    body:  'A new ticket requires your approval.',
+                    data:  { url: '/#tickets' },
+                }).catch(() => {});
+            }
+
+            // Queue email to each approver
+            const approverEmails = await pool.query(
+                `SELECT id, email, name FROM yc_tkt_mgmt.users WHERE id = ANY($1::int[])`,
+                [approver_ids]
+            );
+            for (const approver of approverEmails.rows) {
+                await queueEmail(pool, {
+                    to:        approver.email,
+                    subject:   `[Yahweahcare] Approval Required: ${title}`,
+                    bodyText:  `Hi ${approver.name.split(' ')[0]},\n\nA new ticket requires your approval.\n\nTicket: ${title}\nPriority: ${priority_id || 'Medium'}\n\nPlease log in to review and approve or reject this ticket.`,
+                    ticketId:  ticket.id,
+                    ticketRef: ticket.ticket_number || `#${ticket.id}`,
+                    eventName: 'ApprovalRequested',
+                });
             }
 
             await client.query('COMMIT');
@@ -171,91 +197,89 @@ module.exports = function(pool) {
                 [id, approval_status, JSON.stringify({ approval_status, comments }), approver_id]
             );
 
+            // Helper: notify recipients with push + email
+            async function notifyRecipients(recipientIds, notifType, notifTitle, notifMsg, pushBody, emailSubject, emailBodyFn) {
+                // Look up user details for email/push
+                const userRows = recipientIds.filter(Boolean);
+                if (!userRows.length) return;
+                const usersRes = await pool.query(
+                    `SELECT id, email, name FROM yc_tkt_mgmt.users WHERE id = ANY($1::int[])`,
+                    [userRows]
+                );
+                for (const u of usersRes.rows) {
+                    await client.query(
+                        `INSERT INTO yc_tkt_mgmt.notifications
+                        (user_id, ticket_id, notification_type, title, message, related_user_id, push_sent)
+                        VALUES ($1, $2, $3, $4, $5, $6, false)`,
+                        [u.id, id, notifType, notifTitle, notifMsg, approver_id]
+                    );
+                    // Push
+                    sendPushToUser(pool, u.id, {
+                        title: notifTitle,
+                        body:  pushBody,
+                        data:  { url: '/#tickets' },
+                    }).catch(() => {});
+                    // Email
+                    await queueEmail(pool, {
+                        to:        u.email,
+                        subject:   emailSubject,
+                        bodyText:  emailBodyFn(u),
+                        ticketId:  id,
+                        ticketRef: ticket.ticket_number || `#${id}`,
+                        eventName: notifType,
+                    });
+                }
+            }
+
             // Handle approval based on mode
             if (approval_status === 'Approved') {
                 if (ticket.approval_mode === 'AnyOne') {
-                    // Close ticket immediately
                     await client.query(
                         `UPDATE yc_tkt_mgmt.tickets
-                        SET closed_date = CURRENT_TIMESTAMP,
-                            updated_at = CURRENT_TIMESTAMP
-                        WHERE id = $1`,
-                        [id]
+                        SET closed_date = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+                        WHERE id = $1`, [id]
                     );
-
-                    // Notify creator and assignee
-                    const recipients = [ticket.created_by, ticket.assigned_to].filter(Boolean);
-                    for (const recipientId of recipients) {
-                        await client.query(
-                            `INSERT INTO yc_tkt_mgmt.notifications
-                            (user_id, ticket_id, notification_type, title, message, related_user_id)
-                            VALUES ($1, $2, $3, $4, $5, $6)`,
-                            [
-                                recipientId,
-                                id,
-                                'TicketClosed',
-                                `Ticket Approved: ${ticket.title}`,
-                                `Your ticket has been approved and closed.`,
-                                approver_id
-                            ]
-                        );
-                    }
+                    await notifyRecipients(
+                        [ticket.created_by, ticket.assigned_to],
+                        'TicketClosed',
+                        `Ticket Approved: ${ticket.title}`,
+                        'Your ticket has been approved and closed.',
+                        'Your ticket has been approved and closed.',
+                        `[Yahweahcare] Ticket Approved: ${ticket.title}`,
+                        u => `Hi ${u.name.split(' ')[0]},\n\nYour ticket "${ticket.title}" has been approved and closed.\n\n— Yahweahcare Service Desk`
+                    );
                 } else if (ticket.approval_mode === 'AllMustApprove') {
-                    // Check if all approvers have approved
                     const pendingResult = await client.query(
-                        `SELECT COUNT(*) as pending_count
-                        FROM yc_tkt_mgmt.ticket_approvers
-                        WHERE ticket_id = $1 AND approval_status = 'Pending'`,
-                        [id]
+                        `SELECT COUNT(*) as pending_count FROM yc_tkt_mgmt.ticket_approvers
+                        WHERE ticket_id = $1 AND approval_status = 'Pending'`, [id]
                     );
-
                     if (pendingResult.rows[0].pending_count === 0) {
-                        // All approved, close ticket
                         await client.query(
                             `UPDATE yc_tkt_mgmt.tickets
-                            SET closed_date = CURRENT_TIMESTAMP,
-                                updated_at = CURRENT_TIMESTAMP
-                            WHERE id = $1`,
-                            [id]
+                            SET closed_date = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+                            WHERE id = $1`, [id]
                         );
-
-                        // Notify creator and assignee
-                        const recipients = [ticket.created_by, ticket.assigned_to].filter(Boolean);
-                        for (const recipientId of recipients) {
-                            await client.query(
-                                `INSERT INTO yc_tkt_mgmt.notifications
-                                (user_id, ticket_id, notification_type, title, message, related_user_id)
-                                VALUES ($1, $2, $3, $4, $5, $6)`,
-                                [
-                                    recipientId,
-                                    id,
-                                    'TicketClosed',
-                                    `Ticket Approved: ${ticket.title}`,
-                                    `Your ticket has been approved by all.`,
-                                    approver_id
-                                ]
-                            );
-                        }
+                        await notifyRecipients(
+                            [ticket.created_by, ticket.assigned_to],
+                            'TicketClosed',
+                            `Ticket Approved: ${ticket.title}`,
+                            'Your ticket has been approved by all approvers and closed.',
+                            'Your ticket has been approved and closed.',
+                            `[Yahweahcare] Ticket Approved: ${ticket.title}`,
+                            u => `Hi ${u.name.split(' ')[0]},\n\nYour ticket "${ticket.title}" has been approved by all required approvers and is now closed.\n\n— Yahweahcare Service Desk`
+                        );
                     }
                 }
             } else if (approval_status === 'Rejected') {
-                // Notify creator and assignee
-                const recipients = [ticket.created_by, ticket.assigned_to].filter(Boolean);
-                for (const recipientId of recipients) {
-                    await client.query(
-                        `INSERT INTO yc_tkt_mgmt.notifications
-                        (user_id, ticket_id, notification_type, title, message, related_user_id)
-                        VALUES ($1, $2, $3, $4, $5, $6)`,
-                        [
-                            recipientId,
-                            id,
-                            'TicketRejected',
-                            `Ticket Rejected: ${ticket.title}`,
-                            `Your ticket was rejected. Reason: ${comments}`,
-                            approver_id
-                        ]
-                    );
-                }
+                await notifyRecipients(
+                    [ticket.created_by, ticket.assigned_to],
+                    'TicketRejected',
+                    `Ticket Rejected: ${ticket.title}`,
+                    `Your ticket was rejected. Reason: ${comments}`,
+                    'Your ticket has been rejected.',
+                    `[Yahweahcare] Ticket Rejected: ${ticket.title}`,
+                    u => `Hi ${u.name.split(' ')[0]},\n\nYour ticket "${ticket.title}" was rejected.\n\nReason: ${comments || 'No reason provided.'}\n\n— Yahweahcare Service Desk`
+                );
             }
 
             await client.query('COMMIT');

@@ -216,15 +216,23 @@ app.post('/api/tickets', auth, async (req, res) => {
     `, [tn, title.trim(), description || '', category_id || 'general', priority_id || 'medium', req.user.id, site || req.user.site, String(sla)]);
     await pool.query(`INSERT INTO yc_tkt_mgmt.activity (ticket_id, actor_id, action_type, to_value) VALUES ($1, $2, 'created', 'new')`, [r.rows[0].id, req.user.id]);
 
-    // Queue email notification to requester
-    await pool.query(`
-      INSERT INTO yc_tkt_mgmt.notifications (recipient_id, recipient_email, ticket_id, channel, subject, body)
-      VALUES ($1, $2, $3, 'email', $4, $5)
-    `, [req.user.id, req.user.email, r.rows[0].id,
-        `[Yahweahcare] Ticket ${tn} received: ${title}`,
-        `Hi ${req.user.name.split(' ')[0]},\n\nWe've received your ticket "${title}". SLA target: ${sla}h.\n\n— Yahweahcare Service Desk`]);
+    const ticketId = r.rows[0].id;
+    const emailSubject = `[Yahweahcare] Ticket ${tn} received: ${title}`;
+    const emailBody    = `Hi ${req.user.name.split(' ')[0]},\n\nWe've received your ticket "${title}". SLA target: ${sla}h.\n\n— Yahweahcare Service Desk`;
 
-    res.status(201).json({ id: r.rows[0].id, ticket_number: tn });
+    // Queue email to requester
+    await queueEmail(pool, {
+      to: req.user.email, subject: emailSubject, bodyText: emailBody,
+      ticketId, ticketRef: tn, eventName: 'TicketCreated',
+    });
+    // Push to requester
+    sendPushToUser(pool, req.user.id, {
+      title: `Ticket ${tn} received`,
+      body:  `"${title}" has been logged. SLA: ${sla}h.`,
+      data:  { url: '/#tickets' },
+    }).catch(() => {});
+
+    res.status(201).json({ id: ticketId, ticket_number: tn });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
@@ -369,13 +377,21 @@ app.get('/api/dashboard', auth, requireRole('agent', 'manager', 'admin'), async 
 // ============================================================
 // PUSH NOTIFICATION ROUTES
 // ============================================================
+const { sendPushToUser } = require('./push-routes.js');
 const pushRoutes = require('./push-routes.js')(pool, auth);
 app.use('/api', pushRoutes);
 
 // ============================================================
+// EMAIL ROUTES
+// ============================================================
+const { queueEmail } = require('./email-routes.js');
+const emailRoutes = require('./email-routes.js')(pool, auth);
+app.use('/api', emailRoutes);
+
+// ============================================================
 // ENTERPRISE APPROVAL WORKFLOW ROUTES
 // ============================================================
-const enterpriseRoutes = require('./enterprise-routes.js')(pool);
+const enterpriseRoutes = require('./enterprise-routes.js')(pool, sendPushToUser, queueEmail);
 app.use('/api', enterpriseRoutes);
 
 // ============================================================
