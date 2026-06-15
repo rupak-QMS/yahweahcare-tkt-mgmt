@@ -559,9 +559,7 @@
             const [notifTotal,    setNotifTotal]    = React.useState(0);
             const [appToast,      setAppToast]      = React.useState('');
             const showToast = (msg) => { setAppToast(msg); setTimeout(() => setAppToast(''), 3500); };
-            const [notifPermission, setNotifPermission] = React.useState(() =>
-                typeof Notification !== 'undefined' ? Notification.permission : 'default'
-            );
+            const [pushStatus, setPushStatus] = React.useState('idle'); // idle | loading | subscribed | denied | unsupported | error
 
             // Load notifications page 1 (replaces existing list)
             const loadNotifications = React.useCallback(() => {
@@ -701,7 +699,7 @@
 
                     {/* Notifications */}
                     <div style={{position:'relative'}}>
-                        <button onClick={e => { e.stopPropagation(); setNotifOpen(o => !o); if (!notifOpen) { loadNotifications(); setNotifPermission(typeof Notification !== 'undefined' ? Notification.permission : 'default'); } }}
+                        <button onClick={e => { e.stopPropagation(); setNotifOpen(o => !o); if (!notifOpen) { loadNotifications(); } }}
                             style={iconBtn({background: notifOpen ? '#EEF2FF' : iconBg, position:'relative'})}
                             title="Notifications">
                             <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
@@ -727,30 +725,6 @@
                                         <button onClick={markAllRead} style={{fontSize:11,color:darkMode?'#818cf8':'#4F46E5',background:'none',border:'none',cursor:'pointer',padding:0}}>Mark all read</button>
                                     )}
                                 </div>
-                                {notifPermission === 'denied' && (
-                                    <div style={{padding:'10px 14px', background:darkMode?'rgba(239,68,68,0.12)':'#FEF2F2', borderBottom:`1px solid ${darkMode?'rgba(239,68,68,0.3)':'#FECACA'}`, display:'flex', gap:8, alignItems:'flex-start'}}>
-                                        <span style={{fontSize:14, flexShrink:0}}>🔕</span>
-                                        <div>
-                                            <p style={{fontSize:11, fontWeight:700, color:darkMode?'#FCA5A5':'#DC2626', margin:'0 0 2px'}}>Browser notifications blocked</p>
-                                            <p style={{fontSize:10, color:darkMode?'#FCA5A5':'#B91C1C', margin:'0 0 4px', lineHeight:1.4}}>To receive push alerts, allow notifications for this site in your browser settings.</p>
-                                            <button onClick={() => {
-                                                if ('permissions' in navigator) {
-                                                    // Open Chrome site settings
-                                                    window.open(`chrome://settings/content/siteDetails?site=${encodeURIComponent(window.location.origin)}`, '_blank');
-                                                }
-                                            }} style={{fontSize:10, fontWeight:600, color:darkMode?'#FCA5A5':'#DC2626', background:'none', border:`1px solid ${darkMode?'rgba(239,68,68,0.4)':'#FECACA'}`, borderRadius:4, padding:'2px 8px', cursor:'pointer'}}>
-                                                How to unblock →
-                                            </button>
-                                            <button onClick={async () => {
-                                                const result = await Notification.requestPermission();
-                                                setNotifPermission(result);
-                                                if (result === 'granted') showToast('✅ Notifications enabled! Setting up push…');
-                                            }} style={{fontSize:10, fontWeight:600, color:'white', background:'#DC2626', border:'none', borderRadius:4, padding:'2px 8px', cursor:'pointer', marginLeft:6}}>
-                                                Enable now
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
                                 <div style={{overflowY:'auto', flex:1}}>
                                     {notifLoading && <div style={{padding:'16px',textAlign:'center',fontSize:12,color:subC}}>Loading…</div>}
                                     {!notifLoading && notifications.length === 0 && (
@@ -804,25 +778,66 @@
                                         </div>
                                     )}
                                 </div>
-                                {/* Footer: test notification button */}
-                                <div style={{padding:'10px 16px', borderTop:`1px solid ${border}`, flexShrink:0, display:'flex', gap:8, alignItems:'center', justifyContent:'space-between'}}>
+                                {/* Footer: push toggle + test button */}
+                                <div style={{padding:'10px 16px', borderTop:`1px solid ${border}`, flexShrink:0}}>
+                                    {/* Push status row */}
+                                    {(() => {
+                                        const perm = typeof Notification !== 'undefined' ? Notification.permission : 'unsupported';
+                                        const isBlocked = perm === 'denied';
+                                        const isUnsupported = !('PushManager' in window);
+                                        return (
+                                            <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8}}>
+                                                <div style={{display:'flex', alignItems:'center', gap:6}}>
+                                                    <span style={{fontSize:13}}>{isBlocked ? '🔕' : isUnsupported ? '⚠️' : pushStatus === 'subscribed' ? '🔔' : '🔔'}</span>
+                                                    <div>
+                                                        <p style={{fontSize:11, fontWeight:600, color:textC, margin:0}}>
+                                                            {isUnsupported ? 'Push not supported' : isBlocked ? 'Notifications blocked' : pushStatus === 'subscribed' ? 'Push notifications on' : 'Push notifications'}
+                                                        </p>
+                                                        {isBlocked && (
+                                                            <p style={{fontSize:10, color:'#DC2626', margin:'1px 0 0', lineHeight:1.3}}>
+                                                                Allow in browser settings to enable push
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                {!isUnsupported && !isBlocked && (
+                                                    <button
+                                                        disabled={pushStatus === 'loading'}
+                                                        onClick={async () => {
+                                                            setPushStatus('loading');
+                                                            const result = await subscribePush();
+                                                            setPushStatus(result);
+                                                            if (result === 'subscribed') showToast('🔔 Push notifications enabled!');
+                                                            else if (result === 'denied') showToast('Notifications blocked — allow in browser settings');
+                                                            else if (result === 'error') showToast('Could not enable push — check VAPID keys');
+                                                        }}
+                                                        style={{fontSize:11, fontWeight:600, padding:'4px 12px', borderRadius:6, border:'none', cursor: pushStatus === 'loading' ? 'default' : 'pointer', opacity: pushStatus === 'loading' ? 0.6 : 1,
+                                                            background: pushStatus === 'subscribed' ? (darkMode ? '#14532D' : '#DCFCE7') : (darkMode ? 'rgba(99,102,241,0.2)' : '#EEF2FF'),
+                                                            color: pushStatus === 'subscribed' ? (darkMode ? '#86EFAC' : '#15803D') : (darkMode ? '#818cf8' : '#4F46E5'),
+                                                        }}>
+                                                        {pushStatus === 'loading' ? 'Enabling…' : pushStatus === 'subscribed' ? '✓ Enabled' : 'Enable'}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
+                                    {/* Test button */}
                                     <button onClick={async () => {
                                         try {
                                             const r = await authFetch(`${HRMS_API}/push/test`, { method:'POST', noRedirect: true });
                                             if (r.ok) {
                                                 const data = await r.json().catch(() => ({}));
                                                 loadNotifications();
-                                                showToast(data.pushSent > 0 ? '🔔 Push notification sent!' : '📬 In-app notification sent (allow browser notifications for push)');
+                                                showToast(data.pushSent > 0 ? '🔔 Push notification sent to your browser!' : '📬 In-app notification created (enable push to receive browser alerts)');
                                             } else if (r.status === 401) {
                                                 showToast('Session expired — please sign in again');
                                             } else {
-                                                showToast('Push not configured — check VAPID keys in Vercel');
+                                                showToast('Push test failed — check server configuration');
                                             }
                                         } catch { showToast('Failed to send test notification'); }
-                                    }} style={{fontSize:11,fontWeight:600,color:darkMode?'#818cf8':'#4F46E5',background:darkMode?'rgba(99,102,241,0.1)':'#EEF2FF',border:`1px solid ${darkMode?'rgba(99,102,241,0.3)':'#C7D2FE'}`,borderRadius:6,padding:'5px 10px',cursor:'pointer'}}>
-                                        🔔 Send test notification
+                                    }} style={{width:'100%', fontSize:11, fontWeight:600, color:darkMode?'#818cf8':'#4F46E5', background:darkMode?'rgba(99,102,241,0.08)':'#F5F7FF', border:`1px solid ${darkMode?'rgba(99,102,241,0.25)':'#E0E7FF'}`, borderRadius:6, padding:'6px 0', cursor:'pointer', textAlign:'center'}}>
+                                        Send test notification
                                     </button>
-                                    <span style={{fontSize:10,color:subC}}>Demo only</span>
                                 </div>
                             </div>
                         )}
@@ -1043,35 +1058,96 @@
             );
         }
 
-        // Signed-Out / Login Screen
-        function SignedOutScreen({ onSignBackIn, onEmailLogin, authError }) {
+        // ── Branded Logout / Signed-Out Page ─────────────────────────────────────
+        function SignedOutScreen({ onSignBackIn, authError }) {
+            const [hovered, setHovered] = React.useState(false);
 
             return (
-                <div style={{minHeight: '100vh', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#F0F2F8'}}>
-                    <div style={{background: 'white', borderRadius: 20, padding: '40px 36px', textAlign: 'center', boxShadow: '0 8px 32px rgba(99,102,241,0.12)', border: '2px solid #E0E7FF', maxWidth: 400, width: '90%'}}>
+                <div style={{
+                    minHeight:'100vh', width:'100%', display:'flex', flexDirection:'column',
+                    alignItems:'center', justifyContent:'center',
+                    background:'linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #0F172A 100%)',
+                    fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
+                    position:'relative', overflow:'hidden',
+                }}>
+                    {/* Background decoration */}
+                    <div style={{position:'absolute',top:0,left:0,right:0,bottom:0,pointerEvents:'none',overflow:'hidden'}}>
+                        <div style={{position:'absolute',top:'-20%',left:'-10%',width:600,height:600,borderRadius:'50%',background:'radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%)'}}/>
+                        <div style={{position:'absolute',bottom:'-20%',right:'-10%',width:500,height:500,borderRadius:'50%',background:'radial-gradient(circle, rgba(139,92,246,0.10) 0%, transparent 70%)'}}/>
+                    </div>
 
-                        {/* Logo / avatar */}
-                        <div style={{width: 64, height: 64, borderRadius: '16px', background: 'linear-gradient(135deg,#6366F1,#8B5CF6)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', boxShadow: '0 4px 16px rgba(99,102,241,0.3)'}}>
-                            <Icon name='lock' size={28} color='#fff' />
+                    {/* Card */}
+                    <div style={{
+                        background:'rgba(255,255,255,0.04)', backdropFilter:'blur(20px)',
+                        border:'1px solid rgba(255,255,255,0.10)', borderRadius:24,
+                        padding:'48px 44px', textAlign:'center', maxWidth:420, width:'90%',
+                        boxShadow:'0 32px 64px rgba(0,0,0,0.4)', position:'relative', zIndex:1,
+                    }}>
+
+                        {/* Logo mark */}
+                        <div style={{display:'flex', justifyContent:'center', alignItems:'center', gap:14, marginBottom:28}}>
+                            <div style={{
+                                width:56, height:56, borderRadius:16,
+                                background:'linear-gradient(135deg,#6366F1,#8B5CF6)',
+                                display:'flex', alignItems:'center', justifyContent:'center',
+                                boxShadow:'0 8px 24px rgba(99,102,241,0.4)',
+                                flexShrink:0,
+                            }}>
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                            </div>
+                            <div style={{textAlign:'left'}}>
+                                <p style={{margin:0, fontSize:20, fontWeight:800, color:'#F8FAFC', letterSpacing:'-0.02em', lineHeight:1}}>YAHWEH</p>
+                                <p style={{margin:0, fontSize:20, fontWeight:800, color:'#818CF8', letterSpacing:'-0.02em', lineHeight:1}}>CARE <span style={{fontSize:10, verticalAlign:'super', fontWeight:400, color:'#94A3B8'}}>™</span></p>
+                            </div>
                         </div>
-                        <h2 style={{fontSize: 20, fontWeight: 800, color: '#0F172A', margin: '0 0 6px'}}>You've been signed out</h2>
-                        <p style={{fontSize: 13, color: '#64748B', margin: '0 0 24px', lineHeight: 1.5}}>
-                            Your app session has ended. Your Microsoft Entra account remains active.
+
+                        {/* Divider */}
+                        <div style={{height:1, background:'rgba(255,255,255,0.08)', margin:'0 0 28px'}}/>
+
+                        {/* Logout icon */}
+                        <div style={{
+                            width:64, height:64, borderRadius:'50%',
+                            background:'rgba(239,68,68,0.12)', border:'1px solid rgba(239,68,68,0.25)',
+                            display:'flex', alignItems:'center', justifyContent:'center',
+                            margin:'0 auto 20px',
+                        }}>
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" stroke="#F87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                        </div>
+
+                        <h2 style={{fontSize:22, fontWeight:800, color:'#F8FAFC', margin:'0 0 8px', letterSpacing:'-0.02em'}}>
+                            You've been signed out
+                        </h2>
+                        <p style={{fontSize:13, color:'#94A3B8', margin:'0 0 28px', lineHeight:1.6}}>
+                            Your Yahweh Care session has ended securely.<br/>Your Microsoft account remains active.
                         </p>
 
                         {/* Error banner */}
                         {authError && (
-                            <div style={{background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '9px 13px', marginBottom: 18, fontSize: 13, color: '#991B1B', textAlign: 'left'}}>
-                                <span style={{display:'inline-flex',alignItems:'center',gap:'6px'}}><Icon name='alert-triangle' size={13} color='#991B1B' />{authError}</span>
+                            <div style={{background:'rgba(239,68,68,0.12)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:10, padding:'10px 14px', marginBottom:20, fontSize:12, color:'#FCA5A5', textAlign:'left', display:'flex', alignItems:'center', gap:8}}>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{flexShrink:0}}><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01" stroke="#FCA5A5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                                {authError}
                             </div>
                         )}
 
-                        {/* Microsoft sign-in */}
+                        {/* Sign in button */}
                         <button
                             onClick={onSignBackIn}
-                            style={{background: 'linear-gradient(135deg,#6366F1,#8B5CF6)', color: 'white', border: 'none', borderRadius: 10, padding: '12px 0', fontSize: 14, fontWeight: 700, cursor: 'pointer', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 12}}
+                            onMouseEnter={() => setHovered(true)}
+                            onMouseLeave={() => setHovered(false)}
+                            style={{
+                                width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:10,
+                                padding:'13px 0', borderRadius:12, border:'none', cursor:'pointer',
+                                background: hovered ? 'linear-gradient(135deg,#4F46E5,#7C3AED)' : 'linear-gradient(135deg,#6366F1,#8B5CF6)',
+                                color:'white', fontSize:14, fontWeight:700,
+                                boxShadow: hovered ? '0 8px 24px rgba(99,102,241,0.5)' : '0 4px 16px rgba(99,102,241,0.35)',
+                                transition:'all 0.2s',
+                            }}
                         >
-                            <svg width="17" height="17" viewBox="0 0 21 21" fill="none">
+                            <svg width="18" height="18" viewBox="0 0 21 21" fill="none" style={{flexShrink:0}}>
                                 <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
                                 <rect x="11" y="1" width="9" height="9" fill="#7FBA00"/>
                                 <rect x="1" y="11" width="9" height="9" fill="#00A4EF"/>
@@ -1079,7 +1155,17 @@
                             </svg>
                             Sign in with Microsoft
                         </button>
+
+                        {/* Footer note */}
+                        <p style={{fontSize:11, color:'#475569', margin:'20px 0 0', lineHeight:1.5}}>
+                            Secure login via Microsoft Entra ID.<br/>Contact your administrator if you have trouble signing in.
+                        </p>
                     </div>
+
+                    {/* Bottom brand */}
+                    <p style={{position:'relative', zIndex:1, marginTop:24, fontSize:11, color:'rgba(255,255,255,0.2)', letterSpacing:'0.05em'}}>
+                        © {new Date().getFullYear()} Yahweh Care — Ticket Management System
+                    </p>
                 </div>
             );
         }
@@ -7744,112 +7830,81 @@
 
             // handleEmailLogin removed — Microsoft Entra is the only login method
 
-            // ── Service Worker + Web Push setup ──────────────────────
+            // ── Push Notification Setup (fresh implementation) ────────────────────
+            // Helpers used by both auto-setup and manual toggle
+            const urlBase64ToUint8Array = (b64) => {
+                const pad = '='.repeat((4 - b64.length % 4) % 4);
+                const base64 = (b64 + pad).replace(/-/g, '+').replace(/_/g, '/');
+                const raw = atob(base64);
+                const arr = new Uint8Array(raw.length);
+                for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+                return arr;
+            };
+            const bufToBase64 = (buf) => {
+                const bytes = new Uint8Array(buf);
+                let bin = '';
+                for (let i = 0; i < bytes.byteLength; i++) bin += String.fromCharCode(bytes[i]);
+                return btoa(bin);
+            };
+
+            // Core subscribe function — called on login and from manual toggle
+            // Returns: 'subscribed' | 'denied' | 'unsupported' | 'error'
+            const subscribePush = React.useCallback(async () => {
+                if (!('serviceWorker' in navigator) || !('PushManager' in window)) return 'unsupported';
+                try {
+                    const swReg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+                    await navigator.serviceWorker.ready;
+
+                    const keyRes = await fetch(`${HRMS_API}/push/vapid-public-key`);
+                    if (!keyRes.ok) return 'error';
+                    const { publicKey } = await keyRes.json();
+                    if (!publicKey) return 'error';
+
+                    // If already subscribed, just refresh the backend record
+                    const existing = await swReg.pushManager.getSubscription();
+                    if (existing) {
+                        const subJson = existing.toJSON();
+                        await authFetch(`${HRMS_API}/push/subscribe`, {
+                            method: 'POST', noRedirect: true,
+                            body: JSON.stringify({ endpoint: subJson.endpoint, keys: subJson.keys }),
+                        }).catch(() => {});
+                        return 'subscribed';
+                    }
+
+                    // Ask permission — if denied, can't proceed
+                    if (Notification.permission === 'denied') return 'denied';
+                    const permission = await Notification.requestPermission();
+                    if (permission !== 'granted') return permission === 'denied' ? 'denied' : 'error';
+
+                    // Create push subscription
+                    const sub = await swReg.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: urlBase64ToUint8Array(publicKey),
+                    });
+                    const subJson = sub.toJSON();
+                    const saveRes = await authFetch(`${HRMS_API}/push/subscribe`, {
+                        method: 'POST', noRedirect: true,
+                        body: JSON.stringify({ endpoint: subJson.endpoint, keys: subJson.keys }),
+                    });
+                    return saveRes.ok ? 'subscribed' : 'error';
+                } catch (e) {
+                    return 'error';
+                }
+            }, [currentUser]);
+
+            // Auto-run on login — silent, no UI interruption
             React.useEffect(() => {
                 if (!currentUser) return;
-                if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+                subscribePush(); // fire-and-forget; UI toggle in notification panel handles feedback
 
-                // Convert VAPID base64url public key → Uint8Array (required by PushManager.subscribe)
-                const urlBase64ToUint8Array = (b64) => {
-                    const pad = '='.repeat((4 - b64.length % 4) % 4);
-                    const base64 = (b64 + pad).replace(/-/g, '+').replace(/_/g, '/');
-                    const raw = atob(base64);
-                    const arr = new Uint8Array(raw.length);
-                    for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
-                    return arr;
-                };
-
-                // Safe ArrayBuffer → base64 string
-                const bufToBase64 = (buf) => {
-                    const bytes = new Uint8Array(buf);
-                    let bin = '';
-                    for (let i = 0; i < bytes.byteLength; i++) bin += String.fromCharCode(bytes[i]);
-                    return btoa(bin);
-                };
-
-                const setupPush = async () => {
-                    try {
-                        // 1. Register service worker and wait until active
-                        const swReg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-                        await navigator.serviceWorker.ready;
-                        console.info('[push] service worker ready ✓');
-
-                        // 2. Get VAPID public key from backend (unauthenticated endpoint)
-                        const keyRes = await fetch(`${HRMS_API}/push/vapid-public-key`);
-                        if (!keyRes.ok) {
-                            console.error('[push] VAPID keys not configured on server (HTTP', keyRes.status + '). Add VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY to Vercel env vars. Run: cd backend-hrms && npm run generate-vapid');
-                            return;
-                        }
-                        const { publicKey } = await keyRes.json();
-                        if (!publicKey) { console.error('[push] server returned empty VAPID public key'); return; }
-                        console.info('[push] VAPID public key received ✓');
-
-                        // 3. If already subscribed, re-register with backend and exit
-                        const existing = await swReg.pushManager.getSubscription();
-                        if (existing) {
-                            console.info('[push] existing subscription found — refreshing with backend ✓');
-                            await authFetch(`${HRMS_API}/push/subscribe`, {
-                                method: 'POST',
-                                noRedirect: true,
-                                body: JSON.stringify({
-                                    endpoint: existing.endpoint,
-                                    keys: {
-                                        p256dh: bufToBase64(existing.getKey('p256dh')),
-                                        auth:   bufToBase64(existing.getKey('auth')),
-                                    },
-                                }),
-                            }).catch(e => console.warn('[push] refresh failed:', e));
-                            return;
-                        }
-
-                        // 4. Request notification permission — skip silently if already denied
-                        if (Notification.permission === 'denied') {
-                            console.info('[push] notifications blocked by user — skipping');
-                            return;
-                        }
-                        const permission = await Notification.requestPermission();
-                        if (permission !== 'granted') {
-                            console.info('[push] notification permission not granted:', permission);
-                            return;
-                        }
-
-                        // 5. Subscribe — applicationServerKey MUST be Uint8Array, not a plain string
-                        const sub = await swReg.pushManager.subscribe({
-                            userVisibleOnly: true,
-                            applicationServerKey: urlBase64ToUint8Array(publicKey),
-                        });
-                        console.info('[push] browser subscription created ✓');
-
-                        // 6. Save subscription to backend
-                        const subJson = sub.toJSON();
-                        const saveRes = await authFetch(`${HRMS_API}/push/subscribe`, {
-                            method: 'POST',
-                            noRedirect: true,
-                            body: JSON.stringify({ endpoint: subJson.endpoint, keys: subJson.keys }),
-                        });
-                        if (saveRes.ok) console.info('[push] subscription saved to backend ✓ — push notifications active');
-                        else console.error('[push] subscription save failed:', saveRes.status);
-
-                    } catch(err) {
-                        console.error('[push] setup failed:', err);
-                    }
-                };
-
-                const t = setTimeout(setupPush, 1500);
-
-                // Handle SW_NAVIGATE messages from the service worker (notification clicks)
-                // The SW posts this instead of calling client.navigate() to avoid a full page reload
+                // Handle SW_NAVIGATE messages (push notification click → navigate in-app without reload)
                 const handleSwMessage = (event) => {
                     if (event.data?.type === 'SW_NAVIGATE' && event.data?.hash) {
                         window.location.hash = event.data.hash;
                     }
                 };
-                navigator.serviceWorker.addEventListener('message', handleSwMessage);
-
-                return () => {
-                    clearTimeout(t);
-                    navigator.serviceWorker.removeEventListener('message', handleSwMessage);
-                };
+                navigator.serviceWorker?.addEventListener('message', handleSwMessage);
+                return () => navigator.serviceWorker?.removeEventListener('message', handleSwMessage);
             }, [currentUser]);
 
             if (signedOut || !currentUser) {
