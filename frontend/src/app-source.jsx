@@ -2472,7 +2472,7 @@
                             </div>
                             <button onClick={()=>{ window.location.hash='create-ticket'; }}
                                 style={{display:'flex',alignItems:'center',gap:'6px',background:'#6366F1',color:'white',border:'none',borderRadius:'9px',padding:'9px 18px',fontSize:'13px',fontWeight:'600',cursor:'pointer',boxShadow:'0 1px 4px rgba(99,102,241,0.35)'}}>
-                                + New Ticket
+                                <Icon name='plus-circle' size={14} color='#fff' />New Ticket
                             </button>
                         </div>
 
@@ -2480,24 +2480,29 @@
                         {(()=>{
                             const MY_QUEUE   = ['all','mine','my_approvals','ready_to_close'];
                             const BY_STATUS  = ['open','in_progress','pending','resolved','closed','overdue'];
+                            const TAB_ICONS = {
+                                all:'clipboard-list', mine:'user', my_approvals:'bell', ready_to_close:'lock',
+                                open:'inbox', in_progress:'loader', pending:'hourglass', resolved:'check-circle', closed:'lock', overdue:'alert-triangle'
+                            };
                             const renderTab  = (g) => {
                                 const cnt = g.key==='all' ? tickets.length : tickets.filter(g.match).length;
                                 const active = filter===g.key;
                                 const isMyApprovals  = g.key==='my_approvals';
                                 const isRTC          = g.key==='ready_to_close';
+                                const isOverdue      = g.key==='overdue';
                                 const hasAlert       = (isMyApprovals||isRTC) && cnt>0;
-                                const accentColor    = isMyApprovals ? '#D97706' : isRTC ? '#059669' : '#6366F1';
+                                const accentColor    = isMyApprovals ? '#D97706' : isRTC ? '#059669' : isOverdue ? '#DC2626' : '#6366F1';
                                 const bg   = active ? accentColor : hasAlert ? (dm?`rgba(${isMyApprovals?'217,119,6':'5,150,105'},0.1)`:(isMyApprovals?'#FFFBEB':'#ECFDF5')) : 'transparent';
                                 const border= active ? accentColor : hasAlert ? (isMyApprovals?'#FDE68A':'#6EE7B7') : (dm?'rgba(99,102,241,0.12)':'#E5E7EB');
                                 const color = active ? 'white' : hasAlert ? (dm?(isMyApprovals?'#fcd34d':'#34d399'):(isMyApprovals?'#92400E':'#065F46')) : (dm?'#8fa4cc':'#64748B');
                                 const badge_bg = active?'rgba(255,255,255,0.22)':hasAlert?(dm?`rgba(${isMyApprovals?'217,119,6':'5,150,105'},0.18)`:isMyApprovals?'#FEF3C7':'#D1FAE5'):(dm?'rgba(99,102,241,0.1)':'#EEF2F8');
                                 const badge_color = active?'white':hasAlert?(dm?(isMyApprovals?'#fcd34d':'#34d399'):(isMyApprovals?'#92400E':'#065F46')):(dm?'#6b80a4':'#94A3B8');
+                                const iconColor = active ? 'white' : hasAlert ? (dm?(isMyApprovals?'#fcd34d':'#34d399'):(isMyApprovals?'#92400E':'#065F46')) : isOverdue ? '#DC2626' : (dm?'#8fa4cc':'#64748B');
                                 return (
                                     <button key={g.key} onClick={()=>setFilter(g.key)}
                                         style={{display:'inline-flex',alignItems:'center',gap:'5px',padding:'5px 11px',borderRadius:'7px',border:`1px solid ${border}`,fontSize:'11.5px',fontWeight:'600',cursor:'pointer',transition:'all 0.15s',flexShrink:0,whiteSpace:'nowrap',background:bg,color,
                                             boxShadow:active?`0 1px 4px ${accentColor}44`:'none'}}>
-                                        {isMyApprovals&&hasAlert&&<Icon name='bell' size={11} />}
-                                        {isRTC&&hasAlert&&<span style={{fontSize:'11px'}}>🔒</span>}
+                                        <Icon name={TAB_ICONS[g.key]||'clipboard-list'} size={11} color={iconColor} />
                                         {g.label}
                                         <span style={{fontSize:'10px',fontWeight:'700',borderRadius:'10px',padding:'1px 5px',minWidth:'16px',textAlign:'center',background:badge_bg,color:badge_color}}>{cnt}</span>
                                     </button>
@@ -2525,7 +2530,7 @@
                             <div style={{padding:'12px 16px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`,display:'flex',flexWrap:'wrap',gap:'8px',alignItems:'center'}}>
                                 {/* Search input */}
                                 <div style={{display:'flex',alignItems:'center',gap:'8px',flex:'1 1 220px',minWidth:'180px',background:dm?'rgba(8,16,36,0.5)':'#F8FAFF',border:`1px solid ${dm?'rgba(99,102,241,0.14)':'#E2E8F2'}`,borderRadius:'8px',padding:'6px 10px'}}>
-                                    <span style={{fontSize:'14px',color:dm?'#4a607f':'#94A3B8',flexShrink:0}}>🔍</span>
+                                    <Icon name='search' size={14} color={dm?'#4a607f':'#94A3B8'} />
                                     <input type="text" placeholder="Search by title or ticket ID…" value={search} onChange={e=>setSearch(e.target.value)}
                                         style={{flex:1,border:'none',outline:'none',fontSize:'12.5px',color:dm?'#c0cfec':'#334155',background:'transparent',minWidth:0}}/>
                                     {search && <button onClick={()=>setSearch('')} style={{border:'none',background:'none',color:dm?'#4a607f':'#94A3B8',cursor:'pointer',fontSize:'15px',padding:'0',lineHeight:1,flexShrink:0}}>×</button>}
@@ -2560,10 +2565,10 @@
 
                             {/* Table */}
                             {ticketsLoading ? (
-                                <div style={{padding:'60px',textAlign:'center',color:dm?'#4a607f':'#94A3B8',fontSize:'14px'}}>⏳ Loading tickets…</div>
+                                <div style={{padding:'60px',textAlign:'center',color:dm?'#4a607f':'#94A3B8',fontSize:'14px',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px'}}><Icon name='loader' size={18} color={dm?'#4a607f':'#94A3B8'} />Loading tickets…</div>
                             ) : filteredNew.length === 0 ? (
                                 <div style={{padding:'60px',textAlign:'center'}}>
-                                    <div style={{fontSize:'36px',marginBottom:'12px'}}>🎫</div>
+                                    <div style={{display:'flex',justifyContent:'center',marginBottom:'12px'}}><Icon name='ticket' size={40} color={dm?'#4a607f':'#CBD5E1'} /></div>
                                     <p style={{fontSize:'14px',fontWeight:'600',color:dm?'#c0cfec':'#334155',margin:'0 0 4px'}}>No tickets found</p>
                                     <p style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',margin:0}}>Try adjusting your filters or search term</p>
                                 </div>
@@ -2616,7 +2621,7 @@
                                                         <td style={{padding:'12px 14px',maxWidth:'280px'}}>
                                                             <div style={{display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}>
                                                                 <span style={{fontSize:'13px',fontWeight:'600',color:textP,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'220px'}}>{t.title}</span>
-                                                                {t.isEscalated && <span style={{fontSize:'10px',fontWeight:'700',padding:'1px 7px',borderRadius:20,background:dm?'rgba(249,115,22,0.15)':'#FFF7ED',color:dm?'#fdba74':'#C2410C',border:`1px solid ${dm?'rgba(249,115,22,0.3)':'#FED7AA'}`,flexShrink:0}}>⬆ Escalated</span>}
+                                                                {t.isEscalated && <span style={{fontSize:'10px',fontWeight:'700',padding:'1px 7px',borderRadius:20,background:dm?'rgba(249,115,22,0.15)':'#FFF7ED',color:dm?'#fdba74':'#C2410C',border:`1px solid ${dm?'rgba(249,115,22,0.3)':'#FED7AA'}`,flexShrink:0,display:'inline-flex',alignItems:'center',gap:'3px'}}><Icon name='arrow-up-circle' size={10} color={dm?'#fdba74':'#C2410C'} />Escalated</span>}
                                                                 {od && <span style={{fontSize:'10px',fontWeight:'700',padding:'1px 7px',borderRadius:20,background:dm?'rgba(239,68,68,0.15)':'#FEF2F2',color:dm?'#fca5a5':'#991B1B',border:'1px solid #FECACA',flexShrink:0}}>Overdue</span>}
                                                             </div>
                                                             {t.category && <div style={{marginTop:'4px'}}><CatBadge label={t.categoryLabel||t.category} /></div>}
@@ -2663,7 +2668,7 @@
                                                                     }}
                                                                     style={{display:'inline-flex',alignItems:'center',gap:'5px',padding:'5px 12px',borderRadius:'7px',border:'1px solid #059669',background:closingTicketId===t._dbId?'#D1FAE5':'#059669',color:closingTicketId===t._dbId?'#065F46':'white',fontSize:'12px',fontWeight:'600',cursor:closingTicketId===t._dbId?'wait':'pointer',transition:'all 0.15s',opacity:closingTicketId===t._dbId?0.7:1}}
                                                                 >
-                                                                    {closingTicketId===t._dbId ? '⏳ Closing…' : '🔒 Close'}
+                                                                    {closingTicketId===t._dbId ? <><Icon name='loader' size={12} color={closingTicketId===t._dbId?'#065F46':'#fff'} />Closing…</> : <><Icon name='lock' size={12} color='#fff' />Close</>}
                                                                 </button>
                                                             </td>
                                                         )}
