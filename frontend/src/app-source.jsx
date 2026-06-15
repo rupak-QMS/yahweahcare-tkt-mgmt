@@ -553,6 +553,114 @@
             const [appToast,      setAppToast]      = React.useState('');
             const showToast = (msg) => { setAppToast(msg); setTimeout(() => setAppToast(''), 3500); };
 
+            // ── Push notification subscription state ──────────────────────────────
+            // 'idle' | 'loading' | 'subscribed' | 'denied' | 'unsupported'
+            const [pushStatus, setPushStatus] = React.useState('idle');
+
+            const HRMS_API_PUSH = window.location.hostname === 'localhost'
+                ? 'http://localhost:4002'
+                : 'https://yahweahcare-tkt-mgmt-hx48.vercel.app';
+
+            const urlBase64ToUint8Array = (b64) => {
+                const pad = '='.repeat((4 - b64.length % 4) % 4);
+                const base64 = (b64 + pad).replace(/-/g, '+').replace(/_/g, '/');
+                const raw = atob(base64);
+                const arr = new Uint8Array(raw.length);
+                for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+                return arr;
+            };
+
+            // Check existing subscription state on mount
+            React.useEffect(() => {
+                if (!currentUser) return;
+                if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+                    setPushStatus('unsupported'); return;
+                }
+                if (Notification.permission === 'denied') {
+                    setPushStatus('denied'); return;
+                }
+                navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(reg => {
+                    reg.pushManager.getSubscription().then(sub => {
+                        setPushStatus(sub ? 'subscribed' : 'idle');
+                    });
+                }).catch(() => setPushStatus('idle'));
+            }, [currentUser]);
+
+            // Handle SW_NAVIGATE messages from push notification clicks
+            React.useEffect(() => {
+                if (!currentUser) return;
+                const handler = (e) => {
+                    if (e.data?.type === 'SW_NAVIGATE' && e.data?.hash) {
+                        window.location.hash = e.data.hash;
+                    }
+                };
+                navigator.serviceWorker?.addEventListener('message', handler);
+                return () => navigator.serviceWorker?.removeEventListener('message', handler);
+            }, [currentUser]);
+
+            const handlePushToggle = async () => {
+                if (pushStatus === 'unsupported') return;
+                if (pushStatus === 'denied') {
+                    showToast('Notifications blocked — allow in browser Settings → Site Settings → Notifications');
+                    return;
+                }
+                if (pushStatus === 'loading') return;
+
+                // If already subscribed — unsubscribe
+                if (pushStatus === 'subscribed') {
+                    try {
+                        const reg = await navigator.serviceWorker.getRegistration('/');
+                        const sub = reg ? await reg.pushManager.getSubscription() : null;
+                        if (sub) {
+                            await authFetch(`${HRMS_API_PUSH}/push/unsubscribe`, {
+                                method: 'POST', noRedirect: true,
+                                body: JSON.stringify({ endpoint: sub.endpoint }),
+                            }).catch(() => {});
+                            await sub.unsubscribe();
+                        }
+                        setPushStatus('idle');
+                        showToast('Push notifications disabled');
+                    } catch { showToast('Could not disable push notifications'); }
+                    return;
+                }
+
+                // Subscribe
+                setPushStatus('loading');
+                try {
+                    const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+                    await navigator.serviceWorker.ready;
+
+                    const keyRes = await fetch(`${HRMS_API_PUSH}/push/vapid-public-key`);
+                    if (!keyRes.ok) { setPushStatus('idle'); showToast('Push not configured on server'); return; }
+                    const { publicKey } = await keyRes.json();
+                    if (!publicKey) { setPushStatus('idle'); showToast('Push not configured on server'); return; }
+
+                    const permission = await Notification.requestPermission();
+                    if (permission === 'denied') { setPushStatus('denied'); showToast('Notifications blocked — allow in browser settings'); return; }
+                    if (permission !== 'granted') { setPushStatus('idle'); return; }
+
+                    const sub = await reg.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: urlBase64ToUint8Array(publicKey),
+                    });
+                    const subJson = sub.toJSON();
+                    const saveRes = await authFetch(`${HRMS_API_PUSH}/push/subscribe`, {
+                        method: 'POST', noRedirect: true,
+                        body: JSON.stringify({ endpoint: subJson.endpoint, keys: subJson.keys }),
+                    });
+                    if (saveRes.ok) {
+                        setPushStatus('subscribed');
+                        showToast('Push notifications enabled!');
+                    } else {
+                        setPushStatus('idle');
+                        showToast('Failed to save subscription');
+                    }
+                } catch (e) {
+                    setPushStatus('idle');
+                    showToast('Could not enable push notifications');
+                }
+            };
+
             const displayName = currentUser?.name || 'User';
             const initials    = displayName.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
             const deptLabel   = currentUser?.isBootstrapAdmin
@@ -618,6 +726,58 @@
                             {pageLabels[currentPage] || 'Dashboard'}
                         </span>
                     </span>
+
+                    {/* Push notification bell */}
+                    {pushStatus !== 'unsupported' && (
+                        <button
+                            onClick={handlePushToggle}
+                            title={
+                                pushStatus === 'subscribed' ? 'Push notifications on — click to disable'
+                                : pushStatus === 'denied'   ? 'Notifications blocked in browser'
+                                : pushStatus === 'loading'  ? 'Enabling…'
+                                : 'Enable push notifications'
+                            }
+                            style={iconBtn({
+                                position: 'relative',
+                                background: pushStatus === 'subscribed'
+                                    ? (darkMode ? 'rgba(99,102,241,0.25)' : '#EEF2FF')
+                                    : pushStatus === 'denied'
+                                    ? (darkMode ? 'rgba(239,68,68,0.15)' : '#FEF2F2')
+                                    : iconBg,
+                                border: pushStatus === 'subscribed'
+                                    ? `1px solid ${darkMode ? 'rgba(99,102,241,0.5)' : '#818CF8'}`
+                                    : pushStatus === 'denied'
+                                    ? `1px solid ${darkMode ? 'rgba(239,68,68,0.4)' : '#FECACA'}`
+                                    : `1px solid ${border}`,
+                                opacity: pushStatus === 'loading' ? 0.6 : 1,
+                                cursor: pushStatus === 'loading' ? 'default' : 'pointer',
+                            })}
+                        >
+                            {pushStatus === 'subscribed' ? (
+                                /* Bell with dot — enabled */
+                                <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+                                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" stroke={darkMode ? '#818CF8' : '#4F46E5'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                    <circle cx="18" cy="5" r="4" fill="#22C55E" stroke={darkMode ? '#060d1e' : '#fff'} strokeWidth="1.5"/>
+                                </svg>
+                            ) : pushStatus === 'denied' ? (
+                                /* Bell-off — blocked */
+                                <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+                                    <path d="M13.73 21a2 2 0 0 1-3.46 0M18.63 13A17.9 17.9 0 0 1 18 8M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14M18 8a6 6 0 0 0-9.33-5" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                    <path d="M2 2l20 20" stroke="#EF4444" strokeWidth="2" strokeLinecap="round"/>
+                                </svg>
+                            ) : pushStatus === 'loading' ? (
+                                /* Spinner */
+                                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" style={{animation:'spin 1s linear infinite'}}>
+                                    <circle cx="12" cy="12" r="10" stroke={darkMode?'#818CF8':'#6366F1'} strokeWidth="2" strokeDasharray="40 20" strokeLinecap="round"/>
+                                </svg>
+                            ) : (
+                                /* Bell — idle */
+                                <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+                                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" stroke={textC} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                            )}
+                        </button>
+                    )}
 
                     {/* Dark / Light toggle */}
                     <button onClick={() => setDarkMode(d => !d)} style={iconBtn()} title={darkMode ? 'Light mode' : 'Dark mode'}>
