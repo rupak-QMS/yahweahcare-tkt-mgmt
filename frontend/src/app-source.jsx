@@ -1058,7 +1058,107 @@
             );
         }
 
-        // ── Branded Logout / Signed-Out Page ─────────────────────────────────────
+        // ── Dedicated Logout Page (/#logout) ─────────────────────────────────────
+        function LogoutPage() {
+            const [hovered, setHovered] = React.useState(false);
+            const handleLogin = () => { window.location.hash = ''; window.MicrosoftAuth.signIn(); };
+
+            return (
+                <div style={{
+                    minHeight:'100vh', width:'100%', display:'flex', flexDirection:'column',
+                    alignItems:'center', justifyContent:'center',
+                    background:'linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #0F172A 100%)',
+                    fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
+                    position:'relative', overflow:'hidden',
+                }}>
+                    {/* Background glows */}
+                    <div style={{position:'absolute',top:0,left:0,right:0,bottom:0,pointerEvents:'none',overflow:'hidden'}}>
+                        <div style={{position:'absolute',top:'-20%',left:'-10%',width:600,height:600,borderRadius:'50%',background:'radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%)'}}/>
+                        <div style={{position:'absolute',bottom:'-20%',right:'-10%',width:500,height:500,borderRadius:'50%',background:'radial-gradient(circle, rgba(139,92,246,0.10) 0%, transparent 70%)'}}/>
+                    </div>
+
+                    {/* Card */}
+                    <div style={{
+                        background:'rgba(255,255,255,0.04)', backdropFilter:'blur(20px)',
+                        border:'1px solid rgba(255,255,255,0.10)', borderRadius:24,
+                        padding:'48px 44px', textAlign:'center', maxWidth:420, width:'90%',
+                        boxShadow:'0 32px 64px rgba(0,0,0,0.4)', position:'relative', zIndex:1,
+                    }}>
+                        {/* Logo */}
+                        <div style={{display:'flex',justifyContent:'center',alignItems:'center',gap:14,marginBottom:28}}>
+                            <div style={{width:56,height:56,borderRadius:16,background:'linear-gradient(135deg,#6366F1,#8B5CF6)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 8px 24px rgba(99,102,241,0.4)',flexShrink:0}}>
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                            </div>
+                            <div style={{textAlign:'left'}}>
+                                <p style={{margin:0,fontSize:20,fontWeight:800,color:'#F8FAFC',letterSpacing:'-0.02em',lineHeight:1}}>YAHWEH</p>
+                                <p style={{margin:0,fontSize:20,fontWeight:800,color:'#818CF8',letterSpacing:'-0.02em',lineHeight:1}}>CARE</p>
+                            </div>
+                        </div>
+
+                        <div style={{height:1,background:'rgba(255,255,255,0.08)',margin:'0 0 28px'}}/>
+
+                        {/* Checkmark icon */}
+                        <div style={{width:64,height:64,borderRadius:'50%',background:'rgba(34,197,94,0.12)',border:'1px solid rgba(34,197,94,0.25)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 20px'}}>
+                            <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+                                <path d="M20 6L9 17l-5-5" stroke="#4ADE80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                        </div>
+
+                        <h2 style={{fontSize:22,fontWeight:800,color:'#F8FAFC',margin:'0 0 10px',letterSpacing:'-0.02em'}}>
+                            You've been logged out
+                        </h2>
+                        <p style={{fontSize:13,color:'#94A3B8',margin:'0 0 32px',lineHeight:1.7}}>
+                            Your Yahweh Care session has ended securely.<br/>
+                            Your Microsoft account remains active.
+                        </p>
+
+                        {/* Primary CTA */}
+                        <button
+                            onClick={handleLogin}
+                            onMouseEnter={() => setHovered(true)}
+                            onMouseLeave={() => setHovered(false)}
+                            style={{
+                                width:'100%',display:'flex',alignItems:'center',justifyContent:'center',gap:10,
+                                padding:'13px 0',borderRadius:12,border:'none',cursor:'pointer',
+                                background: hovered ? 'linear-gradient(135deg,#4F46E5,#7C3AED)' : 'linear-gradient(135deg,#6366F1,#8B5CF6)',
+                                color:'white',fontSize:14,fontWeight:700,
+                                boxShadow: hovered ? '0 8px 24px rgba(99,102,241,0.5)' : '0 4px 16px rgba(99,102,241,0.35)',
+                                transition:'all 0.2s',marginBottom:16,
+                            }}
+                        >
+                            <svg width="18" height="18" viewBox="0 0 21 21" fill="none" style={{flexShrink:0}}>
+                                <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
+                                <rect x="11" y="1" width="9" height="9" fill="#7FBA00"/>
+                                <rect x="1" y="11" width="9" height="9" fill="#00A4EF"/>
+                                <rect x="11" y="11" width="9" height="9" fill="#FFB900"/>
+                            </svg>
+                            Sign in with Microsoft
+                        </button>
+
+                        {/* Text link */}
+                        <p style={{margin:0,fontSize:13,color:'#64748B'}}>
+                            <a
+                                href="#"
+                                onClick={(e)=>{ e.preventDefault(); handleLogin(); }}
+                                style={{color:'#818CF8',textDecoration:'none',fontWeight:600}}
+                                onMouseEnter={e=>e.target.style.textDecoration='underline'}
+                                onMouseLeave={e=>e.target.style.textDecoration='none'}
+                            >
+                                Click here to go to login page
+                            </a>
+                        </p>
+                    </div>
+
+                    <p style={{position:'relative',zIndex:1,marginTop:24,fontSize:11,color:'rgba(255,255,255,0.2)',letterSpacing:'0.05em'}}>
+                        © {new Date().getFullYear()} Yahweh Care — Ticket Management System
+                    </p>
+                </div>
+            );
+        }
+
+        // ── Branded Signed-Out / Session-Expired Screen ───────────────────────────
         function SignedOutScreen({ onSignBackIn, authError }) {
             const [hovered, setHovered] = React.useState(false);
 
@@ -7707,6 +7807,7 @@
         function App() {
             const [currentPage, setCurrentPage] = React.useState(() => {
                 const hash = window.location.hash.slice(1) || 'dashboard';
+                // 'logout' is a public page — keep it; everything else defaults to dashboard if no hash
                 return hash;
             });
             const [signedOut,   setSignedOut]   = React.useState(false);
@@ -7791,10 +7892,10 @@
                 try { sessionStorage.clear(); } catch(e) {}
                 try { localStorage.removeItem('authToken'); } catch(e) {}
                 setCurrentUser(null);
-                window.location.hash = '';
-                setCurrentPage('dashboard');
                 setAuthError(null);
-                setSignedOut(true);
+                setSignedOut(false);
+                window.location.hash = 'logout';
+                setCurrentPage('logout');
             };
 
             // ── Silent token refresh ─────────────────────────────────────────────
@@ -7907,6 +8008,9 @@
                 return () => navigator.serviceWorker?.removeEventListener('message', handleSwMessage);
             }, [currentUser]);
 
+            if (currentPage === 'logout' || (signedOut && !authError)) {
+                return <LogoutPage />;
+            }
             if (signedOut || !currentUser) {
                 return <SignedOutScreen onSignBackIn={handleSignBackIn} authError={authError} />;
             }
