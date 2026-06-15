@@ -5879,11 +5879,13 @@
                                                     </span>
                                                 </td>
                                                 <td style={{padding:'12px 14px'}}>
-                                                    <span style={{fontSize:'11px',fontWeight:'600',padding:'3px 8px',borderRadius:'8px',whiteSpace:'nowrap',
+                                                    <span style={{fontSize:'11px',fontWeight:'600',padding:'3px 8px',borderRadius:'8px',whiteSpace:'nowrap',display:'inline-flex',alignItems:'center',gap:'4px',
                                                         background: m.auth_provider==='azure_ad'?'#DBEAFE':'#F0FDF4',
                                                         color: m.auth_provider==='azure_ad'?'#1D4ED8':'#15803D'
                                                     }}>
-                                                        {m.auth_provider==='azure_ad'?'🔷 Microsoft Entra':'🔑 Local'}
+                                                        {m.auth_provider==='azure_ad'
+                                                            ? <><Icon name='shield' size={11} color='#1D4ED8' />Microsoft Entra</>
+                                                            : <><Icon name='key' size={11} color='#15803D' />Local</>}
                                                     </span>
                                                 </td>
                                                 <td style={{padding:'12px 14px'}}>
