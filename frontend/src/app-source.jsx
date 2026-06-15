@@ -546,6 +546,41 @@
         const DarkModeContext = React.createContext(false);
         const useDark = () => React.useContext(DarkModeContext);
 
+        // ── Shared Loading Components ────────────────────────────────────────────
+        // Spinning Yahweh Care logo mark — used everywhere instead of the generic loader icon
+        function YCLoader({ size = 36 }) {
+            const r = Math.round(size * 0.22);
+            return (
+                <div style={{display:'inline-flex',alignItems:'center',justifyContent:'center',animation:'spin 1.1s linear infinite',width:size,height:size,flexShrink:0}}>
+                    <div style={{width:size,height:size,borderRadius:r,background:'linear-gradient(135deg,#6366F1,#8B5CF6)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 4px 14px rgba(99,102,241,0.35)'}}>
+                        <svg width={Math.round(size*0.58)} height={Math.round(size*0.58)} viewBox="0 0 24 24" fill="none">
+                            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                    </div>
+                </div>
+            );
+        }
+
+        // Full-page loading screen — white/light branded, consistent across the app
+        function LoadingScreen({ message = 'Loading…' }) {
+            return (
+                <div style={{minHeight:'100vh',width:'100%',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',background:'#F8FAFC',fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'}}>
+                    <YCLoader size={56} />
+                    <p style={{marginTop:16,fontSize:14,color:'#64748B',fontWeight:500}}>{message}</p>
+                </div>
+            );
+        }
+
+        // Inline section loader (cards, panels, drawers)
+        function SectionLoader({ message = 'Loading…', size = 32 }) {
+            return (
+                <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:10,padding:'48px 24px'}}>
+                    <YCLoader size={size} />
+                    <p style={{fontSize:13,color:'#94A3B8',margin:0,fontWeight:500}}>{message}</p>
+                </div>
+            );
+        }
+
         // Navigation Component
         // ── Top Header Bar ──────────────────────────────────────────────────────
         function TopBar({ sidebarOpen, setSidebarOpen, darkMode, setDarkMode, currentUser, currentPage, onSignOut, setCurrentPage }) {
@@ -809,9 +844,14 @@
 
                         {userMenuOpen && (
                             <div onClick={e => e.stopPropagation()} style={{
-                                position:'absolute', top:'calc(100% + 8px)', right:0, minWidth:210,
-                                background:bg, borderRadius:12, boxShadow:'0 8px 32px rgba(0,0,0,0.15)',
-                                border:`1px solid ${border}`, zIndex:50, overflow:'hidden',
+                                position:'absolute', top:'calc(100% + 8px)', right:0, minWidth:220,
+                                background: darkMode ? '#0F172A' : '#FFFFFF',
+                                borderRadius:14,
+                                boxShadow: darkMode
+                                    ? '0 8px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(99,102,241,0.18)'
+                                    : '0 8px 32px rgba(15,23,42,0.14), 0 0 0 1px rgba(15,23,42,0.06)',
+                                border: `1px solid ${darkMode ? 'rgba(99,102,241,0.18)' : '#E2E8F0'}`,
+                                zIndex:50, overflow:'hidden',
                             }}>
                                 <div style={{padding:'12px 16px', borderBottom:`1px solid ${border}`, display:'flex', alignItems:'center', gap:10}}>
                                     <div style={{width:34,height:34,borderRadius:'50%',background:'#F97316',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:700,fontSize:13,flexShrink:0}}>
@@ -952,8 +992,13 @@
                         {profileOpen && (
                             <div onClick={e => e.stopPropagation()} style={{
                                 position:'absolute', bottom:'100%', left:12, right:12, marginBottom:6,
-                                background:sidebarBg, borderRadius:12, boxShadow:'0 -4px 24px rgba(0,0,0,0.15)',
-                                border:`1px solid ${sidebarBorder}`, overflow:'hidden', zIndex:50,
+                                background: darkMode ? '#0F172A' : '#FFFFFF',
+                                borderRadius:12,
+                                boxShadow: darkMode
+                                    ? '0 -8px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(99,102,241,0.18)'
+                                    : '0 -4px 24px rgba(15,23,42,0.12), 0 0 0 1px rgba(15,23,42,0.06)',
+                                border: `1px solid ${darkMode ? 'rgba(99,102,241,0.18)' : '#E2E8F0'}`,
+                                overflow:'hidden', zIndex:50,
                             }}>
                                 {allowedPages.includes('staff-management') && (
                                 <button onClick={handleSettings} style={{width:'100%',textAlign:'left',display:'flex',alignItems:'center',gap:10,padding:'10px 14px',background:'none',border:'none',cursor:'pointer',fontSize:13,color:sidebarText}}>
@@ -2044,11 +2089,8 @@
                         )}
 
                         {!lookups ? (
-                            <div className="flex items-center justify-center py-20">
-                                <div className="text-center">
-                                    <div className="text-3xl mb-3">⏳</div>
-                                    <p className="text-gray-400 text-sm">Loading form…</p>
-                                </div>
+                            <div style={{display:'flex',alignItems:'center',justifyContent:'center',padding:'80px 24px'}}>
+                                <SectionLoader message="Loading form…" size={44} />
                             </div>
                         ) : (
                         <form onSubmit={handleSubmit}>
@@ -2424,7 +2466,7 @@
                                         className="w-full py-3 rounded-xl font-semibold text-sm text-white transition-all"
                                         style={{background: loading ? '#A5B4FC' : 'linear-gradient(135deg, #6366F1, #8B5CF6)', boxShadow: loading ? 'none' : '0 4px 14px rgba(99,102,241,0.35)'}}
                                     >
-                                        {loading ? '⏳  Creating ticket…' : '➕  Create Ticket'}
+                                        {loading ? <><YCLoader size={16} /><span style={{marginLeft:8}}>Creating ticket…</span></> : '➕  Create Ticket'}
                                     </button>
                                 </div>
                             </div>
@@ -2783,7 +2825,7 @@
 
                             {/* Table */}
                             {ticketsLoading ? (
-                                <div style={{padding:'60px',textAlign:'center',color:dm?'#4a607f':'#94A3B8',fontSize:'14px',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px'}}><Icon name='loader' size={18} color={dm?'#4a607f':'#94A3B8'} />Loading tickets…</div>
+                                <div style={{padding:'60px 24px',display:'flex',alignItems:'center',justifyContent:'center'}}><SectionLoader message="Loading tickets…" /></div>
                             ) : filteredNew.length === 0 ? (
                                 <div style={{padding:'60px',textAlign:'center'}}>
                                     <div style={{display:'flex',justifyContent:'center',marginBottom:'12px'}}><Icon name='ticket' size={40} color={dm?'#4a607f':'#CBD5E1'} /></div>
@@ -3131,7 +3173,7 @@
                                                             style={{width:'100%',border:`1px solid ${dm?'rgba(245,158,11,0.25)':'#FDE68A'}`,borderRadius:8,padding:'8px 10px',fontSize:13,resize:'vertical',boxSizing:'border-box',background:dm?'rgba(8,16,36,0.5)':'#FFFBEB',color:textP,outline:'none',marginBottom:8,fontFamily:'inherit',lineHeight:1.5}}/>
                                                         <button disabled={workNoteLoading||!workNote.trim()} onClick={addWorkNote}
                                                             style={{padding:'8px 16px',background:(workNoteLoading||!workNote.trim())?'#94A3B8':'#D97706',color:'white',border:'none',borderRadius:8,fontSize:12,fontWeight:600,cursor:(workNoteLoading||!workNote.trim())?'not-allowed':'pointer',opacity:workNoteLoading?0.5:1,display:'inline-flex',alignItems:'center',gap:'5px'}}>
-                                                            {workNoteLoading?<><Icon name='loader' size={13} color='#fff' />Saving…</>:<><Icon name='file-edit' size={13} color='#fff' />Add Work Note</>}
+                                                            {workNoteLoading?<><YCLoader size={13} />Saving…</>:<><Icon name='file-edit' size={13} color='#fff' />Add Work Note</>}
                                                         </button>
                                                     </div>
                                                 )}
@@ -3219,7 +3261,7 @@
                                                         catch(e){ setActionError(e.message); }
                                                         finally{ setActionLoading(false); }
                                                     }} style={{width:'100%',padding:'11px 20px',background:(hasPendingExt||!resolutionNote.trim())?'#94A3B8':wasReopened?'#DC2626':'#4F46E5',color:'white',border:'none',borderRadius:9,fontSize:13,fontWeight:700,cursor:(hasPendingExt||!resolutionNote.trim())?'not-allowed':'pointer',opacity:actionLoading?0.5:1}}>
-                                                        {actionLoading?<><Icon name='loader' size={13} color='#fff' />Submitting…</>:wasReopened?<><Icon name='refresh-cw' size={13} color='#fff' />Resubmit Revised Resolution</>:<><Icon name='check-circle' size={13} color='#fff' />Mark as Complete & Submit for Approval</>}
+                                                        {actionLoading?<><YCLoader size={13} />Submitting…</>:wasReopened?<><Icon name='refresh-cw' size={13} color='#fff' />Resubmit Revised Resolution</>:<><Icon name='check-circle' size={13} color='#fff' />Mark as Complete & Submit for Approval</>}
                                                     </button>
                                                     {hasPendingExt && <p style={{fontSize:11,color:'#D97706',marginTop:6,display:'flex',alignItems:'center',gap:'4px'}}><Icon name='hourglass' size={11} color='#D97706' />Cannot submit for approval while an extension request is pending.</p>}
                                                     {!resolutionNote.trim() && !hasPendingExt && <p style={{fontSize:11,color:dm?'#6b80a4':'#94A3B8',marginTop:6}}>Enter a resolution note above to enable submission.</p>}
@@ -3254,7 +3296,7 @@
                                                                     catch(e){ setActionError(e.message); }
                                                                     finally{ setActionLoading(false); }
                                                                 }} style={{flex:1,padding:'9px',background:'#D97706',color:'white',border:'none',borderRadius:9,fontSize:13,fontWeight:600,cursor:'pointer',opacity:(actionLoading||!extDate)?0.5:1}}>
-                                                                    {actionLoading?<><Icon name='loader' size={13} color='#fff' />…</>:<><Icon name='calendar' size={13} color='#fff' />Submit Extension Request</>}
+                                                                    {actionLoading?<><YCLoader size={13} />…</>:<><Icon name='calendar' size={13} color='#fff' />Submit Extension Request</>}
                                                                 </button>
                                                                 <button onClick={()=>{setExtMode(false);setExtDate('');setExtNote('');setActionError('');}}
                                                                     style={{padding:'9px 14px',background:dm?'rgba(6,9,22,0.7)':'#F5F7FF',color:dm?'#c0cfec':'#334155',border:'none',borderRadius:9,fontSize:13,fontWeight:600,cursor:'pointer'}}>Cancel</button>
@@ -3301,7 +3343,7 @@
                                                     catch(e){ setActionError(e.message); }
                                                     finally{ setActionLoading(false); }
                                                 }} style={{flex:1,padding:'10px',background:'#059669',color:'white',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer',opacity:actionLoading?0.5:1}}>
-                                                    {actionLoading?<><Icon name='loader' size={13} color='#fff' />…</>:<><Icon name='check-circle' size={13} color='#fff' />Approve Extension</>}
+                                                    {actionLoading?<><YCLoader size={13} />…</>:<><Icon name='check-circle' size={13} color='#fff' />Approve Extension</>}
                                                 </button>
                                                 <button disabled={actionLoading} onClick={async()=>{
                                                     setActionLoading(true); setActionError('');
@@ -3309,7 +3351,7 @@
                                                     catch(e){ setActionError(e.message); }
                                                     finally{ setActionLoading(false); }
                                                 }} style={{flex:1,padding:'10px',background:'#DC2626',color:'white',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer',opacity:actionLoading?0.5:1}}>
-                                                    {actionLoading?<><Icon name='loader' size={13} color='#fff' />…</>:<><Icon name='x-circle' size={13} color='#fff' />Deny Extension</>}
+                                                    {actionLoading?<><YCLoader size={13} />…</>:<><Icon name='x-circle' size={13} color='#fff' />Deny Extension</>}
                                                 </button>
                                             </div>
                                         </div>
@@ -3449,7 +3491,7 @@
                                                             }}
                                                             className="flex-1 py-2.5 bg-orange-600 text-white text-sm font-semibold rounded-xl hover:bg-orange-700 transition disabled:opacity-50"
                                                         >
-                                                            {actionLoading ? <><Icon name='loader' size={13} color='#fff' />…</> : <><Icon name='arrow-up-circle' size={13} color='#fff' />Confirm Escalation</>}
+                                                            {actionLoading ? <><YCLoader size={13} />…</> : <><Icon name='arrow-up-circle' size={13} color='#fff' />Confirm Escalation</>}
                                                         </button>
                                                         <button
                                                             onClick={() => { setEscalateMode(false); setEscalateTo(''); setEscalateReason(''); setActionError(''); }}
@@ -3487,7 +3529,7 @@
                                                         } catch(e){ setActionError(e.message); }
                                                         finally{ setActionLoading(false); }
                                                     }} style={{flex:1,padding:'10px',background:'#059669',color:'white',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer',opacity:actionLoading?0.5:1}}>
-                                                        {actionLoading?<><Icon name='loader' size={13} color='#fff' />…</>:<><Icon name='check-circle' size={13} color='#fff' />Approve</>}
+                                                        {actionLoading?<><YCLoader size={13} />…</>:<><Icon name='check-circle' size={13} color='#fff' />Approve</>}
                                                     </button>
                                                     <button disabled={actionLoading} onClick={()=>{setRejectMode(true);setActionError('');}}
                                                         style={{flex:1,padding:'10px',background:'#DC2626',color:'white',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer',opacity:actionLoading?0.5:1,display:'inline-flex',alignItems:'center',justifyContent:'center',gap:'5px'}}>
@@ -3513,7 +3555,7 @@
                                                             } catch(e){ setActionError(e.message); }
                                                             finally{ setActionLoading(false); }
                                                         }} style={{flex:1,padding:'9px',background:'#DC2626',color:'white',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer',opacity:(actionLoading||!justification.trim())?0.5:1}}>
-                                                            {actionLoading?<><Icon name='loader' size={13} color='#fff' />…</>:<><Icon name='refresh-cw' size={13} color='#fff' />Confirm Reopen</>}
+                                                            {actionLoading?<><YCLoader size={13} />…</>:<><Icon name='refresh-cw' size={13} color='#fff' />Confirm Reopen</>}
                                                         </button>
                                                         <button onClick={()=>{setRejectMode(false);setJustification('');setActionError('');}}
                                                             style={{padding:'9px 16px',background:dm?'rgba(6,9,22,0.7)':'#F5F7FF',color:dm?'#c0cfec':'#334155',border:'none',borderRadius:10,fontSize:13,fontWeight:600,cursor:'pointer'}}>
@@ -3544,7 +3586,7 @@
                                                     finally{ setActionLoading(false); }
                                                 }}
                                                 style={{width:'100%',padding:'10px',background:actionLoading?'#6EE7B7':'#059669',color:'white',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:actionLoading?'not-allowed':'pointer',opacity:actionLoading?0.6:1}}>
-                                                {actionLoading ? <><Icon name='loader' size={13} color='#fff' />Closing…</> : <><Icon name='lock' size={13} color='#fff' />Close Ticket</>}
+                                                {actionLoading ? <><YCLoader size={13} />Closing…</> : <><Icon name='lock' size={13} color='#fff' />Close Ticket</>}
                                             </button>
                                         </div>
                                     )}
@@ -3578,7 +3620,7 @@
                                                             } catch(e){ setActionError(e.message); }
                                                             finally{ setActionLoading(false); }
                                                         }} style={{flex:1,padding:'9px',background:'#1D4ED8',color:'white',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer',opacity:(actionLoading||!reopenJustification.trim())?0.5:1}}>
-                                                            {actionLoading?<><Icon name='loader' size={13} color='#fff' />…</>:<><Icon name='refresh-cw' size={13} color='#fff' />Confirm Reopen</>}
+                                                            {actionLoading?<><YCLoader size={13} />…</>:<><Icon name='refresh-cw' size={13} color='#fff' />Confirm Reopen</>}
                                                         </button>
                                                         <button onClick={()=>{setReopenMode(false);setReopenJustification('');setActionError('');}}
                                                             style={{padding:'9px 16px',background:dm?'rgba(6,9,22,0.7)':'#F5F7FF',color:dm?'#c0cfec':'#334155',border:'none',borderRadius:10,fontSize:13,fontWeight:600,cursor:'pointer'}}>
@@ -4445,7 +4487,7 @@
 
                         {loading ? (
                             <div className="flex items-center justify-center py-24">
-                                <div className="text-center"><div style={{display:'flex',justifyContent:'center',marginBottom:'12px'}}><Icon name='loader' size={36} color='#94A3B8' /></div><p className="text-gray-400 text-sm">Loading performance data…</p></div>
+                                <SectionLoader message="Loading performance data…" size={40} />
                             </div>
                         ) : (
                         <>
@@ -4789,7 +4831,7 @@
                         <p className="text-gray-500 text-sm mb-6">Live department-level performance metrics</p>
 
                         {loading ? (
-                            <div style={{textAlign:'center',padding:'80px',color:dm?'#4a607f':'#94A3B8',fontSize:'14px'}}>Loading department metrics…</div>
+                            <div style={{display:'flex',alignItems:'center',justifyContent:'center',padding:'80px 24px'}}><SectionLoader message="Loading department metrics…" /></div>
                         ) : (<>
 
                         {/* Summary cards */}
@@ -5423,8 +5465,7 @@
 
                         {loading ? (
                             <div style={{textAlign:'center', padding:'60px', color:dm?'#4a607f':'#94A3B8'}}>
-                                <div style={{display:'flex',justifyContent:'center',marginBottom:'8px'}}><Icon name='loader' size={32} color={dm?'#4a607f':'#94A3B8'} /></div>
-                                <p>Loading analytics…</p>
+                                <SectionLoader message="Loading analytics…" size={40} />
                             </div>
                         ) : (<>
 
