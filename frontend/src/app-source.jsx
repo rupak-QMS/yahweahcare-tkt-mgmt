@@ -5784,7 +5784,7 @@
                         {/* Header */}
                         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'20px'}}>
                             <div>
-                                <h1 style={{fontSize:'22px',fontWeight:'700',color:dm?'#c7d2fe':'#1E1B4B',margin:0,display:'flex',alignItems:'center',gap:'8px'}}><Icon name='users' size={20} color={dm?'#818cf8':'#4F46E5'} />Staff Management</h1>
+                                <h1 style={{fontSize:'22px',fontWeight:'700',color:dm?'#c7d2fe':'#1E1B4B',margin:0,display:'flex',alignItems:'center',gap:'8px'}}><Icon name='user-check' size={20} color={dm?'#818cf8':'#4F46E5'} />Staff Management</h1>
                                 <p style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',margin:'4px 0 0'}}>Add, manage, and organise Yahweh Care staff — changes update the Org Chart instantly</p>
                             </div>
                             <div style={{display:'flex',gap:'10px'}}>
