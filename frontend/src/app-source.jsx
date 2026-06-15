@@ -550,86 +550,8 @@
         // ── Top Header Bar ──────────────────────────────────────────────────────
         function TopBar({ sidebarOpen, setSidebarOpen, darkMode, setDarkMode, currentUser, currentPage, onSignOut, setCurrentPage }) {
             const [userMenuOpen, setUserMenuOpen] = React.useState(false);
-            const [notifOpen,    setNotifOpen]    = React.useState(false);
-            const [notifications, setNotifications] = React.useState([]);
-            const [notifLoading,  setNotifLoading]  = React.useState(false);
-            const [notifLoadingMore, setNotifLoadingMore] = React.useState(false);
-            const [notifPage,     setNotifPage]     = React.useState(1);
-            const [notifHasMore,  setNotifHasMore]  = React.useState(false);
-            const [notifTotal,    setNotifTotal]    = React.useState(0);
             const [appToast,      setAppToast]      = React.useState('');
             const showToast = (msg) => { setAppToast(msg); setTimeout(() => setAppToast(''), 3500); };
-
-
-            // Load notifications page 1 (replaces existing list)
-            const loadNotifications = React.useCallback(() => {
-                setNotifLoading(true);
-                setNotifPage(1);
-                authFetch(`${HRMS_API}/notifications?page=1&limit=20`, { noRedirect: true })
-                    .then(r => r.ok ? r.json() : { notifications: [], hasMore: false, total: 0 })
-                    .then(d => {
-                        setNotifications(Array.isArray(d.notifications) ? d.notifications : []);
-                        setNotifHasMore(!!d.hasMore);
-                        setNotifTotal(Number(d.total) || 0);
-                    })
-                    .catch(() => {})
-                    .finally(() => setNotifLoading(false));
-            }, []);
-
-            // Load next page and append
-            const loadMoreNotifications = React.useCallback((currentPage) => {
-                const nextPage = currentPage + 1;
-                setNotifLoadingMore(true);
-                authFetch(`${HRMS_API}/notifications?page=${nextPage}&limit=20`, { noRedirect: true })
-                    .then(r => r.ok ? r.json() : { notifications: [], hasMore: false })
-                    .then(d => {
-                        if (Array.isArray(d.notifications) && d.notifications.length) {
-                            setNotifications(prev => [...prev, ...d.notifications]);
-                        }
-                        setNotifHasMore(!!d.hasMore);
-                        setNotifPage(nextPage);
-                    })
-                    .catch(() => {})
-                    .finally(() => setNotifLoadingMore(false));
-            }, []);
-
-            React.useEffect(() => {
-                if (currentUser) loadNotifications();
-            }, [currentUser]);
-
-            // Poll every 30 s for new notifications
-            React.useEffect(() => {
-                if (!currentUser) return;
-                const t = setInterval(loadNotifications, 30_000);
-                return () => clearInterval(t);
-            }, [currentUser]);
-
-            const unreadCount = notifications.filter(n => !n.read_at).length;
-
-            const markAllRead = () => {
-                authFetch(`${HRMS_API}/notifications/read-all`, { method:'POST', noRedirect: true })
-                    .then(() => loadNotifications()).catch(() => {});
-            };
-
-            const markRead = (id) => {
-                authFetch(`${HRMS_API}/notifications/${id}/read`, { method:'PATCH', noRedirect: true })
-                    .then(() => {
-                        // Update local state immediately (optimistic)
-                        setNotifications(prev => prev.map(n => n.id === id ? { ...n, read_at: new Date().toISOString() } : n));
-                    })
-                    .catch(() => {});
-            };
-
-            // Click notification: mark read + navigate to ticket if applicable
-            const handleNotifClick = (n) => {
-                markRead(n.id);
-                setNotifOpen(false);
-                if (n.ticket_id) {
-                    setCurrentPage('tickets');
-                    // Dispatch custom event so TicketsPage can open the drawer
-                    window.dispatchEvent(new CustomEvent('yc:open-ticket', { detail: { ticketId: n.ticket_id } }));
-                }
-            };
 
             const displayName = currentUser?.name || 'User';
             const initials    = displayName.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
@@ -646,11 +568,11 @@
             };
 
             React.useEffect(() => {
-                if (!userMenuOpen && !notifOpen) return;
-                const close = () => { setUserMenuOpen(false); setNotifOpen(false); };
+                if (!userMenuOpen) return;
+                const close = () => setUserMenuOpen(false);
                 document.addEventListener('click', close);
                 return () => document.removeEventListener('click', close);
-            }, [userMenuOpen, notifOpen]);
+            }, [userMenuOpen]);
 
             const bg      = darkMode ? 'linear-gradient(90deg,#04080f 0%,#060d1e 100%)' : '#FFFFFF';
             const border  = darkMode ? 'rgba(99,102,241,0.14)' : '#E2E8F2';
@@ -696,91 +618,6 @@
                             {pageLabels[currentPage] || 'Dashboard'}
                         </span>
                     </span>
-
-                    {/* Notifications */}
-                    <div style={{position:'relative'}}>
-                        <button onClick={e => { e.stopPropagation(); setNotifOpen(o => !o); if (!notifOpen) { loadNotifications(); } }}
-                            style={iconBtn({background: notifOpen ? '#EEF2FF' : iconBg, position:'relative'})}
-                            title="Notifications">
-                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
-                                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" stroke={textC} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                            {unreadCount > 0 && (
-                                <span style={{position:'absolute',top:4,right:4,minWidth:16,height:16,background:'#EF4444',borderRadius:8,border:`2px solid ${bg}`,fontSize:9,fontWeight:700,color:'white',display:'flex',alignItems:'center',justifyContent:'center',padding:'0 3px'}}>
-                                    {unreadCount > 9 ? '9+' : unreadCount}
-                                </span>
-                            )}
-                        </button>
-                        {notifOpen && (
-                            <div onClick={e => e.stopPropagation()} style={{
-                                position:'absolute', top:'calc(100% + 8px)', right:0, width:320,
-                                background:bg, borderRadius:12, boxShadow:'0 8px 32px rgba(0,0,0,0.15)',
-                                border:`1px solid ${border}`, zIndex:50, overflow:'hidden', maxHeight:460, display:'flex', flexDirection:'column',
-                            }}>
-                                <div style={{padding:'12px 16px', borderBottom:`1px solid ${border}`, display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0}}>
-                                    <p style={{fontSize:13, fontWeight:700, color:textC, margin:0}}>
-                                        Notifications {unreadCount > 0 && <span style={{background:'#EF4444',color:'white',borderRadius:10,fontSize:10,padding:'1px 6px',marginLeft:6}}>{unreadCount}</span>}
-                                    </p>
-                                    {unreadCount > 0 && (
-                                        <button onClick={markAllRead} style={{fontSize:11,color:darkMode?'#818cf8':'#4F46E5',background:'none',border:'none',cursor:'pointer',padding:0}}>Mark all read</button>
-                                    )}
-                                </div>
-                                <div style={{overflowY:'auto', flex:1}}>
-                                    {notifLoading && <div style={{padding:'16px',textAlign:'center',fontSize:12,color:subC}}>Loading…</div>}
-                                    {!notifLoading && notifications.length === 0 && (
-                                        <div style={{padding:'24px 16px', textAlign:'center'}}>
-                                            <div style={{marginBottom:8}}><Icon name='bell' size={28} color={dm?'#818cf8':'#4F46E5'} /></div>
-                                            <p style={{fontSize:13, color:subC, margin:0}}>No notifications yet</p>
-                                        </div>
-                                    )}
-                                    {!notifLoading && notifications.map(n => {
-                                        const icon = n.subject?.includes('escalat') ? 'arrow-up-circle'
-                                            : n.subject?.includes('Critical') || n.subject?.includes('critical') ? 'alert-octagon'
-                                            : n.subject?.includes('creat') ? 'clipboard-list'
-                                            : n.subject?.includes('Approv') || n.subject?.includes('approv') ? 'check-circle'
-                                            : n.subject?.includes('Reject') || n.subject?.includes('reject') ? 'x-circle'
-                                            : n.subject?.includes('Closed') ? 'lock'
-                                            : n.subject?.includes('Reopen') || n.subject?.includes('reopen') ? 'refresh-cw'
-                                            : n.subject?.includes('Comment') ? 'message-square'
-                                            : n.subject?.includes('Attachment') ? 'paperclip'
-                                            : n.subject?.includes('Extension') ? 'calendar'
-                                            : n.subject?.includes('Assign') ? 'user'
-                                            : n.subject?.includes('Summary') || n.subject?.includes('Reminder') ? 'bar-chart-2'
-                                            : n.subject?.includes('member') || n.subject?.includes('position') ? 'user'
-                                            : 'bell';
-                                        return (
-                                        <div key={n.id} onClick={() => handleNotifClick(n)} style={{
-                                            padding:'10px 16px', borderBottom:`1px solid ${border}`,
-                                            background: n.read_at ? 'transparent' : (darkMode ? '#1E3A5F22' : '#EEF2FF55'),
-                                            cursor:'pointer', display:'flex', gap:10, alignItems:'flex-start',
-                                            transition:'background 0.15s',
-                                        }}>
-                                            <Icon name={icon} size={16} style={{flexShrink:0,marginTop:1}} />
-                                            <div style={{flex:1,minWidth:0}}>
-                                                <p style={{fontSize:12,fontWeight:n.read_at ? 400 : 700,color:textC,margin:'0 0 2px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{n.subject}</p>
-                                                <p style={{fontSize:11,color:subC,margin:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{n.body}</p>
-                                                <p style={{fontSize:10,color:subC,margin:'3px 0 0',display:'flex',alignItems:'center',gap:6}}>
-                                                    <span>{n.created_at ? new Date(n.created_at).toLocaleString() : ''}</span>
-                                                    {n.ticket_id && <span style={{color:darkMode?'#818cf8':'#4F46E5',fontWeight:600}}>→ #{n.ticket_id}</span>}
-                                                </p>
-                                            </div>
-                                            {!n.read_at && <span style={{width:7,height:7,borderRadius:'50%',background:'#6366F1',flexShrink:0,marginTop:5}}/>}
-                                        </div>
-                                        );
-                                    })}
-                                    {notifHasMore && (
-                                        <div style={{padding:'10px 16px', textAlign:'center', borderTop:`1px solid ${border}`}}>
-                                            <button onClick={() => loadMoreNotifications(notifPage)}
-                                                disabled={notifLoadingMore}
-                                                style={{fontSize:11,fontWeight:600,color:darkMode?'#818cf8':'#4F46E5',background:'none',border:'none',cursor:notifLoadingMore?'default':'pointer',padding:0,opacity:notifLoadingMore?0.5:1}}>
-                                                {notifLoadingMore ? 'Loading…' : `Load more (${notifTotal - notifications.length} remaining)`}
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-                    </div>
 
                     {/* Dark / Light toggle */}
                     <button onClick={() => setDarkMode(d => !d)} style={iconBtn()} title={darkMode ? 'Light mode' : 'Dark mode'}>
