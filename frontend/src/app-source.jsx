@@ -1058,6 +1058,87 @@
             );
         }
 
+        // ── Login Page (initial / not-yet-authenticated) ──────────────────────────
+        function LoginPage({ onSignIn }) {
+            const [hovered, setHovered] = React.useState(false);
+
+            return (
+                <div style={{
+                    minHeight:'100vh', width:'100%', display:'flex', flexDirection:'column',
+                    alignItems:'center', justifyContent:'center',
+                    background:'linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #0F172A 100%)',
+                    fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
+                    position:'relative', overflow:'hidden',
+                }}>
+                    {/* Background glows */}
+                    <div style={{position:'absolute',top:0,left:0,right:0,bottom:0,pointerEvents:'none',overflow:'hidden'}}>
+                        <div style={{position:'absolute',top:'-20%',left:'-10%',width:600,height:600,borderRadius:'50%',background:'radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%)'}}/>
+                        <div style={{position:'absolute',bottom:'-20%',right:'-10%',width:500,height:500,borderRadius:'50%',background:'radial-gradient(circle, rgba(139,92,246,0.10) 0%, transparent 70%)'}}/>
+                    </div>
+
+                    {/* Card */}
+                    <div style={{
+                        background:'rgba(255,255,255,0.04)', backdropFilter:'blur(20px)',
+                        border:'1px solid rgba(255,255,255,0.10)', borderRadius:24,
+                        padding:'48px 44px', textAlign:'center', maxWidth:420, width:'90%',
+                        boxShadow:'0 32px 64px rgba(0,0,0,0.4)', position:'relative', zIndex:1,
+                    }}>
+                        {/* Logo */}
+                        <div style={{display:'flex',justifyContent:'center',alignItems:'center',gap:14,marginBottom:28}}>
+                            <div style={{width:56,height:56,borderRadius:16,background:'linear-gradient(135deg,#6366F1,#8B5CF6)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 8px 24px rgba(99,102,241,0.4)',flexShrink:0}}>
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                            </div>
+                            <div style={{textAlign:'left'}}>
+                                <p style={{margin:0,fontSize:20,fontWeight:800,color:'#F8FAFC',letterSpacing:'-0.02em',lineHeight:1}}>YAHWEH</p>
+                                <p style={{margin:0,fontSize:20,fontWeight:800,color:'#818CF8',letterSpacing:'-0.02em',lineHeight:1}}>CARE</p>
+                            </div>
+                        </div>
+
+                        <div style={{height:1,background:'rgba(255,255,255,0.08)',margin:'0 0 28px'}}/>
+
+                        <h2 style={{fontSize:22,fontWeight:800,color:'#F8FAFC',margin:'0 0 8px',letterSpacing:'-0.02em'}}>
+                            Welcome back
+                        </h2>
+                        <p style={{fontSize:13,color:'#94A3B8',margin:'0 0 32px',lineHeight:1.7}}>
+                            Sign in to access the Yahweh Care<br/>Ticket Management System.
+                        </p>
+
+                        <button
+                            onClick={onSignIn}
+                            onMouseEnter={() => setHovered(true)}
+                            onMouseLeave={() => setHovered(false)}
+                            style={{
+                                width:'100%',display:'flex',alignItems:'center',justifyContent:'center',gap:10,
+                                padding:'13px 0',borderRadius:12,border:'none',cursor:'pointer',
+                                background: hovered ? 'linear-gradient(135deg,#4F46E5,#7C3AED)' : 'linear-gradient(135deg,#6366F1,#8B5CF6)',
+                                color:'white',fontSize:14,fontWeight:700,
+                                boxShadow: hovered ? '0 8px 24px rgba(99,102,241,0.5)' : '0 4px 16px rgba(99,102,241,0.35)',
+                                transition:'all 0.2s',
+                            }}
+                        >
+                            <svg width="18" height="18" viewBox="0 0 21 21" fill="none" style={{flexShrink:0}}>
+                                <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
+                                <rect x="11" y="1" width="9" height="9" fill="#7FBA00"/>
+                                <rect x="1" y="11" width="9" height="9" fill="#00A4EF"/>
+                                <rect x="11" y="11" width="9" height="9" fill="#FFB900"/>
+                            </svg>
+                            Sign in with Microsoft
+                        </button>
+
+                        <p style={{fontSize:11,color:'#475569',margin:'20px 0 0',lineHeight:1.5}}>
+                            Secure login via Microsoft Entra ID.<br/>Contact your administrator if you need access.
+                        </p>
+                    </div>
+
+                    <p style={{position:'relative',zIndex:1,marginTop:24,fontSize:11,color:'rgba(255,255,255,0.2)',letterSpacing:'0.05em'}}>
+                        © {new Date().getFullYear()} Yahweh Care — Ticket Management System
+                    </p>
+                </div>
+            );
+        }
+
         // ── Dedicated Logout Page (/#logout) ─────────────────────────────────────
         function LogoutPage() {
             const [hovered, setHovered] = React.useState(false);
@@ -8008,11 +8089,17 @@
                 return () => navigator.serviceWorker?.removeEventListener('message', handleSwMessage);
             }, [currentUser]);
 
-            if (currentPage === 'logout' || (signedOut && !authError)) {
+            // /#logout — explicit sign-out destination
+            if (currentPage === 'logout') {
                 return <LogoutPage />;
             }
-            if (signedOut || !currentUser) {
+            // Auth error (session expired, not authorised, etc.) — show error screen
+            if (signedOut && authError) {
                 return <SignedOutScreen onSignBackIn={handleSignBackIn} authError={authError} />;
+            }
+            // Not authenticated (initial load or after sign-out redirect) — show login
+            if (!currentUser) {
+                return <LoginPage onSignIn={handleSignBackIn} />;
             }
 
             const allowedPages = getAccessiblePages(currentUser);
