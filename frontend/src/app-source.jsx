@@ -559,6 +559,9 @@
             const [notifTotal,    setNotifTotal]    = React.useState(0);
             const [appToast,      setAppToast]      = React.useState('');
             const showToast = (msg) => { setAppToast(msg); setTimeout(() => setAppToast(''), 3500); };
+            const [notifPermission, setNotifPermission] = React.useState(() =>
+                typeof Notification !== 'undefined' ? Notification.permission : 'default'
+            );
 
             // Load notifications page 1 (replaces existing list)
             const loadNotifications = React.useCallback(() => {
@@ -698,7 +701,7 @@
 
                     {/* Notifications */}
                     <div style={{position:'relative'}}>
-                        <button onClick={e => { e.stopPropagation(); setNotifOpen(o => !o); if (!notifOpen) loadNotifications(); }}
+                        <button onClick={e => { e.stopPropagation(); setNotifOpen(o => !o); if (!notifOpen) { loadNotifications(); setNotifPermission(typeof Notification !== 'undefined' ? Notification.permission : 'default'); } }}
                             style={iconBtn({background: notifOpen ? '#EEF2FF' : iconBg, position:'relative'})}
                             title="Notifications">
                             <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
@@ -724,6 +727,30 @@
                                         <button onClick={markAllRead} style={{fontSize:11,color:darkMode?'#818cf8':'#4F46E5',background:'none',border:'none',cursor:'pointer',padding:0}}>Mark all read</button>
                                     )}
                                 </div>
+                                {notifPermission === 'denied' && (
+                                    <div style={{padding:'10px 14px', background:darkMode?'rgba(239,68,68,0.12)':'#FEF2F2', borderBottom:`1px solid ${darkMode?'rgba(239,68,68,0.3)':'#FECACA'}`, display:'flex', gap:8, alignItems:'flex-start'}}>
+                                        <span style={{fontSize:14, flexShrink:0}}>🔕</span>
+                                        <div>
+                                            <p style={{fontSize:11, fontWeight:700, color:darkMode?'#FCA5A5':'#DC2626', margin:'0 0 2px'}}>Browser notifications blocked</p>
+                                            <p style={{fontSize:10, color:darkMode?'#FCA5A5':'#B91C1C', margin:'0 0 4px', lineHeight:1.4}}>To receive push alerts, allow notifications for this site in your browser settings.</p>
+                                            <button onClick={() => {
+                                                if ('permissions' in navigator) {
+                                                    // Open Chrome site settings
+                                                    window.open(`chrome://settings/content/siteDetails?site=${encodeURIComponent(window.location.origin)}`, '_blank');
+                                                }
+                                            }} style={{fontSize:10, fontWeight:600, color:darkMode?'#FCA5A5':'#DC2626', background:'none', border:`1px solid ${darkMode?'rgba(239,68,68,0.4)':'#FECACA'}`, borderRadius:4, padding:'2px 8px', cursor:'pointer'}}>
+                                                How to unblock →
+                                            </button>
+                                            <button onClick={async () => {
+                                                const result = await Notification.requestPermission();
+                                                setNotifPermission(result);
+                                                if (result === 'granted') showToast('✅ Notifications enabled! Setting up push…');
+                                            }} style={{fontSize:10, fontWeight:600, color:'white', background:'#DC2626', border:'none', borderRadius:4, padding:'2px 8px', cursor:'pointer', marginLeft:6}}>
+                                                Enable now
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                                 <div style={{overflowY:'auto', flex:1}}>
                                     {notifLoading && <div style={{padding:'16px',textAlign:'center',fontSize:12,color:subC}}>Loading…</div>}
                                     {!notifLoading && notifications.length === 0 && (
