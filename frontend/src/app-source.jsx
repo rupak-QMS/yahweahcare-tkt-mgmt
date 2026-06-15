@@ -1015,7 +1015,9 @@
                     <div style={{background: 'white', borderRadius: 20, padding: '40px 36px', textAlign: 'center', boxShadow: '0 8px 32px rgba(99,102,241,0.12)', border: '2px solid #E0E7FF', maxWidth: 400, width: '90%'}}>
 
                         {/* Logo / avatar */}
-                        <div style={{width: 60, height: 60, borderRadius: '50%', background: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, margin: '0 auto 16px'}}>👤</div>
+                        <div style={{width: 64, height: 64, borderRadius: '16px', background: 'linear-gradient(135deg,#6366F1,#8B5CF6)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', boxShadow: '0 4px 16px rgba(99,102,241,0.3)'}}>
+                            <Icon name='lock' size={28} color='#fff' />
+                        </div>
                         <h2 style={{fontSize: 20, fontWeight: 800, color: '#0F172A', margin: '0 0 6px'}}>You've been signed out</h2>
                         <p style={{fontSize: 13, color: '#64748B', margin: '0 0 24px', lineHeight: 1.5}}>
                             Your app session has ended. Your Microsoft Entra account remains active.
@@ -1024,7 +1026,7 @@
                         {/* Error banner */}
                         {authError && (
                             <div style={{background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '9px 13px', marginBottom: 18, fontSize: 13, color: '#991B1B', textAlign: 'left'}}>
-                                ⚠️ {authError}
+                                <span style={{display:'inline-flex',alignItems:'center',gap:'6px'}}><Icon name='alert-triangle' size={13} color='#991B1B' />{authError}</span>
                             </div>
                         )}
 
