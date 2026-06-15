@@ -567,7 +567,7 @@
             const loadNotifications = React.useCallback(() => {
                 setNotifLoading(true);
                 setNotifPage(1);
-                authFetch(`${HRMS_API}/notifications?page=1&limit=20`)
+                authFetch(`${HRMS_API}/notifications?page=1&limit=20`, { noRedirect: true })
                     .then(r => r.ok ? r.json() : { notifications: [], hasMore: false, total: 0 })
                     .then(d => {
                         setNotifications(Array.isArray(d.notifications) ? d.notifications : []);
@@ -582,7 +582,7 @@
             const loadMoreNotifications = React.useCallback((currentPage) => {
                 const nextPage = currentPage + 1;
                 setNotifLoadingMore(true);
-                authFetch(`${HRMS_API}/notifications?page=${nextPage}&limit=20`)
+                authFetch(`${HRMS_API}/notifications?page=${nextPage}&limit=20`, { noRedirect: true })
                     .then(r => r.ok ? r.json() : { notifications: [], hasMore: false })
                     .then(d => {
                         if (Array.isArray(d.notifications) && d.notifications.length) {
@@ -609,12 +609,12 @@
             const unreadCount = notifications.filter(n => !n.read_at).length;
 
             const markAllRead = () => {
-                authFetch(`${HRMS_API}/notifications/read-all`, { method:'POST' })
+                authFetch(`${HRMS_API}/notifications/read-all`, { method:'POST', noRedirect: true })
                     .then(() => loadNotifications()).catch(() => {});
             };
 
             const markRead = (id) => {
-                authFetch(`${HRMS_API}/notifications/${id}/read`, { method:'PATCH' })
+                authFetch(`${HRMS_API}/notifications/${id}/read`, { method:'PATCH', noRedirect: true })
                     .then(() => {
                         // Update local state immediately (optimistic)
                         setNotifications(prev => prev.map(n => n.id === id ? { ...n, read_at: new Date().toISOString() } : n));
