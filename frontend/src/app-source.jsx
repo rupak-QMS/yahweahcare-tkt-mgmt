@@ -5470,11 +5470,11 @@
                     <div style={{padding:'24px 28px'}}>
                         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'20px'}}>
                             <div>
-                                <h1 style={{fontSize:'22px', fontWeight:'700', color:dm?'#c7d2fe':'#1E1B4B', margin:0}}>🏢 Organizational Chart</h1>
+                                <h1 style={{fontSize:'22px', fontWeight:'700', color:dm?'#c7d2fe':'#1E1B4B', margin:0, display:'flex', alignItems:'center', gap:'8px'}}><Icon name='building-2' size={20} color={dm?'#818cf8':'#4F46E5'} />Organizational Chart</h1>
                                 <p style={{fontSize:'12px', color:dm?'#4a607f':'#94A3B8', margin:'4px 0 0'}}>Yahweh Care — live staff hierarchy. Updates instantly when staff are added or removed.</p>
                             </div>
-                            <button onClick={fetchOrg} style={{padding:'7px 14px',background:cardBg,border:`2px solid ${borderC}`,borderRadius:'8px',fontSize:'12px',fontWeight:'600',color:'#4338CA',cursor:'pointer'}}>
-                                🔄 Refresh
+                            <button onClick={fetchOrg} style={{padding:'7px 14px',background:cardBg,border:`2px solid ${borderC}`,borderRadius:'8px',fontSize:'12px',fontWeight:'600',color:'#4338CA',cursor:'pointer',display:'flex',alignItems:'center',gap:'6px'}}>
+                                <Icon name='refresh-cw' size={13} color='#4338CA' />Refresh
                             </button>
                         </div>
 
@@ -5536,12 +5536,12 @@
                             <div style={{width:'270px', flexShrink:0, display:'flex', flexDirection:'column', gap:'14px'}}>
                                 {/* System Roles */}
                                 <div style={{background:cardBg, borderRadius:'16px', border:'2px solid #C7D2FE', padding:'16px', boxShadow:'0 2px 10px rgba(99,102,241,0.1)'}}>
-                                    <p style={{fontSize:'11px',fontWeight:'800',color:'white',textTransform:'uppercase',letterSpacing:'0.07em',margin:'0 0 14px',padding:'6px 10px',background:'#4338CA',borderRadius:'8px',textAlign:'center'}}>⚙️ System Roles (Not Part of Org Hierarchy)</p>
+                                    <p style={{fontSize:'11px',fontWeight:'800',color:'white',textTransform:'uppercase',letterSpacing:'0.07em',margin:'0 0 14px',padding:'6px 10px',background:'#4338CA',borderRadius:'8px',textAlign:'center',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px'}}><Icon name='settings' size={12} color='white' />System Roles (Not Part of Org Hierarchy)</p>
                                     {sysRoles.length === 0 && <p style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',textAlign:'center',padding:'8px'}}>Loading…</p>}
                                     {sysRoles.map((r,i)=>(
                                         <div key={i} style={{display:'flex',gap:'12px',marginBottom:'12px',padding:'12px',background:dm?'rgba(99,102,241,0.08)':'#F8F9FF',borderRadius:'12px',border:'1.5px solid #E0E7FF',alignItems:'flex-start'}}>
-                                            <div style={{width:'40px',height:'40px',borderRadius:'50%',background: i===0 ? '#DBEAFE' : '#EDE9FE',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'20px',flexShrink:0}}>
-                                                {i===0 ? 'user' : 'shield'}
+                                            <div style={{width:'40px',height:'40px',borderRadius:'50%',background: i===0 ? '#DBEAFE' : '#EDE9FE',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                                                <Icon name={i===0 ? 'user' : 'shield'} size={20} color={i===0 ? '#1D4ED8' : '#6D28D9'} />
                                             </div>
                                             <div style={{flex:1,minWidth:0}}>
                                                 <p style={{fontSize:'14px',fontWeight:'700',color:dm?'#c7d2fe':'#1E1B4B',margin:'0 0 2px'}}>{r.name}</p>
@@ -5556,7 +5556,7 @@
 
                                 {/* Notes */}
                                 <div style={{background:cardBg,borderRadius:'16px',border:`2px solid ${borderC}`,padding:'16px',boxShadow:'0 2px 8px rgba(99,102,241,0.07)'}}>
-                                    <p style={{fontSize:'12px',fontWeight:'800',color:dm?'#c7d2fe':'#1E1B4B',textTransform:'uppercase',letterSpacing:'0.07em',margin:'0 0 12px'}}>📝 Notes</p>
+                                    <p style={{fontSize:'12px',fontWeight:'800',color:dm?'#c7d2fe':'#1E1B4B',textTransform:'uppercase',letterSpacing:'0.07em',margin:'0 0 12px',display:'flex',alignItems:'center',gap:'6px'}}><Icon name='file-edit' size={13} color={dm?'#818cf8':'#4F46E5'} />Notes</p>
                                     {[
                                         'Only active positions are assigned to current staff.',
                                         'All vacant positions are kept in the structure for future growth and scalability.',
