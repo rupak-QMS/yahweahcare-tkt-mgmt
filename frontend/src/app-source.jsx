@@ -557,10 +557,6 @@
             // 'idle' | 'loading' | 'subscribed' | 'denied' | 'unsupported'
             const [pushStatus, setPushStatus] = React.useState('idle');
 
-            const HRMS_API_PUSH = window.location.hostname === 'localhost'
-                ? 'http://localhost:4002'
-                : 'https://yahweahcare-tkt-mgmt-hx48.vercel.app';
-
             const urlBase64ToUint8Array = (b64) => {
                 const pad = '='.repeat((4 - b64.length % 4) % 4);
                 const base64 = (b64 + pad).replace(/-/g, '+').replace(/_/g, '/');
@@ -601,7 +597,8 @@
             const handlePushToggle = async () => {
                 if (pushStatus === 'unsupported') return;
                 if (pushStatus === 'denied') {
-                    showToast('Notifications blocked — allow in browser Settings → Site Settings → Notifications');
+                    // Try to open site settings directly so user can reset the permission
+                    showToast('Notifications blocked — click the 🔒 lock icon in your browser address bar → Site settings → Notifications → Allow');
                     return;
                 }
                 if (pushStatus === 'loading') return;
@@ -612,7 +609,7 @@
                         const reg = await navigator.serviceWorker.getRegistration('/');
                         const sub = reg ? await reg.pushManager.getSubscription() : null;
                         if (sub) {
-                            await authFetch(`${HRMS_API_PUSH}/push/unsubscribe`, {
+                            await authFetch(`${HRMS_API}/push/unsubscribe`, {
                                 method: 'POST', noRedirect: true,
                                 body: JSON.stringify({ endpoint: sub.endpoint }),
                             }).catch(() => {});
@@ -630,7 +627,7 @@
                     const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
                     await navigator.serviceWorker.ready;
 
-                    const keyRes = await fetch(`${HRMS_API_PUSH}/push/vapid-public-key`);
+                    const keyRes = await fetch(`${HRMS_API}/push/vapid-public-key`);
                     if (!keyRes.ok) { setPushStatus('idle'); showToast('Push not configured on server'); return; }
                     const { publicKey } = await keyRes.json();
                     if (!publicKey) { setPushStatus('idle'); showToast('Push not configured on server'); return; }
@@ -644,7 +641,7 @@
                         applicationServerKey: urlBase64ToUint8Array(publicKey),
                     });
                     const subJson = sub.toJSON();
-                    const saveRes = await authFetch(`${HRMS_API_PUSH}/push/subscribe`, {
+                    const saveRes = await authFetch(`${HRMS_API}/push/subscribe`, {
                         method: 'POST', noRedirect: true,
                         body: JSON.stringify({ endpoint: subJson.endpoint, keys: subJson.keys }),
                     });
@@ -743,11 +740,15 @@
                                     ? (darkMode ? 'rgba(99,102,241,0.25)' : '#EEF2FF')
                                     : pushStatus === 'denied'
                                     ? (darkMode ? 'rgba(239,68,68,0.15)' : '#FEF2F2')
+                                    : pushStatus === 'idle'
+                                    ? (darkMode ? 'rgba(99,102,241,0.10)' : '#F5F3FF')
                                     : iconBg,
                                 border: pushStatus === 'subscribed'
                                     ? `1px solid ${darkMode ? 'rgba(99,102,241,0.5)' : '#818CF8'}`
                                     : pushStatus === 'denied'
                                     ? `1px solid ${darkMode ? 'rgba(239,68,68,0.4)' : '#FECACA'}`
+                                    : pushStatus === 'idle'
+                                    ? `1px solid ${darkMode ? 'rgba(99,102,241,0.25)' : '#DDD6FE'}`
                                     : `1px solid ${border}`,
                                 opacity: pushStatus === 'loading' ? 0.6 : 1,
                                 cursor: pushStatus === 'loading' ? 'default' : 'pointer',
@@ -771,9 +772,9 @@
                                     <circle cx="12" cy="12" r="10" stroke={darkMode?'#818CF8':'#6366F1'} strokeWidth="2" strokeDasharray="40 20" strokeLinecap="round"/>
                                 </svg>
                             ) : (
-                                /* Bell — idle */
+                                /* Bell — idle (purple tint to invite click) */
                                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
-                                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" stroke={textC} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" stroke={darkMode ? '#818CF8' : '#6366F1'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                                 </svg>
                             )}
                         </button>
