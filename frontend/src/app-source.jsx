@@ -3810,7 +3810,7 @@
                                             <div style={{padding:'14px 16px'}}>
                                                 {hols.map((h,i)=>(
                                                     <div key={i} style={{display:'flex',alignItems:'flex-start',gap:'8px',background:dm?'rgba(239,68,68,0.08)':'#FFF5F5',borderRadius:'8px',padding:'8px 10px',marginBottom:'8px'}}>
-                                                        <span style={{fontSize:'14px'}}>🎉</span>
+                                                        <span style={{display:'flex',alignItems:'center',justifyContent:'center',width:'22px',height:'22px',flexShrink:0}}><Icon name='star' size={14} color='#DC2626' /></span>
                                                         <div>
                                                             <div style={{fontSize:'12px',fontWeight:'700',color:'#DC2626'}}>{h.name}</div>
                                                             <div style={{fontSize:'10px',color:dm?'#4a607f':'#94A3B8',marginTop:'2px'}}>{h.states.includes('ALL')?'National':h.states.join(', ')}</div>
@@ -3836,8 +3836,8 @@
                                                                 <div style={{fontSize:'12px',fontWeight:'600',color:dm?'#e4ecff':'#0F172A',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.title||'—'}</div>
                                                                 <div style={{display:'flex',gap:'6px',marginTop:'4px',flexWrap:'wrap'}}>
                                                                     {(t.priorityLabel||t.priority) && <span style={{fontSize:'10px',color:c.text,fontWeight:'600'}}>{(t.priorityLabel||t.priority).charAt(0).toUpperCase()+(t.priorityLabel||t.priority).slice(1)}</span>}
-                                                                    {od && <span style={{fontSize:'10px',color:'#EF4444',fontWeight:'700'}}>⚠ Overdue</span>}
-                                                                    {done && <span style={{fontSize:'10px',color:'#10B981',fontWeight:'700'}}>✓ Resolved</span>}
+                                                                    {od && <span style={{fontSize:'10px',color:'#EF4444',fontWeight:'700',display:'inline-flex',alignItems:'center',gap:'2px'}}><Icon name='alert-triangle' size={10} color='#EF4444' /> Overdue</span>}
+                                                                    {done && <span style={{fontSize:'10px',color:'#10B981',fontWeight:'700',display:'inline-flex',alignItems:'center',gap:'2px'}}><Icon name='check-circle' size={10} color='#10B981' /> Resolved</span>}
                                                                 </div>
                                                             </div>
                                                         );
@@ -3913,7 +3913,7 @@
                                 {/* Upcoming public holidays */}
                                 <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,overflow:'hidden',boxShadow:dm?'0 4px 16px rgba(0,0,0,0.4)':'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
                                     <div style={{padding:'12px 16px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.12)':'#EEF2F8'}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                                        <span style={{fontSize:'13px',fontWeight:'700',color:dm?'#c0cfec':'#334155'}}>🇦🇺 Public Holidays</span>
+                                        <span style={{fontSize:'13px',fontWeight:'700',color:dm?'#c0cfec':'#334155',display:'inline-flex',alignItems:'center',gap:'5px'}}><Icon name='map-pin' size={13} color='#EF4444' />Public Holidays</span>
                                         <span style={{fontSize:'10px',color:dm?'#4a607f':'#94A3B8'}}>Next 90 days</span>
                                     </div>
                                     <div style={{padding:'8px'}}>
@@ -3922,7 +3922,7 @@
                                         ) : upHols.map((h,i)=>{
                                             const [hy,hm2,hd2]=h.date.split('-').map(Number);
                                             const diff=Math.round((new Date(hy,hm2-1,hd2)-today)/86400000);
-                                            const dLabel=diff===0?'Today 🎉':diff===1?'Tomorrow':`${diff}d`;
+                                            const dLabel=diff===0?'Today':diff===1?'Tomorrow':`${diff}d`;
                                             const hot=diff<=7;
                                             return (
                                                 <div key={i} className="sidebar-row" style={{padding:'8px',borderRadius:'8px',display:'flex',gap:'8px',alignItems:'center'}}>
@@ -3934,7 +3934,7 @@
                                                         <div style={{fontSize:'12px',fontWeight:'600',color:dm?'#e4ecff':'#0F172A',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{h.name}</div>
                                                         <div style={{fontSize:'10px',color:dm?'#4a607f':'#94A3B8',marginTop:'1px'}}>{h.states.includes('ALL')?'National':h.states.join(', ')}</div>
                                                     </div>
-                                                    <span style={{fontSize:'10px',fontWeight:'700',color:hot?'#DC2626':(dm?'#4a607f':'#94A3B8'),flexShrink:0}}>{dLabel}</span>
+                                                    <span style={{fontSize:'10px',fontWeight:'700',color:hot?'#DC2626':(dm?'#4a607f':'#94A3B8'),flexShrink:0,display:'inline-flex',alignItems:'center',gap:'2px'}}>{dLabel}{diff===0 && <Icon name='star' size={9} color='#DC2626' />}</span>
                                                 </div>
                                             );
                                         })}
@@ -3951,7 +3951,7 @@
                                     });
                                     return (
                                         <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,padding:'14px 16px',boxShadow:dm?'0 4px 16px rgba(0,0,0,0.4)':'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
-                                            <div style={{fontSize:'13px',fontWeight:'700',color:dm?'#c0cfec':'#334155',marginBottom:'12px'}}>📊 {MONTHS[month]} Breakdown</div>
+                                            <div style={{fontSize:'13px',fontWeight:'700',color:dm?'#c0cfec':'#334155',marginBottom:'12px',display:'flex',alignItems:'center',gap:'6px'}}><Icon name='bar-chart' size={13} color={dm?'#818cf8':'#4F46E5'} />{MONTHS[month]} Breakdown</div>
                                             {['critical','high','medium','low'].map(p=>{
                                                 const cnt=priCounts[p]||0; if(!cnt) return null;
                                                 const pc=PRI_C[p]||{dot:dm?'#4a607f':'#94A3B8',text:dm?'#c0cfec':'#334155'};
