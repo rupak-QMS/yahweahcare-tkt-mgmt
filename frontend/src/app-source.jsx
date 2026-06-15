@@ -3118,22 +3118,22 @@
                                                 <div style={{display:'flex',flexDirection:'column',gap:8}}>
                                                     {displayApprovers.map(ap => {
                                                         const s=(ap.status||'pending').toLowerCase();
-                                                        const stBg={approved:dm?'rgba(16,185,129,0.08)':'#ECFDF5',rejected:dm?'rgba(239,68,68,0.08)':'#FEF2F2',pending:dm?'rgba(239,68,68,0.08)':'#FEF2F2'};
-                                                        const stBorder={approved:dm?'rgba(16,185,129,0.2)':'#A7F3D0',rejected:dm?'rgba(239,68,68,0.2)':'#FECACA',pending:dm?'rgba(239,68,68,0.2)':'#FECACA'};
-                                                        const stC={approved:dm?'#34d399':'#065F46',rejected:dm?'#fca5a5':'#991B1B',pending:dm?'#fca5a5':'#991B1B'};
+                                                        const stBg={approved:dm?'rgba(16,185,129,0.08)':'#ECFDF5',rejected:dm?'rgba(239,68,68,0.08)':'#FEF2F2',pending:dm?'rgba(245,158,11,0.1)':'#FFFBEB'};
+                                                        const stBorder={approved:dm?'rgba(16,185,129,0.2)':'#A7F3D0',rejected:dm?'rgba(239,68,68,0.2)':'#FECACA',pending:dm?'rgba(245,158,11,0.3)':'#FDE68A'};
+                                                        const stC={approved:dm?'#34d399':'#065F46',rejected:dm?'#fca5a5':'#991B1B',pending:dm?'#fcd34d':'#92400E'};
+                                                        const stAvatar={approved:dm?'rgba(16,185,129,0.2)':'#D1FAE5',rejected:dm?'rgba(239,68,68,0.2)':'#FEE2E2',pending:dm?'rgba(245,158,11,0.2)':'#FEF3C7'};
                                                         const stI={approved:'check-circle',rejected:'x-circle',pending:'hourglass'};
+                                                        const stBadgeBg={approved:dm?'rgba(16,185,129,0.15)':'#D1FAE5',rejected:dm?'rgba(239,68,68,0.15)':'#FEE2E2',pending:dm?'rgba(245,158,11,0.15)':'#FEF3C7'};
                                                         return (
-                                                            <div key={ap.id} style={{display:'flex',alignItems:'flex-start',gap:10,padding:'10px 12px',borderRadius:10,background:stBg[s]||stBg.pending,border:`1px solid ${stBorder[s]||stBorder.pending}`}}>
-                                                                <div style={{width:30,height:30,borderRadius:'50%',background:'rgba(255,255,255,0.6)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:12,color:stC[s]||stC.pending,flexShrink:0}}>
+                                                            <div key={ap.id} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',borderRadius:10,background:stBg[s]||stBg.pending,border:`1px solid ${stBorder[s]||stBorder.pending}`}}>
+                                                                <div style={{width:34,height:34,borderRadius:'50%',background:stAvatar[s]||stAvatar.pending,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:13,color:stC[s]||stC.pending,flexShrink:0,letterSpacing:'-0.5px'}}>
                                                                     {(ap.userName||ap.name||'?').charAt(0).toUpperCase()}
                                                                 </div>
                                                                 <div style={{flex:1,minWidth:0}}>
-                                                                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
-                                                                        <p style={{fontSize:13,fontWeight:600,color:stC[s]||stC.pending,margin:0}}>{ap.userName||ap.name}</p>
-                                                                        <span style={{fontSize:11,fontWeight:700,color:stC[s]||stC.pending,flexShrink:0,display:'inline-flex',alignItems:'center',gap:'3px'}}><Icon name={stI[s]||'hourglass'} size={11} color={stC[s]||stC.pending} />{s.charAt(0).toUpperCase()+s.slice(1)}</span>
-                                                                    </div>
-                                                                    {ap.justification && <p style={{fontSize:11,color:stC[s]||stC.pending,margin:'4px 0 0',opacity:0.8,display:'flex',alignItems:'center',gap:'3px'}}><Icon name={s==='approved'?'file-edit':'message-square'} size={11} color={stC[s]||stC.pending} />{ap.justification}</p>}
+                                                                    <p style={{fontSize:13,fontWeight:700,color:dm?'#c0cfec':'#1E293B',margin:0}}>{ap.userName||ap.name}</p>
+                                                                    {ap.justification && <p style={{fontSize:11,color:stC[s]||stC.pending,margin:'2px 0 0',display:'flex',alignItems:'center',gap:'3px'}}><Icon name={s==='approved'?'file-edit':'message-square'} size={10} color={stC[s]||stC.pending} />{ap.justification}</p>}
                                                                 </div>
+                                                                <span style={{fontSize:11,fontWeight:700,color:stC[s]||stC.pending,flexShrink:0,display:'inline-flex',alignItems:'center',gap:'4px',background:stBadgeBg[s]||stBadgeBg.pending,padding:'3px 9px',borderRadius:20,border:`1px solid ${stBorder[s]||stBorder.pending}`}}><Icon name={stI[s]||'hourglass'} size={11} color={stC[s]||stC.pending} />{s.charAt(0).toUpperCase()+s.slice(1)}</span>
                                                             </div>
                                                         );
                                                     })}
@@ -3168,9 +3168,9 @@
                                             {!escalateMode ? (
                                                 <button
                                                     onClick={() => { setEscalateMode(true); setActionError(''); }}
-                                                    className="w-full py-2.5 border-2 border-orange-300 text-orange-700 text-sm font-semibold rounded-xl hover:bg-orange-50 transition flex items-center justify-center gap-2"
+                                                    style={{width:'100%',padding:'11px 16px',background:'linear-gradient(135deg,#F97316,#EA580C)',color:'#fff',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer',display:'inline-flex',alignItems:'center',justifyContent:'center',gap:'7px',boxShadow:'0 2px 8px rgba(234,88,12,0.25)',letterSpacing:'0.01em'}}
                                                 >
-                                                    <Icon name='arrow-up-circle' size={14} color='#C2410C' />Escalate This Ticket
+                                                    <Icon name='arrow-up-circle' size={15} color='#fff' />Escalate This Ticket
                                                 </button>
                                             ) : (
                                                 <div className="border-2 border-orange-200 rounded-xl p-4 bg-orange-50">
@@ -3400,7 +3400,7 @@
                                             {!deleteMode ? (
                                                 <button onClick={()=>{setDeleteMode(true);setDeleteJustification('');setActionError('');}}
                                                     style={{width:'100%',padding:'9px',background:'none',border:'1px solid #FCA5A5',color:'#DC2626',borderRadius:9,fontSize:12,fontWeight:600,cursor:'pointer',display:'inline-flex',alignItems:'center',justifyContent:'center',gap:'5px'}}>
-                                                    <Icon name='trash-2' size={12} color='#DC2626' />Delete Ticket (Admin Only)
+                                                    <Icon name='trash-2' size={12} color='#DC2626' />Delete Ticket (Bootstrap Admin Only)
                                                 </button>
                                             ) : (
                                                 <div style={{padding:14,background:dm?'rgba(239,68,68,0.08)':'#FEF2F2',borderRadius:10,border:'1px solid #FECACA'}}>
