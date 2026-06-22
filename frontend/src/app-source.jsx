@@ -551,7 +551,7 @@
         function YCLoader({ size = 36 }) {
             const r = Math.round(size * 0.22);
             return (
-                <div style={{display:'inline-flex',alignItems:'center',justifyContent:'center',animation:'spin 1.1s linear infinite',width:size,height:size,flexShrink:0}}>
+                <div className="yc-spin" style={{display:'inline-flex',alignItems:'center',justifyContent:'center',animation:'spin 0.65s linear infinite',width:size,height:size,flexShrink:0}}>
                     <div style={{width:size,height:size,borderRadius:r,background:'linear-gradient(135deg,#6366F1,#8B5CF6)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 4px 14px rgba(99,102,241,0.35)'}}>
                         <svg width={Math.round(size*0.58)} height={Math.round(size*0.58)} viewBox="0 0 24 24" fill="none">
                             <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -571,12 +571,18 @@
             );
         }
 
-        // Inline section loader (cards, panels, drawers)
+        // Inline section loader — skeleton shimmer rows for instant feel
         function SectionLoader({ message = 'Loading…', size = 32 }) {
             return (
-                <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:10,padding:'48px 24px'}}>
+                <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12,padding:'40px 24px'}}>
                     <YCLoader size={size} />
                     <p style={{fontSize:13,color:'#94A3B8',margin:0,fontWeight:500}}>{message}</p>
+                    {/* Shimmer skeleton rows */}
+                    <div style={{width:'100%',maxWidth:320,display:'flex',flexDirection:'column',gap:8,marginTop:4}}>
+                        <div className="yc-shimmer" style={{height:10,width:'85%'}}/>
+                        <div className="yc-shimmer" style={{height:10,width:'65%'}}/>
+                        <div className="yc-shimmer" style={{height:10,width:'75%'}}/>
+                    </div>
                 </div>
             );
         }
@@ -803,7 +809,7 @@
                                 </svg>
                             ) : pushStatus === 'loading' ? (
                                 /* Spinner */
-                                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" style={{animation:'spin 1s linear infinite'}}>
+                                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" className="yc-spin" style={{animation:'spin 0.65s linear infinite'}}>
                                     <circle cx="12" cy="12" r="10" stroke={darkMode?'#818CF8':'#6366F1'} strokeWidth="2" strokeDasharray="40 20" strokeLinecap="round"/>
                                 </svg>
                             ) : (
