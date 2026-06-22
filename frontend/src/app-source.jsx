@@ -1,6 +1,21 @@
 
         // All data sourced from API — no hardcoded fallbacks
 
+        // ── Lazy Chart.js loader — loads once, reuses cached promise ──────────
+        let _chartJsPromise = null;
+        function loadChartJs() {
+            if (window.Chart) return Promise.resolve();
+            if (_chartJsPromise) return _chartJsPromise;
+            _chartJsPromise = new Promise((resolve, reject) => {
+                const s = document.createElement('script');
+                s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js';
+                s.onload = resolve;
+                s.onerror = () => { _chartJsPromise = null; reject(new Error('Chart.js load failed')); };
+                document.head.appendChild(s);
+            });
+            return _chartJsPromise;
+        }
+
         // ── Professional SVG Icon System ──────────────────────────────────────
         // Usage: <Icon name="dashboard" size={16} color="currentColor" />
         function Icon({ name, size = 16, color = 'currentColor', style = {} }) {
@@ -916,7 +931,7 @@
         });
 
         // ── Sidebar Navigation ───────────────────────────────────────────────────
-        function Navigation({ currentPage, setCurrentPage, onSignOut, currentUser, darkMode }) {
+        const Navigation = React.memo(function Navigation({ currentPage, setCurrentPage, onSignOut, currentUser, darkMode }) {
             const [profileOpen, setProfileOpen] = React.useState(false);
             const displayName = currentUser?.name || 'User';
             const initials = displayName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
@@ -1060,7 +1075,7 @@
                     </div>
                 </aside>
             );
-        }
+        }); // end Navigation React.memo
 
         // ── Login Page (initial / not-yet-authenticated) ──────────────────────────
         function LoginPage({ onSignIn }) {
@@ -1523,7 +1538,7 @@
             React.useEffect(() => {
                 if (!tickets.length) return;
                 let raf1, raf2;
-
+                loadChartJs().then(() => {
                 // Status doughnut
                 const statusGroups = { Open:open, 'In Progress':inProg, Resolved:resolved, Urgent:urgent, Other: Math.max(0,total-open-inProg-resolved-urgent) };
                 const sLabels = Object.keys(statusGroups).filter(k=>statusGroups[k]>0);
@@ -1551,6 +1566,7 @@
                         options: { indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ x:{ ticks:{ stepSize:1, precision:0, color: dm ? '#8fa4cc' : '#64748B' }, grid:{ color: dm ? 'rgba(99,102,241,0.08)' : '#F3F4F6' } }, y:{ grid:{ color: dm ? 'rgba(99,102,241,0.08)' : '#F3F4F6' }, ticks:{ color: dm ? '#8fa4cc' : '#64748B' } } } }
                     });
                 });
+                }); // end loadChartJs().then
                 return ()=>{ cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); };
             }, [tickets]);
 
@@ -4486,6 +4502,7 @@
             // ── Chart ─────────────────────────────────────────────
             React.useEffect(() => {
                 if (loading || staffMetrics.length === 0) return;
+                loadChartJs().then(() => {
                 const ctx = document.getElementById('perfChart');
                 if (!ctx) return;
                 if (perfChart) { try { perfChart.destroy(); } catch(_){} }
@@ -4507,6 +4524,7 @@
                     }
                 });
                 setPerfChart(chart);
+                }); // end loadChartJs().then
             }, [loading, staffMetrics]);
 
             // ── Sorted table rows ─────────────────────────────────
@@ -4835,6 +4853,7 @@
             React.useEffect(() => {
                 if (!deptMetrics.length) return;
                 let rafId;
+                loadChartJs().then(() => {
                 rafId = requestAnimationFrame(() => {
                     if (!canvasRef.current) return;
                     if (chartInst.current) { try { chartInst.current.destroy(); } catch(_){} chartInst.current = null; }
@@ -4861,6 +4880,7 @@
                         }
                     });
                 });
+                }); // end loadChartJs().then
                 return () => {
                     cancelAnimationFrame(rafId);
                     if (chartInst.current) { try { chartInst.current.destroy(); } catch(_){} chartInst.current = null; }
@@ -5261,6 +5281,7 @@
             // Build / rebuild charts after render
             React.useEffect(() => {
                 if(loading) return;
+                loadChartJs().then(() => {
                 const destroy = id => { if(charts.current[id]) { charts.current[id].destroy(); delete charts.current[id]; } };
                 const COLORS = { critical:'#EF4444', urgent:'#EF4444', high:'#F97316', medium:'#EAB308', low:'#6366F1' };
                 const PALETTE = ['#6366F1','#8B5CF6','#EC4899','#F97316','#EAB308','#10B981','#06B6D4'];
@@ -5299,6 +5320,7 @@
                 destroy('ndis');
                 const nc = document.getElementById('chart-ndis');
                 if(nc) charts.current.ndis = new Chart(nc, { type:'doughnut', data:{ labels:['NDIS Related','Non-NDIS'], datasets:[{ data:[ndis, total-ndis], backgroundColor:['#6366F1','#E0E7FF'], borderWidth:2, borderColor:'white', hoverOffset:4 }] }, options:{ responsive:true, cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, padding:10, font:{size:11}, color:dm?'#8fa4cc':'#334155' } } } } });
+                }); // end loadChartJs().then
 
             }, [loading, range, filtered.map(t=>t.id||t.createdAt).join(',')]);
 
@@ -7911,11 +7933,16 @@
 
         // Main App
         function App() {
+            const [isPending, startTransition] = React.useTransition();
             const [currentPage, setCurrentPage] = React.useState(() => {
                 const hash = window.location.hash.slice(1) || 'dashboard';
                 // 'logout' is a public page — keep it; everything else defaults to dashboard if no hash
                 return hash;
             });
+            // Wrap page navigation in startTransition so urgent updates (clicks) aren't blocked
+            const navigatePage = React.useCallback((page) => {
+                startTransition(() => setCurrentPage(page));
+            }, []);
             const [signedOut,   setSignedOut]   = React.useState(false);
             const [authError,   setAuthError]   = React.useState(null);
             const [sidebarOpen, setSidebarOpen] = React.useState(() => !isMobile());
@@ -7983,11 +8010,11 @@
             React.useEffect(() => {
                 const handleHashChange = () => {
                     const hash = window.location.hash.slice(1) || 'dashboard';
-                    setCurrentPage(hash);
+                    navigatePage(hash);
                 };
                 window.addEventListener('hashchange', handleHashChange);
                 return () => window.removeEventListener('hashchange', handleHashChange);
-            }, []);
+            }, [navigatePage]);
 
             const handlePageChange = (pageId) => {
                 window.location.hash = pageId;
@@ -8004,7 +8031,7 @@
                 setAuthError(null);
                 setSignedOut(false);
                 window.location.hash = 'logout';
-                setCurrentPage('logout');
+                navigatePage('logout');
             };
 
             // ── Silent token refresh ─────────────────────────────────────────────
