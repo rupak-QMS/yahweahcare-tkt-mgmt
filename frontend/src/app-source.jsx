@@ -1471,27 +1471,32 @@
                 }).catch(()=>{}).finally(()=>setLoading(false));
             }, []);
 
-            // ── Compute stats ─────────────────────────────────────
-            const total    = tickets.length;
-            const open     = tickets.filter(t=>['new','assigned'].includes(t.status)).length;
-            const inProg   = tickets.filter(t=>['in_progress','waiting','pending_approval'].includes(t.status)).length;
-            const resolved = tickets.filter(t=>['resolved','closed'].includes(t.status)).length;
-            const escalated= tickets.filter(t=>t.isEscalated||t.escalated||t.status==='escalated').length;
-            const urgent   = tickets.filter(t=>['critical','urgent'].includes((t.priorityLabel||t.priority||'').toLowerCase())).length;
-            const now      = new Date();
-            const overdue  = tickets.filter(t=>!['resolved','closed'].includes(t.status)&&t.dueAt&&new Date(t.dueAt)<now).length;
-
-            // SLA: resolved tickets that were resolved before expected_completion / due_at
-            const resTkts = tickets.filter(t=>['resolved','closed'].includes(t.status));
-            const slaOk   = resTkts.filter(t=>{
-                const due = t.dueAt||t.expectedCompletion; if(!due) return true;
-                const fin = t.updatedAt||t.resolvedAt; if(!fin) return true;
-                return new Date(fin)<=new Date(due);
-            }).length;
-            const slaFailed = resTkts.length - slaOk;
-            // Include active overdue tickets as SLA breaches (they missed their deadline)
-            const slaTotalEval = resTkts.length + overdue;
-            const slaPct  = slaTotalEval>0 ? Math.round(slaOk/slaTotalEval*100) : 100;
+            // ── Compute stats (memoized — only recalc when tickets change) ──────
+            const stats = React.useMemo(() => {
+                const now = new Date();
+                let open=0, inProg=0, resolved=0, escalated=0, urgent=0, overdue=0, slaOk=0;
+                const resTkts = [];
+                for (const t of tickets) {
+                    const s = t.status || '';
+                    const p = (t.priorityLabel||t.priority||'').toLowerCase();
+                    if (['new','assigned'].includes(s)) open++;
+                    if (['in_progress','waiting','pending_approval'].includes(s)) inProg++;
+                    if (['resolved','closed'].includes(s)) { resolved++; resTkts.push(t); }
+                    if (t.isEscalated||t.escalated||s==='escalated') escalated++;
+                    if (['critical','urgent'].includes(p)) urgent++;
+                    if (!['resolved','closed'].includes(s)&&t.dueAt&&new Date(t.dueAt)<now) overdue++;
+                }
+                for (const t of resTkts) {
+                    const due = t.dueAt||t.expectedCompletion; if(!due){slaOk++;continue;}
+                    const fin = t.updatedAt||t.resolvedAt; if(!fin){slaOk++;continue;}
+                    if(new Date(fin)<=new Date(due)) slaOk++;
+                }
+                const slaFailed = resTkts.length - slaOk;
+                const slaTotalEval = resTkts.length + overdue;
+                const slaPct = slaTotalEval>0 ? Math.round(slaOk/slaTotalEval*100) : 100;
+                return { total:tickets.length, open, inProg, resolved, escalated, urgent, overdue, slaOk, slaFailed, slaTotalEval, slaPct };
+            }, [tickets]);
+            const { total, open, inProg, resolved, escalated, urgent, overdue, slaOk, slaFailed, slaTotalEval, slaPct } = stats;
             const r = 54, circ = 2*Math.PI*r;
 
             // ── Charts (rebuild when data changes) ────────────────
@@ -2709,17 +2714,23 @@
             const hasActiveFilters = priorityFilter || assigneeFilter || dateFrom || dateTo;
             const clearFilters = () => { setPriorityFilter(''); setAssigneeFilter(''); setDateFrom(''); setDateTo(''); };
 
-            const filteredNew = tickets.filter(t => {
+            const filteredNew = React.useMemo(() => {
                 const grp = STATUS_GROUPS.find(g=>g.key===filter);
-                if (grp && !grp.match(t)) return false;
-                if (search && !t.title.toLowerCase().includes(search.toLowerCase()) && !t.id.toLowerCase().includes(search.toLowerCase())) return false;
-                if (priorityFilter && (t.priority||'').toLowerCase() !== priorityFilter.toLowerCase()) return false;
-                if (assigneeFilter && (t.assigned||'') !== assigneeFilter) return false;
-                const createdMs = t.createdAt ? new Date(t.createdAt).getTime() : null;
-                if (dateFrom && !(createdMs && createdMs >= new Date(dateFrom).getTime())) return false;
-                if (dateTo   && !(createdMs && createdMs <= new Date(dateTo + 'T23:59:59').getTime())) return false;
-                return true;
-            });
+                const searchL = search.toLowerCase();
+                const priorityL = priorityFilter.toLowerCase();
+                const dateFromMs = dateFrom ? new Date(dateFrom).getTime() : null;
+                const dateToMs   = dateTo   ? new Date(dateTo + 'T23:59:59').getTime() : null;
+                return tickets.filter(t => {
+                    if (grp && !grp.match(t)) return false;
+                    if (search && !t.title.toLowerCase().includes(searchL) && !t.id.toLowerCase().includes(searchL)) return false;
+                    if (priorityFilter && (t.priority||'').toLowerCase() !== priorityL) return false;
+                    if (assigneeFilter && (t.assigned||'') !== assigneeFilter) return false;
+                    const createdMs = t.createdAt ? new Date(t.createdAt).getTime() : null;
+                    if (dateFromMs && !(createdMs && createdMs >= dateFromMs)) return false;
+                    if (dateToMs   && !(createdMs && createdMs <= dateToMs))   return false;
+                    return true;
+                });
+            }, [tickets, filter, search, priorityFilter, assigneeFilter, dateFrom, dateTo]);
 
             return (
                 <main className="flex-1 overflow-auto" style={{background:pageBg}}>
@@ -5153,48 +5164,55 @@
                 }).catch(() => { setLoading(false); });
             }, []);
 
-            // Derived metrics
-            const now = new Date();
-            const cutoff = new Date(now); cutoff.setDate(now.getDate() - Number(range));
-            const filtered = tickets.filter(t => new Date(t.createdAt || t.date || now) >= cutoff);
+            // Derived metrics (memoized — only recalc when tickets or range changes)
+            const analytics = React.useMemo(() => {
+                const now = new Date();
+                const cutoff = new Date(now); cutoff.setDate(now.getDate() - Number(range));
+                const filtered = tickets.filter(t => new Date(t.createdAt || t.date || now) >= cutoff);
 
-            const total      = filtered.length;
-            const open       = filtered.filter(t => !['resolved','closed'].includes((t.status||t.status_id||'').toLowerCase())).length;
-            const resolved   = filtered.filter(t => ['resolved','closed'].includes((t.status||t.status_id||'').toLowerCase())).length;
-            const escalated  = filtered.filter(t => t.isEscalated).length;
-            const ndis       = filtered.filter(t => t.ndisRelated || t.ndis_related || t.ndisrelated).length;
-            const resTickets  = filtered.filter(t => ['resolved','closed'].includes((t.status||t.status_id||'').toLowerCase()));
-            const slaBreached= resTickets.filter(t => t.slaBreached||t.sla_breached).length;
-            const slaOkCount = resTickets.length - slaBreached;
-            const overduePct = filtered.filter(t => !['resolved','closed'].includes((t.status||t.status_id||'').toLowerCase()) && t.dueAt && new Date(t.dueAt) < now).length;
-            const slaEval    = resTickets.length + overduePct;
-            const slaRate    = slaEval > 0 ? Math.round((slaOkCount / slaEval) * 100) : 100;
-            const resRate    = total ? Math.round((resolved/total)*100) : 0;
+                let open=0, resolved=0, escalated=0, ndis=0, slaBreached=0, overduePct=0;
+                const resTickets = [];
+                const priorityCounts = { critical:0, urgent:0, high:0, medium:0, low:0 };
+                const statusCounts = {};
+                const catCounts = {};
+                const staffCounts = {};
 
-            // Priority counts
-            const priorityCounts = { critical:0, urgent:0, high:0, medium:0, low:0 };
-            filtered.forEach(t => { const p=(t.priorityLabel||t.priority||t.priority_id||'Low').toLowerCase().replace('critical','critical').replace('urgent','urgent'); if(priorityCounts[p]!==undefined) priorityCounts[p]++; else if(p.includes('critical')||p.includes('urgent')) priorityCounts['critical']++; });
+                for (const t of filtered) {
+                    const s = (t.status||t.status_id||'open').toLowerCase();
+                    const isRes = ['resolved','closed'].includes(s);
+                    if (isRes) { resolved++; resTickets.push(t); } else open++;
+                    if (t.isEscalated) escalated++;
+                    if (t.ndisRelated||t.ndis_related||t.ndisrelated) ndis++;
+                    if (!isRes && t.dueAt && new Date(t.dueAt) < now) overduePct++;
+                    const p = (t.priorityLabel||t.priority||t.priority_id||'Low').toLowerCase();
+                    if (priorityCounts[p]!==undefined) priorityCounts[p]++;
+                    else if (p.includes('critical')||p.includes('urgent')) priorityCounts['critical']++;
+                    statusCounts[s] = (statusCounts[s]||0)+1;
+                    const c = t.categoryLabel||t.category||t.category_id||'Other';
+                    catCounts[c] = (catCounts[c]||0)+1;
+                    const a = t.assigneeName||t.assignedToName||'Unassigned';
+                    staffCounts[a] = (staffCounts[a]||0)+1;
+                }
+                for (const t of resTickets) { if (t.slaBreached||t.sla_breached) slaBreached++; }
+                const slaOkCount = resTickets.length - slaBreached;
+                const slaEval    = resTickets.length + overduePct;
+                const slaRate    = slaEval > 0 ? Math.round((slaOkCount / slaEval) * 100) : 100;
+                const total      = filtered.length;
+                const resRate    = total ? Math.round((resolved/total)*100) : 0;
+                const topCats    = Object.entries(catCounts).sort((a,b)=>b[1]-a[1]).slice(0,7);
+                const staffRows  = Object.entries(staffCounts).sort((a,b)=>b[1]-a[1]);
 
-            // Status counts
-            const statusCounts = {};
-            filtered.forEach(t => { const s=(t.status||t.status_id||'open'); statusCounts[s]=(statusCounts[s]||0)+1; });
+                // Monthly volume (last 6 months)
+                const monthlyMap = {};
+                for(let i=5;i>=0;i--){ const d=new Date(now); d.setMonth(d.getMonth()-i); const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; monthlyMap[k]=0; }
+                for (const t of filtered) { const d=new Date(t.createdAt||t.date||now); const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; if(monthlyMap[k]!==undefined) monthlyMap[k]++; }
+                const monthLabels = Object.keys(monthlyMap).map(k=>{ const [y,m]=k.split('-'); return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][Number(m)-1]+' '+y; });
+                const monthData   = Object.values(monthlyMap);
 
-            // Category counts (top 6)
-            const catCounts = {};
-            filtered.forEach(t => { const c=(t.categoryLabel||t.category||t.category_id||'Other'); catCounts[c]=(catCounts[c]||0)+1; });
-            const topCats = Object.entries(catCounts).sort((a,b)=>b[1]-a[1]).slice(0,7);
+                return { now, filtered, total, open, resolved, escalated, ndis, slaRate, resRate, priorityCounts, statusCounts, topCats, staffRows, monthLabels, monthData };
+            }, [tickets, range]);
 
-            // Staff workload
-            const staffCounts = {};
-            filtered.forEach(t => { const a=t.assigneeName||t.assignedToName||'Unassigned'; staffCounts[a]=(staffCounts[a]||0)+1; });
-            const staffRows = Object.entries(staffCounts).sort((a,b)=>b[1]-a[1]);
-
-            // Monthly volume (last 6 months)
-            const monthlyMap = {};
-            for(let i=5;i>=0;i--){ const d=new Date(now); d.setMonth(d.getMonth()-i); const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; monthlyMap[k]=0; }
-            filtered.forEach(t => { const d=new Date(t.createdAt||t.date||now); const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; if(monthlyMap[k]!==undefined) monthlyMap[k]++; });
-            const monthLabels = Object.keys(monthlyMap).map(k=>{ const [y,m]=k.split('-'); return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][Number(m)-1]+' '+y; });
-            const monthData   = Object.values(monthlyMap);
+            const { now, filtered, total, open, resolved, escalated, ndis, slaRate, resRate, priorityCounts, statusCounts, topCats, staffRows, monthLabels, monthData } = analytics;
 
             // Build / rebuild charts after render
             React.useEffect(() => {
@@ -7841,6 +7859,9 @@
             );
         }
 
+        // isMobile — module-level, stable reference (not recreated per render)
+        const isMobile = () => window.innerWidth < 1024;
+
         // Main App
         function App() {
             const [currentPage, setCurrentPage] = React.useState(() => {
@@ -7850,18 +7871,21 @@
             });
             const [signedOut,   setSignedOut]   = React.useState(false);
             const [authError,   setAuthError]   = React.useState(null);
-            const isMobile = () => window.innerWidth < 1024;
             const [sidebarOpen, setSidebarOpen] = React.useState(() => !isMobile());
             const [mobileOverlay, setMobileOverlay] = React.useState(false);
 
-            // Track viewport to toggle overlay mode
+            // Track viewport to toggle overlay mode (debounced 100ms)
             React.useEffect(() => {
+                let timer;
                 const onResize = () => {
-                    if (!isMobile()) { setMobileOverlay(false); }
-                    else { setSidebarOpen(false); }
+                    clearTimeout(timer);
+                    timer = setTimeout(() => {
+                        if (!isMobile()) { setMobileOverlay(false); }
+                        else { setSidebarOpen(false); }
+                    }, 100);
                 };
                 window.addEventListener('resize', onResize);
-                return () => window.removeEventListener('resize', onResize);
+                return () => { clearTimeout(timer); window.removeEventListener('resize', onResize); };
             }, []);
 
             // When sidebar opens on mobile, show overlay; on desktop keep inline
