@@ -2928,7 +2928,7 @@
                                                                     }}
                                                                     style={{display:'inline-flex',alignItems:'center',gap:'5px',padding:'5px 12px',borderRadius:'7px',border:'1px solid #059669',background:closingTicketId===t._dbId?'#D1FAE5':'#059669',color:closingTicketId===t._dbId?'#065F46':'white',fontSize:'12px',fontWeight:'600',cursor:closingTicketId===t._dbId?'wait':'pointer',transition:'all 0.15s',opacity:closingTicketId===t._dbId?0.7:1}}
                                                                 >
-                                                                    {closingTicketId===t._dbId ? <><Icon name='loader' size={12} color={closingTicketId===t._dbId?'#065F46':'#fff'} />Closing…</> : <><Icon name='lock' size={12} color='#fff' />Close</>}
+                                                                    {closingTicketId===t._dbId ? <><YCLoader size={12} />Closing…</> : <><Icon name='lock' size={12} color='#fff' />Close</>}
                                                                 </button>
                                                             </td>
                                                         )}
@@ -3100,7 +3100,7 @@
                                                     {canUpload && (
                                                         <label style={{display:'inline-flex',alignItems:'center',gap:5,padding:'4px 10px',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:dm?'#818cf8':'#4F46E5',border:`1px solid ${dm?'rgba(99,102,241,0.25)':'#C7D2FE'}`,borderRadius:6,fontSize:11,fontWeight:600,cursor:attUploadLoading?'not-allowed':'pointer',opacity:attUploadLoading?0.5:1}}>
                                                             <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.rtf,.jpg,.jpeg,.png,.gif,.bmp,.heic" onChange={handleAttachUpload} style={{display:'none'}} disabled={attUploadLoading}/>
-                                                            {attUploadLoading ? <><Icon name='loader' size={11} color={dm?'#818cf8':'#4F46E5'} />Uploading…</> : <><Icon name='plus-circle' size={11} color={dm?'#818cf8':'#4F46E5'} />Attach File</>}
+                                                            {attUploadLoading ? <><YCLoader size={11} />Uploading…</> : <><Icon name='plus-circle' size={11} color={dm?'#818cf8':'#4F46E5'} />Attach File</>}
                                                         </label>
                                                     )}
                                                 </div>
@@ -3685,7 +3685,7 @@
                                                             } catch(e){ setActionError(e.message); }
                                                             finally{ setActionLoading(false); }
                                                         }} style={{flex:1,padding:'9px',background:'#DC2626',color:'white',border:'none',borderRadius:9,fontSize:13,fontWeight:700,cursor:'pointer',opacity:(actionLoading||!deleteJustification.trim())?0.5:1}}>
-                                                            {actionLoading?'⏳…':'🗑 Permanently Delete'}
+                                                            {actionLoading?<><YCLoader size={13} /><span style={{marginLeft:6}}>Deleting…</span></>:'🗑 Permanently Delete'}
                                                         </button>
                                                         <button onClick={()=>{setDeleteMode(false);setDeleteJustification('');setActionError('');}}
                                                             style={{padding:'9px 14px',background:dm?'rgba(6,9,22,0.7)':'#F5F7FF',color:dm?'#c0cfec':'#334155',border:'none',borderRadius:9,fontSize:13,fontWeight:600,cursor:'pointer'}}>Cancel</button>
@@ -6684,7 +6684,7 @@
                                 </div>
                             ) : logLoading ? (
                                 <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:textM,fontSize:14,gap:'8px'}}>
-                                    <Icon name='loader' size={18} color={textM} /> Loading log…
+                                    <YCLoader size={18} /> Loading log…
                                 </div>
                             ) : logError ? (
                                 <div style={{padding:24,color:'#EF4444',fontSize:13}}>{logError}</div>
@@ -7297,10 +7297,7 @@
 
             if (loading) return (
                 <main style={{flex:1,overflow:'auto',background:dm?'rgba(4,8,20,0.6)':'#F8FAFF',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                    <div style={{textAlign:'center'}}>
-                        <div style={{width:40,height:40,border:'3px solid #E5E7EB',borderTopColor:'#4F46E5',borderRadius:'50%',animation:'spin 0.8s linear infinite',margin:'0 auto 12px'}}/>
-                        <p style={{color:textM,fontSize:14}}>Loading report data…</p>
-                    </div>
+                    <SectionLoader message="Loading report data…" size={40} />
                 </main>
             );
 
