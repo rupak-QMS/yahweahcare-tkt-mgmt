@@ -546,6 +546,12 @@
         const DarkModeContext = React.createContext(false);
         const useDark = () => React.useContext(DarkModeContext);
 
+        // ── Global Ticket Cache — fetch once, share across all pages ─────────
+        // Pages seed their local state from this cache so they render instantly
+        // without waiting for their own API call. Cache auto-refreshes every 60s.
+        const TicketCacheContext = React.createContext({ tickets: [], ready: false, refresh: () => {} });
+        const useTicketCache = () => React.useContext(TicketCacheContext);
+
         // ── useDebounce — delays state updates until typing pauses ───────────────
         function useDebounce(value, delay) {
             const [debounced, setDebounced] = React.useState(value);
@@ -1445,15 +1451,16 @@
         // Dashboard Page
         function Dashboard() {
             const dm = useDark();
+            const cache = useTicketCache();
             const pageBg  = dm ? 'transparent' : '#F5F7FF';
             const cardBg  = dm ? 'linear-gradient(155deg,rgba(17,30,58,0.97) 0%,rgba(8,16,36,0.99) 100%)' : 'white';
             const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E2E8F2';
             const textP   = dm ? '#f0f4ff' : '#0F172A';
             const textM   = dm ? '#8fa4cc' : '#64748B';
-            const [tickets,       setTickets]       = React.useState([]);
+            const [tickets,       setTickets]       = React.useState(() => cache.tickets);
             const [staffCount,    setStaffCount]    = React.useState(0);
             const [recentActivity,setRecentActivity]= React.useState([]);
-            const [loading,       setLoading]       = React.useState(true);
+            const [loading,       setLoading]       = React.useState(() => !cache.ready);
             const statusCanvasRef   = React.useRef(null);
             const categoryCanvasRef = React.useRef(null);
             const statusChartRef    = React.useRef(null);
@@ -1470,8 +1477,11 @@
                 if (tsp.userId) tp.set('userId', String(tsp.userId));
                 if (tsp.deptId) tp.set('deptId', String(tsp.deptId));
 
+                // Fetch staff + activity in parallel; tickets come from cache (already shown)
                 Promise.all([
-                    fetch(`${HRMS_API}/tickets?${tp}`).then(r=>r.ok?r.json():{tickets:[]}),
+                    cache.ready
+                        ? Promise.resolve({ tickets: cache.tickets })
+                        : fetch(`${HRMS_API}/tickets?${tp}`).then(r=>r.ok?r.json():{tickets:[]}),
                     fetch(`${HRMS_API}/users?status=active&limit=200${uqp}`).then(r=>r.ok?r.json():{users:[]}),
                     fetch(`${HRMS_API}/tickets/activity?limit=5${sp}`).then(r=>r.ok?r.json():{activity:[]}),
                 ]).then(([td, ud, ad]) => {
@@ -2521,9 +2531,8 @@
             const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E2E8F2';
             const textP   = dm ? '#f0f4ff' : '#0F172A';
             const textM   = dm ? '#8fa4cc' : '#64748B';
-            const [tickets, setTickets] = React.useState([]);
+            const cache = useTicketCache();
             const [staffList, setStaffList] = React.useState([]);
-            const [ticketsLoading, setTicketsLoading] = React.useState(true);
             const [filter, setFilter] = React.useState('all');
             const [search, setSearch] = React.useState('');
             const debouncedSearch = useDebounce(search, 150);
@@ -2586,11 +2595,17 @@
                 // Carry through pending approver IDs for tab filtering
                 pendingApproverIds: Array.isArray(t.pendingApproverIds) ? t.pendingApproverIds : [],
             });
+            // Seed from global cache — page renders instantly without waiting for its own fetch
+            const [tickets, setTickets] = React.useState(() => cache.ready ? cache.tickets.map(normalise) : []);
+            const [ticketsLoading, setTicketsLoading] = React.useState(() => !cache.ready);
 
             React.useEffect(() => {
-                // Fetch real tickets and real staff in parallel
+                // Always fetch staff; fetch tickets only if cache wasn't ready (cold load)
+                const ticketFetch = cache.ready
+                    ? Promise.resolve({ tickets: cache.tickets })
+                    : API.tickets.getAll({ all: true, limit: 500 }).catch(() => ({ tickets: [] }));
                 Promise.all([
-                    API.tickets.getAll({ all: true, limit: 500 }).catch(() => ({ tickets: [] })),
+                    ticketFetch,
                     fetch(`${HRMS_API}/users?status=active&limit=200`, { credentials:'include', headers: authHeaders() }).then(r => r.ok ? r.json() : { users: [] }).catch(() => ({ users: [] }))
                 ]).then(([tickData, staffData]) => {
                     setTickets((tickData.tickets || []).map(normalise));
@@ -5173,18 +5188,20 @@
         function AnalyticsPage() {
 
             const dm = useDark();
+            const cache = useTicketCache();
             const pageBg  = dm ? 'transparent' : '#F5F7FF';
             const cardBg  = dm ? 'linear-gradient(155deg,rgba(17,30,58,0.97) 0%,rgba(8,16,36,0.99) 100%)' : 'white';
             const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E2E8F2';
             const textP   = dm ? '#f0f4ff' : '#0F172A';
             const textM   = dm ? '#8fa4cc' : '#64748B';
-            const [tickets, setTickets] = React.useState([]);
-            const [loading, setLoading] = React.useState(true);
+            const [tickets, setTickets] = React.useState(() => cache.tickets);
+            const [loading, setLoading] = React.useState(() => !cache.ready);
             const [range, setRange] = React.useState('90'); // days
 
             const charts = React.useRef({});
 
             React.useEffect(() => {
+                if (cache.ready) { setLoading(false); return; }
                 API.tickets.getAll({ all: true, limit: 500 }).then(d => {
                     setTickets(d.tickets || []);
                     setLoading(false);
@@ -8021,6 +8038,35 @@
                 window.MicrosoftAuth.signIn();
             };
 
+            // ── Global ticket cache ───────────────────────────────────────────
+            const [ticketCache, setTicketCache] = React.useState({ tickets: [], ready: false });
+            const refreshTicketCache = React.useCallback(async () => {
+                if (!currentUser) return;
+                try {
+                    const su  = getSessionUser();
+                    const tsp = getTicketScopeParams(su);
+                    const tp  = new URLSearchParams({ all:'1', limit:'500' });
+                    if (tsp.scope)  tp.set('scope',  tsp.scope);
+                    if (tsp.userId) tp.set('userId', String(tsp.userId));
+                    if (tsp.deptId) tp.set('deptId', String(tsp.deptId));
+                    const r = await fetch(`${HRMS_API}/tickets?${tp}`, { credentials:'include', headers: authHeaders() });
+                    if (r.ok) {
+                        const d = await r.json();
+                        setTicketCache({ tickets: d.tickets || [], ready: true });
+                    }
+                } catch(_) {}
+            }, [currentUser]);
+            React.useEffect(() => {
+                if (!currentUser) return;
+                refreshTicketCache();
+                const t = setInterval(refreshTicketCache, 60000);
+                return () => clearInterval(t);
+            }, [refreshTicketCache]);
+            const ticketCacheValue = React.useMemo(
+                () => ({ ...ticketCache, refresh: refreshTicketCache }),
+                [ticketCache, refreshTicketCache]
+            );
+
             // handleEmailLogin removed — Microsoft Entra is the only login method
 
 
@@ -8061,6 +8107,7 @@
             const appBg = darkMode ? '#0F172A' : '#F9FAFB';
 
             return (
+                <TicketCacheContext.Provider value={ticketCacheValue}>
                 <DarkModeContext.Provider value={darkMode}>
                 <div style={{display:'flex', height:'100vh', background:appBg, overflow:'hidden', position:'relative'}}>
 
@@ -8108,6 +8155,7 @@
                     </div>
                 </div>
                 </DarkModeContext.Provider>
+                </TicketCacheContext.Provider>
             );
         }
 
