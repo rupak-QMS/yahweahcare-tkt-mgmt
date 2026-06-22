@@ -546,6 +546,16 @@
         const DarkModeContext = React.createContext(false);
         const useDark = () => React.useContext(DarkModeContext);
 
+        // ── useDebounce — delays state updates until typing pauses ───────────────
+        function useDebounce(value, delay) {
+            const [debounced, setDebounced] = React.useState(value);
+            React.useEffect(() => {
+                const t = setTimeout(() => setDebounced(value), delay);
+                return () => clearTimeout(t);
+            }, [value, delay]);
+            return debounced;
+        }
+
         // ── Shared Loading Components ────────────────────────────────────────────
         // Spinning Yahweh Care logo mark — used everywhere instead of the generic loader icon
         function YCLoader({ size = 36 }) {
@@ -589,7 +599,7 @@
 
         // Navigation Component
         // ── Top Header Bar ──────────────────────────────────────────────────────
-        function TopBar({ sidebarOpen, setSidebarOpen, darkMode, setDarkMode, currentUser, currentPage, onSignOut, setCurrentPage }) {
+        const TopBar = React.memo(function TopBar({ sidebarOpen, setSidebarOpen, darkMode, setDarkMode, currentUser, currentPage, onSignOut, setCurrentPage }) {
             const [userMenuOpen, setUserMenuOpen] = React.useState(false);
             const [appToast,      setAppToast]      = React.useState('');
             const showToast = (msg) => { setAppToast(msg); setTimeout(() => setAppToast(''), 3500); };
@@ -897,7 +907,7 @@
                 </div>
                 </div>
             );
-        }
+        });
 
         // ── Sidebar Navigation ───────────────────────────────────────────────────
         function Navigation({ currentPage, setCurrentPage, onSignOut, currentUser, darkMode }) {
@@ -2516,6 +2526,8 @@
             const [ticketsLoading, setTicketsLoading] = React.useState(true);
             const [filter, setFilter] = React.useState('all');
             const [search, setSearch] = React.useState('');
+            const debouncedSearch = useDebounce(search, 150);
+            const [visibleCount, setVisibleCount] = React.useState(50);
             const [priorityFilter, setPriorityFilter] = React.useState('');
             const [assigneeFilter, setAssigneeFilter] = React.useState('');
             const [dateFrom, setDateFrom] = React.useState('');
@@ -2716,13 +2728,13 @@
 
             const filteredNew = React.useMemo(() => {
                 const grp = STATUS_GROUPS.find(g=>g.key===filter);
-                const searchL = search.toLowerCase();
+                const searchL = debouncedSearch.toLowerCase();
                 const priorityL = priorityFilter.toLowerCase();
                 const dateFromMs = dateFrom ? new Date(dateFrom).getTime() : null;
                 const dateToMs   = dateTo   ? new Date(dateTo + 'T23:59:59').getTime() : null;
                 return tickets.filter(t => {
                     if (grp && !grp.match(t)) return false;
-                    if (search && !t.title.toLowerCase().includes(searchL) && !t.id.toLowerCase().includes(searchL)) return false;
+                    if (debouncedSearch && !t.title.toLowerCase().includes(searchL) && !t.id.toLowerCase().includes(searchL)) return false;
                     if (priorityFilter && (t.priority||'').toLowerCase() !== priorityL) return false;
                     if (assigneeFilter && (t.assigned||'') !== assigneeFilter) return false;
                     const createdMs = t.createdAt ? new Date(t.createdAt).getTime() : null;
@@ -2730,7 +2742,12 @@
                     if (dateToMs   && !(createdMs && createdMs <= dateToMs))   return false;
                     return true;
                 });
-            }, [tickets, filter, search, priorityFilter, assigneeFilter, dateFrom, dateTo]);
+            }, [tickets, filter, debouncedSearch, priorityFilter, assigneeFilter, dateFrom, dateTo]);
+
+            // Reset pagination when filters change
+            React.useEffect(() => { setVisibleCount(50); }, [filter, debouncedSearch, priorityFilter, assigneeFilter, dateFrom, dateTo]);
+
+            const visibleTickets = filteredNew.slice(0, visibleCount);
 
             return (
                 <main className="flex-1 overflow-auto" style={{background:pageBg}}>
@@ -2850,6 +2867,7 @@
                                     <p style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',margin:0}}>Try adjusting your filters or search term</p>
                                 </div>
                             ) : (
+                                <React.Fragment>
                                 <div className="yc-table-scroll">
                                     <table style={{width:'100%',borderCollapse:'collapse'}}>
                                         <thead>
@@ -2860,7 +2878,7 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {filteredNew.map((t,i)=>{
+                                            {visibleTickets.map((t,i)=>{
                                                 const ps = pst(t.priority);
                                                 const ss = sst(t.status);
                                                 const od = isOD(t);
@@ -2955,6 +2973,15 @@
                                         </tbody>
                                     </table>
                                 </div>
+                                {visibleCount < filteredNew.length && (
+                                    <div style={{textAlign:'center',padding:'16px 0 4px'}}>
+                                        <button onClick={() => setVisibleCount(v => v + 50)}
+                                            style={{background:'none',border:`1px solid ${dm?'rgba(99,102,241,0.3)':'#C7D2FE'}`,borderRadius:'8px',padding:'7px 22px',fontSize:'12.5px',fontWeight:'600',color:dm?'#a5b4fc':'#6366F1',cursor:'pointer'}}>
+                                            Load more ({filteredNew.length - visibleCount} remaining)
+                                        </button>
+                                    </div>
+                                )}
+                                </React.Fragment>
                             )}
                         </div>
                     </div>
@@ -5903,6 +5930,7 @@
             const [positions,   setPositions]    = React.useState([]);
             const [loading,     setLoading]      = React.useState(true);
             const [search,      setSearch]       = React.useState('');
+            const debouncedStaffSearch = useDebounce(search, 150);
             const [deptFilter,  setDeptFilter]   = React.useState('all');
             const [showModal,   setShowModal]    = React.useState(false);
             const [modalMode,   setModalMode]    = React.useState('add');
@@ -5946,12 +5974,14 @@
 
             React.useEffect(() => { fetchAll(); }, [fetchAll]);
 
-            const filtered = staff.filter(s => {
-                const q = search.toLowerCase();
-                return (!q || s.name?.toLowerCase().includes(q) || s.email?.toLowerCase().includes(q) ||
+            const filtered = React.useMemo(() => {
+                const q = debouncedStaffSearch.toLowerCase();
+                return staff.filter(s =>
+                    (!q || s.name?.toLowerCase().includes(q) || s.email?.toLowerCase().includes(q) ||
                         (s.positions||[]).some(p=>p.title?.toLowerCase().includes(q))) &&
-                       (deptFilter==='all' || String(s.department_id)===deptFilter);
-            });
+                    (deptFilter==='all' || String(s.department_id)===deptFilter)
+                );
+            }, [staff, debouncedStaffSearch, deptFilter]);
 
             const openAdd = () => { setForm(EMPTY_FORM); setModalMode('add'); setSelStaff(null); setError(''); setShowModal(true); };
             const openEdit = (m) => {
