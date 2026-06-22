@@ -5253,10 +5253,10 @@
                 const monthLabels = Object.keys(monthlyMap).map(k=>{ const [y,m]=k.split('-'); return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][Number(m)-1]+' '+y; });
                 const monthData   = Object.values(monthlyMap);
 
-                return { now, filtered, total, open, resolved, escalated, ndis, slaRate, resRate, slaBreached, slaOkCount, overduePct, slaEval, resTickets, priorityCounts, statusCounts, topCats, staffRows, monthLabels, monthData };
+                return { now, filtered, total, open, resolved, escalated, ndis, slaRate, resRate, slaBreached, slaOkCount, overduePct, slaEval, resTickets, priorityCounts, statusCounts, catCounts, staffCounts, topCats, staffRows, monthLabels, monthData };
             }, [tickets, range]);
 
-            const { now, filtered, total, open, resolved, escalated, ndis, slaRate, resRate, slaBreached, slaOkCount, overduePct, slaEval, resTickets, priorityCounts, statusCounts, topCats, staffRows, monthLabels, monthData } = analytics;
+            const { now, filtered, total, open, resolved, escalated, ndis, slaRate, resRate, slaBreached, slaOkCount, overduePct, slaEval, resTickets, priorityCounts, statusCounts, catCounts, staffCounts, topCats, staffRows, monthLabels, monthData } = analytics;
 
             // Build / rebuild charts after render
             React.useEffect(() => {
