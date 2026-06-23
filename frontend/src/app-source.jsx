@@ -3920,7 +3920,6 @@
         ];
 
         function CalendarPage() {
-
             const dm = useDark();
             const pageBg  = dm ? 'transparent' : '#F5F7FF';
             const cardBg  = dm ? 'linear-gradient(155deg,rgba(17,30,58,0.97) 0%,rgba(8,16,36,0.99) 100%)' : 'white';
@@ -3928,9 +3927,13 @@
             const textP   = dm ? '#f0f4ff' : '#0F172A';
             const textM   = dm ? '#8fa4cc' : '#64748B';
             const today = new Date();
+            const [calView, setCalView]   = React.useState('month'); // 'month' | 'week' | 'day' | 'agenda'
             const [viewDate, setViewDate] = React.useState(new Date(today.getFullYear(), today.getMonth(), 1));
             const [selectedState, setSelectedState] = React.useState('NSW');
             const [selectedDay, setSelectedDay] = React.useState(null);
+            const [hoverTicket, setHoverTicket] = React.useState(null); // { ticket, x, y }
+            const [dragTicket, setDragTicket]   = React.useState(null); // ticket being dragged
+            const [dragOver, setDragOver]       = React.useState(null); // ds string
             const [tickets, setTickets]   = React.useState([]);
             const [loading, setLoading]   = React.useState(true);
 
@@ -3947,42 +3950,29 @@
             const month   = viewDate.getMonth();
             const MONTHS  = ['January','February','March','April','May','June','July','August','September','October','November','December'];
             const MS      = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-            const dateStr = d => `${year}-${pad(month+1)}-${pad(d)}`;
+            const DAYS_FULL = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+            const DAYS_SHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+            const todayStr = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
+            const fmtDs  = d => `${year}-${pad(month+1)}-${pad(d)}`;
             const isToday = d => today.getFullYear()===year && today.getMonth()===month && today.getDate()===d;
-            const todayStr= `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
 
-            // Ticket colour by status (event-bar style)
+            // Ticket colour
             const ticketColor = t => {
                 const s = (t.status||'').toLowerCase();
                 const p = (t.priorityLabel||t.priority||'').toLowerCase();
                 const od = !['resolved','closed'].includes(s) && t.dueAt && new Date(t.dueAt) < today;
-                if (od) return { bar:'#EF4444', bg:'#FEF2F2', text:'#991B1B', label:'Overdue' };
-                if (s==='resolved'||s==='closed') return { bar:'#10B981', bg:'#ECFDF5', text:'#065F46', label:'Resolved' };
-                if (s==='pending_approval')        return { bar:'#8B5CF6', bg:'#F5F3FF', text:'#5B21B6', label:'Approval' };
-                if (s==='in_progress')             return { bar:'#3B82F6', bg:'#EFF6FF', text:'#1D4ED8', label:'In Progress' };
-                if (p==='critical'||p==='urgent')  return { bar:'#F97316', bg:'#FFF7ED', text:'#9A3412', label:'Critical' };
-                if (p==='high')                    return { bar:'#F59E0B', bg:'#FFFBEB', text:'#92400E', label:'High' };
-                return { bar:'#6366F1', bg:'#EEF2FF', text:'#3730A3', label:'Open' };
+                if (od) return { bar:'#EF4444', bg:dm?'rgba(239,68,68,0.13)':'#FEF2F2', text:'#EF4444', label:'Overdue' };
+                if (s==='resolved'||s==='closed') return { bar:'#10B981', bg:dm?'rgba(16,185,129,0.12)':'#ECFDF5', text:'#10B981', label:'Resolved' };
+                if (s==='pending_approval')        return { bar:'#8B5CF6', bg:dm?'rgba(139,92,246,0.12)':'#F5F3FF', text:'#8B5CF6', label:'Approval' };
+                if (s==='in_progress')             return { bar:'#3B82F6', bg:dm?'rgba(59,130,246,0.12)':'#EFF6FF', text:'#3B82F6', label:'In Progress' };
+                if (p==='critical'||p==='urgent')  return { bar:'#F97316', bg:dm?'rgba(249,115,22,0.12)':'#FFF7ED', text:'#F97316', label:'Critical' };
+                if (p==='high')                    return { bar:'#F59E0B', bg:dm?'rgba(245,158,11,0.12)':'#FFFBEB', text:'#F59E0B', label:'High' };
+                return { bar:'#6366F1', bg:dm?'rgba(99,102,241,0.12)':'#EEF2FF', text:'#6366F1', label:'Open' };
             };
             const isDone    = t => ['resolved','closed'].includes((t.status||'').toLowerCase());
             const isOverdue = t => !isDone(t) && t.dueAt && new Date(t.dueAt) < today;
 
-            // Build ticket map: date string → tickets[]
-            const ticketDateMap = {};
-            tickets.forEach(t => {
-                const raw = t.dueAt || t.expectedCompletion;
-                if (!raw) return;
-                const ds = raw.slice(0,10);
-                if (!ticketDateMap[ds]) ticketDateMap[ds] = [];
-                ticketDateMap[ds].push(t);
-            });
-
-            // Holiday maps
-            const visibleHols = AU_HOLIDAYS.filter(h => {
-                const ok = h.states.includes('ALL') || h.states.includes(selectedState);
-                const [hy,hm] = h.date.split('-').map(Number);
-                return ok && hy===year && (hm-1)===month;
-            });
+            // Maps
             const holMap = {};
             AU_HOLIDAYS.forEach(h => {
                 if (h.states.includes('ALL') || h.states.includes(selectedState)) {
@@ -3990,8 +3980,6 @@
                     holMap[h.date].push(h);
                 }
             });
-
-            // Ticket date map
             const tktMap = {};
             tickets.forEach(t => {
                 const raw = t.dueAt || t.expectedCompletion;
@@ -4002,15 +3990,18 @@
             });
 
             // Stats
-            const moPfx = `${year}-${pad(month+1)}`;
+            const moPfx  = `${year}-${pad(month+1)}`;
             const moTkts = tickets.filter(t => (t.dueAt||t.expectedCompletion||'').startsWith(moPfx));
-            const mDue = moTkts.length, mOD = tickets.filter(isOverdue).length, mRes = moTkts.filter(isDone).length;
-            const wkEnd = new Date(today); wkEnd.setDate(wkEnd.getDate()+7);
-            const wkTkts = tickets.filter(t=>{const r=t.dueAt||t.expectedCompletion; if(!r)return false; const d=new Date(r); return d>=today&&d<=wkEnd&&!isDone(t);});
+            const mDue   = moTkts.length;
+            const mOD    = tickets.filter(isOverdue).length;
+            const mRes   = moTkts.filter(isDone).length;
+            const wkEnd  = new Date(today); wkEnd.setDate(wkEnd.getDate()+7);
+            const wkTkts = tickets.filter(t=>{ const r=t.dueAt||t.expectedCompletion; if(!r) return false; const d=new Date(r); return d>=today&&d<=wkEnd&&!isDone(t); });
             const odList = tickets.filter(isOverdue).sort((a,b)=>new Date(a.dueAt)-new Date(b.dueAt)).slice(0,10);
-            const upHols = AU_HOLIDAYS.filter(h=>{if(!h.states.includes('ALL')&&!h.states.includes(selectedState))return false; const d=new Date(h.date),diff=(d-today)/86400000; return diff>=0&&diff<=90;}).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,6);
+            const upHols = AU_HOLIDAYS.filter(h=>{ if(!h.states.includes('ALL')&&!h.states.includes(selectedState)) return false; const d=new Date(h.date),diff=(d-today)/86400000; return diff>=0&&diff<=90; }).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,6);
+            const visibleHols = AU_HOLIDAYS.filter(h=>{ const ok=h.states.includes('ALL')||h.states.includes(selectedState); const [hy,hm]=h.date.split('-').map(Number); return ok&&hy===year&&(hm-1)===month; });
 
-            // Grid
+            // Month grid
             const daysInMonth = new Date(year,month+1,0).getDate();
             const monFirst    = (new Date(year,month,1).getDay()+6)%7;
             const cells = [];
@@ -4020,239 +4011,528 @@
             const weeks = [];
             for(let i=0;i<cells.length;i+=7) weeks.push(cells.slice(i,i+7));
 
-            const prevM = () => setViewDate(new Date(year,month-1,1));
-            const nextM = () => setViewDate(new Date(year,month+1,1));
+            // Week view: get Mon–Sun containing viewDate (use day 1 of month for month-nav, or today if current month)
+            const weekAnchor = calView==='week' ? (selectedDay ? new Date(selectedDay) : (year===today.getFullYear()&&month===today.getMonth()?today:new Date(year,month,1))) : today;
+            const weekMon = new Date(weekAnchor); weekMon.setDate(weekAnchor.getDate()-((weekAnchor.getDay()+6)%7));
+            const weekDays = Array.from({length:7},(_,i)=>{ const d=new Date(weekMon); d.setDate(weekMon.getDate()+i); return d; });
+
+            // Day view
+            const dayAnchor = selectedDay ? new Date(selectedDay) : (year===today.getFullYear()&&month===today.getMonth()?today:new Date(year,month,1));
+            const dayDs = `${dayAnchor.getFullYear()}-${pad(dayAnchor.getMonth()+1)}-${pad(dayAnchor.getDate())}`;
+
+            // Nav helpers
+            const navigate = dir => {
+                if (calView==='month')  setViewDate(new Date(year,month+dir,1));
+                else if (calView==='week') { const n=new Date(weekAnchor); n.setDate(n.getDate()+dir*7); setViewDate(new Date(n.getFullYear(),n.getMonth(),1)); setSelectedDay(`${n.getFullYear()}-${pad(n.getMonth()+1)}-${pad(n.getDate())}`); }
+                else if (calView==='day')  { const n=new Date(dayAnchor); n.setDate(n.getDate()+dir); setViewDate(new Date(n.getFullYear(),n.getMonth(),1)); setSelectedDay(`${n.getFullYear()}-${pad(n.getMonth()+1)}-${pad(n.getDate())}`); }
+                else setViewDate(new Date(year,month+dir,1));
+            };
+            const navLabel = () => {
+                if (calView==='month') return `${MONTHS[month]} ${year}`;
+                if (calView==='week') { const e=weekDays[6]; return `${weekDays[0].getDate()} ${MS[weekDays[0].getMonth()]} – ${e.getDate()} ${MS[e.getMonth()]} ${e.getFullYear()}`; }
+                if (calView==='day') return dayAnchor.toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+                return `${MONTHS[month]} ${year}`;
+            };
             const goNow = () => { setViewDate(new Date(today.getFullYear(),today.getMonth(),1)); setSelectedDay(todayStr); };
 
             const ST_COLOR = {new:dm?'#6b80a4':'#64748B',assigned:'#3B82F6',in_progress:'#F59E0B',waiting:'#8B5CF6',pending_approval:'#8B5CF6',resolved:'#10B981',closed:dm?'#6b80a4':'#475569'};
             const ST_LABEL = {new:'New',assigned:'Assigned',in_progress:'In Progress',waiting:'Waiting',pending_approval:'Pending Approval',resolved:'Resolved',closed:'Closed'};
 
+            // Drag handlers
+            const handleDragStart = (t) => setDragTicket(t);
+            const handleDragEnd   = () => { setDragTicket(null); setDragOver(null); };
+            const handleDrop = (ds) => {
+                if (!dragTicket || !ds) return;
+                setTickets(prev => prev.map(t => t.id===dragTicket.id ? {...t, dueAt: ds+'T00:00:00.000Z'} : t));
+                setDragTicket(null); setDragOver(null);
+            };
+
+            // Tooltip
+            const showTip = (t,e) => { const r=e.currentTarget.getBoundingClientRect(); setHoverTicket({ticket:t,x:r.right+8,y:r.top}); };
+            const hideTip = () => setHoverTicket(null);
+
+            // ── Shared event bar renderer ─────────────────────────
+            const EventBar = ({t, compact=false}) => {
+                const c = ticketColor(t);
+                return (
+                    <div draggable
+                        onDragStart={()=>handleDragStart(t)}
+                        onDragEnd={handleDragEnd}
+                        onMouseEnter={e=>showTip(t,e)}
+                        onMouseLeave={hideTip}
+                        style={{display:'flex',alignItems:'center',gap:'4px',borderRadius:'5px',padding:compact?'1px 5px':'3px 7px',marginBottom:'2px',background:c.bg,borderLeft:`3px solid ${c.bar}`,cursor:'grab',fontSize:'11px',fontWeight:'600',color:c.text,overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',userSelect:'none',transition:'opacity 0.15s',opacity:dragTicket&&dragTicket.id===t.id?0.4:1}}
+                    >
+                        <span style={{width:'5px',height:'5px',borderRadius:'50%',background:c.bar,flexShrink:0}}/>
+                        <span style={{overflow:'hidden',textOverflow:'ellipsis',flex:1,minWidth:0}}>{t.title||t.ticketNumber||'Ticket'}</span>
+                    </div>
+                );
+            };
+
+            // ── Ticket tooltip ────────────────────────────────────
+            const TicketTooltip = () => {
+                if (!hoverTicket) return null;
+                const {ticket:t, x, y} = hoverTicket;
+                const c = ticketColor(t);
+                const od = isOverdue(t), done = isDone(t);
+                const sc = ST_COLOR[t.status]||'#9CA3AF';
+                return (
+                    <div style={{position:'fixed',left:Math.min(x,window.innerWidth-280),top:Math.min(y,window.innerHeight-200),zIndex:9999,width:'260px',background:dm?'rgba(10,18,40,0.98)':'white',borderRadius:'10px',boxShadow:'0 8px 32px rgba(0,0,0,0.25)',border:`1px solid ${dm?'rgba(99,102,241,0.25)':c.bar+'33'}`,padding:'12px',pointerEvents:'none'}}>
+                        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'8px'}}>
+                            <span style={{fontSize:'10px',fontWeight:'700',color:textM}}>{t.ticketNumber||`#${t.id}`}</span>
+                            <span style={{fontSize:'10px',fontWeight:'600',color:sc,background:sc+'22',borderRadius:'20px',padding:'1px 7px'}}>{ST_LABEL[t.status]||t.status}</span>
+                        </div>
+                        <div style={{fontSize:'13px',fontWeight:'700',color:textP,marginBottom:'8px',lineHeight:1.3}}>{t.title||'—'}</div>
+                        <div style={{display:'flex',flexWrap:'wrap',gap:'5px',marginBottom:'8px'}}>
+                            <span style={{fontSize:'10px',fontWeight:'600',color:c.text,background:c.bg,borderRadius:'4px',padding:'2px 7px'}}>{c.label}</span>
+                            {(t.priorityLabel||t.priority) && <span style={{fontSize:'10px',fontWeight:'600',color:dm?'#8fa4cc':'#64748B',background:dm?'rgba(99,102,241,0.1)':'#F1F5F9',borderRadius:'4px',padding:'2px 7px',textTransform:'capitalize'}}>{t.priorityLabel||t.priority}</span>}
+                        </div>
+                        {t.assigneeName && <div style={{fontSize:'11px',color:textM,marginBottom:'4px'}}>👤 {t.assigneeName}</div>}
+                        {t.dueAt && <div style={{fontSize:'11px',color:od?'#EF4444':textM}}>📅 Due: {new Date(t.dueAt).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'})}{od?' · Overdue':''}</div>}
+                    </div>
+                );
+            };
+
+            // ── MONTH VIEW ────────────────────────────────────────
+            const MonthView = () => (
+                <div style={{flex:1}}>
+                    {/* Day headers */}
+                    <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',background:dm?'rgba(6,9,20,0.5)':'#F8FAFC',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.1)':'#EEF2F8'}`}}>
+                        {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d,i)=>(
+                            <div key={d} style={{textAlign:'center',fontSize:'11px',fontWeight:'700',letterSpacing:'0.06em',color:i>=5?(dm?'#3d5070':'#94A3B8'):(dm?'#6b80a4':'#64748B'),padding:'10px 0',textTransform:'uppercase'}}>{d}</div>
+                        ))}
+                    </div>
+                    {/* Grid */}
+                    {weeks.map((wk,wi)=>(
+                        <div key={wi} style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)'}}>
+                            {wk.map((d,di)=>{
+                                const ds    = d ? fmtDs(d) : null;
+                                const hols  = ds?(holMap[ds]||[]):[];
+                                const tkts  = ds?(tktMap[ds]||[]):[];
+                                const dow   = d ? new Date(year,month,d).getDay() : null;
+                                const isWknd= dow===0||dow===6;
+                                const isTd  = d&&isToday(d);
+                                const isHol = hols.length>0;
+                                const isSel = selectedDay===ds;
+                                const isDO  = ds===dragOver;
+                                const odCnt = tkts.filter(isOverdue).length;
+                                const isLast= wi===weeks.length-1;
+                                return (
+                                    <div key={di}
+                                        className={`gc-cell${isTd?' today-cell':''}${isSel?' sel-cell':''}${isHol&&!isSel?' hol-cell':''}${isWknd&&!isHol&&!isSel?' wknd-cell':''}`}
+                                        onClick={()=>d&&setSelectedDay(isSel?null:ds)}
+                                        onDragOver={e=>{if(dragTicket&&d){e.preventDefault();setDragOver(ds);}}}
+                                        onDragLeave={()=>setDragOver(null)}
+                                        onDrop={()=>handleDrop(ds)}
+                                        style={{minHeight:'116px',padding:'0 0 2px',cursor:d?'pointer':'default',borderBottom:isLast?'none':`1px solid ${dm?'rgba(99,102,241,0.07)':'#EEF2F8'}`,borderRight:di===6?'none':`1px solid ${dm?'rgba(99,102,241,0.07)':'#EEF2F8'}`,position:'relative',overflow:'hidden',background:isDO?(dm?'rgba(99,102,241,0.12)':'#EFF6FF'):!d?(dm?'rgba(0,0,0,0.12)':'#F8FAFC'):undefined,outline:isDO?`2px dashed ${dm?'rgba(99,102,241,0.5)':'#6366F1'}`:'none',transition:'background 0.1s'}}
+                                    >
+                                        {d && (<>
+                                            {/* Top accent stripe */}
+                                            {isHol && <div style={{position:'absolute',top:0,left:0,right:0,height:'2.5px',background:'linear-gradient(90deg,#EF4444,#F87171)'}}/>}
+                                            {!isHol && odCnt>0 && <div style={{position:'absolute',top:0,left:0,right:0,height:'2.5px',background:'linear-gradient(90deg,#F97316,#FDBA74)'}}/>}
+                                            {/* Date row */}
+                                            <div style={{display:'flex',alignItems:'center',gap:'4px',padding:'5px 6px 3px'}}>
+                                                <div style={{width:'24px',height:'24px',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px',fontWeight:isTd?'800':'500',background:isTd?'#6366F1':'transparent',color:isTd?'white':isWknd?(dm?'#3d5070':'#94A3B8'):(dm?'#c0cfec':'#334155'),boxShadow:isTd?'0 2px 8px rgba(99,102,241,0.5)':'none',flexShrink:0}}>{d}</div>
+                                                {isHol && <span style={{fontSize:'9px',color:'#EF4444',fontWeight:'700',flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{hols[0].name}</span>}
+                                                {tkts.length>0 && !isHol && <span style={{fontSize:'9px',fontWeight:'800',color:odCnt>0?'#EF4444':(dm?'#818cf8':'#6366F1'),background:odCnt>0?(dm?'rgba(239,68,68,0.15)':'#FEF2F2'):(dm?'rgba(99,102,241,0.15)':'#EEF2FF'),borderRadius:'8px',padding:'1px 5px',flexShrink:0}}>{tkts.length}</span>}
+                                            </div>
+                                            {/* Events */}
+                                            <div style={{padding:'0 3px'}}>
+                                                {tkts.slice(0,3).map((t,ti)=><EventBar key={ti} t={t} compact />)}
+                                                {tkts.length>3 && <div style={{fontSize:'9.5px',color:dm?'#4a607f':'#94A3B8',padding:'1px 5px',fontWeight:'600'}}>+{tkts.length-3} more</div>}
+                                            </div>
+                                        </>)}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ))}
+                </div>
+            );
+
+            // ── WEEK VIEW ─────────────────────────────────────────
+            const WeekView = () => (
+                <div style={{flex:1,overflowX:'auto'}}>
+                    <div style={{minWidth:'700px'}}>
+                        {/* Day headers */}
+                        <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',background:dm?'rgba(6,9,20,0.5)':'#F8FAFC',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.1)':'#EEF2F8'}`}}>
+                            {weekDays.map((d,i)=>{
+                                const ds=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+                                const isWknd=d.getDay()===0||d.getDay()===6;
+                                const isTd=ds===todayStr;
+                                const isSel=selectedDay===ds;
+                                return (
+                                    <div key={i} onClick={()=>setSelectedDay(isSel?null:ds)} style={{textAlign:'center',padding:'12px 4px 10px',cursor:'pointer',borderRight:i===6?'none':`1px solid ${dm?'rgba(99,102,241,0.07)':'#EEF2F8'}`,background:isSel?(dm?'rgba(99,102,241,0.12)':'#EFF6FF'):undefined}}>
+                                        <div style={{fontSize:'10px',fontWeight:'700',color:isWknd?(dm?'#3d5070':'#94A3B8'):(dm?'#6b80a4':'#64748B'),textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:'4px'}}>{DAYS_SHORT[d.getDay()]}</div>
+                                        <div style={{width:'30px',height:'30px',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'14px',fontWeight:isTd?'800':'600',background:isTd?'#6366F1':isSel?(dm?'rgba(99,102,241,0.2)':'#C7D2FE'):'transparent',color:isTd?'white':(dm?'#c0cfec':'#334155'),margin:'0 auto',boxShadow:isTd?'0 2px 8px rgba(99,102,241,0.4)':'none'}}>{d.getDate()}</div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        {/* Event rows */}
+                        <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)'}}>
+                            {weekDays.map((d,i)=>{
+                                const ds=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+                                const hols=holMap[ds]||[];
+                                const tkts=tktMap[ds]||[];
+                                const isWknd=d.getDay()===0||d.getDay()===6;
+                                const isDO=ds===dragOver;
+                                return (
+                                    <div key={i}
+                                        onDragOver={e=>{if(dragTicket){e.preventDefault();setDragOver(ds);}}}
+                                        onDragLeave={()=>setDragOver(null)}
+                                        onDrop={()=>handleDrop(ds)}
+                                        style={{minHeight:'200px',padding:'8px 4px',borderRight:i===6?'none':`1px solid ${dm?'rgba(99,102,241,0.07)':'#EEF2F8'}`,background:isDO?(dm?'rgba(99,102,241,0.1)':'#EFF6FF'):isWknd?(dm?'rgba(255,255,255,0.01)':'#FAFAFA'):undefined,outline:isDO?`2px dashed ${dm?'rgba(99,102,241,0.4)':'#6366F1'}`:'none',transition:'background 0.1s'}}>
+                                        {hols.map((h,hi)=>(
+                                            <div key={hi} style={{display:'flex',alignItems:'center',gap:'3px',background:dm?'rgba(239,68,68,0.1)':'#FFF5F5',borderRadius:'5px',padding:'2px 5px',marginBottom:'3px',fontSize:'10px',fontWeight:'700',color:'#EF4444',border:`1px solid ${dm?'rgba(239,68,68,0.2)':'#FECACA'}`}}>
+                                                <span>🇦🇺</span><span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{h.name}</span>
+                                            </div>
+                                        ))}
+                                        {tkts.map((t,ti)=><EventBar key={ti} t={t} />)}
+                                        {tkts.length===0&&hols.length===0 && <div style={{fontSize:'10px',color:dm?'#2a3a5a':'#D1D5DB',textAlign:'center',marginTop:'20px'}}>—</div>}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            );
+
+            // ── DAY VIEW ──────────────────────────────────────────
+            const DayView = () => {
+                const hols = holMap[dayDs]||[];
+                const tkts = tktMap[dayDs]||[];
+                const isWknd = dayAnchor.getDay()===0||dayAnchor.getDay()===6;
+                return (
+                    <div style={{flex:1,padding:'20px 24px'}}>
+                        {/* Day header */}
+                        <div style={{display:'flex',alignItems:'center',gap:'16px',marginBottom:'20px'}}>
+                            <div style={{width:'56px',height:'56px',borderRadius:'14px',background:dayDs===todayStr?'linear-gradient(135deg,#6366F1,#818CF8)':'linear-gradient(135deg,rgba(99,102,241,0.15),rgba(99,102,241,0.05))',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',boxShadow:dayDs===todayStr?'0 4px 16px rgba(99,102,241,0.4)':'none'}}>
+                                <div style={{fontSize:'10px',fontWeight:'800',color:dayDs===todayStr?'rgba(255,255,255,0.8)':(dm?'#6b80a4':'#94A3B8'),textTransform:'uppercase',letterSpacing:'0.1em'}}>{MS[dayAnchor.getMonth()]}</div>
+                                <div style={{fontSize:'22px',fontWeight:'800',color:dayDs===todayStr?'white':(dm?'#c0cfec':'#1E293B'),lineHeight:1}}>{dayAnchor.getDate()}</div>
+                            </div>
+                            <div>
+                                <div style={{fontSize:'18px',fontWeight:'800',color:textP}}>{DAYS_FULL[dayAnchor.getDay()]}</div>
+                                <div style={{fontSize:'12px',color:textM,marginTop:'2px'}}>{dayAnchor.toLocaleDateString('en-AU',{day:'numeric',month:'long',year:'numeric'})}</div>
+                            </div>
+                            {dayDs===todayStr && <span style={{fontSize:'11px',fontWeight:'700',color:'#6366F1',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',borderRadius:'20px',padding:'3px 10px',border:`1px solid ${dm?'rgba(99,102,241,0.3)':'#C7D2FE'}`}}>Today</span>}
+                        </div>
+                        {/* Public holidays */}
+                        {hols.length>0 && (
+                            <div style={{marginBottom:'16px'}}>
+                                <div style={{fontSize:'11px',fontWeight:'700',color:textM,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:'8px'}}>Public Holidays</div>
+                                {hols.map((h,i)=>(
+                                    <div key={i} style={{display:'flex',alignItems:'center',gap:'10px',background:dm?'rgba(239,68,68,0.08)':'#FFF5F5',border:`1px solid ${dm?'rgba(239,68,68,0.2)':'#FECACA'}`,borderRadius:'10px',padding:'10px 14px',marginBottom:'8px'}}>
+                                        <span style={{fontSize:'18px'}}>🇦🇺</span>
+                                        <div>
+                                            <div style={{fontSize:'13px',fontWeight:'700',color:'#EF4444'}}>{h.name}</div>
+                                            <div style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8',marginTop:'2px'}}>{h.states.includes('ALL')?'National holiday':'Applies to: '+h.states.join(', ')}</div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        {/* Tickets */}
+                        <div style={{fontSize:'11px',fontWeight:'700',color:textM,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:'8px'}}>Tickets Due — {tkts.length}</div>
+                        {tkts.length===0 ? (
+                            <div style={{textAlign:'center',padding:'40px 20px',color:dm?'#4a607f':'#94A3B8',fontSize:'13px'}}>
+                                <div style={{fontSize:'28px',marginBottom:'8px'}}>🎉</div>
+                                No tickets due on this day
+                            </div>
+                        ) : tkts.map((t,i)=>{
+                            const c=ticketColor(t), od=isOverdue(t), done=isDone(t);
+                            const sc=ST_COLOR[t.status]||'#9CA3AF';
+                            return (
+                                <div key={i} draggable onDragStart={()=>handleDragStart(t)} onDragEnd={handleDragEnd}
+                                    style={{display:'flex',alignItems:'flex-start',gap:'12px',background:dm?'rgba(255,255,255,0.02)':'white',border:`1px solid ${dm?'rgba(99,102,241,0.1)':c.bar+'33'}`,borderLeft:`4px solid ${c.bar}`,borderRadius:'10px',padding:'12px 14px',marginBottom:'8px',cursor:'grab',transition:'box-shadow 0.15s',boxShadow:dm?'0 2px 8px rgba(0,0,0,0.3)':'0 1px 4px rgba(0,0,0,0.06)'}}>
+                                    <div style={{width:'36px',height:'36px',borderRadius:'8px',background:c.bg,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                                        <div style={{width:'10px',height:'10px',borderRadius:'50%',background:c.bar}}/>
+                                    </div>
+                                    <div style={{flex:1,minWidth:0}}>
+                                        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'4px'}}>
+                                            <span style={{fontSize:'11px',fontWeight:'700',color:textM}}>{t.ticketNumber||`#${t.id}`}</span>
+                                            <span style={{fontSize:'10px',fontWeight:'600',color:sc,background:sc+'22',borderRadius:'20px',padding:'2px 8px'}}>{ST_LABEL[t.status]||t.status}</span>
+                                        </div>
+                                        <div style={{fontSize:'14px',fontWeight:'700',color:textP,marginBottom:'6px'}}>{t.title||'—'}</div>
+                                        <div style={{display:'flex',gap:'6px',flexWrap:'wrap'}}>
+                                            <span style={{fontSize:'10px',fontWeight:'600',color:c.text,background:c.bg,borderRadius:'4px',padding:'2px 7px'}}>{c.label}</span>
+                                            {(t.priorityLabel||t.priority) && <span style={{fontSize:'10px',fontWeight:'600',color:dm?'#8fa4cc':'#64748B',background:dm?'rgba(99,102,241,0.1)':'#F1F5F9',borderRadius:'4px',padding:'2px 7px',textTransform:'capitalize'}}>{t.priorityLabel||t.priority}</span>}
+                                            {t.assigneeName && <span style={{fontSize:'10px',color:textM}}>👤 {t.assigneeName}</span>}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                );
+            };
+
+            // ── AGENDA VIEW ───────────────────────────────────────
+            const AgendaView = () => {
+                // Collect all events from viewDate forward, grouped by date
+                const start = new Date(year, month, 1);
+                const end   = new Date(year, month+3, 0);
+                const groups = {};
+                tickets.forEach(t => {
+                    const raw = t.dueAt||t.expectedCompletion;
+                    if (!raw) return;
+                    const ds=raw.slice(0,10);
+                    const d=new Date(ds);
+                    if (d>=start&&d<=end) { if(!groups[ds]) groups[ds]=[]; groups[ds].push({type:'ticket',data:t}); }
+                });
+                AU_HOLIDAYS.forEach(h => {
+                    if (!h.states.includes('ALL')&&!h.states.includes(selectedState)) return;
+                    const d=new Date(h.date);
+                    if (d>=start&&d<=end) { if(!groups[h.date]) groups[h.date]=[]; groups[h.date].push({type:'holiday',data:h}); }
+                });
+                const sortedDates = Object.keys(groups).sort();
+                if (sortedDates.length===0) return (
+                    <div style={{textAlign:'center',padding:'60px 20px',color:dm?'#4a607f':'#94A3B8'}}>
+                        <div style={{fontSize:'32px',marginBottom:'10px'}}>📋</div>
+                        <div style={{fontSize:'14px',fontWeight:'600'}}>No events in the next 3 months</div>
+                    </div>
+                );
+                return (
+                    <div style={{flex:1,overflowY:'auto',maxHeight:'600px'}}>
+                        {sortedDates.map(ds=>{
+                            const [dy,dm2,dd]=ds.split('-').map(Number);
+                            const dateObj=new Date(dy,dm2-1,dd);
+                            const isTd=ds===todayStr;
+                            const items=groups[ds]||[];
+                            const tkts=items.filter(i=>i.type==='ticket').map(i=>i.data);
+                            const hols=items.filter(i=>i.type==='holiday').map(i=>i.data);
+                            return (
+                                <div key={ds} style={{display:'flex',gap:'0',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.07)':'#EEF2F8'}`}}>
+                                    {/* Date column */}
+                                    <div style={{width:'80px',flexShrink:0,padding:'14px 12px',textAlign:'center',background:isTd?(dm?'rgba(99,102,241,0.08)':'#F5F3FF'):undefined}}>
+                                        <div style={{fontSize:'10px',fontWeight:'700',color:isTd?(dm?'#818cf8':'#6366F1'):(dm?'#4a607f':'#94A3B8'),textTransform:'uppercase',letterSpacing:'0.06em'}}>{MS[dm2-1]}</div>
+                                        <div style={{fontSize:'22px',fontWeight:'800',color:isTd?(dm?'#818cf8':'#6366F1'):(dm?'#c0cfec':'#1E293B'),lineHeight:1,margin:'2px 0'}}>{dd}</div>
+                                        <div style={{fontSize:'9px',color:dm?'#3d5070':'#94A3B8',textTransform:'uppercase'}}>{DAYS_SHORT[dateObj.getDay()]}</div>
+                                        {isTd && <div style={{width:'6px',height:'6px',borderRadius:'50%',background:'#6366F1',margin:'4px auto 0'}}/>}
+                                    </div>
+                                    {/* Events column */}
+                                    <div style={{flex:1,padding:'10px 16px 10px 8px'}}>
+                                        {hols.map((h,i)=>(
+                                            <div key={i} style={{display:'flex',alignItems:'center',gap:'8px',background:dm?'rgba(239,68,68,0.07)':'#FFF5F5',border:`1px solid ${dm?'rgba(239,68,68,0.15)':'#FECACA'}`,borderRadius:'8px',padding:'8px 10px',marginBottom:'6px'}}>
+                                                <span>🇦🇺</span>
+                                                <div>
+                                                    <div style={{fontSize:'12px',fontWeight:'700',color:'#EF4444'}}>{h.name}</div>
+                                                    <div style={{fontSize:'10px',color:dm?'#4a607f':'#94A3B8'}}>{h.states.includes('ALL')?'National':h.states.join(', ')}</div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {tkts.map((t,i)=>{
+                                            const c=ticketColor(t);
+                                            const sc=ST_COLOR[t.status]||'#9CA3AF';
+                                            return (
+                                                <div key={i} draggable onDragStart={()=>handleDragStart(t)} onDragEnd={handleDragEnd}
+                                                    style={{display:'flex',alignItems:'center',gap:'10px',background:dm?'rgba(255,255,255,0.02)':'white',border:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`,borderLeft:`3px solid ${c.bar}`,borderRadius:'8px',padding:'8px 10px',marginBottom:'5px',cursor:'grab'}}>
+                                                    <div style={{flex:1,minWidth:0}}>
+                                                        <div style={{fontSize:'12px',fontWeight:'700',color:textP,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.title||'—'}</div>
+                                                        <div style={{display:'flex',gap:'6px',marginTop:'3px',alignItems:'center'}}>
+                                                            <span style={{fontSize:'10px',fontWeight:'600',color:c.text}}>{c.label}</span>
+                                                            {t.assigneeName && <span style={{fontSize:'10px',color:textM}}>· {t.assigneeName.split(' ')[0]}</span>}
+                                                        </div>
+                                                    </div>
+                                                    <span style={{fontSize:'10px',fontWeight:'600',color:sc,background:sc+'22',borderRadius:'20px',padding:'2px 8px',flexShrink:0,whiteSpace:'nowrap'}}>{ST_LABEL[t.status]||t.status}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                );
+            };
+
             return (
                 <main className="flex-1 overflow-auto" style={{background:pageBg}}>
                     <style>{`
                         .gc-cell { transition: background 0.1s; }
-                        .gc-cell:hover .gc-date-num { background: ${dm ? 'rgba(99,102,241,0.15)' : '#E5E7EB'} !important; }
-                        .gc-cell:hover { background: ${dm ? 'rgba(99,102,241,0.06)' : '#FAFAFA'} !important; }
-                        .gc-cell.today-cell { background: ${dm ? 'rgba(59,130,246,0.08)' : 'white'} !important; }
-                        .gc-cell.sel-cell { background: ${dm ? 'rgba(99,102,241,0.14)' : '#EFF6FF'} !important; outline: 2px solid ${dm ? 'rgba(99,102,241,0.6)' : '#3B82F6'}; outline-offset: -2px; }
-                        .gc-cell.hol-cell { background: ${dm ? 'rgba(239,68,68,0.06)' : '#FFF8F8'} !important; }
-                        .gc-cell.wknd-cell { background: ${dm ? 'rgba(255,255,255,0.015)' : '#FAFAFA'}; }
-                        .ev-bar { border-radius: 4px; padding: 1px 6px; margin: 0 4px 2px; font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; transition: filter 0.1s; }
-                        .ev-bar:hover { filter: brightness(${dm ? '1.15' : '0.93'}); }
-                        .cal-btn:hover { background: ${dm ? 'rgba(99,102,241,0.1)' : '#F3F4F6'} !important; }
-                        .panel-row:hover { background: ${dm ? 'rgba(99,102,241,0.06)' : '#F9FAFB'}; border-radius: 8px; }
-                        .sidebar-row:hover { background: ${dm ? 'rgba(99,102,241,0.06)' : '#F9FAFB'} !important; border-radius: 8px; }
+                        .gc-cell:hover { background: ${dm?'rgba(99,102,241,0.05)':'#FAFBFF'} !important; }
+                        .gc-cell.today-cell { background: ${dm?'rgba(99,102,241,0.06)':'#FEFEFF'} !important; }
+                        .gc-cell.sel-cell   { background: ${dm?'rgba(99,102,241,0.12)':'#EFF6FF'} !important; }
+                        .gc-cell.hol-cell   { background: ${dm?'rgba(239,68,68,0.04)':'#FFF8F8'} !important; }
+                        .gc-cell.wknd-cell  { background: ${dm?'rgba(0,0,0,0.08)':'#FAFAFA'} !important; }
+                        .cal-view-btn { transition: all 0.15s; border:none; cursor:pointer; border-radius:7px; font-size:12px; font-weight:600; padding:5px 12px; }
+                        .cal-view-btn.active { background: ${dm?'rgba(99,102,241,0.25)':'white'} !important; color: ${dm?'#a5b4fc':'#4F46E5'} !important; box-shadow: ${dm?'none':'0 1px 3px rgba(0,0,0,0.12)'}; }
+                        .cal-view-btn:not(.active) { background:transparent !important; color:${dm?'#6b80a4':'#64748B'} !important; }
+                        .cal-view-btn:not(.active):hover { background:${dm?'rgba(99,102,241,0.08)':'#F1F5F9'} !important; }
+                        .ev-bar-wrap:hover { filter:brightness(${dm?'1.1':'0.95'}); }
+                        .sidebar-row:hover { background:${dm?'rgba(99,102,241,0.06)':'#F9FAFB'} !important; border-radius:8px; }
+                        .cal-nav-btn { transition:all 0.15s; }
+                        .cal-nav-btn:hover { background:${dm?'rgba(99,102,241,0.12)':'#F3F4F6'} !important; }
                     `}</style>
 
-                    <div style={{maxWidth:'1560px', margin:'0 auto', padding:'20px 24px'}}>
+                    {/* Floating tooltip */}
+                    <TicketTooltip />
 
-                        {/* ══ PAGE HEADER ══ */}
-                        <div className='yc-toolbar' style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'16px',flexWrap:'wrap',gap:'10px'}}>
-                            <div>
-                                <h1 style={{fontSize:'19px',fontWeight:'700',color:textP,margin:0,letterSpacing:'-0.3px'}}>Ticket Calendar</h1>
-                                <p style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',margin:'3px 0 0'}}>Due dates, overdue tracking &amp; public holidays</p>
-                            </div>
-                            <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
-                                <button onClick={goNow} className="cal-btn" style={{padding:'6px 14px',borderRadius:'8px',border:`1px solid ${borderC}`,background:dm?'rgba(99,102,241,0.1)':'white',fontSize:'13px',fontWeight:'600',color:dm?'#c7d2fe':'#334155',cursor:'pointer'}}>Today</button>
-                                <select value={selectedState} onChange={e=>setSelectedState(e.target.value)}
-                                    style={{padding:'6px 10px',borderRadius:'8px',border:`1px solid ${borderC}`,background:dm?'rgba(2,8,23,0.9)':'#FFFFFF',fontSize:'12px',color:textM,cursor:'pointer'}}>
-                                    {AU_STATES.map(s=><option key={s.code} value={s.code}>{s.label}</option>)}
-                                </select>
-                            </div>
-                        </div>
+                    <div style={{maxWidth:'1600px',margin:'0 auto',padding:'20px 24px'}}>
 
-                        {/* ══ STATS CHIPS ══ */}
-                        <div className='yc-analytics-bar' style={{display:'flex',gap:'10px',marginBottom:'16px',flexWrap:'wrap'}}>
+                        {/* ══ TOP STATS BAR ══ */}
+                        <div style={{display:'flex',gap:'10px',marginBottom:'18px',flexWrap:'wrap'}}>
                             {[
-                                { label:'Due This Month', value:mDue,          color:dm?'#818cf8':'#4F46E5', bg:'#EEF2FF', icon:'calendar' },
-                                { label:'Overdue',        value:mOD,           color:'#EF4444', bg:'#FEF2F2', icon:'alert-triangle' },
-                                { label:'Resolved',       value:mRes,          color:'#10B981', bg:'#ECFDF5', icon:'check-circle' },
-                                { label:'Due This Week',  value:wkTkts.length, color:'#F59E0B', bg:'#FFFBEB', icon:'bell' },
+                                {label:'Due This Month',value:mDue,  color:'#6366F1',bg:dm?'rgba(99,102,241,0.12)':'#EEF2FF',  icon:'calendar'},
+                                {label:'Overdue',       value:mOD,   color:'#EF4444',bg:dm?'rgba(239,68,68,0.12)':'#FEF2F2',   icon:'alert-triangle'},
+                                {label:'Resolved',      value:mRes,  color:'#10B981',bg:dm?'rgba(16,185,129,0.12)':'#ECFDF5',  icon:'check-circle'},
+                                {label:'Due This Week', value:wkTkts.length,color:'#F59E0B',bg:dm?'rgba(245,158,11,0.12)':'#FFFBEB',icon:'bell'},
                             ].map(s=>(
-                                <div key={s.label} style={{display:'flex',alignItems:'center',gap:'8px',background:cardBg,borderRadius:'10px',border:`1px solid ${borderC}`,padding:'8px 14px',boxShadow:dm?'0 4px 12px rgba(0,0,0,0.4)':'0 1px 2px rgba(0,0,0,0.04)'}}>
-                                    <span style={{background:s.bg,borderRadius:'6px',width:'28px',height:'28px',display:'flex',alignItems:'center',justifyContent:'center'}}><Icon name={s.icon} size={15} color={s.color} /></span>
+                                <div key={s.label} style={{display:'flex',alignItems:'center',gap:'10px',background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,padding:'10px 16px',boxShadow:dm?'0 4px 12px rgba(0,0,0,0.35)':'0 1px 3px rgba(0,0,0,0.05)',flex:'1 1 150px',minWidth:'140px'}}>
+                                    <div style={{width:'34px',height:'34px',borderRadius:'9px',background:s.bg,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                                        <Icon name={s.icon} size={16} color={s.color} />
+                                    </div>
                                     <div>
-                                        <span style={{fontSize:'16px',fontWeight:'700',color:s.color,marginRight:'4px'}}>{s.value}</span>
-                                        <span style={{fontSize:'11px',color:textM}}>{s.label}</span>
+                                        <div style={{fontSize:'20px',fontWeight:'800',color:s.color,lineHeight:1}}>{s.value}</div>
+                                        <div style={{fontSize:'11px',color:textM,marginTop:'2px'}}>{s.label}</div>
                                     </div>
                                 </div>
                             ))}
                         </div>
 
-                        {/* ══ MAIN LAYOUT: Calendar + Sidebar ══ */}
-                        <div style={{display:'grid',gridTemplateColumns:'1fr 320px',gap:'16px',alignItems:'start'}}>
+                        {/* ══ MAIN LAYOUT ══ */}
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 300px',gap:'16px',alignItems:'start'}}>
 
-                            {/* ── CALENDAR ── */}
-                            <div style={{background:cardBg,borderRadius:'14px',border:`1px solid ${borderC}`,overflow:'hidden',boxShadow:dm?'0 4px 6px rgba(0,0,0,0.4),0 16px 48px rgba(0,0,0,0.55),0 1px 0 rgba(255,255,255,0.04) inset':'0 1px 4px rgba(0,0,0,0.05)'}}>
+                            {/* ── CALENDAR CARD ── */}
+                            <div style={{background:cardBg,borderRadius:'16px',border:`1px solid ${borderC}`,overflow:'hidden',boxShadow:dm?'0 4px 6px rgba(0,0,0,0.4),0 20px 60px rgba(0,0,0,0.55)':'0 1px 6px rgba(0,0,0,0.07)'}}>
 
-                                {/* Month nav bar */}
-                                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'16px 20px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.12)':'#F0F0F0'}`}}>
-                                    <button className="cal-nav2" onClick={prevM} style={{width:'32px',height:'32px',borderRadius:'8px',border:`1px solid ${borderC}`,background:dm?'rgba(99,102,241,0.08)':'white',cursor:'pointer',fontSize:'16px',color:textM,display:'flex',alignItems:'center',justifyContent:'center'}}>‹</button>
-                                    <div style={{textAlign:'center'}}>
-                                        <h2 style={{fontSize:'16px',fontWeight:'700',color:textP,margin:0}}>{MONTHS[month]} {year}</h2>
-                                        <div style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8',marginTop:'2px'}}>
-                                            {visibleHols.length>0 && <span style={{color:'#EF4444',fontWeight:'600'}}>{visibleHols.length} holiday{visibleHols.length!==1?'s':''}</span>}
-                                            {visibleHols.length>0 && mDue>0 && <span style={{color:'#D1D5DB'}}> · </span>}
-                                            {mDue>0 && <span style={{color:dm?'#818cf8':'#4F46E5',fontWeight:'600'}}>{mDue} ticket{mDue!==1?'s':''} due</span>}
-                                        </div>
+                                {/* Header bar */}
+                                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'14px 18px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.1)':'#F0F4FF'}`,gap:'10px',flexWrap:'wrap'}}>
+                                    {/* Left: title + sub */}
+                                    <div>
+                                        <h1 style={{fontSize:'17px',fontWeight:'800',color:textP,margin:0,letterSpacing:'-0.3px'}}>Ticket Calendar</h1>
+                                        <p style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8',margin:'2px 0 0'}}>Due dates · public holidays · drag to reschedule</p>
                                     </div>
-                                    <button className="cal-nav2" onClick={nextM} style={{width:'32px',height:'32px',borderRadius:'8px',border:`1px solid ${borderC}`,background:dm?'rgba(99,102,241,0.08)':'white',cursor:'pointer',fontSize:'16px',color:textM,display:'flex',alignItems:'center',justifyContent:'center'}}>›</button>
+                                    {/* Right: state selector + today */}
+                                    <div style={{display:'flex',gap:'8px',alignItems:'center',flexWrap:'wrap'}}>
+                                        <select value={selectedState} onChange={e=>setSelectedState(e.target.value)}
+                                            style={{padding:'5px 10px',borderRadius:'8px',border:`1px solid ${borderC}`,background:dm?'rgba(2,8,23,0.9)':'white',fontSize:'12px',color:textM,cursor:'pointer',outline:'none'}}>
+                                            {AU_STATES.map(s=><option key={s.code} value={s.code}>{s.label}</option>)}
+                                        </select>
+                                        <button onClick={goNow} className="cal-nav-btn" style={{padding:'5px 14px',borderRadius:'8px',border:`1px solid ${borderC}`,background:dm?'rgba(99,102,241,0.1)':'white',fontSize:'12px',fontWeight:'700',color:dm?'#c7d2fe':'#4F46E5',cursor:'pointer'}}>Today</button>
+                                    </div>
                                 </div>
 
-                                {/* Day labels */}
-                                <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',background:dm?'rgba(6,9,20,0.6)':'#F9FAFB',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.12)':'#F0F0F0'}`}}>
-                                    {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d,i)=>(
-                                        <div key={d} style={{textAlign:'center',fontSize:'11px',fontWeight:'600',letterSpacing:'0.05em',color:i>=5?(dm?'#4a607f':'#94A3B8'):(dm?'#6b80a4':'#64748B'),padding:'8px 0',textTransform:'uppercase'}}>{d}</div>
-                                    ))}
+                                {/* View switcher + nav */}
+                                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 18px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.08)':'#F0F4FF'}`,gap:'10px',flexWrap:'wrap'}}>
+                                    {/* Nav arrows + label */}
+                                    <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                                        <button className="cal-nav-btn" onClick={()=>navigate(-1)} style={{width:'30px',height:'30px',borderRadius:'8px',border:`1px solid ${borderC}`,background:dm?'rgba(99,102,241,0.06)':'white',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',color:textM,fontSize:'15px'}}>‹</button>
+                                        <div style={{fontSize:'14px',fontWeight:'700',color:textP,minWidth:'180px',textAlign:'center'}}>{navLabel()}</div>
+                                        <button className="cal-nav-btn" onClick={()=>navigate(1)} style={{width:'30px',height:'30px',borderRadius:'8px',border:`1px solid ${borderC}`,background:dm?'rgba(99,102,241,0.06)':'white',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',color:textM,fontSize:'15px'}}>›</button>
+                                    </div>
+                                    {/* View tabs */}
+                                    <div style={{display:'flex',gap:'4px',background:dm?'rgba(0,0,0,0.3)':'#F1F5F9',borderRadius:'9px',padding:'3px'}}>
+                                        {[{v:'month',l:'Month'},{v:'week',l:'Week'},{v:'day',l:'Day'},{v:'agenda',l:'Agenda'}].map(({v,l})=>(
+                                            <button key={v} className={`cal-view-btn${calView===v?' active':''}`} onClick={()=>setCalView(v)}>{l}</button>
+                                        ))}
+                                    </div>
                                 </div>
 
-                                {/* Grid cells */}
-                                <div>
-                                    {weeks.map((wk,wi)=>(
-                                        <div key={wi} style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)'}}>
-                                            {wk.map((d,di)=>{
-                                                const ds = d ? dateStr(d) : null;
-                                                const hols = ds?(holMap[ds]||[]):[];
-                                                const tkts = ds?(tktMap[ds]||[]):[];
-                                                const dow = d?new Date(year,month,d).getDay():null;
-                                                const isWknd = dow===0||dow===6;
-                                                const isTd = d&&isToday(d);
-                                                const isHol = hols.length>0;
-                                                const isSel = selectedDay===ds;
-                                                const isLastWk = wi===weeks.length-1;
-                                                const odOnDay = tkts.filter(isOverdue).length;
-                                                return (
-                                                    <div key={di}
-                                                        className={`gc-cell${isTd?' today-cell':''}${isSel?' sel-cell':''}${isHol&&!isSel?' hol-cell':''}${isWknd&&!isHol&&!isSel?' wknd-cell':''}`}
-                                                        onClick={()=>d&&setSelectedDay(isSel?null:ds)}
-                                                        style={{minHeight:'110px',padding:'4px 0',cursor:d?'pointer':'default',borderBottom:isLastWk?'none':`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`,borderRight:di===6?'none':`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`,position:'relative',overflow:'hidden',background:!d?(dm?'rgba(0,0,0,0.15)':'#FAFAFA'):undefined}}
-                                                    >
-                                                        {d && (<>
-                                                            {/* Top accent */}
-                                                            {(isHol||odOnDay>0) && <div style={{position:'absolute',top:0,left:0,right:0,height:'2px',background:isHol?'#FCA5A5':'#FDBA74'}}/>}
-                                                            {/* Date number row */}
-                                                            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'4px 6px 3px',gap:'2px'}}>
-                                                                <div className="gc-date-num" style={{width:'22px',height:'22px',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'11px',fontWeight:isTd?'700':'500',background:isTd?'#3B82F6':'transparent',color:isTd?'white':isWknd?(dm?'#3d5070':'#94A3B8'):(dm?'#c0cfec':'#334155'),flexShrink:0}}>{d}</div>
-                                                                {isHol && <span style={{fontSize:'9px',color:'#DC2626',fontWeight:'600',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1,minWidth:0,paddingLeft:'2px'}}>{hols[0].name}</span>}
-                                                                {tkts.length>0 && <span style={{fontSize:'9px',fontWeight:'700',color:odOnDay>0?'#EF4444':'#6366F1',background:odOnDay>0?'#FEF2F2':'#EEF2FF',borderRadius:'8px',padding:'1px 4px',flexShrink:0}}>{tkts.length}</span>}
-                                                            </div>
-                                                            {/* Event bars */}
-                                                            {tkts.slice(0,3).map((t,ti)=>{
-                                                                const c = ticketColor(t);
-                                                                return <div key={ti} className="ev-bar" style={{background:c.bar,color:'white',marginBottom:'1px'}}>{t.title||t.ticketNumber||'Ticket'}</div>;
-                                                            })}
-                                                            {tkts.length>3 && <div style={{fontSize:'9px',color:dm?'#4a607f':'#94A3B8',paddingLeft:'6px'}}>+{tkts.length-3} more</div>}
-                                                        </>)}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    ))}
-                                </div>
+                                {/* View body */}
+                                {loading ? (
+                                    <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'300px',gap:'10px',color:textM}}>
+                                        <YCLoader size={20} /><span style={{fontSize:'13px'}}>Loading tickets…</span>
+                                    </div>
+                                ) : (
+                                    <>
+                                        {calView==='month'  && <MonthView />}
+                                        {calView==='week'   && <WeekView />}
+                                        {calView==='day'    && <DayView />}
+                                        {calView==='agenda' && <AgendaView />}
+                                    </>
+                                )}
 
-                                {/* Legend */}
-                                <div style={{display:'flex',flexWrap:'wrap',gap:'12px',padding:'10px 16px',borderTop:`1px solid ${dm?'rgba(99,102,241,0.12)':'#F0F0F0'}`,background:dm?'rgba(4,8,20,0.5)':'#FAFAFA',alignItems:'center'}}>
+                                {/* Legend footer */}
+                                <div style={{display:'flex',flexWrap:'wrap',gap:'12px',padding:'10px 18px',borderTop:`1px solid ${dm?'rgba(99,102,241,0.08)':'#F0F4FF'}`,background:dm?'rgba(4,8,20,0.4)':'#FAFBFF',alignItems:'center'}}>
                                     {[
-                                        {dot:'#6366F1',bg:'#EEF2FF',label:'Open'},
-                                        {dot:'#EF4444',bg:'#FEF2F2',label:'Overdue'},
-                                        {dot:'#10B981',bg:'#ECFDF5',label:'Resolved'},
-                                        {icon:true,bar:'#FCA5A5',label:'Holiday'},
-                                        {circle:true,label:'Today'},
+                                        {bar:'#6366F1', label:'Open'},
+                                        {bar:'#3B82F6', label:'In Progress'},
+                                        {bar:'#EF4444', label:'Overdue'},
+                                        {bar:'#10B981', label:'Resolved'},
+                                        {bar:'#F97316', label:'Critical'},
+                                        {hol:true,      label:'Holiday'},
+                                        {today:true,    label:'Today'},
                                     ].map((l,i)=>(
                                         <div key={i} style={{display:'flex',alignItems:'center',gap:'5px'}}>
-                                            {l.circle && <div style={{width:'16px',height:'16px',borderRadius:'50%',background:'#6366F1',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'8px',fontWeight:'700',color:'white'}}>9</div>}
-                                            {l.dot && <div style={{display:'flex',alignItems:'center',gap:'3px',background:l.bg,borderRadius:'4px',padding:'1.5px 6px'}}><div style={{width:'6px',height:'6px',borderRadius:'50%',background:l.dot}}/></div>}
-                                            {l.icon && <div style={{width:'18px',height:'2.5px',background:l.bar,borderRadius:'2px'}}/>}
-                                            <span style={{fontSize:'10px',color:dm?'#6b80a4':'#64748B'}}>{l.label}</span>
+                                            {l.today && <div style={{width:'18px',height:'18px',borderRadius:'50%',background:'#6366F1',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'8px',fontWeight:'800',color:'white',boxShadow:'0 1px 4px rgba(99,102,241,0.5)'}}>9</div>}
+                                            {l.bar   && <div style={{width:'10px',height:'10px',borderRadius:'3px',background:l.bar}}/>}
+                                            {l.hol   && <span>🇦🇺</span>}
+                                            <span style={{fontSize:'10px',color:dm?'#6b80a4':'#64748B',fontWeight:'500'}}>{l.label}</span>
                                         </div>
                                     ))}
+                                    <div style={{marginLeft:'auto',fontSize:'10px',color:dm?'#3d5070':'#CBD5E1'}}>Drag events to reschedule</div>
                                 </div>
                             </div>
 
                             {/* ── RIGHT SIDEBAR ── */}
                             <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
 
-                                {/* Selected day */}
+                                {/* Selected day panel */}
                                 {selectedDay && (()=>{
+                                    const [sy,sm2,sd2] = selectedDay.split('-').map(Number);
                                     const hols = holMap[selectedDay]||[];
                                     const tkts = tktMap[selectedDay]||[];
-                                    const [sy,sm2,sd2] = selectedDay.split('-').map(Number);
-                                    const dl = new Date(sy,sm2-1,sd2).toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-                                    const isPast = new Date(sy,sm2-1,sd2) < today && selectedDay!==todayStr;
+                                    const dl = new Date(sy,sm2-1,sd2).toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
                                     return (
-                                        <div style={{background:cardBg,borderRadius:'12px',border:'2px solid rgba(99,102,241,0.7)',overflow:'hidden',boxShadow:dm?'0 2px 20px rgba(99,102,241,0.25)':'0 2px 8px rgba(99,102,241,0.12)'}}>
-                                            <div style={{background:'#6366F1',padding:'12px 16px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                                        <div style={{background:cardBg,borderRadius:'13px',border:'2px solid rgba(99,102,241,0.55)',overflow:'hidden',boxShadow:dm?'0 4px 24px rgba(99,102,241,0.2)':'0 2px 10px rgba(99,102,241,0.1)'}}>
+                                            <div style={{background:'linear-gradient(135deg,#6366F1,#818CF8)',padding:'13px 16px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                                                 <div>
-                                                    <div style={{fontSize:'11px',color:'rgba(255,255,255,0.75)',fontWeight:'600',textTransform:'uppercase',letterSpacing:'0.05em'}}>Selected</div>
-                                                    <div style={{fontSize:'13px',fontWeight:'700',color:'white',marginTop:'1px'}}>{dl}</div>
+                                                    <div style={{fontSize:'10px',color:'rgba(255,255,255,0.7)',fontWeight:'700',textTransform:'uppercase',letterSpacing:'0.06em'}}>Selected Day</div>
+                                                    <div style={{fontSize:'14px',fontWeight:'800',color:'white',marginTop:'2px'}}>{dl}</div>
                                                 </div>
-                                                <button onClick={()=>setSelectedDay(null)} style={{background:'rgba(255,255,255,0.15)',border:'none',borderRadius:'6px',width:'26px',height:'26px',color:'white',fontSize:'16px',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>×</button>
+                                                <button onClick={()=>setSelectedDay(null)} style={{background:'rgba(255,255,255,0.18)',border:'none',borderRadius:'7px',width:'28px',height:'28px',color:'white',fontSize:'17px',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',lineHeight:1}}>×</button>
                                             </div>
-                                            <div style={{padding:'14px 16px'}}>
+                                            <div style={{padding:'12px 14px'}}>
+                                                {hols.length===0&&tkts.length===0 && <p style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',margin:0,textAlign:'center',padding:'8px 0'}}>No tickets or holidays</p>}
                                                 {hols.map((h,i)=>(
-                                                    <div key={i} style={{display:'flex',alignItems:'flex-start',gap:'8px',background:dm?'rgba(239,68,68,0.08)':'#FFF5F5',borderRadius:'8px',padding:'8px 10px',marginBottom:'8px'}}>
-                                                        <span style={{display:'flex',alignItems:'center',justifyContent:'center',width:'22px',height:'22px',flexShrink:0}}><Icon name='star' size={14} color='#DC2626' /></span>
-                                                        <div>
-                                                            <div style={{fontSize:'12px',fontWeight:'700',color:'#DC2626'}}>{h.name}</div>
-                                                            <div style={{fontSize:'10px',color:dm?'#4a607f':'#94A3B8',marginTop:'2px'}}>{h.states.includes('ALL')?'National':h.states.join(', ')}</div>
-                                                        </div>
+                                                    <div key={i} style={{display:'flex',alignItems:'center',gap:'8px',background:dm?'rgba(239,68,68,0.08)':'#FFF5F5',borderRadius:'8px',padding:'8px 10px',marginBottom:'6px',border:`1px solid ${dm?'rgba(239,68,68,0.15)':'#FECACA'}`}}>
+                                                        <span style={{fontSize:'16px'}}>🇦🇺</span>
+                                                        <div><div style={{fontSize:'12px',fontWeight:'700',color:'#EF4444'}}>{h.name}</div><div style={{fontSize:'10px',color:dm?'#4a607f':'#94A3B8',marginTop:'1px'}}>{h.states.includes('ALL')?'National':h.states.join(', ')}</div></div>
                                                     </div>
                                                 ))}
-                                                {tkts.length===0 && hols.length===0 && (
-                                                    <p style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',margin:0,textAlign:'center',padding:'8px 0'}}>No tickets or holidays</p>
-                                                )}
-                                                {tkts.length>0 && (
-                                                    <>
-                                                    <div style={{fontSize:'11px',fontWeight:'700',color:textM,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:'8px'}}>{tkts.length} ticket{tkts.length!==1?'s':''} due</div>
+                                                {tkts.length>0 && <>
+                                                    <div style={{fontSize:'10px',fontWeight:'700',color:textM,textTransform:'uppercase',letterSpacing:'0.06em',margin:'6px 0 8px'}}>{tkts.length} Ticket{tkts.length!==1?'s':''}</div>
                                                     {tkts.map((t,i)=>{
-                                                        const done=isDone(t); const od=isOverdue(t);
-                                                        const c=ticketColor(t);
-                                                        const sc=ST_COLOR[t.status]||'#9CA3AF';
+                                                        const c=ticketColor(t),od=isOverdue(t),done=isDone(t),sc=ST_COLOR[t.status]||'#9CA3AF';
                                                         return (
-                                                            <div key={i} style={{borderLeft:`3px solid ${c.bar}`,background:c.bg,borderRadius:'0 8px 8px 0',padding:'8px 10px',marginBottom:'6px'}}>
+                                                            <div key={i} style={{borderLeft:`3px solid ${c.bar}`,background:dm?'rgba(255,255,255,0.02)':c.bg,borderRadius:'0 8px 8px 0',padding:'8px 10px',marginBottom:'6px'}}>
                                                                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'3px'}}>
                                                                     <span style={{fontSize:'10px',fontWeight:'700',color:textM}}>{t.ticketNumber||`#${t.id}`}</span>
-                                                                    <span style={{fontSize:'10px',fontWeight:'600',color:sc,background:sc+'1A',borderRadius:'20px',padding:'1px 7px'}}>{ST_LABEL[t.status]||t.status}</span>
+                                                                    <span style={{fontSize:'10px',fontWeight:'600',color:sc,background:sc+'22',borderRadius:'20px',padding:'1px 7px'}}>{ST_LABEL[t.status]||t.status}</span>
                                                                 </div>
-                                                                <div style={{fontSize:'12px',fontWeight:'600',color:dm?'#e4ecff':'#0F172A',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.title||'—'}</div>
-                                                                <div style={{display:'flex',gap:'6px',marginTop:'4px',flexWrap:'wrap'}}>
-                                                                    {(t.priorityLabel||t.priority) && <span style={{fontSize:'10px',color:c.text,fontWeight:'600'}}>{(t.priorityLabel||t.priority).charAt(0).toUpperCase()+(t.priorityLabel||t.priority).slice(1)}</span>}
-                                                                    {od && <span style={{fontSize:'10px',color:'#EF4444',fontWeight:'700',display:'inline-flex',alignItems:'center',gap:'2px'}}><Icon name='alert-triangle' size={10} color='#EF4444' /> Overdue</span>}
-                                                                    {done && <span style={{fontSize:'10px',color:'#10B981',fontWeight:'700',display:'inline-flex',alignItems:'center',gap:'2px'}}><Icon name='check-circle' size={10} color='#10B981' /> Resolved</span>}
+                                                                <div style={{fontSize:'12px',fontWeight:'700',color:textP,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.title||'—'}</div>
+                                                                <div style={{display:'flex',gap:'5px',marginTop:'4px',flexWrap:'wrap'}}>
+                                                                    {(t.priorityLabel||t.priority) && <span style={{fontSize:'10px',color:c.text,fontWeight:'600',textTransform:'capitalize'}}>{t.priorityLabel||t.priority}</span>}
+                                                                    {od && <span style={{fontSize:'10px',color:'#EF4444',fontWeight:'700'}}>⚠ Overdue</span>}
+                                                                    {done && <span style={{fontSize:'10px',color:'#10B981',fontWeight:'700'}}>✓ Done</span>}
                                                                 </div>
                                                             </div>
                                                         );
                                                     })}
-                                                    </>
-                                                )}
+                                                </>}
                                             </div>
                                         </div>
                                     );
                                 })()}
 
                                 {/* Overdue tickets */}
-                                {odList.length > 0 && (
-                                <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${dm?'rgba(239,68,68,0.25)':'#FECACA'}`,overflow:'hidden',boxShadow:dm?'0 4px 16px rgba(0,0,0,0.4)':'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
-                                    <div style={{padding:'12px 16px',borderBottom:`1px solid ${dm?'rgba(239,68,68,0.12)':'#FEF2F2'}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                                        <span style={{fontSize:'13px',fontWeight:'700',color:'#EF4444',display:'inline-flex',alignItems:'center',gap:5}}><Icon name='alert-triangle' size={13} color='#EF4444' />Overdue Tickets</span>
-                                        <span style={{fontSize:'11px',background:dm?'rgba(239,68,68,0.15)':'#FEF2F2',color:dm?'#fca5a5':'#DC2626',borderRadius:'20px',padding:'2px 8px',fontWeight:'700'}}>{odList.length}</span>
+                                {odList.length>0 && (
+                                <div style={{background:cardBg,borderRadius:'13px',border:`1px solid ${dm?'rgba(239,68,68,0.22)':'#FECACA'}`,overflow:'hidden',boxShadow:dm?'0 4px 16px rgba(0,0,0,0.35)':'0 1px 4px rgba(0,0,0,0.06)'}}>
+                                    <div style={{padding:'11px 15px',borderBottom:`1px solid ${dm?'rgba(239,68,68,0.1)':'#FEF2F2'}`,display:'flex',justifyContent:'space-between',alignItems:'center',background:dm?'rgba(239,68,68,0.06)':'#FFF5F5'}}>
+                                        <span style={{fontSize:'12px',fontWeight:'800',color:'#EF4444',display:'inline-flex',alignItems:'center',gap:5}}><Icon name='alert-triangle' size={13} color='#EF4444' />Overdue</span>
+                                        <span style={{fontSize:'11px',background:dm?'rgba(239,68,68,0.18)':'#FEE2E2',color:'#EF4444',borderRadius:'20px',padding:'2px 9px',fontWeight:'800'}}>{odList.length}</span>
                                     </div>
-                                    <div style={{padding:'8px'}}>
+                                    <div style={{padding:'6px 8px',maxHeight:'220px',overflowY:'auto'}}>
                                         {odList.map((t,i)=>{
                                             const c=ticketColor(t);
-                                            const daysOver = t.dueAt ? Math.floor((today-new Date(t.dueAt))/86400000) : null;
+                                            const daysOver=t.dueAt?Math.floor((today-new Date(t.dueAt))/86400000):null;
                                             return (
-                                                <div key={i} className="sidebar-row" style={{padding:'8px',borderRadius:'8px'}}>
-                                                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:'6px'}}>
-                                                        <div style={{flex:1,minWidth:0}}>
-                                                            <div style={{fontSize:'12px',fontWeight:'600',color:dm?'#e4ecff':'#0F172A',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.title||'—'}</div>
-                                                            <div style={{display:'flex',gap:'6px',marginTop:'2px',alignItems:'center'}}>
-                                                                <span style={{fontSize:'10px',fontWeight:'600',color:c.text}}>{(t.priorityLabel||t.priority||'').charAt(0).toUpperCase()+(t.priorityLabel||t.priority||'').slice(1)}</span>
-                                                                {t.assigneeName && <span style={{fontSize:'10px',color:dm?'#4a607f':'#94A3B8'}}>→ {t.assigneeName.split(' ')[0]}</span>}
-                                                            </div>
-                                                        </div>
-                                                        {daysOver!=null && <span style={{fontSize:'10px',fontWeight:'700',color:dm?'#fca5a5':'#EF4444',flexShrink:0,background:dm?'rgba(239,68,68,0.15)':'#FEF2F2',borderRadius:'20px',padding:'2px 7px',whiteSpace:'nowrap'}}>{daysOver}d late</span>}
+                                                <div key={i} className="sidebar-row" style={{padding:'7px 6px',borderRadius:'7px',display:'flex',gap:'8px',alignItems:'center'}}>
+                                                    <div style={{flex:1,minWidth:0}}>
+                                                        <div style={{fontSize:'12px',fontWeight:'600',color:textP,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.title||'—'}</div>
+                                                        <div style={{fontSize:'10px',color:textM,marginTop:'1px'}}>{(t.priorityLabel||t.priority||'').charAt(0).toUpperCase()+(t.priorityLabel||t.priority||'').slice(1)}{t.assigneeName?` · ${t.assigneeName.split(' ')[0]}`:''}</div>
                                                     </div>
+                                                    {daysOver!=null && <span style={{fontSize:'10px',fontWeight:'800',color:'#EF4444',background:dm?'rgba(239,68,68,0.14)':'#FEF2F2',borderRadius:'20px',padding:'2px 7px',whiteSpace:'nowrap',flexShrink:0}}>{daysOver}d</span>}
                                                 </div>
                                             );
                                         })}
@@ -4261,29 +4541,29 @@
                                 )}
 
                                 {/* Due this week */}
-                                {wkTkts.length > 0 && (
-                                <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,overflow:'hidden',boxShadow:dm?'0 4px 16px rgba(0,0,0,0.4)':'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
-                                    <div style={{padding:'12px 16px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.12)':'#EEF2F8'}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                                        <span style={{fontSize:'13px',fontWeight:'700',color:dm?'#c0cfec':'#334155',display:'inline-flex',alignItems:'center',gap:5}}><Icon name='bell' size={13} />Due This Week</span>
-                                        <span style={{fontSize:'11px',background:dm?'rgba(234,179,8,0.15)':'#FFFBEB',color:dm?'#fcd34d':'#D97706',borderRadius:'20px',padding:'2px 8px',fontWeight:'700'}}>{wkTkts.length}</span>
+                                {wkTkts.length>0 && (
+                                <div style={{background:cardBg,borderRadius:'13px',border:`1px solid ${borderC}`,overflow:'hidden',boxShadow:dm?'0 4px 16px rgba(0,0,0,0.35)':'0 1px 4px rgba(0,0,0,0.06)'}}>
+                                    <div style={{padding:'11px 15px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.1)':'#EEF2F8'}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                                        <span style={{fontSize:'12px',fontWeight:'800',color:textP,display:'inline-flex',alignItems:'center',gap:5}}><Icon name='bell' size={13} color='#F59E0B' />Due This Week</span>
+                                        <span style={{fontSize:'11px',background:dm?'rgba(245,158,11,0.14)':'#FFFBEB',color:'#D97706',borderRadius:'20px',padding:'2px 9px',fontWeight:'800'}}>{wkTkts.length}</span>
                                     </div>
-                                    <div style={{padding:'8px'}}>
+                                    <div style={{padding:'6px 8px'}}>
                                         {wkTkts.slice(0,6).map((t,i)=>{
                                             const c=ticketColor(t);
                                             const d=new Date(t.dueAt);
                                             const diffD=Math.round((d-today)/86400000);
-                                            const dLabel=diffD===0?'Today':diffD===1?'Tomorrow':`${diffD}d`;
+                                            const dLabel=diffD===0?'Today':diffD===1?'Tmrw':`${diffD}d`;
                                             return (
-                                                <div key={i} className="sidebar-row" style={{padding:'8px',borderRadius:'8px',display:'flex',gap:'8px',alignItems:'center'}}>
-                                                    <div style={{width:'32px',height:'32px',background:dm?'rgba(245,158,11,0.12)':'#FFFBEB',borderRadius:'8px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                                                        <div style={{fontSize:'9px',fontWeight:'700',color:'#D97706',textTransform:'uppercase'}}>{MS[d.getMonth()]}</div>
-                                                        <div style={{fontSize:'13px',fontWeight:'700',color:'#92400E',lineHeight:1}}>{d.getDate()}</div>
+                                                <div key={i} className="sidebar-row" style={{padding:'7px 6px',borderRadius:'7px',display:'flex',gap:'8px',alignItems:'center'}}>
+                                                    <div style={{width:'32px',height:'32px',background:dm?'rgba(245,158,11,0.1)':'#FFFBEB',borderRadius:'8px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                                                        <div style={{fontSize:'8px',fontWeight:'800',color:'#D97706',textTransform:'uppercase'}}>{MS[d.getMonth()]}</div>
+                                                        <div style={{fontSize:'14px',fontWeight:'800',color:'#92400E',lineHeight:1}}>{d.getDate()}</div>
                                                     </div>
                                                     <div style={{flex:1,minWidth:0}}>
-                                                        <div style={{fontSize:'12px',fontWeight:'600',color:dm?'#e4ecff':'#0F172A',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.title||'—'}</div>
-                                                        <div style={{fontSize:'10px',color:c.text,fontWeight:'600',marginTop:'1px'}}>{(t.priorityLabel||t.priority||'').charAt(0).toUpperCase()+(t.priorityLabel||t.priority||'').slice(1)}{t.assigneeName?` · ${t.assigneeName.split(' ')[0]}`:''}</div>
+                                                        <div style={{fontSize:'12px',fontWeight:'600',color:textP,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.title||'—'}</div>
+                                                        <div style={{fontSize:'10px',color:c.text,fontWeight:'600',marginTop:'1px',textTransform:'capitalize'}}>{t.priorityLabel||t.priority||''}{t.assigneeName?` · ${t.assigneeName.split(' ')[0]}`:''}</div>
                                                     </div>
-                                                    <span style={{fontSize:'10px',fontWeight:'700',color:diffD===0?'#EF4444':'#D97706',flexShrink:0}}>{dLabel}</span>
+                                                    <span style={{fontSize:'10px',fontWeight:'800',color:diffD===0?'#EF4444':'#D97706',flexShrink:0}}>{dLabel}</span>
                                                 </div>
                                             );
                                         })}
@@ -4291,60 +4571,57 @@
                                 </div>
                                 )}
 
-                                {/* Upcoming public holidays */}
-                                <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,overflow:'hidden',boxShadow:dm?'0 4px 16px rgba(0,0,0,0.4)':'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
-                                    <div style={{padding:'12px 16px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.12)':'#EEF2F8'}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                                        <span style={{fontSize:'13px',fontWeight:'700',color:dm?'#c0cfec':'#334155',display:'inline-flex',alignItems:'center',gap:'5px'}}><Icon name='map-pin' size={13} color='#EF4444' />Public Holidays</span>
-                                        <span style={{fontSize:'10px',color:dm?'#4a607f':'#94A3B8'}}>Next 90 days</span>
+                                {/* Upcoming holidays */}
+                                <div style={{background:cardBg,borderRadius:'13px',border:`1px solid ${borderC}`,overflow:'hidden',boxShadow:dm?'0 4px 16px rgba(0,0,0,0.35)':'0 1px 4px rgba(0,0,0,0.06)'}}>
+                                    <div style={{padding:'11px 15px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.1)':'#EEF2F8'}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                                        <span style={{fontSize:'12px',fontWeight:'800',color:textP,display:'inline-flex',alignItems:'center',gap:'5px'}}>🇦🇺 Public Holidays</span>
+                                        <span style={{fontSize:'10px',color:textM}}>Next 90 days</span>
                                     </div>
-                                    <div style={{padding:'8px'}}>
+                                    <div style={{padding:'6px 8px'}}>
                                         {upHols.length===0 ? (
-                                            <p style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',textAlign:'center',padding:'12px',margin:0}}>None in the next 90 days</p>
+                                            <p style={{fontSize:'12px',color:textM,textAlign:'center',padding:'12px',margin:0}}>None in the next 90 days</p>
                                         ) : upHols.map((h,i)=>{
                                             const [hy,hm2,hd2]=h.date.split('-').map(Number);
                                             const diff=Math.round((new Date(hy,hm2-1,hd2)-today)/86400000);
-                                            const dLabel=diff===0?'Today':diff===1?'Tomorrow':`${diff}d`;
+                                            const dLabel=diff===0?'Today':diff===1?'Tmrw':`${diff}d`;
                                             const hot=diff<=7;
                                             return (
-                                                <div key={i} className="sidebar-row" style={{padding:'8px',borderRadius:'8px',display:'flex',gap:'8px',alignItems:'center'}}>
-                                                    <div style={{width:'32px',height:'32px',background:hot?(dm?'rgba(239,68,68,0.12)':'#FEF2F2'):(dm?'rgba(99,102,241,0.08)':'#F5F7FF'),borderRadius:'8px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                                                        <div style={{fontSize:'9px',fontWeight:'700',color:hot?'#DC2626':(dm?'#4a607f':'#64748B'),textTransform:'uppercase'}}>{MS[hm2-1]}</div>
-                                                        <div style={{fontSize:'13px',fontWeight:'700',color:hot?'#991B1B':(dm?'#8fa4cc':'#334155'),lineHeight:1}}>{hd2}</div>
+                                                <div key={i} className="sidebar-row" style={{padding:'7px 6px',borderRadius:'7px',display:'flex',gap:'8px',alignItems:'center'}}>
+                                                    <div style={{width:'32px',height:'32px',background:hot?(dm?'rgba(239,68,68,0.1)':'#FEF2F2'):(dm?'rgba(99,102,241,0.08)':'#F5F7FF'),borderRadius:'8px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                                                        <div style={{fontSize:'8px',fontWeight:'800',color:hot?'#DC2626':(dm?'#4a607f':'#64748B'),textTransform:'uppercase'}}>{MS[hm2-1]}</div>
+                                                        <div style={{fontSize:'14px',fontWeight:'800',color:hot?'#991B1B':(dm?'#8fa4cc':'#334155'),lineHeight:1}}>{hd2}</div>
                                                     </div>
                                                     <div style={{flex:1,minWidth:0}}>
-                                                        <div style={{fontSize:'12px',fontWeight:'600',color:dm?'#e4ecff':'#0F172A',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{h.name}</div>
-                                                        <div style={{fontSize:'10px',color:dm?'#4a607f':'#94A3B8',marginTop:'1px'}}>{h.states.includes('ALL')?'National':h.states.join(', ')}</div>
+                                                        <div style={{fontSize:'12px',fontWeight:'600',color:textP,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{h.name}</div>
+                                                        <div style={{fontSize:'10px',color:textM,marginTop:'1px'}}>{h.states.includes('ALL')?'National':h.states.join(', ')}</div>
                                                     </div>
-                                                    <span style={{fontSize:'10px',fontWeight:'700',color:hot?'#DC2626':(dm?'#4a607f':'#94A3B8'),flexShrink:0,display:'inline-flex',alignItems:'center',gap:'2px'}}>{dLabel}{diff===0 && <Icon name='star' size={9} color='#DC2626' />}</span>
+                                                    <span style={{fontSize:'10px',fontWeight:'800',color:hot?'#DC2626':textM,flexShrink:0}}>{dLabel}</span>
                                                 </div>
                                             );
                                         })}
                                     </div>
                                 </div>
 
-                                {/* Monthly ticket breakdown by priority */}
+                                {/* Priority breakdown */}
                                 {moTkts.length>0 && (()=>{
-                                    const PRI_C = {critical:{dot:'#EF4444',text:'#991B1B'},high:{dot:'#F59E0B',text:'#92400E'},medium:{dot:'#3B82F6',text:'#1D4ED8'},low:{dot:'#10B981',text:'#065F46'}};
-                                    const priCounts = {};
-                                    moTkts.forEach(t => {
-                                        const p = (t.priorityLabel||t.priority||'low').toLowerCase();
-                                        priCounts[p] = (priCounts[p]||0)+1;
-                                    });
+                                    const PRI_C={critical:{dot:'#EF4444',bg:dm?'rgba(239,68,68,0.12)':'#FEF2F2'},high:{dot:'#F59E0B',bg:dm?'rgba(245,158,11,0.12)':'#FFFBEB'},medium:{dot:'#3B82F6',bg:dm?'rgba(59,130,246,0.12)':'#EFF6FF'},low:{dot:'#10B981',bg:dm?'rgba(16,185,129,0.12)':'#ECFDF5'}};
+                                    const priCounts={};
+                                    moTkts.forEach(t=>{const p=(t.priorityLabel||t.priority||'low').toLowerCase(); priCounts[p]=(priCounts[p]||0)+1;});
                                     return (
-                                        <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,padding:'14px 16px',boxShadow:dm?'0 4px 16px rgba(0,0,0,0.4)':'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
-                                            <div style={{fontSize:'13px',fontWeight:'700',color:dm?'#c0cfec':'#334155',marginBottom:'12px',display:'flex',alignItems:'center',gap:'6px'}}><Icon name='bar-chart' size={13} color={dm?'#818cf8':'#4F46E5'} />{MONTHS[month]} Breakdown</div>
+                                        <div style={{background:cardBg,borderRadius:'13px',border:`1px solid ${borderC}`,padding:'13px 15px',boxShadow:dm?'0 4px 16px rgba(0,0,0,0.35)':'0 1px 4px rgba(0,0,0,0.06)'}}>
+                                            <div style={{fontSize:'12px',fontWeight:'800',color:textP,marginBottom:'12px',display:'flex',alignItems:'center',gap:'6px'}}><Icon name='bar-chart' size={13} color={dm?'#818cf8':'#6366F1'} />{MONTHS[month]} Breakdown</div>
                                             {['critical','high','medium','low'].map(p=>{
                                                 const cnt=priCounts[p]||0; if(!cnt) return null;
-                                                const pc=PRI_C[p]||{dot:dm?'#4a607f':'#94A3B8',text:dm?'#c0cfec':'#334155'};
+                                                const pc=PRI_C[p]||{dot:'#94A3B8',bg:'#F1F5F9'};
                                                 const pct=Math.round(cnt/moTkts.length*100);
                                                 return (
-                                                    <div key={p} style={{marginBottom:'8px'}}>
-                                                        <div style={{display:'flex',justifyContent:'space-between',fontSize:'11px',marginBottom:'3px'}}>
-                                                            <span style={{fontWeight:'600',color:pc.text,textTransform:'capitalize'}}>{p}</span>
-                                                            <span style={{color:dm?'#6b80a4':'#64748B'}}>{cnt} ({pct}%)</span>
+                                                    <div key={p} style={{marginBottom:'9px'}}>
+                                                        <div style={{display:'flex',justifyContent:'space-between',fontSize:'11px',marginBottom:'4px',alignItems:'center'}}>
+                                                            <span style={{fontWeight:'700',color:pc.dot,textTransform:'capitalize',display:'flex',alignItems:'center',gap:'5px'}}><span style={{width:'7px',height:'7px',borderRadius:'50%',background:pc.dot,display:'inline-block'}}/>{p}</span>
+                                                            <span style={{color:textM,fontWeight:'600'}}>{cnt} ({pct}%)</span>
                                                         </div>
-                                                        <div style={{height:'6px',background:dm?'rgba(99,102,241,0.1)':'#F3F4F6',borderRadius:'3px'}}>
-                                                            <div style={{height:'100%',width:pct+'%',background:pc.dot,borderRadius:'3px'}}/>
+                                                        <div style={{height:'7px',background:dm?'rgba(99,102,241,0.08)':'#F1F5F9',borderRadius:'4px',overflow:'hidden'}}>
+                                                            <div style={{height:'100%',width:pct+'%',background:pc.dot,borderRadius:'4px',transition:'width 0.6s cubic-bezier(0.34,1.56,0.64,1)'}}/>
                                                         </div>
                                                     </div>
                                                 );
