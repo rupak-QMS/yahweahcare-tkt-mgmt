@@ -66,7 +66,7 @@ self.addEventListener('fetch', event => {
 
 // ── Push notification received ────────────────────────────────────────────────
 self.addEventListener('push', event => {
-  let data = { title: 'Yahweh Care', body: 'You have a new notification.', icon: '/favicon.svg', data: {} };
+  let data = { title: 'Yahwehcare', body: 'You have a new notification.', icon: '/favicon.svg', data: {} };
   try { data = Object.assign(data, event.data ? event.data.json() : {}); } catch (e) {}
 
   event.waitUntil(
@@ -85,17 +85,23 @@ self.addEventListener('push', event => {
 self.addEventListener('notificationclick', event => {
   event.notification.close();
   const d = event.notification.data || {};
-  const targetHash = d.ticketId ? `#tickets` : '#dashboard';
+
+  // Extract hash from URL stored in notification data (e.g. '/#tickets' → '#tickets').
+  // Fall back to '#dashboard' when data has no URL at all.
+  // When the URL has no hash (e.g. a plain https:// link), targetHash is null — do not postMessage.
+  const url = d.url || '';
+  const hashIdx = url.indexOf('#');
+  const targetHash = hashIdx !== -1 ? url.slice(hashIdx) : (url ? null : '#dashboard');
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
       for (const client of clients) {
         if ('focus' in client) {
-          client.postMessage({ type: 'SW_NAVIGATE', hash: targetHash });
+          if (targetHash) client.postMessage({ type: 'SW_NAVIGATE', hash: targetHash });
           return client.focus();
         }
       }
-      if (self.clients.openWindow) return self.clients.openWindow('/' + targetHash);
+      if (self.clients.openWindow) return self.clients.openWindow(url || '/');
     })
   );
 });
