@@ -2552,7 +2552,8 @@
             const [filter, setFilter] = React.useState('all');
             const [search, setSearch] = React.useState('');
             const debouncedSearch = useDebounce(search, 150);
-            const [visibleCount, setVisibleCount] = React.useState(50);
+            const [currentPage, setCurrentPage] = React.useState(1);
+            const [pageSize, setPageSize] = React.useState(25);
             const [priorityFilter, setPriorityFilter] = React.useState('');
             const [assigneeFilter, setAssigneeFilter] = React.useState('');
             const [dateFrom, setDateFrom] = React.useState('');
@@ -2776,9 +2777,12 @@
             }, [tickets, filter, debouncedSearch, priorityFilter, assigneeFilter, dateFrom, dateTo]);
 
             // Reset pagination when filters change
-            React.useEffect(() => { setVisibleCount(50); }, [filter, debouncedSearch, priorityFilter, assigneeFilter, dateFrom, dateTo]);
+            React.useEffect(() => { setCurrentPage(1); }, [filter, debouncedSearch, priorityFilter, assigneeFilter, dateFrom, dateTo]);
 
-            const visibleTickets = filteredNew.slice(0, visibleCount);
+            const totalPages = Math.max(1, Math.ceil(filteredNew.length / pageSize));
+            const safePage   = Math.min(currentPage, totalPages);
+            const pageStart  = (safePage - 1) * pageSize;
+            const visibleTickets = filteredNew.slice(pageStart, pageStart + pageSize);
 
             return (
                 <main className="flex-1 overflow-auto" style={{background:pageBg}}>
@@ -3004,14 +3008,51 @@
                                         </tbody>
                                     </table>
                                 </div>
-                                {visibleCount < filteredNew.length && (
-                                    <div style={{textAlign:'center',padding:'16px 0 4px'}}>
-                                        <button onClick={() => setVisibleCount(v => v + 50)}
-                                            style={{background:'none',border:`1px solid ${dm?'rgba(99,102,241,0.3)':'#C7D2FE'}`,borderRadius:'8px',padding:'7px 22px',fontSize:'12.5px',fontWeight:'600',color:dm?'#a5b4fc':'#6366F1',cursor:'pointer'}}>
-                                            Load more ({filteredNew.length - visibleCount} remaining)
+                                {/* ── Pagination bar ── */}
+                                {(()=>{
+                                    const pg = safePage;
+                                    const btn = (label, onClick, disabled, active=false) => (
+                                        <button key={label} onClick={onClick} disabled={disabled}
+                                            style={{minWidth:32,height:32,padding:'0 6px',borderRadius:6,border:`1px solid ${active?(dm?'#6366F1':'#6366F1'):dm?'rgba(255,255,255,0.08)':'#E2E8F2'}`,background:active?(dm?'#6366F1':'#6366F1'):(dm?'rgba(255,255,255,0.04)':'#fff'),color:active?'#fff':disabled?(dm?'#3a4f6a':'#CBD5E1'):(dm?'#a5b4fc':'#4B5563'),fontSize:13,fontWeight:active?700:500,cursor:disabled?'not-allowed':'pointer',transition:'all 0.15s'}}>
+                                            {label}
                                         </button>
-                                    </div>
-                                )}
+                                    );
+                                    // page window: always show first, last, current±1, with ellipsis
+                                    const pages = [];
+                                    const addPage = n => { if(n>=1&&n<=totalPages&&!pages.includes(n)) pages.push(n); };
+                                    addPage(1); addPage(totalPages);
+                                    for(let i=pg-1;i<=pg+1;i++) addPage(i);
+                                    pages.sort((a,b)=>a-b);
+                                    const pageButtons = [];
+                                    let prev = 0;
+                                    for(const p of pages){
+                                        if(p-prev>1) pageButtons.push(<span key={`e${p}`} style={{color:dm?'#4a607f':'#94A3B8',fontSize:13,padding:'0 2px'}}>…</span>);
+                                        pageButtons.push(btn(p, ()=>setCurrentPage(p), false, p===pg));
+                                        prev=p;
+                                    }
+                                    return (
+                                        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10,padding:'14px 16px 6px',borderTop:`1px solid ${dm?'rgba(255,255,255,0.06)':'#F1F5FB'}`}}>
+                                            {/* Left: result count */}
+                                            <span style={{fontSize:12.5,color:dm?'#4a607f':'#94A3B8',flexShrink:0}}>
+                                                {filteredNew.length === 0 ? 'No results' : `Showing ${pageStart+1}–${Math.min(pageStart+pageSize,filteredNew.length)} of ${filteredNew.length} ticket${filteredNew.length!==1?'s':''}`}
+                                            </span>
+                                            {/* Centre: page buttons */}
+                                            <div style={{display:'flex',alignItems:'center',gap:4}}>
+                                                {btn('‹ Prev', ()=>setCurrentPage(p=>Math.max(1,p-1)), pg===1)}
+                                                {pageButtons}
+                                                {btn('Next ›', ()=>setCurrentPage(p=>Math.min(totalPages,p+1)), pg===totalPages)}
+                                            </div>
+                                            {/* Right: page size */}
+                                            <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
+                                                <span style={{fontSize:12.5,color:dm?'#4a607f':'#94A3B8'}}>Rows</span>
+                                                <select value={pageSize} onChange={e=>{setPageSize(Number(e.target.value));setCurrentPage(1);}}
+                                                    style={{fontSize:12.5,padding:'3px 6px',borderRadius:6,border:`1px solid ${dm?'rgba(255,255,255,0.1)':'#E2E8F2'}`,background:dm?'#131c2e':'#fff',color:dm?'#a5b4fc':'#374151',cursor:'pointer'}}>
+                                                    {[10,25,50,100].map(n=><option key={n} value={n}>{n}</option>)}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
                                 </React.Fragment>
                             )}
                         </div>
