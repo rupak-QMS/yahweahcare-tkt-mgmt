@@ -1,94 +1,83 @@
 name: Deploy Backend
 
 # ============================================================
-# Deploys the backend-hrms TypeScript service to Vercel.
-# Only runs on push to main AND only after CI passes.
+# Deploys the backend to Azure App Service.
+# Runs on push to main (backend changes only) or manual trigger.
 #
 # Required GitHub Secrets (Settings → Secrets → Actions):
-#   VERCEL_TOKEN               — vercel.com/account/tokens
-#   VERCEL_ORG_ID              — found in .vercel/project.json after `vercel link`
-#   VERCEL_BACKEND_PROJECT_ID  — found in .vercel/project.json for the backend project
+#   AZURE_WEBAPP_PUBLISH_PROFILE — download from Azure Portal:
+#     App Service → yahweahcare-api → Get publish profile
 # ============================================================
 
 on:
   push:
     branches: [main]
     paths:
-      - 'backend-hrms/**'
+      - 'backend/**'
       - '.github/workflows/deploy-backend.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
 
+env:
+  AZURE_WEBAPP_NAME: yahweahcare-api
+  NODE_VERSION: '18'
+
 jobs:
-  # ── CI gate ────────────────────────────────────────────────
-  ci:
-    name: Type-check & Build
+  # ── Test gate ──────────────────────────────────────────────
+  test:
+    name: Run backend tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: backend-hrms/package-lock.json
+          cache-dependency-path: backend/package-lock.json
 
       - name: Install dependencies
-        working-directory: backend-hrms
+        working-directory: backend
         run: npm ci
 
-      - name: TypeScript type-check
-        working-directory: backend-hrms
-        run: npx tsc --noEmit
+      - name: Run tests
+        working-directory: backend
+        run: npm test -- --passWithNoTests
 
-      - name: Build
-        working-directory: backend-hrms
-        run: npm run build
-
-  # ── Deploy to Vercel ───────────────────────────────────────
+  # ── Deploy to Azure App Service ────────────────────────────
   deploy:
-    name: Deploy to Vercel (production)
-    needs: ci
+    name: Deploy to Azure App Service
+    needs: test
     runs-on: ubuntu-latest
     environment:
       name: production
-      url: ${{ steps.deploy.outputs.url }}
+      url: https://yahweahcare-api.azurewebsites.net
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
 
-      - name: Install Vercel CLI
-        run: npm install -g vercel@latest
+      - name: Install production dependencies
+        working-directory: backend
+        run: npm ci --omit=dev
 
-      - name: Pull Vercel environment
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_BACKEND_PROJECT_ID }}
-        run: vercel pull --yes --environment=production --token=$VERCEL_TOKEN
-
-      - name: Deploy (production)
-        id: deploy
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_BACKEND_PROJECT_ID }}
-        run: |
-          url=$(vercel deploy --prod --token=$VERCEL_TOKEN)
-          echo "url=$url" >> $GITHUB_OUTPUT
-          echo "✓ Backend deployed → $url"
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: backend
 
       - name: Health probe
         run: |
-          sleep 10
+          sleep 15
           curl --fail --retry 5 --retry-delay 5 \
-            "https://yahweahcare-tkt-mgmt-hx48.vercel.app/health" && \
-            echo "✓ /health responded OK"
+            "https://yahweahcare-api.azurewebsites.net/api/health" && \
+            echo "✓ /api/health responded OK"

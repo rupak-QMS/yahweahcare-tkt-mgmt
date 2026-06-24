@@ -194,9 +194,10 @@
 
         // API Service Layer — all routes go to backend-hrms (HRMS_API)
         // API_BASE_URL kept for legacy references; both point to the same deployed backend.
-        const HRMS_API = window.location.hostname === 'localhost'
-            ? 'http://localhost:4001'
-            : 'https://yahweahcare-tkt-mgmt-hx48.vercel.app';
+        const HRMS_API = window.__API_URL__ ||
+            (window.location.hostname === 'localhost'
+                ? 'http://localhost:4001'
+                : 'https://yahweahcare-tkt-mgmt-hx48.vercel.app');
         const API_BASE_URL = HRMS_API; // alias — old code used API_BASE_URL
 
         // Helper: read the logged-in user from sessionStorage

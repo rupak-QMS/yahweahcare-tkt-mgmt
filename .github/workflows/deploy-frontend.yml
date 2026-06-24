@@ -1,15 +1,12 @@
 name: Deploy Frontend
 
 # ============================================================
-# Deploys the static Yahweh Care frontend to Vercel.
-# Injects the production backend URL into the <meta> tag
-# before uploading so the app knows where the API lives.
+# Builds and deploys the frontend to Azure Static Web Apps.
+# Runs on push to main (frontend changes only) or manual trigger.
 #
 # Required GitHub Secrets (Settings → Secrets → Actions):
-#   VERCEL_TOKEN                — vercel.com/account/tokens
-#   VERCEL_ORG_ID               — found in .vercel/project.json after `vercel link`
-#   VERCEL_FRONTEND_PROJECT_ID  — found in .vercel/project.json for the frontend project
-#   PROD_BACKEND_URL            — e.g. https://yahweahcare-backend.vercel.app
+#   AZURE_STATIC_WEB_APPS_API_TOKEN — from Azure Portal:
+#     Static Web App → yahweahcare → Manage deployment token
 # ============================================================
 
 on:
@@ -18,52 +15,57 @@ on:
     paths:
       - 'frontend/**'
       - '.github/workflows/deploy-frontend.yml'
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  deploy:
-    name: Deploy Frontend to Vercel
+  build_and_deploy:
+    name: Build and Deploy Frontend
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
     environment:
       name: production
-      url: ${{ steps.deploy.outputs.url }}
+      url: https://yahweahcare.azurestaticapps.net
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
 
-      - name: Install Vercel CLI
-        run: npm install -g vercel@latest
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
 
-      - name: Pull Vercel environment
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_FRONTEND_PROJECT_ID }}
-        run: vercel pull --yes --environment=production --token=$VERCEL_TOKEN
+      - name: Build frontend (Babel + Terser)
+        working-directory: frontend
+        run: node build.js
 
-      - name: Deploy (production)
-        id: deploy
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_FRONTEND_PROJECT_ID }}
-        run: |
-          url=$(vercel deploy --prod --token=$VERCEL_TOKEN)
-          echo "url=$url" >> $GITHUB_OUTPUT
-          echo "✓ Frontend deployed → $url"
+      - name: Deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          app_location: frontend
+          output_location: ''
+          skip_app_build: true
 
-      - name: Smoke test
-        run: |
-          sleep 10
-          curl --fail --retry 5 --retry-delay 5 \
-            "https://yahweahcare-tkt-mgmt.vercel.app/" && \
-            echo "✓ Frontend responding OK"
+  close_pull_request:
+    name: Close Pull Request
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    steps:
+      - name: Close pull request environment
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          action: close

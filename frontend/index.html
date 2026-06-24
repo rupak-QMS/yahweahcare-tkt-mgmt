@@ -7,7 +7,9 @@
     <link rel="preload" as="script" href="app.js?v=6c999e7f">
     <!-- CDN connection hints -->
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-    <link rel="preconnect" href="https://yahweahcare-tkt-mgmt-hx48.vercel.app" crossorigin>
+    <link rel="preconnect" href="https://yahweahcare-api.azurewebsites.net" crossorigin>
+    <!-- Inject API URL — overrides the default in app.js -->
+    <script>window.__API_URL__ = "https://yahweahcare-api.azurewebsites.net";</script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Yahweh Care - Ticket Management System</title>
