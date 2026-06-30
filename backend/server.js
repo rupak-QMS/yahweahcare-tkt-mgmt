@@ -203,34 +203,53 @@ app.get('/api/tickets/:id', auth, async (req, res) => {
 // Create ticket
 // ------------------------------------------------------------
 app.post('/api/tickets', auth, async (req, res) => {
-  const { title, description, category_id, priority_id, site } = req.body || {};
+  const { title, description, category_id, priority_id, site, assignee_id } = req.body || {};
   if (!title?.trim()) return res.status(400).json({ error: 'Title required' });
   try {
     const sla = await slaHoursFor(priority_id || 'medium');
     const tn = await nextTicketNumber();
     const r = await pool.query(`
       INSERT INTO yc_tkt_mgmt.tickets (ticket_number, title, description, category_id, priority_id, status_id,
-                           requester_id, site, due_at, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, 'new', $6, $7, NOW() + ($8 || ' hours')::interval, NOW(), NOW())
+                           requester_id, assignee_id, site, due_at, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, 'new', $6, $7, $8, NOW() + ($9 || ' hours')::interval, NOW(), NOW())
       RETURNING id
-    `, [tn, title.trim(), description || '', category_id || 'general', priority_id || 'medium', req.user.id, site || req.user.site, String(sla)]);
+    `, [tn, title.trim(), description || '', category_id || 'general', priority_id || 'medium',
+        req.user.id, assignee_id || null, site || req.user.site, String(sla)]);
     await pool.query(`INSERT INTO yc_tkt_mgmt.activity (ticket_id, actor_id, action_type, to_value) VALUES ($1, $2, 'created', 'new')`, [r.rows[0].id, req.user.id]);
 
     const ticketId = r.rows[0].id;
     const emailSubject = `[Yahweahcare] Ticket ${tn} received: ${title}`;
     const emailBody    = `Hi ${req.user.name.split(' ')[0]},\n\nWe've received your ticket "${title}". SLA target: ${sla}h.\n\n— Yahweahcare Service Desk`;
 
-    // Queue email to requester
+    // Notify requester
     await queueEmail(pool, {
       to: req.user.email, subject: emailSubject, bodyText: emailBody,
       ticketId, ticketRef: tn, eventName: 'TicketCreated',
     });
-    // Push to requester
     sendPushToUser(pool, req.user.id, {
       title: `Ticket ${tn} received`,
       body:  `"${title}" has been logged. SLA: ${sla}h.`,
       data:  { url: '/#tickets' },
     }).catch(() => {});
+
+    // Notify assignee (if provided and different from requester)
+    if (assignee_id && assignee_id !== req.user.id) {
+      const au = await pool.query('SELECT name, email FROM yc_tkt_mgmt.users WHERE id = $1', [assignee_id]);
+      if (au.rows[0]) {
+        const a = au.rows[0];
+        await queueEmail(pool, {
+          to: a.email,
+          subject: `[Yahweahcare] Ticket ${tn} assigned to you: ${title}`,
+          bodyText: `Hi ${a.name.split(' ')[0]},\n\nTicket ${tn} has been assigned to you.\n\nTitle: ${title}\nPriority: ${priority_id || 'medium'}\nSLA: ${sla}h\n\n— Yahweahcare Service Desk`,
+          ticketId, ticketRef: tn, eventName: 'TicketAssigned',
+        });
+        sendPushToUser(pool, assignee_id, {
+          title: `Ticket ${tn} assigned to you`,
+          body:  `"${title}" — SLA: ${sla}h`,
+          data:  { url: `/#tickets/${ticketId}` },
+        }).catch(() => {});
+      }
+    }
 
     res.status(201).json({ id: ticketId, ticket_number: tn });
   } catch (err) {
@@ -278,6 +297,25 @@ app.patch('/api/tickets/:id', auth, async (req, res) => {
         const at = k === 'status_id' ? 'status_change' : (k === 'assignee_id' ? 'assigned' : (k === 'priority_id' ? 'priority_change' : 'edit'));
         await pool.query(`INSERT INTO yc_tkt_mgmt.activity (ticket_id, actor_id, action_type, from_value, to_value) VALUES ($1, $2, $3, $4, $5)`,
           [t.id, req.user.id, at, String(t[k] || ''), String(req.body[k] || '')]);
+      }
+    }
+
+    // Notify new assignee when assignment changes
+    if ('assignee_id' in req.body && req.body.assignee_id && req.body.assignee_id !== t.assignee_id) {
+      const au = await pool.query('SELECT name, email FROM yc_tkt_mgmt.users WHERE id = $1', [req.body.assignee_id]);
+      if (au.rows[0]) {
+        const a = au.rows[0];
+        await queueEmail(pool, {
+          to: a.email,
+          subject: `[Yahweahcare] Ticket ${t.ticket_number} assigned to you: ${t.title}`,
+          bodyText: `Hi ${a.name.split(' ')[0]},\n\nTicket ${t.ticket_number} has been assigned to you.\n\nTitle: ${t.title}\n\n— Yahweahcare Service Desk`,
+          ticketId: t.id, ticketRef: t.ticket_number, eventName: 'TicketAssigned',
+        });
+        sendPushToUser(pool, req.body.assignee_id, {
+          title: `Ticket ${t.ticket_number} assigned to you`,
+          body:  `"${t.title}"`,
+          data:  { url: `/#tickets/${t.id}` },
+        }).catch(() => {});
       }
     }
 

@@ -347,6 +347,53 @@ describe('POST /api/tickets', () => {
     expect(userId).toBe(20); // auth user id
   });
 
+  test('notifies assignee by email + push when assignee_id provided', async () => {
+    const ASSIGNEE_ID = 99;
+    const pool = makePool([
+      { rows: [{ id: 7 }] },                              // INSERT ticket
+      { rows: [] },                                        // INSERT activity
+      { rows: [{ name: 'Carol Agent', email: 'carol@test.com' }] }, // SELECT assignee user
+    ]);
+    const helpers = makeHelpers();
+    const auth = makeAuth({ id: 20, email: 'agent@test.com', name: 'Bob Agent', role: 'agent', site: 'Sydney' });
+    const app = buildApp(pool, auth, helpers);
+
+    await request(app)
+      .post('/api/tickets')
+      .send({ title: 'Assign on create', priority_id: 'high', assignee_id: ASSIGNEE_ID });
+
+    // Should have emailed both requester (index 0) and assignee (index 1)
+    expect(helpers.queueEmail).toHaveBeenCalledTimes(2);
+    const assigneeEmail = helpers.queueEmail.mock.calls[1][1];
+    expect(assigneeEmail.to).toBe('carol@test.com');
+    expect(assigneeEmail.subject).toMatch(/assigned to you/i);
+    expect(assigneeEmail.eventName).toBe('TicketAssigned');
+
+    // Should have pushed to both requester and assignee
+    expect(helpers.sendPushToUser).toHaveBeenCalledTimes(2);
+    const [, pushedToId] = helpers.sendPushToUser.mock.calls[1];
+    expect(pushedToId).toBe(ASSIGNEE_ID);
+  });
+
+  test('does NOT notify assignee when assignee_id equals requester', async () => {
+    const pool = makePool([
+      { rows: [{ id: 8 }] },  // INSERT ticket
+      { rows: [] },            // INSERT activity
+      // no assignee lookup query expected
+    ]);
+    const helpers = makeHelpers();
+    // assignee_id === req.user.id (20)
+    const app = buildApp(pool, makeAuth(), helpers);
+
+    await request(app)
+      .post('/api/tickets')
+      .send({ title: 'Self-assigned', assignee_id: 20 });
+
+    // Only requester notification, no second call
+    expect(helpers.queueEmail).toHaveBeenCalledTimes(1);
+    expect(helpers.sendPushToUser).toHaveBeenCalledTimes(1);
+  });
+
   test('returns 500 on DB error', async () => {
     const pool = { query: jest.fn().mockRejectedValue(new Error('insert failed')), on: jest.fn() };
     const app  = buildApp(pool, makeAuth(), makeHelpers());
@@ -468,6 +515,52 @@ describe('PATCH /api/tickets/:id', () => {
 
     const updateSql = pool.query.mock.calls.find(c => String(c[0]).includes('UPDATE yc_tkt_mgmt.tickets'));
     expect(updateSql[0]).toMatch(/closed_at/);
+  });
+
+  test('notifies new assignee by email + push when assignee_id changes', async () => {
+    const NEW_ASSIGNEE_ID = 77;
+    // Current ticket has no assignee (null)
+    const pool = makePool([
+      { rows: [{ ...TICKET_ROW, assignee_id: null }] },       // SELECT current
+      { rows: [] },                                            // UPDATE tickets
+      { rows: [] },                                            // INSERT activity
+      { rows: [{ name: 'Dave Agent', email: 'dave@test.com' }] }, // SELECT assignee user
+    ]);
+    const helpers = makeHelpers();
+    const app = buildApp(pool, makeAuth(), helpers);
+
+    const res = await request(app)
+      .patch('/api/tickets/1')
+      .send({ assignee_id: NEW_ASSIGNEE_ID });
+
+    expect(res.status).toBe(200);
+    expect(helpers.queueEmail).toHaveBeenCalledTimes(1);
+    const emailCall = helpers.queueEmail.mock.calls[0][1];
+    expect(emailCall.to).toBe('dave@test.com');
+    expect(emailCall.subject).toMatch(/assigned to you/i);
+    expect(emailCall.eventName).toBe('TicketAssigned');
+    expect(helpers.sendPushToUser).toHaveBeenCalledTimes(1);
+    const [, pushedToId] = helpers.sendPushToUser.mock.calls[0];
+    expect(pushedToId).toBe(NEW_ASSIGNEE_ID);
+  });
+
+  test('does NOT notify when assignee_id is unchanged', async () => {
+    const SAME_ASSIGNEE = 77;
+    // Ticket already has this assignee — value hasn't changed
+    const pool = makePool([
+      { rows: [{ ...TICKET_ROW, assignee_id: SAME_ASSIGNEE }] }, // SELECT current
+      // no UPDATE expected (nothing differs), route returns ok:true early
+    ]);
+    const helpers = makeHelpers();
+    const app = buildApp(pool, makeAuth(), helpers);
+
+    const res = await request(app)
+      .patch('/api/tickets/1')
+      .send({ assignee_id: SAME_ASSIGNEE });
+
+    expect(res.status).toBe(200);
+    expect(helpers.queueEmail).not.toHaveBeenCalled();
+    expect(helpers.sendPushToUser).not.toHaveBeenCalled();
   });
 });
 
