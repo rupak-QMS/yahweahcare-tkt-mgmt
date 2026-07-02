@@ -28,7 +28,7 @@ const schema = z.object({
   AZURE_POST_LOGOUT_REDIRECT_URI: z.string().url(),
   AZURE_SCOPES: z.string().default('openid profile email User.Read'),
 
-  ALLOWED_EMAIL_DOMAINS: z.string().default('yahwehcare.com.au,yahwehpc.com.au'),
+  ALLOWED_EMAIL_DOMAINS: z.string().default('yahwehcare.com.au,yahwehpc.com.au,wmxsolutions.com.au'),
 
   RATE_LIMIT_WINDOW_MS: z.coerce.number().default(900_000),
   RATE_LIMIT_MAX: z.coerce.number().default(100),

@@ -182,22 +182,43 @@ router.post('/refresh', async (req: Request, res: Response, next: NextFunction) 
 });
 
 // ─── GET /auth/me — current user ───────────────────────────
-router.get('/me', requireAuth, async (req, res) => {
-  const { rows } = await pool.query(
-    `SELECT u.id, u.email, u.name,
-            u.is_active          AS active,
-            u.is_bootstrap_admin AS bootstrap_admin,
-            u.auth_provider,
-            u.department_id,
-            u.employment_type,
-            u.role,
-            d.name               AS department_name
-       FROM yc_tkt_mgmt.users u
-       LEFT JOIN yc_tkt_mgmt.departments d ON d.id = u.department_id
-      WHERE u.id = $1`,
-    [req.auth!.userId]
-  );
-  res.json({ user: rows[0], permissions: req.auth!.permissions });
+router.get('/me', requireAuth, async (req, res, next) => {
+  try {
+    let rows;
+    try {
+      ({ rows } = await pool.query(
+        `SELECT u.id, u.email, u.name,
+                u.is_active          AS active,
+                u.is_bootstrap_admin AS bootstrap_admin,
+                u.auth_provider,
+                u.department_id,
+                u.employment_type,
+                u.role,
+                d.name               AS department_name
+           FROM yc_tkt_mgmt.users u
+           LEFT JOIN yc_tkt_mgmt.departments d ON d.id = u.department_id
+          WHERE u.id = $1`,
+        [req.auth!.userId]
+      ));
+    } catch {
+      // role column may not exist yet — fall back without it
+      ({ rows } = await pool.query(
+        `SELECT u.id, u.email, u.name,
+                u.is_active          AS active,
+                u.is_bootstrap_admin AS bootstrap_admin,
+                u.auth_provider,
+                u.department_id,
+                u.employment_type,
+                'staff'::text        AS role,
+                d.name               AS department_name
+           FROM yc_tkt_mgmt.users u
+           LEFT JOIN yc_tkt_mgmt.departments d ON d.id = u.department_id
+          WHERE u.id = $1`,
+        [req.auth!.userId]
+      ));
+    }
+    res.json({ user: rows[0], permissions: req.auth!.permissions });
+  } catch (err) { next(err); }
 });
 
 // ─── POST /auth/logout — current session ───────────────────

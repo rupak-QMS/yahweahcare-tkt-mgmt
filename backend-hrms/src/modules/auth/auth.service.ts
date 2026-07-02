@@ -184,14 +184,27 @@ export async function createSession(opts: {
  * Rotate the refresh token — issue a new one, blacklist the old one.
  */
 export async function rotateTokens(sessionId: number, refreshToken: string, req: Request) {
-  const { rows } = await pool.query(
-    `SELECT s.id, s.user_id, s.refresh_token_hash, s.is_revoked, s.expires_at,
-            u.email, u.role, NULL::integer AS role_id
-     FROM yc_tkt_mgmt.sessions s
-     JOIN yc_tkt_mgmt.users u ON u.id = s.user_id
-     WHERE s.id = $1`,
-    [sessionId]
-  );
+  // Fetch session + user; guard against role column not yet existing in DB
+  let rows: Record<string, unknown>[];
+  try {
+    ({ rows } = await pool.query(
+      `SELECT s.id, s.user_id, s.refresh_token_hash, s.is_revoked, s.expires_at,
+              u.email, u.role, NULL::integer AS role_id
+       FROM yc_tkt_mgmt.sessions s
+       JOIN yc_tkt_mgmt.users u ON u.id = s.user_id
+       WHERE s.id = $1`,
+      [sessionId]
+    ));
+  } catch {
+    ({ rows } = await pool.query(
+      `SELECT s.id, s.user_id, s.refresh_token_hash, s.is_revoked, s.expires_at,
+              u.email, 'staff'::text AS role, NULL::integer AS role_id
+       FROM yc_tkt_mgmt.sessions s
+       JOIN yc_tkt_mgmt.users u ON u.id = s.user_id
+       WHERE s.id = $1`,
+      [sessionId]
+    ));
+  }
   const s = rows[0];
   if (!s)                       throw Object.assign(new Error('Session not found'), { statusCode: 401 });
   if (s.is_revoked)             throw Object.assign(new Error('Session revoked'),    { statusCode: 401 });

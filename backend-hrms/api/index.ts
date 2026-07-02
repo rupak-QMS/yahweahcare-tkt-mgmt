@@ -40,6 +40,18 @@ import { sendCronNotification, ensurePushTable } from '../src/modules/notificati
 // Ensure email tables exist on first cold start (idempotent)
 ensureEmailTables().catch((e) => console.error('[startup] ensureEmailTables:', e));
 
+// Ensure users.role column exists (schema patch — safe to run repeatedly)
+pool.query(`ALTER TABLE yc_tkt_mgmt.users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'staff'`)
+  .then(() =>
+    // Bootstrap admins get super_admin role if not already set
+    pool.query(
+      `UPDATE yc_tkt_mgmt.users
+         SET role = 'super_admin'
+       WHERE is_bootstrap_admin = TRUE AND (role IS NULL OR role = 'staff')`
+    )
+  )
+  .catch((e) => console.error('[startup] ensure users.role column:', e));
+
 // Build the Express app ONCE per cold start
 const app = express();
 app.set('trust proxy', 1);
