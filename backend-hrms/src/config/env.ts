@@ -60,3 +60,4 @@ export const env = {
   AZURE_SCOPE_LIST: parsed.data.AZURE_SCOPES.split(/\s+/).filter(Boolean),
   isProduction: parsed.data.NODE_ENV === 'production',
 } as const;
+# Thu Jul  2 19:13:29 UTC 2026
