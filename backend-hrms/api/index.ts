@@ -37,6 +37,21 @@ import { sendOverdueReminders, sendDueTomorrowReminders } from '../src/services/
 import emailAdminRoutes      from '../src/modules/email/email.routes';
 import { sendCronNotification, ensurePushTable } from '../src/modules/notifications/notifications.service';
 
+// ── Crash safety net ────────────────────────────────────────
+// In serverless, an uncaught exception or unhandled promise rejection
+// anywhere (including inside third-party libs like @azure/msal-node,
+// which does some fire-and-forget background work) terminates the whole
+// Node process. Vercel then reports FUNCTION_INVOCATION_FAILED with no
+// application-level error response and no useful client-facing detail.
+// Log loudly instead of letting the process die, so at minimum the
+// request that's already in flight can still complete/respond.
+process.on('unhandledRejection', (reason) => {
+  console.error('[fatal] unhandledRejection — would have crashed the function:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[fatal] uncaughtException — would have crashed the function:', err);
+});
+
 // Ensure email tables exist on first cold start (idempotent)
 ensureEmailTables().catch((e) => console.error('[startup] ensureEmailTables:', e));
 
