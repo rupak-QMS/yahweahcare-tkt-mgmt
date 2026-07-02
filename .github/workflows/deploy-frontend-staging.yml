@@ -1,0 +1,64 @@
+name: Deploy Frontend (Staging)
+
+# ============================================================
+# Builds and deploys the frontend to Vercel (staging).
+# Runs on push to staging branch (frontend changes only).
+#
+# Required GitHub Secrets (Settings → Secrets → Actions):
+#   VERCEL_TOKEN          — Vercel personal access token
+#   VERCEL_ORG_ID         — Vercel team/org ID
+#   VERCEL_WEB_PROJECT_ID — Vercel project ID for the frontend
+# ============================================================
+
+on:
+  push:
+    branches: [staging]
+    paths:
+      - 'web/**'
+      - '.github/workflows/deploy-frontend-staging.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  deploy:
+    name: Build and Deploy to Vercel
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://yahweahcare-tkt-mgmt.vercel.app
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: web
+        run: node build.js
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Deploy to Vercel
+        working-directory: web
+        run: |
+          vercel deploy --prod \
+            --token=${{ secrets.VERCEL_TOKEN }} \
+            --scope=${{ secrets.VERCEL_ORG_ID }} \
+            --yes
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_WEB_PROJECT_ID }}
