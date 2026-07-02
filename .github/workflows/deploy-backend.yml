@@ -13,7 +13,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'backend/**'
+      - 'api/**'
       - '.github/workflows/deploy-backend.yml'
   workflow_dispatch:
 
@@ -36,14 +36,14 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: backend/package-lock.json
+          cache-dependency-path: api/package-lock.json
 
       - name: Install dependencies
-        working-directory: backend
+        working-directory: api
         run: npm ci
 
       - name: Run tests
-        working-directory: backend
+        working-directory: api
         run: npm test -- --passWithNoTests
 
   # ── Deploy to Azure App Service ────────────────────────────
@@ -62,10 +62,10 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: backend/package-lock.json
+          cache-dependency-path: api/package-lock.json
 
       - name: Install production dependencies
-        working-directory: backend
+        working-directory: api
         run: npm ci --omit=dev
 
       - name: Deploy to Azure Web App
@@ -73,7 +73,7 @@ jobs:
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: backend
+          package: api
 
       - name: Health probe
         run: |

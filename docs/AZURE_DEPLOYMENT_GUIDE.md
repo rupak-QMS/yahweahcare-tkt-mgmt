@@ -87,7 +87,7 @@ az postgres flexible-server db create \
   --database-name neondb
 
 # Set env var and run migrations from your local machine
-cd /path/to/Yahweahcare/backend
+cd /path/to/Yahweahcare/api
 
 DATABASE_URL="postgresql://ycadmin:YourStr0ngP@ssword!@yahweahcare-db.postgres.database.azure.com/neondb?sslmode=require" \
   node run-migrations.js
@@ -141,7 +141,7 @@ az webapp config appsettings set \
 az webapp config set \
   --resource-group yahweahcare-rg \
   --name yahweahcare-api \
-  --startup-file "node backend/server.js"
+  --startup-file "node api/server.js"
 ```
 
 ---

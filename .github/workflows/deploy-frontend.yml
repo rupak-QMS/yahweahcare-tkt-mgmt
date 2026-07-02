@@ -13,7 +13,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'frontend/**'
+      - 'web/**'
       - '.github/workflows/deploy-frontend.yml'
   pull_request:
     types: [opened, synchronize, reopened, closed]
@@ -39,14 +39,14 @@ jobs:
         with:
           node-version: '18'
           cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: web/package-lock.json
 
       - name: Install frontend dependencies
-        working-directory: frontend
+        working-directory: web
         run: npm ci
 
       - name: Build frontend (Babel + Terser)
-        working-directory: frontend
+        working-directory: web
         run: node build.js
 
       - name: Deploy to Azure Static Web Apps
@@ -55,7 +55,7 @@ jobs:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: upload
-          app_location: frontend
+          app_location: web
           output_location: ''
           skip_app_build: true
 

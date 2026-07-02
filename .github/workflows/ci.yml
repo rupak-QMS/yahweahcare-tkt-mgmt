@@ -61,10 +61,10 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Verify index.html exists
-        run: test -f frontend/index.html && echo "✓ frontend/index.html present"
+        run: test -f web/index.html && echo "✓ web/index.html present"
 
       - name: Verify server.js exists
-        run: test -f frontend/server.js && echo "✓ frontend/server.js present"
+        run: test -f web/server.js && echo "✓ web/server.js present"
 
       - name: Check for obvious syntax issues in server.js
-        run: node --check frontend/server.js && echo "✓ server.js syntax OK"
+        run: node --check web/server.js && echo "✓ server.js syntax OK"
