@@ -22,7 +22,7 @@ permissions:
 
 env:
   AZURE_WEBAPP_NAME: yahweahcare-api
-  NODE_VERSION: '18'
+  NODE_VERSION: '22'
 
 jobs:
   # ── Test gate ──────────────────────────────────────────────
