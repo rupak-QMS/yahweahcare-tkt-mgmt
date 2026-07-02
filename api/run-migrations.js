@@ -17,7 +17,15 @@ const pool = new Pool({
 
 // Migration files in order
 const migrations = [
-    '000_reset_schema.sql',  // Drop all and start fresh
+    '000_reset_schema.sql',       // Drop all and start fresh
+    '001_add_ticket_fields.sql',  // Add ticket approval fields
+    '002_create_ticket_approvers_table.sql',
+    '003_create_ticket_audit_log_table.sql',
+    '004_create_notifications_table.sql',
+    '005_create_rbac_views.sql',
+    '006_staff_management.sql',   // Add azure_oid, auth_provider, org hierarchy
+    '007_seed_orgchart_staff.sql',
+    '008_bootstrap_admin.sql',
 ];
 
 const migrationsDir = path.join(__dirname, 'migrations');
@@ -50,13 +58,6 @@ async function runMigrations() {
         }
 
         console.log('✨ All migrations completed successfully!');
-        console.log('\n📊 Database Schema Updates:');
-        console.log('  ✅ Added ticket approval fields');
-        console.log('  ✅ Created ticket_approvers table');
-        console.log('  ✅ Created ticket_audit_log table');
-        console.log('  ✅ Created notifications table');
-        console.log('  ✅ Created RBAC views and functions');
-        console.log('  ✅ Added all indexes and triggers');
 
     } catch (error) {
         console.error('\n❌ Migration failed!');
