@@ -31,15 +31,17 @@ jest.mock('web-push', () => {
 });
 
 // ── Mock email service ─────────────────────────────────────────────────────────
-const mockSendTicketEmail = jest.fn();
-const mockSendUserEmail   = jest.fn();
+const mockSendTicketEmail       = jest.fn();
+const mockSendTicketEmailToRole = jest.fn();
+const mockSendUserEmail         = jest.fn();
 jest.mock('../modules/notifications/email.service', () => ({
-  sendTicketEventEmail:     mockSendTicketEmail,
-  sendUserEventEmail:       mockSendUserEmail,
-  buildTicketEventHtml:     jest.fn().mockReturnValue('<html>'),
-  buildScheduledReportHtml: jest.fn().mockReturnValue('<html>'),
-  buildSlaBreachHtml:       jest.fn().mockReturnValue('<html>'),
-  sendEmail:                jest.fn().mockResolvedValue(undefined),
+  sendTicketEventEmail:       mockSendTicketEmail,
+  sendTicketEventEmailToRole: mockSendTicketEmailToRole,
+  sendUserEventEmail:         mockSendUserEmail,
+  buildTicketEventHtml:       jest.fn().mockReturnValue('<html>'),
+  buildScheduledReportHtml:   jest.fn().mockReturnValue('<html>'),
+  buildSlaBreachHtml:         jest.fn().mockReturnValue('<html>'),
+  sendEmail:                  jest.fn().mockResolvedValue(undefined),
 }));
 
 import { ensurePushTable, notify } from '../modules/notifications/notifications.service';
@@ -360,18 +362,19 @@ describe('resolveRecipients() via notify()', () => {
 // ────────────────────────────────────────────────────────────────────────────
 
 describe('email dispatch via notify()', () => {
-  it('calls sendTicketEventEmail with recipient emails for ticket events', async () => {
-    mockSendTicketEmail.mockResolvedValueOnce(undefined);
+  it('calls sendTicketEventEmailToRole with recipient emails for ticket events', async () => {
+    mockSendTicketEmailToRole.mockResolvedValueOnce(undefined);
     // assigneeId=99 → 1 recipient, email fetched
     mockPool.query
       .mockResolvedValueOnce(OK)
       .mockResolvedValueOnce({ rows: [{ email: 'assignee@test.com' }] });
     const ev: TicketEvent = { type: 'ticket.created', ticketId: 1, ticketTitle: 'T', actorId: 1, assigneeId: 99 };
     await notify(ev);
-    expect(mockSendTicketEmail).toHaveBeenCalledTimes(1);
+    expect(mockSendTicketEmailToRole).toHaveBeenCalledTimes(1);
     expect(mockSendUserEmail).not.toHaveBeenCalled();
-    const [, emails] = mockSendTicketEmail.mock.calls[0];
+    const [, emails, role] = mockSendTicketEmailToRole.mock.calls[0];
     expect(emails).toContain('assignee@test.com');
+    expect(role).toBe('assignee');
   });
 
   it('calls sendUserEventEmail for user events', async () => {
@@ -394,11 +397,12 @@ describe('email dispatch via notify()', () => {
       .mockResolvedValueOnce({ rows: [] }); // email fetch → empty
     const ev: TicketEvent = { type: 'ticket.created', ticketId: 1, ticketTitle: 'T', actorId: 1, assigneeId: 99 };
     await notify(ev);
+    expect(mockSendTicketEmailToRole).not.toHaveBeenCalled();
     expect(mockSendTicketEmail).not.toHaveBeenCalled();
   });
 
   it('does not re-throw when email dispatch fails — error is caught', async () => {
-    mockSendTicketEmail.mockRejectedValueOnce(new Error('SMTP timeout'));
+    mockSendTicketEmailToRole.mockRejectedValueOnce(new Error('SMTP timeout'));
     mockPool.query
       .mockResolvedValueOnce(OK)
       .mockResolvedValueOnce({ rows: [{ email: 'user@test.com' }] });

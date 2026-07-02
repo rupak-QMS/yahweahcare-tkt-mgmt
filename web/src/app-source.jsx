@@ -6773,6 +6773,7 @@
             const [search, setSearch]           = React.useState('');
             const [statusFilter, setStatusFilter]     = React.useState('');
             const [priorityFilter, setPriorityFilter] = React.useState('');
+            const [categoryFilter, setCategoryFilter] = React.useState('');
             const [assigneeFilter, setAssigneeFilter] = React.useState('');
             const [dateFrom, setDateFrom]             = React.useState('');
             const [dateTo, setDateTo]                 = React.useState('');
@@ -6814,18 +6815,25 @@
                 return [...seen.entries()].map(([label, val]) => ({ label, val }));
             }, [tickets]);
 
+            const uniqueCategories = React.useMemo(() => {
+                const seen = new Map();
+                tickets.forEach(t => { const label = t.categoryLabel || t.category; if (label && !seen.has(label)) seen.set(label, t.category||label); });
+                return [...seen.entries()].map(([label, val]) => ({ label, val }));
+            }, [tickets]);
+
             const uniqueAssignees = React.useMemo(() => {
                 const seen = new Map();
                 tickets.forEach(t => { if (t.assigneeName && !seen.has(t.assigneeName)) seen.set(t.assigneeName, t.assigneeName); });
                 return [...seen.keys()].sort();
             }, [tickets]);
 
-            const hasActiveFilters = search || statusFilter || priorityFilter || assigneeFilter || dateFrom || dateTo;
+            const hasActiveFilters = search || statusFilter || priorityFilter || categoryFilter || assigneeFilter || dateFrom || dateTo;
 
             const clearFilters = () => {
                 setSearch('');
                 setStatusFilter('');
                 setPriorityFilter('');
+                setCategoryFilter('');
                 setAssigneeFilter('');
                 setDateFrom('');
                 setDateTo('');
@@ -6844,12 +6852,15 @@
                 const matchPriority = !priorityFilter
                     || String(t.priority||'') === String(priorityFilter)
                     || (t.priorityLabel||'').toLowerCase() === priorityFilter.toLowerCase();
+                const matchCategory = !categoryFilter
+                    || String(t.category||'') === String(categoryFilter)
+                    || (t.categoryLabel||'').toLowerCase() === categoryFilter.toLowerCase();
                 const matchAssignee = !assigneeFilter
                     || (t.assigneeName||'') === assigneeFilter;
                 const createdMs = t.createdAt ? new Date(t.createdAt).getTime() : null;
                 const matchFrom = !dateFrom || (createdMs && createdMs >= new Date(dateFrom).getTime());
                 const matchTo   = !dateTo   || (createdMs && createdMs <= new Date(dateTo + 'T23:59:59').getTime());
-                return matchSearch && matchStatus && matchPriority && matchAssignee && matchFrom && matchTo;
+                return matchSearch && matchStatus && matchPriority && matchCategory && matchAssignee && matchFrom && matchTo;
             });
 
             // Normalise raw DB status to phase key (new/waiting/assigned → open)
@@ -7019,6 +7030,14 @@
                                         fontSize:12,background:dm?'rgba(8,16,36,0.5)':'#F8FAFF',color:textM,outline:'none',boxSizing:'border-box'}}>
                                     <option value="">All Priorities</option>
                                     {uniquePriorities.map(p=><option key={p.val} value={p.val}>{p.label}</option>)}
+                                </select>
+
+                                {/* Category */}
+                                <select value={categoryFilter} onChange={e=>setCategoryFilter(e.target.value)}
+                                    style={{width:'100%',border:`1px solid ${categoryFilter?'#6366F1':borderC}`,borderRadius:8,padding:'7px 10px',
+                                        fontSize:12,background:dm?'rgba(8,16,36,0.5)':'#F8FAFF',color:textM,outline:'none',boxSizing:'border-box'}}>
+                                    <option value="">All Categories</option>
+                                    {uniqueCategories.map(c=><option key={c.val} value={c.val}>{c.label}</option>)}
                                 </select>
 
                                 {/* Assignee */}

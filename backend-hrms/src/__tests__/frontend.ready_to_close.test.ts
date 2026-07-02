@@ -9,7 +9,7 @@ import * as path from 'path';
 
 // __dirname = .../Yahweahcare/backend-hrms/src/__tests__
 // 3 levels up  = .../Yahweahcare/
-const HTML_PATH = path.resolve(__dirname, '../../../frontend/src/app-source.jsx');
+const HTML_PATH = path.resolve(__dirname, '../../../web/src/app-source.jsx');
 const html = fs.readFileSync(HTML_PATH, 'utf-8');
 
 // ── 1. Code-integrity checks ──────────────────────────────────────────────────
@@ -39,8 +39,10 @@ describe('index.html — Ready to Close tab (code integrity)', () => {
     expect(html).toContain('setClosingTicketId');
   });
 
-  it('inline 🔒 Close button exists in table rows for ready_to_close filter', () => {
-    expect(html).toContain("'🔒 Close'");
+  it('inline lock-icon Close button exists in table rows for ready_to_close filter', () => {
+    // Emoji was replaced with the standardised <Icon name='lock' .../> component
+    expect(html).toContain("Icon name='lock'");
+    expect(html).toContain('Close</>');
   });
 
   it('Action column header is added when filter is ready_to_close', () => {
