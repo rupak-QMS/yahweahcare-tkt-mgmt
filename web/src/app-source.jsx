@@ -3937,6 +3937,16 @@
             const [dragOver, setDragOver]       = React.useState(null); // ds string
             const [tickets, setTickets]   = React.useState([]);
             const [loading, setLoading]   = React.useState(true);
+            const [viewTicket, setViewTicket]   = React.useState(null); // ticket shown in quick-view modal
+            const [toast, setToast]             = React.useState(null); // { msg, type }
+            const [rescheduling, setRescheduling] = React.useState(false);
+            const toastTimer = React.useRef(null);
+            const showCalToast = (msg, type='success') => {
+                setToast({ msg, type });
+                if (toastTimer.current) clearTimeout(toastTimer.current);
+                toastTimer.current = setTimeout(() => setToast(null), 3200);
+            };
+            React.useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
 
             React.useEffect(() => {
                 setLoading(true);
@@ -4039,13 +4049,27 @@
             const ST_COLOR = {new:dm?'#6b80a4':'#64748B',assigned:'#3B82F6',in_progress:'#F59E0B',waiting:'#8B5CF6',pending_approval:'#8B5CF6',resolved:'#10B981',closed:dm?'#6b80a4':'#475569'};
             const ST_LABEL = {new:'New',assigned:'Assigned',in_progress:'In Progress',waiting:'Waiting',pending_approval:'Pending Approval',resolved:'Resolved',closed:'Closed'};
 
-            // Drag handlers
+            // Drag handlers — optimistic reschedule, persisted to the backend
             const handleDragStart = (t) => setDragTicket(t);
             const handleDragEnd   = () => { setDragTicket(null); setDragOver(null); };
             const handleDrop = (ds) => {
                 if (!dragTicket || !ds) return;
-                setTickets(prev => prev.map(t => t.id===dragTicket.id ? {...t, dueAt: ds+'T00:00:00.000Z'} : t));
+                const t = dragTicket;
                 setDragTicket(null); setDragOver(null);
+                const prevDue = (t.dueAt || '').slice(0,10);
+                if (prevDue === ds) return; // dropped on the same day — no-op
+                const newDueIso = ds + 'T00:00:00.000Z';
+                const prevTickets = tickets;
+                // Optimistic update so the UI feels instant
+                setTickets(prev => prev.map(x => x.id===t.id ? {...x, dueAt: newDueIso} : x));
+                setRescheduling(true);
+                API.tickets.update(t.id, { dueDate: newDueIso }).then(() => {
+                    const dLabel = new Date(ds+'T00:00:00').toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'});
+                    showCalToast(`Rescheduled "${t.title||t.ticketNumber||'Ticket'}" to ${dLabel}`, 'success');
+                }).catch(() => {
+                    setTickets(prevTickets); // roll back on failure
+                    showCalToast('Could not reschedule — please try again', 'error');
+                }).finally(() => setRescheduling(false));
             };
 
             // Tooltip
@@ -4061,10 +4085,80 @@
                         onDragEnd={handleDragEnd}
                         onMouseEnter={e=>showTip(t,e)}
                         onMouseLeave={hideTip}
-                        style={{display:'flex',alignItems:'center',gap:'4px',borderRadius:'5px',padding:compact?'1px 5px':'3px 7px',marginBottom:'2px',background:c.bg,borderLeft:`3px solid ${c.bar}`,cursor:'grab',fontSize:'11px',fontWeight:'600',color:c.text,overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',userSelect:'none',transition:'opacity 0.15s',opacity:dragTicket&&dragTicket.id===t.id?0.4:1}}
+                        onClick={e=>{ e.stopPropagation(); setViewTicket(t); }}
+                        style={{display:'flex',alignItems:'center',gap:'4px',borderRadius:'5px',padding:compact?'1px 5px':'3px 7px',marginBottom:'2px',background:c.bg,borderLeft:`3px solid ${c.bar}`,cursor:'pointer',fontSize:'11px',fontWeight:'600',color:c.text,overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',userSelect:'none',transition:'opacity 0.15s',opacity:dragTicket&&dragTicket.id===t.id?0.4:1}}
                     >
                         <span style={{width:'5px',height:'5px',borderRadius:'50%',background:c.bar,flexShrink:0}}/>
                         <span style={{overflow:'hidden',textOverflow:'ellipsis',flex:1,minWidth:0}}>{t.title||t.ticketNumber||'Ticket'}</span>
+                    </div>
+                );
+            };
+
+            // ── Ticket quick-view modal (click an event to open) ──
+            const TicketQuickView = () => {
+                if (!viewTicket) return null;
+                const t = viewTicket;
+                const c = ticketColor(t);
+                const od = isOverdue(t), done = isDone(t);
+                const sc = ST_COLOR[t.status]||'#9CA3AF';
+                const due = t.dueAt || t.expectedCompletion;
+                return (
+                    <div onClick={()=>setViewTicket(null)} style={{position:'fixed',inset:0,zIndex:10000,background:'rgba(15,23,42,0.55)',backdropFilter:'blur(2px)',display:'flex',alignItems:'center',justifyContent:'center',padding:'20px'}}>
+                        <div onClick={e=>e.stopPropagation()} style={{width:'420px',maxWidth:'100%',maxHeight:'85vh',overflowY:'auto',background:dm?'linear-gradient(155deg,rgba(17,30,58,0.99) 0%,rgba(8,16,36,1) 100%)':'white',borderRadius:'16px',border:`1px solid ${dm?'rgba(99,102,241,0.2)':'#E2E8F2'}`,boxShadow:'0 20px 60px rgba(0,0,0,0.35)'}}>
+                            {/* Header */}
+                            <div style={{padding:'18px 20px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.12)':'#F0F4FF'}`,display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:'10px'}}>
+                                <div style={{minWidth:0}}>
+                                    <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'6px'}}>
+                                        <span style={{fontSize:'11px',fontWeight:'800',color:textM}}>{t.ticketNumber||`#${t.id}`}</span>
+                                        <span style={{fontSize:'10px',fontWeight:'700',color:sc,background:sc+'22',borderRadius:'20px',padding:'2px 8px'}}>{ST_LABEL[t.status]||t.status}</span>
+                                        {od && <span style={{fontSize:'10px',fontWeight:'700',color:'#EF4444',background:dm?'rgba(239,68,68,0.14)':'#FEF2F2',borderRadius:'20px',padding:'2px 8px'}}>⚠ Overdue</span>}
+                                    </div>
+                                    <div style={{fontSize:'16px',fontWeight:'800',color:textP,lineHeight:1.35}}>{t.title||'Untitled ticket'}</div>
+                                </div>
+                                <button onClick={()=>setViewTicket(null)} style={{flexShrink:0,background:dm?'rgba(255,255,255,0.06)':'#F1F5F9',border:'none',borderRadius:'8px',width:'30px',height:'30px',color:textM,fontSize:'17px',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',lineHeight:1}}>×</button>
+                            </div>
+                            {/* Body */}
+                            <div style={{padding:'16px 20px'}}>
+                                {t.description && (
+                                    <div style={{fontSize:'13px',color:textM,lineHeight:1.6,marginBottom:'16px',whiteSpace:'pre-wrap'}}>{t.description}</div>
+                                )}
+                                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:'6px'}}>
+                                    <div>
+                                        <div style={{fontSize:'10px',fontWeight:'700',color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:'4px'}}>Priority</div>
+                                        <span style={{fontSize:'12px',fontWeight:'700',color:c.text,background:c.bg,borderRadius:'6px',padding:'3px 9px',textTransform:'capitalize',display:'inline-block'}}>{t.priorityLabel||t.priority||'—'}</span>
+                                    </div>
+                                    <div>
+                                        <div style={{fontSize:'10px',fontWeight:'700',color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:'4px'}}>Category</div>
+                                        <div style={{fontSize:'12px',fontWeight:'600',color:textP,textTransform:'capitalize'}}>{t.categoryLabel||t.category||'—'}</div>
+                                    </div>
+                                    <div>
+                                        <div style={{fontSize:'10px',fontWeight:'700',color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:'4px'}}>Assignee</div>
+                                        <div style={{fontSize:'12px',fontWeight:'600',color:textP}}>{t.assigneeName||'Unassigned'}</div>
+                                    </div>
+                                    <div>
+                                        <div style={{fontSize:'10px',fontWeight:'700',color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:'4px'}}>Due Date</div>
+                                        <div style={{fontSize:'12px',fontWeight:'600',color:od?'#EF4444':textP}}>{due?new Date(due).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}):'—'}</div>
+                                    </div>
+                                    {t.createdAt && (
+                                        <div>
+                                            <div style={{fontSize:'10px',fontWeight:'700',color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:'4px'}}>Created</div>
+                                            <div style={{fontSize:'12px',fontWeight:'600',color:textP}}>{new Date(t.createdAt).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'})}</div>
+                                        </div>
+                                    )}
+                                    {t.isEscalated && (
+                                        <div>
+                                            <div style={{fontSize:'10px',fontWeight:'700',color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:'4px'}}>Escalated</div>
+                                            <span style={{fontSize:'11px',fontWeight:'700',color:'#D97706',background:dm?'rgba(245,158,11,0.14)':'#FFFBEB',borderRadius:'6px',padding:'2px 8px'}}>Yes</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            {/* Footer actions */}
+                            <div style={{padding:'14px 20px',borderTop:`1px solid ${dm?'rgba(99,102,241,0.12)':'#F0F4FF'}`,display:'flex',gap:'10px'}}>
+                                <button onClick={()=>setViewTicket(null)} style={{flex:'0 0 auto',padding:'9px 16px',borderRadius:'9px',border:`1px solid ${borderC}`,background:'transparent',color:textM,fontSize:'12px',fontWeight:'700',cursor:'pointer'}}>Close</button>
+                                <button onClick={()=>{ window.location.hash='tickets'; }} style={{flex:1,padding:'9px 16px',borderRadius:'9px',border:'none',background:'linear-gradient(135deg,#6366F1,#818CF8)',color:'white',fontSize:'12px',fontWeight:'700',cursor:'pointer',boxShadow:'0 4px 14px rgba(99,102,241,0.35)'}}>Open in Tickets →</button>
+                            </div>
+                        </div>
                     </div>
                 );
             };
@@ -4243,8 +4337,8 @@
                             const c=ticketColor(t), od=isOverdue(t), done=isDone(t);
                             const sc=ST_COLOR[t.status]||'#9CA3AF';
                             return (
-                                <div key={i} draggable onDragStart={()=>handleDragStart(t)} onDragEnd={handleDragEnd}
-                                    style={{display:'flex',alignItems:'flex-start',gap:'12px',background:dm?'rgba(255,255,255,0.02)':'white',border:`1px solid ${dm?'rgba(99,102,241,0.1)':c.bar+'33'}`,borderLeft:`4px solid ${c.bar}`,borderRadius:'10px',padding:'12px 14px',marginBottom:'8px',cursor:'grab',transition:'box-shadow 0.15s',boxShadow:dm?'0 2px 8px rgba(0,0,0,0.3)':'0 1px 4px rgba(0,0,0,0.06)'}}>
+                                <div key={i} draggable onDragStart={()=>handleDragStart(t)} onDragEnd={handleDragEnd} onClick={()=>setViewTicket(t)}
+                                    style={{display:'flex',alignItems:'flex-start',gap:'12px',background:dm?'rgba(255,255,255,0.02)':'white',border:`1px solid ${dm?'rgba(99,102,241,0.1)':c.bar+'33'}`,borderLeft:`4px solid ${c.bar}`,borderRadius:'10px',padding:'12px 14px',marginBottom:'8px',cursor:'pointer',transition:'box-shadow 0.15s',boxShadow:dm?'0 2px 8px rgba(0,0,0,0.3)':'0 1px 4px rgba(0,0,0,0.06)'}}>
                                     <div style={{width:'36px',height:'36px',borderRadius:'8px',background:c.bg,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
                                         <div style={{width:'10px',height:'10px',borderRadius:'50%',background:c.bar}}/>
                                     </div>
@@ -4325,8 +4419,8 @@
                                             const c=ticketColor(t);
                                             const sc=ST_COLOR[t.status]||'#9CA3AF';
                                             return (
-                                                <div key={i} draggable onDragStart={()=>handleDragStart(t)} onDragEnd={handleDragEnd}
-                                                    style={{display:'flex',alignItems:'center',gap:'10px',background:dm?'rgba(255,255,255,0.02)':'white',border:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`,borderLeft:`3px solid ${c.bar}`,borderRadius:'8px',padding:'8px 10px',marginBottom:'5px',cursor:'grab'}}>
+                                                <div key={i} draggable onDragStart={()=>handleDragStart(t)} onDragEnd={handleDragEnd} onClick={()=>setViewTicket(t)}
+                                                    style={{display:'flex',alignItems:'center',gap:'10px',background:dm?'rgba(255,255,255,0.02)':'white',border:`1px solid ${dm?'rgba(99,102,241,0.08)':'#EEF2F8'}`,borderLeft:`3px solid ${c.bar}`,borderRadius:'8px',padding:'8px 10px',marginBottom:'5px',cursor:'pointer'}}>
                                                     <div style={{flex:1,minWidth:0}}>
                                                         <div style={{fontSize:'12px',fontWeight:'700',color:textP,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.title||'—'}</div>
                                                         <div style={{display:'flex',gap:'6px',marginTop:'3px',alignItems:'center'}}>
@@ -4368,6 +4462,17 @@
                     {/* Floating tooltip */}
                     <TicketTooltip />
 
+                    {/* Ticket quick-view modal */}
+                    <TicketQuickView />
+
+                    {/* Reschedule toast */}
+                    {toast && (
+                        <div style={{position:'fixed',bottom:'24px',left:'50%',transform:'translateX(-50%)',zIndex:10001,display:'flex',alignItems:'center',gap:'10px',padding:'12px 20px',borderRadius:'12px',background:toast.type==='error'?'#DC2626':(dm?'linear-gradient(135deg,#1e293b,#0f172a)':'#111827'),color:'white',fontSize:'13px',fontWeight:'600',boxShadow:'0 12px 32px rgba(0,0,0,0.35)',border:toast.type==='error'?'1px solid rgba(255,255,255,0.15)':`1px solid ${dm?'rgba(99,102,241,0.3)':'rgba(255,255,255,0.1)'}`}}>
+                            <span style={{fontSize:'15px'}}>{toast.type==='error'?'⚠️':'✅'}</span>
+                            <span>{toast.msg}</span>
+                        </div>
+                    )}
+
                     <div style={{maxWidth:'1600px',margin:'0 auto',padding:'20px 24px'}}>
 
                         {/* ══ TOP STATS BAR ══ */}
@@ -4400,7 +4505,10 @@
                                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'14px 18px',borderBottom:`1px solid ${dm?'rgba(99,102,241,0.1)':'#F0F4FF'}`,gap:'10px',flexWrap:'wrap'}}>
                                     {/* Left: title + sub */}
                                     <div>
-                                        <h1 style={{fontSize:'17px',fontWeight:'800',color:textP,margin:0,letterSpacing:'-0.3px'}}>Ticket Calendar</h1>
+                                        <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                                            <h1 style={{fontSize:'17px',fontWeight:'800',color:textP,margin:0,letterSpacing:'-0.3px'}}>Ticket Calendar</h1>
+                                            {rescheduling && <span style={{display:'inline-flex',alignItems:'center',gap:'5px',fontSize:'10px',fontWeight:'700',color:'#6366F1',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',borderRadius:'20px',padding:'2px 9px'}}><YCLoader size={10} />Saving…</span>}
+                                        </div>
                                         <p style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8',margin:'2px 0 0'}}>Due dates · public holidays · drag to reschedule</p>
                                     </div>
                                     {/* Right: state selector + today */}
@@ -4496,7 +4604,7 @@
                                                     {tkts.map((t,i)=>{
                                                         const c=ticketColor(t),od=isOverdue(t),done=isDone(t),sc=ST_COLOR[t.status]||'#9CA3AF';
                                                         return (
-                                                            <div key={i} style={{borderLeft:`3px solid ${c.bar}`,background:dm?'rgba(255,255,255,0.02)':c.bg,borderRadius:'0 8px 8px 0',padding:'8px 10px',marginBottom:'6px'}}>
+                                                            <div key={i} onClick={()=>setViewTicket(t)} style={{borderLeft:`3px solid ${c.bar}`,background:dm?'rgba(255,255,255,0.02)':c.bg,borderRadius:'0 8px 8px 0',padding:'8px 10px',marginBottom:'6px',cursor:'pointer'}}>
                                                                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'3px'}}>
                                                                     <span style={{fontSize:'10px',fontWeight:'700',color:textM}}>{t.ticketNumber||`#${t.id}`}</span>
                                                                     <span style={{fontSize:'10px',fontWeight:'600',color:sc,background:sc+'22',borderRadius:'20px',padding:'1px 7px'}}>{ST_LABEL[t.status]||t.status}</span>
@@ -4528,7 +4636,7 @@
                                             const c=ticketColor(t);
                                             const daysOver=t.dueAt?Math.floor((today-new Date(t.dueAt))/86400000):null;
                                             return (
-                                                <div key={i} className="sidebar-row" style={{padding:'7px 6px',borderRadius:'7px',display:'flex',gap:'8px',alignItems:'center'}}>
+                                                <div key={i} className="sidebar-row" onClick={()=>setViewTicket(t)} style={{padding:'7px 6px',borderRadius:'7px',display:'flex',gap:'8px',alignItems:'center',cursor:'pointer'}}>
                                                     <div style={{flex:1,minWidth:0}}>
                                                         <div style={{fontSize:'12px',fontWeight:'600',color:textP,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.title||'—'}</div>
                                                         <div style={{fontSize:'10px',color:textM,marginTop:'1px'}}>{(t.priorityLabel||t.priority||'').charAt(0).toUpperCase()+(t.priorityLabel||t.priority||'').slice(1)}{t.assigneeName?` · ${t.assigneeName.split(' ')[0]}`:''}</div>
@@ -4555,7 +4663,7 @@
                                             const diffD=Math.round((d-today)/86400000);
                                             const dLabel=diffD===0?'Today':diffD===1?'Tmrw':`${diffD}d`;
                                             return (
-                                                <div key={i} className="sidebar-row" style={{padding:'7px 6px',borderRadius:'7px',display:'flex',gap:'8px',alignItems:'center'}}>
+                                                <div key={i} className="sidebar-row" onClick={()=>setViewTicket(t)} style={{padding:'7px 6px',borderRadius:'7px',display:'flex',gap:'8px',alignItems:'center',cursor:'pointer'}}>
                                                     <div style={{width:'32px',height:'32px',background:dm?'rgba(245,158,11,0.1)':'#FFFBEB',borderRadius:'8px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',flexShrink:0}}>
                                                         <div style={{fontSize:'8px',fontWeight:'800',color:'#D97706',textTransform:'uppercase'}}>{MS[d.getMonth()]}</div>
                                                         <div style={{fontSize:'14px',fontWeight:'800',color:'#92400E',lineHeight:1}}>{d.getDate()}</div>
@@ -4648,6 +4756,7 @@
             escalated:        { label: 'Escalated',         bg: '#FEF3C7', color: '#92400E' },
             commented:        { label: 'Comment',           bg: '#EEF2F8', color: '#475569' },
             priority_changed: { label: 'Priority Changed',  bg: '#FFF7ED', color: '#C2410C' },
+            due_date_changed: { label: 'Due Date Changed',  bg: '#F5F3FF', color: '#6D28D9' },
             reopened:         { label: 'Reopened',          bg: '#DBEAFE', color: '#1E40AF' },
             closed:           { label: 'Closed',            bg: '#F0FDF4', color: '#14532D' },
         };

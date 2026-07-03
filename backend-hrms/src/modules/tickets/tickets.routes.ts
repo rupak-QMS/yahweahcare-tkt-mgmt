@@ -1157,6 +1157,7 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
       title: 'title', description: 'description', category: 'category_id',
       priority: 'priority_id', status: 'status', assigneeId: 'assigned_to',
       resolvedAt: 'closed_date', closedAt: 'closed_date',
+      dueDate: 'due_date',
     };
     const updates: string[] = []; const values: unknown[] = []; let i = 1;
     const usedDbCols = new Set<string>();
@@ -1192,6 +1193,12 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
       activityInserts.push(pool.query(
         `INSERT INTO yc_tkt_mgmt.activity (ticket_id, user_id, action, details) VALUES ($1,$2,'priority_changed',$3)`,
         [id, actorId, JSON.stringify({ from: old.priority_id, to: req.body.priority })]
+      ));
+    }
+    if ('dueDate' in req.body && req.body.dueDate !== old.due_date) {
+      activityInserts.push(pool.query(
+        `INSERT INTO yc_tkt_mgmt.activity (ticket_id, user_id, action, details) VALUES ($1,$2,'due_date_changed',$3)`,
+        [id, actorId, JSON.stringify({ from: old.due_date, to: req.body.dueDate })]
       ));
     }
     await Promise.all(activityInserts);
