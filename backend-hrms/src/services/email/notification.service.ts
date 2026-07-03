@@ -228,12 +228,13 @@ export async function notifyCommentAdded(ticketId: number, actorId: number, comm
   try {
     const ticket = await getTicket(ticketId);
     if (!ticket) return;
-    const { payload, assignee, requester } = await buildPayload(ticket, actorId, { comment });
-    // Notify everyone except the commenter
-    const rcpts = recipients(assignee, requester).filter(r => {
-      // We'll keep both; the actor check is best-effort based on email
-      return true;
-    });
+    const [{ payload, assignee, requester }, approvers, actor] = await Promise.all([
+      buildPayload(ticket, actorId, { comment }),
+      getApprovers(ticketId),
+      getUser(actorId),
+    ]);
+    // Notify everyone except the commenter themself
+    const rcpts = recipients(assignee, requester, approvers).filter(r => r.email !== actor?.email);
     if (!rcpts.length) return;
     await enqueue({ eventType: 'ticket.comment_added', recipients: rcpts, payload, ticketId });
   } catch (e) { console.error('[notify] ticket.comment_added', e); }
@@ -247,8 +248,13 @@ export async function notifyAttachmentAdded(
   try {
     const ticket = await getTicket(ticketId);
     if (!ticket) return;
-    const { payload, assignee, requester } = await buildPayload(ticket, actorId, { attachmentNames });
-    const rcpts = recipients(assignee, requester);
+    const [{ payload, assignee, requester }, approvers, actor] = await Promise.all([
+      buildPayload(ticket, actorId, { attachmentNames }),
+      getApprovers(ticketId),
+      getUser(actorId),
+    ]);
+    // Notify everyone except the person who added the attachment
+    const rcpts = recipients(assignee, requester, approvers).filter(r => r.email !== actor?.email);
     if (!rcpts.length) return;
     await enqueue({ eventType: 'ticket.attachment_added', recipients: rcpts, payload, ticketId });
   } catch (e) { console.error('[notify] ticket.attachment_added', e); }
