@@ -161,3 +161,38 @@ SELECT 'POST_RESET_RECOVERY complete.' AS result,
        (SELECT count(*) FROM yc_tkt_mgmt.categories) AS categories,
        (SELECT count(*) FROM yc_tkt_mgmt.priorities) AS priorities,
        (SELECT count(*) FROM yc_tkt_mgmt.statuses)   AS statuses;
+
+-- 5. Org Chart page columns (GET /org/chart was crashing with a 500 --
+--    "column does not exist" -- confirmed 2026-07-03 by the empty response
+--    body from a fresh, cache-busted fetch, then root-caused by diffing the
+--    query in org.routes.ts against live information_schema.columns).
+-- users.profile_photo_url / avatar_initials / designation are selected by
+-- GET /org/chart and referenced by POST /users, but were missing entirely.
+ALTER TABLE yc_tkt_mgmt.users
+  ADD COLUMN IF NOT EXISTS profile_photo_url TEXT,
+  ADD COLUMN IF NOT EXISTS avatar_initials   TEXT,
+  ADD COLUMN IF NOT EXISTS designation       TEXT;
+
+UPDATE yc_tkt_mgmt.users
+SET avatar_initials = UPPER(LEFT(split_part(name, ' ', 1), 1) || COALESCE(LEFT(split_part(name, ' ', 2), 1), ''))
+WHERE avatar_initials IS NULL;
+
+-- departments.parent_dept_id / sort_order are selected by GET /org/chart
+-- and GET/POST /org/departments, but were also missing.
+ALTER TABLE yc_tkt_mgmt.departments
+  ADD COLUMN IF NOT EXISTS parent_dept_id INTEGER REFERENCES yc_tkt_mgmt.departments(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS sort_order     INTEGER DEFAULT 0;
+
+-- 6. Orphaned staff_positions rows (referencing users deleted before the
+--    2026-07-02/03 incident) were causing positions to render more than
+--    once on the org chart / position list. Safe to delete: they can never
+--    resolve to a valid user again.
+DELETE FROM yc_tkt_mgmt.staff_positions sp
+WHERE NOT EXISTS (SELECT 1 FROM yc_tkt_mgmt.users u WHERE u.id = sp.user_id);
+
+UPDATE yc_tkt_mgmt.positions p
+SET is_vacant = NOT EXISTS (
+  SELECT 1 FROM yc_tkt_mgmt.staff_positions sp2
+  JOIN yc_tkt_mgmt.users u2 ON u2.id = sp2.user_id AND u2.is_active = TRUE
+  WHERE sp2.position_id = p.id
+);
