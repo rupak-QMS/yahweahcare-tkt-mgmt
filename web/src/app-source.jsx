@@ -742,7 +742,7 @@
                 'calendar':'Calendar','analytics':'Analytics','org-chart':'Org Chart',
                 'staff-performance':'Staff Performance','team-comparison':'Team Comparison',
                 'staff-management':'Staff Management','scheduled-reports':'Scheduled Reports',
-                'ticket-log':'Ticket Log',
+                'ticket-log':'Ticket Log','email-config':'Email Config',
             };
 
             React.useEffect(() => {
