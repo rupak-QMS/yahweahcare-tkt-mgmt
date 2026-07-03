@@ -183,9 +183,20 @@ export async function createSession(opts: {
 /**
  * Rotate the refresh token — issue a new one, blacklist the old one.
  */
+interface RotateSessionRow {
+  id: number;
+  user_id: number;
+  refresh_token_hash: string;
+  is_revoked: boolean;
+  expires_at: string;
+  email: string;
+  role: string;
+  role_id: number | null;
+}
+
 export async function rotateTokens(sessionId: number, refreshToken: string, req: Request) {
   // Fetch session + user; guard against role column not yet existing in DB
-  let rows: Record<string, unknown>[];
+  let rows: RotateSessionRow[];
   try {
     ({ rows } = await pool.query(
       `SELECT s.id, s.user_id, s.refresh_token_hash, s.is_revoked, s.expires_at,
