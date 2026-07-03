@@ -6087,41 +6087,115 @@
 
         // Org Chart Page
         // ── Org Chart helpers (defined outside to keep stable references) ──
-        const ORG_GAP  = 6;    // gap between sibling sub-trees (px)
-        const ORG_LINE = '#94A3B8';
-        const ORG_LH   = 12;   // connector line height (px)
+        const ORG_GAP  = 10;   // gap between sibling sub-trees (px)
+        const ORG_LH   = 16;   // connector line height (px)
 
-        function OrgCard({ name, title, email, type, vacant, deptLabel, extra }) {
+        function orgInitials(name) {
+            if (!name) return '?';
+            const parts = String(name).trim().split(/\s+/).filter(Boolean);
+            if (!parts.length) return '?';
+            return (parts[0][0] + (parts.length > 1 ? parts[parts.length-1][0] : '')).toUpperCase();
+        }
+
+        function orgCountDescendants(node) {
+            return (node.children || []).reduce((sum, c) => sum + 1 + orgCountDescendants(c), 0);
+        }
+
+        const ORG_TYPE_META = {
+            director:  { light:'#16A34A', dark:'#34D399', label:'Director Level' },
+            ops:       { light:'#DC2626', dark:'#FB7185', label:'Operations (Managers / Officers)' },
+            finance:   { light:'#D97706', dark:'#FBBF24', label:'Finance (Managers / Officers)' },
+            strategic: { light:'#7C3AED', dark:'#A78BFA', label:'Strategic Development (Managers / Officers)' },
+            staff:     { light:'#2563EB', dark:'#60A5FA', label:'Team / Staff' },
+            external:  { light:'#94A3B8', dark:'#94A3B8', label:'Consultant / External' },
+        };
+
+        function OrgCard({ name, title, email, type, vacant, deptLabel, extra, onClick, highlighted, dimmed, hasChildren, collapsed, onToggleCollapse, hiddenCount }) {
             const dm = useDark();
-            const S = {
-                director:  { b:'#16A34A', bg:'#F0FDF4', hdr:'#16A34A', t:'#15803D' },
-                ops:       { b:'#DC2626', bg:'#FFF5F5', hdr:'#DC2626', t:'#DC2626' },
-                finance:   { b:'#D97706', bg:'#FFFBEB', hdr:'#D97706', t:'#92400E' },
-                strategic: { b:'#7C3AED', bg:'#F5F3FF', hdr:'#7C3AED', t:'#5B21B6' },
-                staff:     { b:'#3B82F6', bg:'#EFF6FF', hdr:'#3B82F6', t:'#1D4ED8' },
-                external:  { b:'#94A3B8', bg:dm?'rgba(99,102,241,0.06)':'#F8FAFF', hdr:'#94A3B8', t:dm?'#8fa4cc':'#64748B' },
-            };
-            const s = S[type] || S.ops;
-            const w = deptLabel ? 155 : 115;
-            // Split deptLabel into icon + text e.g. "👥 Operations Department"
+            const meta   = ORG_TYPE_META[type] || ORG_TYPE_META.ops;
+            const accent = dm ? meta.dark : meta.light;
+            const w = deptLabel ? 190 : 168;
             const dlParts = deptLabel ? deptLabel.split(' ') : [];
             const dlIcon  = dlParts[0] || '';
             const dlText  = dlParts.slice(1).join(' ').toUpperCase();
+            const initials = orgInitials(name);
             return (
-                <div style={{ border:`1.5px ${vacant?'dashed':'solid'} ${vacant?'#D1D5DB':s.b}`, background:vacant?'#F9FAFB':s.bg, borderRadius:10, width:w, textAlign:'center', boxShadow:'0 1px 6px rgba(0,0,0,0.08)', flexShrink:0, overflow:'hidden' }}>
-                    {deptLabel && (
-                        <div style={{ background:s.hdr, padding:'7px 6px 5px', display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
-                            <div style={{ width:28, height:28, borderRadius:'50%', background:'rgba(255,255,255,0.25)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:15 }}>{dlIcon}</div>
-                            <p style={{ fontSize:8, fontWeight:800, color:'white', textTransform:'uppercase', letterSpacing:'0.06em', margin:0, lineHeight:1.3 }}>{dlText}</p>
+                <div style={{ display:'flex', flexDirection:'column', alignItems:'center', opacity: dimmed ? 0.32 : 1, transition:'opacity 0.2s ease' }}>
+                    <div
+                        onClick={onClick}
+                        className="org-card"
+                        style={{
+                            position:'relative',
+                            border: `1.5px ${vacant ? 'dashed' : 'solid'} ${vacant ? (dm?'rgba(148,163,184,0.4)':'#D1D5DB') : (dm?`${accent}66`:`${accent}38`)}`,
+                            background: dm ? 'linear-gradient(160deg,rgba(20,32,60,0.97) 0%,rgba(10,18,38,0.99) 100%)' : '#FFFFFF',
+                            borderRadius: 16,
+                            width: w,
+                            textAlign: 'center',
+                            boxShadow: highlighted
+                                ? `0 0 0 3px ${accent}55, 0 10px 22px rgba(0,0,0,0.14)`
+                                : (dm ? '0 4px 14px rgba(0,0,0,0.35)' : '0 2px 10px rgba(15,23,42,0.07)'),
+                            flexShrink: 0,
+                            overflow: 'visible',
+                            cursor: onClick ? 'pointer' : 'default',
+                            transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                        }}
+                        onMouseEnter={e => { if (onClick) e.currentTarget.style.transform = 'translateY(-3px)'; }}
+                        onMouseLeave={e => { if (onClick) e.currentTarget.style.transform = 'translateY(0)'; }}
+                    >
+                        {deptLabel && (
+                            <div style={{ background:`linear-gradient(135deg, ${accent}, ${accent}CC)`, borderRadius:'14.5px 14.5px 0 0', padding:'10px 8px 8px', display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
+                                <div style={{ width:26, height:26, borderRadius:'50%', background:'rgba(255,255,255,0.25)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14 }}>{dlIcon}</div>
+                                <p style={{ fontSize:9, fontWeight:800, color:'white', textTransform:'uppercase', letterSpacing:'0.07em', margin:0, lineHeight:1.3 }}>{dlText}</p>
+                            </div>
+                        )}
+                        <div style={{ padding: deptLabel ? '12px 12px 13px' : '14px 12px 13px' }}>
+                            <div style={{
+                                width:40, height:40, borderRadius:'50%', margin:'0 auto 8px',
+                                display:'flex', alignItems:'center', justifyContent:'center',
+                                background: vacant ? (dm?'rgba(148,163,184,0.1)':'#F1F5F9') : `linear-gradient(135deg, ${accent}, ${accent}AA)`,
+                                border: vacant ? `1.5px dashed ${dm?'rgba(148,163,184,0.4)':'#CBD5E1'}` : 'none',
+                                color: vacant ? (dm?'#64748B':'#94A3B8') : 'white',
+                                fontSize: vacant ? 15 : 13, fontWeight:800,
+                                boxShadow: vacant ? 'none' : `0 2px 8px ${accent}55`,
+                            }}>
+                                {vacant ? '—' : initials}
+                            </div>
+                            <p style={{ fontSize:13, fontWeight:800, color: vacant ? (dm?'#64748B':'#94A3B8') : (dm?'#f0f4ff':'#0F172A'), margin:'0 0 3px', lineHeight:1.3 }}>{name}</p>
+                            {title && !vacant && <p style={{ fontSize:10.5, fontWeight:600, color:accent, margin:'0 0 4px', lineHeight:1.35 }}>{title}</p>}
+                            {email && !vacant && <p style={{ fontSize:10, color:dm?'#7d93bd':'#64748B', margin:'0 0 8px', wordBreak:'break-word', lineHeight:1.3 }}>{email}</p>}
+                            {(!email || vacant) && <div style={{ height:6 }} />}
+                            <span style={{
+                                display:'inline-flex', alignItems:'center', gap:4, fontSize:9.5, fontWeight:700,
+                                color: vacant ? '#DC2626' : '#15803D',
+                                background: vacant ? (dm?'rgba(239,68,68,0.12)':'#FEF2F2') : (dm?'rgba(16,185,129,0.14)':'#ECFDF5'),
+                                padding:'2px 9px', borderRadius:20,
+                                border:`1px solid ${vacant ? (dm?'rgba(239,68,68,0.3)':'#FECACA') : (dm?'rgba(16,185,129,0.3)':'#A7F3D0')}`,
+                            }}>
+                                <span style={{ width:5, height:5, borderRadius:'50%', background: vacant?'#EF4444':'#10B981' }} />
+                                {vacant ? 'Vacant' : 'Active'}
+                            </span>
+                            {extra && <p style={{ fontSize:9.5, color:dm?'#818cf8':'#4F46E5', margin:'6px 0 0', fontWeight:700 }}>{extra}</p>}
                         </div>
-                    )}
-                    <div style={{ padding:'7px 8px 8px' }}>
-                        <p style={{ fontSize: deptLabel?12:11, fontWeight:700, color:vacant?(dm?'#4a607f':'#64748B'):(dm?'#f0f4ff':'#0F172A'), margin:'0 0 2px', lineHeight:1.3 }}>{name}</p>
-                        {title && !vacant && <p style={{ fontSize:9, fontWeight:600, color:s.t, margin:'0 0 2px', lineHeight:1.4 }}>{title}</p>}
-                        {email && !vacant && <p style={{ fontSize:8.5, color:'#2563EB', margin:'0 0 5px', wordBreak:'break-word', lineHeight:1.3 }}>Email: {email}</p>}
-                        <span style={{ display:'inline-block', fontSize:8.5, fontWeight:700, background:vacant?'#FEF2F2':'#DCFCE7', color:vacant?'#DC2626':'#15803D', padding:'1px 7px', borderRadius:20, border:`1px solid ${vacant?'#FCA5A5':'#86EFAC'}` }}>{vacant?'[VACANT]':'[ACTIVE]'}</span>
-                        {extra && <p style={{fontSize:8, color:dm?'#818cf8':'#4F46E5', margin:'3px 0 0', fontWeight:600}}>{extra}</p>}
+                        {hasChildren && (
+                            <button
+                                onClick={e => { e.stopPropagation(); onToggleCollapse && onToggleCollapse(); }}
+                                title={collapsed ? 'Expand branch' : 'Collapse branch'}
+                                style={{
+                                    position:'absolute', bottom:-11, left:'50%', transform:'translateX(-50%)',
+                                    width:22, height:22, borderRadius:'50%',
+                                    background: dm ? '#1e293b' : 'white',
+                                    border:`1.5px solid ${dm?'rgba(99,102,241,0.45)':'#C7D2FE'}`,
+                                    display:'flex', alignItems:'center', justifyContent:'center',
+                                    cursor:'pointer', boxShadow:'0 2px 6px rgba(0,0,0,0.18)', zIndex:2, padding:0,
+                                }}
+                            >
+                                <Icon name={collapsed ? 'chevron-right' : 'chevron-down'} size={12} color={dm?'#a5b4fc':'#4F46E5'} />
+                            </button>
+                        )}
                     </div>
+                    {collapsed && hiddenCount > 0 && (
+                        <div style={{ marginTop:15, fontSize:9.5, fontWeight:700, color:dm?'#818cf8':'#6366F1', whiteSpace:'nowrap' }}>+{hiddenCount} hidden</div>
+                    )}
                 </div>
             );
         }
@@ -6129,7 +6203,8 @@
         // gap  = px between sibling sub-trees (overrides ORG_GAP)
         // lineH = connector vertical height in px (overrides ORG_LH)
         function OrgTree({ card, ch=[], gap=ORG_GAP, lineH=ORG_LH }) {
-            const G = gap, L = ORG_LINE, LH = lineH;
+            const dm = useDark();
+            const G = gap, L = dm ? 'rgba(129,140,248,0.4)' : 'rgba(99,102,241,0.3)', LH = lineH;
             const n = ch.length;
             return (
                 <div style={{ display:'flex', flexDirection:'column', alignItems:'center' }}>
@@ -6157,37 +6232,109 @@
             );
         }
 
+        function OrgDetailModal({ node, type, vacant, name, title, email, deptLabel, onClose }) {
+            const dm = useDark();
+            const meta   = ORG_TYPE_META[type] || ORG_TYPE_META.ops;
+            const accent = dm ? meta.dark : meta.light;
+            const staffArr = node.staff || [];
+            const reportsCount = (node.children || []).length;
+            if (!node) return null;
+            return (
+                <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(15,23,42,0.55)', backdropFilter:'blur(3px)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+                    <div onClick={e => e.stopPropagation()} style={{ width:'100%', maxWidth:420, background: dm ? 'linear-gradient(160deg,rgba(20,32,60,0.99) 0%,rgba(10,18,38,1) 100%)' : 'white', borderRadius:20, boxShadow:'0 20px 60px rgba(0,0,0,0.35)', overflow:'hidden', border: dm ? '1px solid rgba(99,102,241,0.25)' : 'none' }}>
+                        <div style={{ background:`linear-gradient(135deg, ${accent}, ${accent}CC)`, padding:'22px 22px 18px', color:'white', position:'relative' }}>
+                            <button onClick={onClose} style={{ position:'absolute', top:14, right:14, background:'rgba(255,255,255,0.2)', border:'none', borderRadius:'50%', width:26, height:26, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
+                                <Icon name='x' size={14} color='white' />
+                            </button>
+                            <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+                                <div style={{ width:52, height:52, borderRadius:'50%', background:'rgba(255,255,255,0.22)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, fontWeight:800, flexShrink:0 }}>
+                                    {vacant ? '—' : orgInitials(name)}
+                                </div>
+                                <div style={{ minWidth:0 }}>
+                                    <p style={{ margin:0, fontSize:17, fontWeight:800, lineHeight:1.3 }}>{name}</p>
+                                    {title && !vacant && <p style={{ margin:'2px 0 0', fontSize:12.5, opacity:0.92 }}>{title}</p>}
+                                </div>
+                            </div>
+                        </div>
+                        <div style={{ padding:'18px 22px 22px' }}>
+                            {deptLabel && <p style={{ fontSize:11, fontWeight:700, color:dm?'#818cf8':'#4F46E5', textTransform:'uppercase', letterSpacing:'0.06em', margin:'0 0 14px' }}>{deptLabel.replace(/^\S+\s*/, '')}</p>}
+                            <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:16 }}>
+                                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                                    <Icon name='shield' size={13} color={dm?'#7d93bd':'#94A3B8'} />
+                                    <span style={{ fontSize:12.5, color:dm?'#c0cfec':'#334155', fontWeight:600 }}>{meta.label}</span>
+                                </div>
+                                {email && !vacant && (
+                                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                                        <Icon name='mail' size={13} color={dm?'#7d93bd':'#94A3B8'} />
+                                        <a href={`mailto:${email}`} style={{ fontSize:12.5, color:'#2563EB', fontWeight:600, textDecoration:'none', wordBreak:'break-all' }}>{email}</a>
+                                    </div>
+                                )}
+                                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                                    <Icon name='users' size={13} color={dm?'#7d93bd':'#94A3B8'} />
+                                    <span style={{ fontSize:12.5, color:dm?'#c0cfec':'#334155', fontWeight:600 }}>{reportsCount} direct report{reportsCount===1?'':'s'}</span>
+                                </div>
+                                {staffArr.length > 1 && (
+                                    <div style={{ display:'flex', alignItems:'flex-start', gap:8 }}>
+                                        <Icon name='user-check' size={13} color={dm?'#7d93bd':'#94A3B8'} />
+                                        <span style={{ fontSize:12.5, color:dm?'#c0cfec':'#334155', fontWeight:600 }}>Also assigned: {staffArr.slice(1).map(s=>s.name).join(', ')}</span>
+                                    </div>
+                                )}
+                            </div>
+                            <span style={{
+                                display:'inline-flex', alignItems:'center', gap:5, fontSize:11, fontWeight:700,
+                                color: vacant ? '#DC2626' : '#15803D',
+                                background: vacant ? (dm?'rgba(239,68,68,0.12)':'#FEF2F2') : (dm?'rgba(16,185,129,0.14)':'#ECFDF5'),
+                                padding:'4px 12px', borderRadius:20,
+                                border:`1px solid ${vacant ? (dm?'rgba(239,68,68,0.3)':'#FECACA') : (dm?'rgba(16,185,129,0.3)':'#A7F3D0')}`,
+                            }}>
+                                <span style={{ width:6, height:6, borderRadius:'50%', background: vacant?'#EF4444':'#10B981' }} />
+                                {vacant ? 'Vacant Position' : 'Active Position'}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
         function OrgChartPage() {
 
             const dm = useDark();
             const pageBg  = dm ? 'transparent' : '#F5F7FF';
             const cardBg  = dm ? 'linear-gradient(155deg,rgba(17,30,58,0.97) 0%,rgba(8,16,36,0.99) 100%)' : 'white';
             const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E2E8F2';
-            const textP   = dm ? '#f0f4ff' : '#0F172A';
             const textM   = dm ? '#8fa4cc' : '#64748B';
             const [orgData, setOrgData] = React.useState(null);
             const [loading, setLoading] = React.useState(true);
             const [error,   setError]   = React.useState('');
-            const [scale,   setScale]   = React.useState(1);
+            const [fitScale, setFitScale] = React.useState(1);
+            const [zoomPct, setZoomPct] = React.useState(null); // null = auto-fit
+            const [naturalSize, setNaturalSize] = React.useState({ w:0, h:0 });
+            const [search, setSearch] = React.useState('');
+            const [collapsedIds, setCollapsedIds] = React.useState(() => new Set());
+            const [selectedNode, setSelectedNode] = React.useState(null);
             const chartWrapRef  = React.useRef(null);
             const containerRef  = React.useRef(null);
+            const nodeRefs      = React.useRef({});
 
-            // Auto-scale chart to fit container width
+            const effScale = zoomPct != null ? zoomPct / 100 : fitScale;
+
+            // Measure natural (unscaled) chart size and compute the auto-fit scale
             const calcScale = React.useCallback(() => {
                 const wrap = chartWrapRef.current;
                 const cont = containerRef.current;
                 if (!wrap || !cont) return;
-                wrap.style.zoom = '';                      // reset to measure natural size
                 const naturalW = wrap.scrollWidth;
-                const contW    = cont.clientWidth - 16;   // subtract small padding
-                setScale(naturalW > contW ? contW / naturalW : 1);
+                const naturalH = wrap.scrollHeight;
+                setNaturalSize({ w: naturalW, h: naturalH });
+                const contW = cont.clientWidth - 16;
+                setFitScale(naturalW > contW ? Math.max(contW / naturalW, 0.25) : 1);
             }, []);
 
             React.useEffect(() => {
                 if (!orgData) return;
-                const t = setTimeout(calcScale, 150);      // wait for DOM to settle
+                const t = setTimeout(calcScale, 150);
                 return () => clearTimeout(t);
-            }, [orgData, calcScale]);
+            }, [orgData, calcScale, collapsedIds]);
 
             const fetchOrg = React.useCallback(async () => {
                 setLoading(true);
@@ -6227,43 +6374,129 @@
                 return 'ops';
             };
 
+            const searchLower = search.trim().toLowerCase();
+            const nodeMatches = (node) => {
+                if (!searchLower) return false;
+                const staffNames = (node.staff || []).map(s => s.name).join(' ').toLowerCase();
+                return (node.title || '').toLowerCase().includes(searchLower) || staffNames.includes(searchLower);
+            };
+            // Build the set of node ids that are a match, or an ancestor of a match, so the path
+            // down to any hit stays fully visible/opaque while everything else dims.
+            const visiblePathIds = React.useMemo(() => {
+                const result = new Set();
+                if (!searchLower || !orgData?.tree) return result;
+                const walk = (nodes, path) => {
+                    for (const n of nodes) {
+                        const newPath = [...path, n.id];
+                        if (nodeMatches(n)) newPath.forEach(id => result.add(id));
+                        walk(n.children || [], newPath);
+                    }
+                };
+                walk(orgData.tree, []);
+                return result;
+            }, [searchLower, orgData]);
+
+            // Scroll the first match into view shortly after the user types
+            React.useEffect(() => {
+                if (!searchLower) return;
+                const t = setTimeout(() => {
+                    const firstMatchId = allNodes.find(n => nodeMatches(n))?.id;
+                    if (firstMatchId != null && nodeRefs.current[firstMatchId]) {
+                        nodeRefs.current[firstMatchId].scrollIntoView({ behavior:'smooth', block:'center', inline:'center' });
+                    }
+                }, 350);
+                return () => clearTimeout(t);
+                // eslint-disable-next-line react-hooks/exhaustive-deps
+            }, [searchLower]);
+
+            const toggleCollapse = (id) => {
+                setCollapsedIds(prev => {
+                    const next = new Set(prev);
+                    next.has(id) ? next.delete(id) : next.add(id);
+                    return next;
+                });
+            };
+
             // Render a position node from the API tree
             const renderTree = (node) => {
-                const staffArr = node.staff || [];
-                const vacant   = node.is_vacant !== false && staffArr.length === 0;
-                const primary  = staffArr[0];
-                const extra    = staffArr.length > 1 ? `+${staffArr.length-1} more` : null;
-                const type     = deriveType(node);
-                const card = <OrgCard
-                    deptLabel={node.dept_label || null}
-                    name={vacant ? node.title : primary.name}
-                    title={vacant ? null : node.title}
-                    email={vacant ? null : primary.email}
-                    type={type}
-                    vacant={vacant}
-                    extra={extra}
-                />;
-                const children = (node.children || []).map(c => renderTree(c));
-                return <OrgTree key={node.id} card={card} gap={node.dept_label ? 10 : 6} ch={children}/>;
+                const staffArr  = node.staff || [];
+                const vacant    = node.is_vacant !== false && staffArr.length === 0;
+                const primary   = staffArr[0];
+                const extra     = staffArr.length > 1 ? `+${staffArr.length-1} more` : null;
+                const type      = deriveType(node);
+                const rawKids   = node.children || [];
+                const isCollapsed = !searchLower && collapsedIds.has(node.id);
+                const name  = vacant ? node.title : primary.name;
+                const title = vacant ? null : node.title;
+                const email = vacant ? null : primary.email;
+                const card = (
+                    <div ref={el => { if (el) nodeRefs.current[node.id] = el; }}>
+                        <OrgCard
+                            deptLabel={node.dept_label || null}
+                            name={name}
+                            title={title}
+                            email={email}
+                            type={type}
+                            vacant={vacant}
+                            extra={extra}
+                            highlighted={nodeMatches(node)}
+                            dimmed={!!searchLower && !visiblePathIds.has(node.id)}
+                            hasChildren={rawKids.length > 0}
+                            collapsed={isCollapsed}
+                            onToggleCollapse={() => toggleCollapse(node.id)}
+                            hiddenCount={orgCountDescendants(node)}
+                            onClick={() => setSelectedNode({ node, type, vacant, name, title, email, deptLabel: node.dept_label })}
+                        />
+                    </div>
+                );
+                const children = isCollapsed ? [] : rawKids.map(c => renderTree(c));
+                return <OrgTree key={node.id} card={card} gap={node.dept_label ? 14 : 10} ch={children}/>;
             };
+
+            const zoomStep = (delta) => setZoomPct(Math.min(200, Math.max(30, Math.round((zoomPct ?? fitScale*100) + delta))));
+            const zoomPctDisplay = Math.round(zoomPct ?? fitScale * 100);
 
             return (
                 <main className="flex-1 overflow-auto" style={{background:pageBg}}>
+                    {selectedNode && <OrgDetailModal {...selectedNode} onClose={() => setSelectedNode(null)} />}
                     <div style={{padding:'24px 28px'}}>
-                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'20px'}}>
+                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'20px',flexWrap:'wrap',gap:12}}>
                             <div>
                                 <h1 style={{fontSize:'22px', fontWeight:'700', color:dm?'#c7d2fe':'#1E1B4B', margin:0, display:'flex', alignItems:'center', gap:'8px'}}><Icon name='building-2' size={20} color={dm?'#818cf8':'#4F46E5'} />Organizational Chart</h1>
                                 <p style={{fontSize:'12px', color:dm?'#4a607f':'#94A3B8', margin:'4px 0 0'}}>Yahweh Care — live staff hierarchy. Updates instantly when staff are added or removed.</p>
                             </div>
-                            <button onClick={fetchOrg} style={{padding:'7px 14px',background:cardBg,border:`2px solid ${borderC}`,borderRadius:'8px',fontSize:'12px',fontWeight:'600',color:'#4338CA',cursor:'pointer',display:'flex',alignItems:'center',gap:'6px'}}>
-                                <Icon name='refresh-cw' size={13} color='#4338CA' />Refresh
-                            </button>
+                            <div style={{display:'flex', gap:'10px', alignItems:'center', flexWrap:'wrap'}}>
+                                <div style={{position:'relative'}}>
+                                    <Icon name='search' size={13} color={dm?'#4a607f':'#94A3B8'} style={{position:'absolute', left:10, top:'50%', transform:'translateY(-50%)'}} />
+                                    <input
+                                        value={search}
+                                        onChange={e => setSearch(e.target.value)}
+                                        placeholder='Search name or title…'
+                                        style={{padding:'7px 10px 7px 30px', background:cardBg, border:`2px solid ${borderC}`, borderRadius:8, fontSize:12, color:dm?'#e5edff':'#1E1B4B', width:190, outline:'none'}}
+                                    />
+                                    {search && (
+                                        <button onClick={() => setSearch('')} style={{position:'absolute', right:6, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', padding:2, display:'flex'}}>
+                                            <Icon name='x' size={12} color={dm?'#4a607f':'#94A3B8'} />
+                                        </button>
+                                    )}
+                                </div>
+                                <div style={{display:'flex', alignItems:'center', gap:2, background:cardBg, border:`2px solid ${borderC}`, borderRadius:8, padding:'2px 4px'}}>
+                                    <button onClick={() => zoomStep(-10)} title='Zoom out' style={{width:24,height:24,border:'none',background:'none',cursor:'pointer',fontSize:15,fontWeight:700,color:'#4338CA',lineHeight:1}}>−</button>
+                                    <span style={{fontSize:11,fontWeight:700,color:dm?'#c0cfec':'#334155',minWidth:36,textAlign:'center'}}>{zoomPctDisplay}%</span>
+                                    <button onClick={() => zoomStep(10)} title='Zoom in' style={{width:24,height:24,border:'none',background:'none',cursor:'pointer',fontSize:15,fontWeight:700,color:'#4338CA',lineHeight:1}}>+</button>
+                                    <div style={{width:1,height:16,background:borderC,margin:'0 2px'}}/>
+                                    <button onClick={() => setZoomPct(null)} title='Reset to fit' style={{padding:'0 8px',height:24,border:'none',background:'none',cursor:'pointer',fontSize:10.5,fontWeight:700,color:'#4338CA'}}>Fit</button>
+                                </div>
+                                <button onClick={fetchOrg} style={{padding:'7px 14px',background:cardBg,border:`2px solid ${borderC}`,borderRadius:'8px',fontSize:'12px',fontWeight:'600',color:'#4338CA',cursor:'pointer',display:'flex',alignItems:'center',gap:'6px'}}>
+                                    <Icon name='refresh-cw' size={13} color='#4338CA' />Refresh
+                                </button>
+                            </div>
                         </div>
 
                         <div className='yc-detail-layout' style={{display:'flex', gap:'20px', alignItems:'flex-start', flexWrap:'wrap'}}>
                             {/* ── Chart card ── */}
                             <div style={{flex:1, minWidth:0, background:cardBg, borderRadius:'20px', border:`2px solid ${borderC}`, padding:'24px 24px 20px', boxShadow:'0 4px 20px rgba(99,102,241,0.08)'}}>
-                                <h2 style={{textAlign:'center', fontSize:'22px', fontWeight:'900', color:dm?'#c7d2fe':'#1E1B4B', marginBottom:'24px', letterSpacing:'1px', textTransform:'uppercase', textShadow:'0 1px 2px rgba(0,0,0,0.08)'}}>
+                                <h2 style={{textAlign:'center', fontSize:'19px', fontWeight:'800', color:dm?'#c7d2fe':'#1E1B4B', marginBottom:'20px', letterSpacing:'0.3px'}}>
                                     Organizational Chart for Yahweh Care
                                 </h2>
 
@@ -6272,44 +6505,55 @@
                                 {error && <div style={{textAlign:'center',padding:'12px',fontSize:'13px',color:'#D97706',background:dm?'rgba(234,179,8,0.12)':'#FFFBEB',borderRadius:'8px',marginBottom:'16px',border:`1px solid ${dm?'rgba(234,179,8,0.3)':'#FDE68A'}`}}>{error}</div>}
 
                                 {!loading && orgData && (
-                                    <div ref={containerRef} style={{width:'100%', overflowX:'hidden'}}>
-                                        <div ref={chartWrapRef} style={{zoom: scale, width:'fit-content', minWidth:'100%', display:'flex', justifyContent:'center', transformOrigin:'top center', boxSizing:'border-box'}}>
-                                            {(() => {
-                                                // Show only meaningful roots: has children, or has staff, or is director-type
-                                                const roots = orgData.tree.filter(n =>
-                                                    n.parent_position_id === null &&
-                                                    (n.children?.length > 0 || (n.staff?.length > 0) || deriveType(n) === 'director')
-                                                );
-                                                return roots.length > 0
-                                                    ? roots.map(root => renderTree(root))
-                                                    : <p style={{color:dm?'#4a607f':'#94A3B8',fontSize:'13px',padding:'20px'}}>No org chart data.</p>;
-                                            })()}
+                                    <div ref={containerRef} style={{
+                                        width:'100%', overflow:'auto', maxHeight:'68vh', borderRadius:12, padding:'8px 0',
+                                        backgroundImage: dm
+                                            ? 'radial-gradient(rgba(129,140,248,0.16) 1px, transparent 1px)'
+                                            : 'radial-gradient(rgba(99,102,241,0.14) 1px, transparent 1px)',
+                                        backgroundSize:'18px 18px',
+                                    }}>
+                                        <div style={{
+                                            width: naturalSize.w ? naturalSize.w * effScale : 'auto',
+                                            height: naturalSize.h ? naturalSize.h * effScale : 'auto',
+                                            margin:'0 auto',
+                                        }}>
+                                            <div ref={chartWrapRef} style={{ transform:`scale(${effScale})`, transformOrigin:'top left', width:'fit-content', transition:'transform 0.15s ease' }}>
+                                                {(() => {
+                                                    // Show only meaningful roots: has children, or has staff, or is director-type
+                                                    const roots = orgData.tree.filter(n =>
+                                                        n.parent_position_id === null &&
+                                                        (n.children?.length > 0 || (n.staff?.length > 0) || deriveType(n) === 'director')
+                                                    );
+                                                    return roots.length > 0
+                                                        ? roots.map(root => renderTree(root))
+                                                        : <p style={{color:dm?'#4a607f':'#94A3B8',fontSize:'13px',padding:'20px'}}>No org chart data.</p>;
+                                                })()}
+                                            </div>
                                         </div>
                                     </div>
+                                )}
+                                {!loading && orgData && searchLower && visiblePathIds.size === 0 && (
+                                    <p style={{textAlign:'center', fontSize:12.5, color:dm?'#4a607f':'#94A3B8', marginTop:12}}>No matches for "{search}".</p>
                                 )}
                                 </div>
 
                                 {/* Legend */}
-                                <div style={{marginTop:'20px', borderTop:'1px solid #E0E7FF', paddingTop:'16px'}}>
+                                <div style={{marginTop:'20px', borderTop:`1px solid ${borderC}`, paddingTop:'16px'}}>
                                     <div style={{display:'flex', flexWrap:'wrap', gap:'10px', alignItems:'center', marginBottom:'10px'}}>
                                         <span style={{fontSize:'11px', fontWeight:'800', color:dm?'#c0cfec':'#334155', textTransform:'uppercase', letterSpacing:'0.06em', marginRight:'4px'}}>Legend</span>
-                                        {[
-                                            {color:'#16A34A', label:'Director Level'},
-                                            {color:'#DC2626', label:'Operations (Managers / Officers)'},
-                                            {color:'#D97706', label:'Finance (Managers / Officers)'},
-                                            {color:'#7C3AED', label:'Strategic Development (Managers / Officers)'},
-                                            {color:'#3B82F6', label:'Team / Staff'},
-                                            {color:dm?'#4a607f':'#94A3B8', label:'Consultant / External'},
-                                        ].map((l,i)=>(
-                                            <div key={i} style={{display:'flex',alignItems:'center',gap:'6px',padding:'4px 10px',borderRadius:'6px',border:`1.5px solid ${l.color}40`,background:`${l.color}0A`}}>
-                                                <div style={{width:'12px',height:'12px',borderRadius:'3px',background:`${l.color}20`,border:`2px solid ${l.color}`}}></div>
-                                                <span style={{fontSize:'11px',color:dm?'#c0cfec':'#334155',fontWeight:'500'}}>{l.label}</span>
-                                            </div>
-                                        ))}
+                                        {Object.entries(ORG_TYPE_META).map(([key, l], i) => {
+                                            const color = dm ? l.dark : l.light;
+                                            return (
+                                                <div key={i} style={{display:'flex',alignItems:'center',gap:'6px',padding:'4px 10px',borderRadius:'6px',border:`1.5px solid ${color}40`,background:`${color}0F`}}>
+                                                    <div style={{width:'12px',height:'12px',borderRadius:'50%',background:`linear-gradient(135deg, ${color}, ${color}AA)`}}></div>
+                                                    <span style={{fontSize:'11px',color:dm?'#c0cfec':'#334155',fontWeight:'500'}}>{l.label}</span>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
-                                    <div style={{display:'flex', gap:'16px', alignItems:'center'}}>
-                                        <span style={{fontSize:'11px',fontWeight:'700',background:'#DCFCE7',color:'#15803D',padding:'3px 12px',borderRadius:'20px',border:'1px solid #86EFAC'}}>[ACTIVE] Active Position</span>
-                                        <span style={{fontSize:'11px',fontWeight:'700',background:dm?'rgba(239,68,68,0.15)':'#FEF2F2',color:dm?'#fca5a5':'#DC2626',padding:'3px 12px',borderRadius:'20px',border:'1px solid #FCA5A5'}}>[VACANT] Inactive Position</span>
+                                    <div style={{display:'flex', gap:'10px', alignItems:'center', flexWrap:'wrap'}}>
+                                        <span style={{display:'inline-flex',alignItems:'center',gap:5,fontSize:'11px',fontWeight:'700',background:'#ECFDF5',color:'#15803D',padding:'3px 12px',borderRadius:'20px',border:'1px solid #A7F3D0'}}><span style={{width:6,height:6,borderRadius:'50%',background:'#10B981'}}/>Active Position</span>
+                                        <span style={{display:'inline-flex',alignItems:'center',gap:5,fontSize:'11px',fontWeight:'700',background:dm?'rgba(239,68,68,0.15)':'#FEF2F2',color:dm?'#fca5a5':'#DC2626',padding:'3px 12px',borderRadius:'20px',border:'1px solid #FCA5A5'}}><span style={{width:6,height:6,borderRadius:'50%',background:'#EF4444'}}/>Vacant Position</span>
                                     </div>
                                 </div>
                             </div>
@@ -6329,7 +6573,7 @@
                                                 <p style={{fontSize:'14px',fontWeight:'700',color:dm?'#c7d2fe':'#1E1B4B',margin:'0 0 2px'}}>{r.name}</p>
                                                 <p style={{fontSize:'11px',color:dm?'#818cf8':'#4F46E5',fontWeight:'600',margin:'0 0 3px'}}>{i===0 ? 'Bootstrap Admin' : 'Bootstrap Super Admin'}</p>
                                                 <p style={{fontSize:'10px',color:'#2563EB',margin:'0 0 6px',wordBreak:'break-all'}}>Email: {r.email}</p>
-                                                <span style={{fontSize:'10px',fontWeight:'700',background:'#DCFCE7',color:'#15803D',padding:'2px 10px',borderRadius:'20px',border:'1px solid #86EFAC'}}>[ACTIVE]</span>
+                                                <span style={{display:'inline-flex',alignItems:'center',gap:4,fontSize:'10px',fontWeight:'700',background:'#DCFCE7',color:'#15803D',padding:'2px 10px',borderRadius:'20px',border:'1px solid #86EFAC'}}><span style={{width:5,height:5,borderRadius:'50%',background:'#10B981'}}/>Active</span>
                                             </div>
                                         </div>
                                     ))}
@@ -6343,6 +6587,7 @@
                                         'Only active positions are assigned to current staff.',
                                         'All vacant positions are kept in the structure for future growth and scalability.',
                                         'System roles (e.g., Bootstrap Admin, Bootstrap Super Admin) are separate from the organizational hierarchy.',
+                                        'Click any card to view full details. Use the chevron below a card to collapse its branch.',
                                     ].map((n,i)=>(
                                         <div key={i} style={{display:'flex',gap:'8px',marginBottom:'10px'}}>
                                             <div style={{width:'6px',height:'6px',borderRadius:'50%',background:'#6366F1',flexShrink:0,marginTop:'5px'}}></div>
