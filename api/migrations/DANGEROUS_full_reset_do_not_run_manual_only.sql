@@ -1,3 +1,22 @@
+-- ============================================================
+-- DANGER — DO NOT RUN THIS AGAINST PRODUCTION
+-- ============================================================
+-- This is a full schema reset: it drops users, tickets, departments,
+-- roles, positions, comments, activity, notifications, and every
+-- other core table with CASCADE, then rebuilds them empty.
+--
+-- This exact file caused a real production data-loss incident on
+-- 2026-07-02/03: it was previously named '000_reset_schema.sql' and
+-- included in run-migrations.js's automatic migration list, so it
+-- silently re-ran and wiped all staff and ticket data. It has since
+-- been removed from that list and renamed so it can never be picked
+-- up automatically again — see run-migrations.js for details.
+--
+-- Only run this file manually, by hand, against a database you
+-- explicitly intend to wipe (e.g. a fresh local/dev environment
+-- with no real data). Never run it against production.
+-- ============================================================
+--
 -- Migration 000: Complete Schema Reset
 -- Description: Drop all existing tables and rebuild from scratch
 -- Author: Enterprise System

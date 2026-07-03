@@ -15,9 +15,17 @@ const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
 });
 
-// Migration files in order
+// Migration files in order.
+//
+// IMPORTANT: '000_reset_schema.sql' is DELIBERATELY EXCLUDED from this list.
+// That file drops and rebuilds every core table (users, tickets, departments,
+// roles, positions, etc.) and is NOT idempotent — re-running it destroys all
+// production data. It caused a real data-loss incident on 2026-07-02/03 when
+// this runner re-executed it as part of a routine migration fix. It must only
+// ever be run manually, by a human, on purpose, against a database that is
+// meant to be wiped (e.g. a fresh local/dev environment) — never via this
+// script and never against production.
 const migrations = [
-    '000_reset_schema.sql',       // Drop all and start fresh
     '001_add_ticket_fields.sql',  // Add ticket approval fields
     '002_create_ticket_approvers_table.sql',
     '003_create_ticket_audit_log_table.sql',
@@ -35,7 +43,29 @@ async function runMigrations() {
     try {
         console.log('🔄 Starting database migrations...\n');
 
+        // Track which migrations have already been applied so re-running this
+        // script (e.g. on a redeploy) never re-executes a migration twice.
+        // Idempotent migrations (CREATE TABLE IF NOT EXISTS, ON CONFLICT ...)
+        // would tolerate a re-run anyway, but this keeps runs fast and the
+        // history auditable, and is a safety net if a future migration file
+        // is written without idempotency guards.
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS yc_tkt_mgmt.schema_migrations (
+                name        TEXT PRIMARY KEY,
+                applied_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        const { rows: appliedRows } = await client.query(
+            `SELECT name FROM yc_tkt_mgmt.schema_migrations`
+        );
+        const applied = new Set(appliedRows.map(r => r.name));
+
         for (const migration of migrations) {
+            if (applied.has(migration)) {
+                console.log(`⏭️  Skipping (already applied): ${migration}`);
+                continue;
+            }
+
             const migrationPath = path.join(migrationsDir, migration);
 
             if (!fs.existsSync(migrationPath)) {
@@ -48,6 +78,10 @@ async function runMigrations() {
 
             try {
                 await client.query(sql);
+                await client.query(
+                    `INSERT INTO yc_tkt_mgmt.schema_migrations (name) VALUES ($1) ON CONFLICT (name) DO NOTHING`,
+                    [migration]
+                );
                 console.log(`✅ Completed: ${migration}\n`);
             } catch (error) {
                 console.error(`❌ Error in ${migration}:`);
