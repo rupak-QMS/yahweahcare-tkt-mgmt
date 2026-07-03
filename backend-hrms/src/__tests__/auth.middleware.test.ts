@@ -113,6 +113,49 @@ describe('requireAuth middleware', () => {
     expect(res.body.auth.bootstrapAdmin).toBe(false);
   });
 
+  it('isBootstrapAdmin reflects the real users.is_bootstrap_admin DB column, not the role', async () => {
+    // Even though this user has role 'staff' (bootstrapAdmin role-approximation would be false),
+    // the DB says they ARE a real bootstrap admin (e.g. Ron / Alex) — isBootstrapAdmin must be true.
+    const { token } = signAccessToken({
+      sub: '1', email: 'ron@wmxsolutions.com.au', role: 'staff', permissions: [], sid: '30',
+    });
+    mockPool.query
+      .mockResolvedValueOnce({
+        rows: [{
+          id: 30, user_id: 1, is_revoked: false,
+          expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+          last_activity_at: new Date().toISOString(),
+        }],
+        rowCount: 1,
+      } as any)
+      .mockResolvedValueOnce({ rows: [{ is_bootstrap_admin: true }], rowCount: 1 } as any)
+      .mockResolvedValue({ rows: [] } as any); // catch-all for the fire-and-forget last_activity_at UPDATE
+    const res = await request(app).get('/protected').set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.auth.isBootstrapAdmin).toBe(true);
+    expect(res.body.auth.bootstrapAdmin).toBe(false); // role-based approximation stays false
+  });
+
+  it('isBootstrapAdmin defaults to false when the DB lookup fails', async () => {
+    const { token } = signAccessToken({
+      sub: '2', email: 'x@yahwehcare.com.au', role: 'staff', permissions: [], sid: '31',
+    });
+    mockPool.query
+      .mockResolvedValueOnce({
+        rows: [{
+          id: 31, user_id: 2, is_revoked: false,
+          expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+          last_activity_at: new Date().toISOString(),
+        }],
+        rowCount: 1,
+      } as any)
+      .mockRejectedValueOnce(new Error('column does not exist'))
+      .mockResolvedValue({ rows: [] } as any); // catch-all for the fire-and-forget last_activity_at UPDATE
+    const res = await request(app).get('/protected').set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.auth.isBootstrapAdmin).toBe(false);
+  });
+
   it('director role is NOT marked as isAdmin by middleware', async () => {
     // Important: isManagerOrAdmin in schedules.routes.ts allows director,
     // but the middleware's isAdmin flag does NOT include director.

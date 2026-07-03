@@ -6,6 +6,7 @@
 // GET  /org/positions     — list positions (optionally by dept)
 // POST /org/positions     — create position (super admin)
 // PATCH /org/positions/:id — update position
+// DELETE /org/positions/:id — delete position (bootstrap-admin-only)
 // PATCH /org/move         — move user to new position (drag-drop)
 // ============================================================
 
@@ -172,6 +173,37 @@ router.patch('/positions/:id', requireAuth, async (req, res, next) => {
       vals
     );
     res.json({ position: rows[0] });
+  } catch (err) { next(err); }
+});
+
+// ── DELETE /org/positions/:id — bootstrap-admin-only (Ron / Alex) ────────────
+router.delete('/positions/:id', requireAuth, async (req, res, next) => {
+  try {
+    if (!req.auth?.isBootstrapAdmin) return res.status(403).json({ error: 'forbidden', message: 'Only bootstrap admins can delete positions' });
+    const id = Number(req.params.id);
+    const { rows } = await pool.query(`SELECT * FROM yc_tkt_mgmt.positions WHERE id = $1`, [id]);
+    if (!rows[0]) return res.status(404).json({ error: 'not_found' });
+
+    const { rows: childRows } = await pool.query(
+      `SELECT id FROM yc_tkt_mgmt.positions WHERE parent_position_id = $1`, [id]
+    );
+    if (childRows.length > 0) {
+      return res.status(409).json({ error: 'has_children', message: 'Reassign or delete this position’s sub-positions before deleting it.' });
+    }
+
+    const { rows: staffRows } = await pool.query(
+      `SELECT u.id FROM yc_tkt_mgmt.staff_positions sp
+       JOIN yc_tkt_mgmt.users u ON u.id = sp.user_id AND u.is_active = TRUE
+       WHERE sp.position_id = $1`, [id]
+    );
+    if (staffRows.length > 0) {
+      return res.status(409).json({ error: 'position_occupied', message: 'This position still has active staff assigned. Remove or reassign them first.' });
+    }
+
+    await pool.query(`DELETE FROM yc_tkt_mgmt.staff_positions WHERE position_id = $1`, [id]);
+    await pool.query(`DELETE FROM yc_tkt_mgmt.positions WHERE id = $1`, [id]);
+    await logAudit({ userId: req.auth!.userId, actorEmail: req.auth!.email, action: 'position.delete', module: 'org', targetType: 'position', targetId: id, metadata: { title: rows[0].title }, req });
+    res.json({ ok: true, message: `Position "${rows[0].title}" deleted` });
   } catch (err) { next(err); }
 });
 

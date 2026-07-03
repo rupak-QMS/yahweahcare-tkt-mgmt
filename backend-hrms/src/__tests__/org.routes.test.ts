@@ -9,7 +9,7 @@ import { pool } from '../db/pool';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockPool = pool as any;
 
-function makeApp(role = 'super_admin', userId = 1) {
+function makeApp(role = 'super_admin', userId = 1, isBootstrapAdmin = true) {
   const app = express();
   app.use(express.json());
   app.use((req: any, _res, next) => {
@@ -20,6 +20,7 @@ function makeApp(role = 'super_admin', userId = 1) {
       sessionId: 1,
       isAdmin: true,
       bootstrapAdmin: role === 'super_admin' || role === 'admin',
+      isBootstrapAdmin,
       permissions: [],
     };
     next();
@@ -312,5 +313,60 @@ describe('GET /org/positions', () => {
     const callArgs = mockPool.query.mock.calls[0];
     const sql = callArgs[0] as string;
     expect(sql).toContain('department_id');
+  });
+});
+
+// ── DELETE /org/positions/:id — bootstrap-admin-only ─────────────────────────
+
+describe('DELETE /org/positions/:id — bootstrap-admin-only deletion', () => {
+  const vacantPosition = { id: 4, title: 'Support Worker' };
+
+  it('returns 403 for a non-bootstrap-admin actor', async () => {
+    const app = makeApp('super_admin', 10, false);
+    const res = await request(app).delete('/org/positions/4');
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('forbidden');
+  });
+
+  it('returns 404 when the position does not exist', async () => {
+    const app = makeApp('super_admin', 1, true);
+    mockPool.query.mockResolvedValueOnce({ rows: [], rowCount: 0 } as any);
+    const res = await request(app).delete('/org/positions/999');
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 409 when the position has child positions', async () => {
+    const app = makeApp('super_admin', 1, true);
+    mockPool.query
+      .mockResolvedValueOnce({ rows: [vacantPosition], rowCount: 1 } as any)   // SELECT position
+      .mockResolvedValueOnce({ rows: [{ id: 5 }], rowCount: 1 } as any);       // SELECT children
+    const res = await request(app).delete('/org/positions/4');
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('has_children');
+  });
+
+  it('returns 409 when the position is still occupied by active staff', async () => {
+    const app = makeApp('super_admin', 1, true);
+    mockPool.query
+      .mockResolvedValueOnce({ rows: [vacantPosition], rowCount: 1 } as any)   // SELECT position
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)                 // SELECT children (none)
+      .mockResolvedValueOnce({ rows: [{ id: 5 }], rowCount: 1 } as any);       // SELECT active staff (occupied)
+    const res = await request(app).delete('/org/positions/4');
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('position_occupied');
+  });
+
+  it('deletes a vacant, childless position for a bootstrap-admin actor', async () => {
+    const app = makeApp('super_admin', 1, true);
+    mockPool.query
+      .mockResolvedValueOnce({ rows: [vacantPosition], rowCount: 1 } as any)   // SELECT position
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)                 // SELECT children (none)
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)                 // SELECT active staff (none)
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any)                 // DELETE staff_positions
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 } as any)                 // DELETE position
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as any);                // logAudit
+    const res = await request(app).delete('/org/positions/4');
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
   });
 });

@@ -10,11 +10,11 @@ import { pool } from '../db/pool';
 
 const mockPool = pool as any;
 
-function makeApp(role = 'super_admin', userId = 1) {
+function makeApp(role = 'super_admin', userId = 1, isBootstrapAdmin = true) {
   const app = express();
   app.use(express.json());
   app.use((req: any, _res, next) => {
-    req.auth = { userId, email: 'admin@yahwehcare.com.au', role, sessionId: 1, isAdmin: true, bootstrapAdmin: false, permissions: [] };
+    req.auth = { userId, email: 'admin@yahwehcare.com.au', role, sessionId: 1, isAdmin: true, bootstrapAdmin: false, isBootstrapAdmin, permissions: [] };
     next();
   });
   const router = require('../modules/users/users.routes').default;
@@ -150,6 +150,25 @@ describe('PATCH /users/:id — update', () => {
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('invalid_email_domain');
   });
+
+  it('returns 403 when a non-bootstrap-admin actor tries to deactivate a staff member', async () => {
+    const app = makeApp('manager', 10, false);
+    mockPool.query.mockResolvedValueOnce({ rows: [existingUser] });
+    const res = await request(app).patch('/users/5').send({ is_active: false });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('forbidden');
+  });
+
+  it('allows a bootstrap-admin actor to deactivate a (non-bootstrap-admin) staff member', async () => {
+    const app = makeApp('super_admin', 1, true);
+    mockPool.query
+      .mockResolvedValueOnce({ rows: [existingUser] })   // SELECT existing
+      .mockResolvedValueOnce({ rows: [] })                // UPDATE
+      .mockResolvedValueOnce({ rows: [{ ...existingUser, is_active: false }] }) // SELECT updated
+      .mockResolvedValueOnce({ rows: [] });               // logAudit
+    const res = await request(app).patch('/users/5').send({ is_active: false });
+    expect(res.status).toBe(200);
+  });
 });
 
 // ── DELETE /users/:id ─────────────────────────────────────────────────────────
@@ -167,5 +186,12 @@ describe('DELETE /users/:id — soft delete', () => {
     mockPool.query.mockResolvedValueOnce({ rows: [{ id: 1, is_bootstrap_admin: true, name: 'Admin' }] });
     const res = await request(app).delete('/users/1');
     expect(res.status).toBe(403);
+  });
+
+  it('returns 403 when a non-bootstrap-admin actor tries to delete a staff member', async () => {
+    const app = makeApp('manager', 10, false);
+    const res = await request(app).delete('/users/5');
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('forbidden');
   });
 });

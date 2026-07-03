@@ -23,7 +23,28 @@ declare module 'express-serve-static-core' {
       microsoftId?: string | null;
       isAdmin: boolean;
       bootstrapAdmin: boolean;
+      /**
+       * The REAL bootstrap-admin flag, read from users.is_bootstrap_admin for this
+       * specific account (currently only Ron and Alex). Unlike `bootstrapAdmin` above
+       * (which is a role-based approximation — true for ANY admin/super_admin user),
+       * this is what route handlers must check before allowing bootstrap-admin-only
+       * actions such as deleting a position or deactivating a staff member.
+       */
+      isBootstrapAdmin: boolean;
     };
+  }
+}
+
+/** Look up the real is_bootstrap_admin flag for a user. Never throws — defaults to false. */
+async function fetchIsBootstrapAdmin(userId: number): Promise<boolean> {
+  try {
+    const { rows } = await pool.query(
+      `SELECT COALESCE(is_bootstrap_admin, FALSE) AS is_bootstrap_admin FROM yc_tkt_mgmt.users WHERE id = $1`,
+      [userId]
+    );
+    return !!rows[0]?.is_bootstrap_admin;
+  } catch {
+    return false;
   }
 }
 
@@ -55,6 +76,7 @@ function buildAuth(payload: AccessTokenPayload, session: { id: number; user_id: 
     microsoftId:    null,
     isAdmin,
     bootstrapAdmin: ['admin', 'super_admin'].includes(role.toLowerCase()),
+    isBootstrapAdmin: false, // placeholder — the caller overwrites this with the real DB value
   };
 }
 
@@ -85,7 +107,9 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       return res.status(401).json({ error: 'inactivity_timeout' });
     }
 
-    req.auth = buildAuth(payload, session);
+    const auth = buildAuth(payload, session);
+    auth.isBootstrapAdmin = await fetchIsBootstrapAdmin(session.user_id);
+    req.auth = auth;
     pool.query(`UPDATE yc_tkt_mgmt.sessions SET last_activity_at = NOW() WHERE id = $1`, [session.id]).catch(() => {});
     next();
   } catch (err) {
@@ -110,7 +134,9 @@ export async function optionalAuth(req: Request, res: Response, next: NextFuncti
     const inactiveFor = Date.now() - new Date(session.last_activity_at).getTime();
     if (inactiveFor > env.SESSION_INACTIVITY_TIMEOUT_MS) return next();
 
-    req.auth = buildAuth(payload, session);
+    const auth = buildAuth(payload, session);
+    auth.isBootstrapAdmin = await fetchIsBootstrapAdmin(session.user_id);
+    req.auth = auth;
     pool.query(`UPDATE yc_tkt_mgmt.sessions SET last_activity_at = NOW() WHERE id = $1`, [session.id]).catch(() => {});
   } catch { /* proceed unauthenticated */ }
   next();

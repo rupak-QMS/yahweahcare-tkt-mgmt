@@ -120,6 +120,9 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
     if (!target) return res.status(404).json({ error: 'not_found' });
     if (target.is_bootstrap_admin && 'is_active' in req.body && req.body.is_active === false)
       return res.status(403).json({ error: 'bootstrap_admin_deactivate_blocked', message: 'Bootstrap admins cannot be deactivated' });
+    // Deactivating a staff member is a bootstrap-admin-only action (Ron / Alex).
+    if ('is_active' in req.body && req.body.is_active === false && !req.auth?.isBootstrapAdmin)
+      return res.status(403).json({ error: 'forbidden', message: 'Only bootstrap admins can deactivate staff members' });
     // If email is being changed, enforce org-domain policy
     if ('email' in req.body && req.body.email) {
       const domainCheck = validateEmail(req.body.email.toString().trim());
@@ -200,6 +203,8 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
 // DELETE /users/:id — soft delete
 router.delete('/:id', requireAuth, async (req, res, next) => {
   try {
+    // Deleting/deactivating staff is a bootstrap-admin-only action (Ron / Alex).
+    if (!req.auth?.isBootstrapAdmin) return res.status(403).json({ error: 'forbidden', message: 'Only bootstrap admins can delete staff members' });
     const id = Number(req.params.id);
     const { rows } = await pool.query(`SELECT * FROM yc_tkt_mgmt.users WHERE id = $1`, [id]);
     if (!rows[0]) return res.status(404).json({ error: 'not_found' });

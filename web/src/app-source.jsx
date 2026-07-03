@@ -6637,6 +6637,8 @@
             const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E2E8F2';
             const textP   = dm ? '#f0f4ff' : '#0F172A';
             const textM   = dm ? '#8fa4cc' : '#64748B';
+            const sessionUser = React.useMemo(() => getSessionUser(), []);
+            const canDelete   = sessionUser?.isBootstrapAdmin === true; // only Ron / Alex can delete staff or positions
             const [staff,       setStaff]       = React.useState([]);
             const [departments, setDepts]        = React.useState([]);
             const [positions,   setPositions]    = React.useState([]);
@@ -6648,6 +6650,8 @@
             const [modalMode,   setModalMode]    = React.useState('add');
             const [selStaff,    setSelStaff]     = React.useState(null);
             const [delConfirm,  setDelConfirm]   = React.useState(null);
+            const [delPosConfirm, setDelPosConfirm] = React.useState(null);
+            const [posDeleteError, setPosDeleteError] = React.useState('');
             const [showPosModal,setShowPosModal] = React.useState(false);
             const [saving,      setSaving]       = React.useState(false);
             const [error,       setError]        = React.useState('');
@@ -6780,6 +6784,20 @@
                     setPosForm({ title:'', department_id:'', position_type:'staff', dept_label:'', parent_id:'' });
                     showToast('✅ Position created');
                 } catch(e) { setError(e.message); }
+            };
+
+            const handleDeletePosition = async () => {
+                if (!delPosConfirm) return;
+                setPosDeleteError('');
+                try {
+                    const res  = await authFetch(`${HRMS_API}/org/positions/${delPosConfirm.id}`, { method:'DELETE' });
+                    const data = await res.json().catch(()=>({}));
+                    if (!res.ok) throw new Error(data.message || data.error || 'Delete failed');
+                    setPositions(prev => prev.filter(p => p.id !== delPosConfirm.id));
+                    setForm(f => ({ ...f, position_ids: f.position_ids.filter(id => id !== delPosConfirm.id) }));
+                    setDelPosConfirm(null);
+                    showToast(`✅ ${data.message || 'Position deleted'}`);
+                } catch(e) { setPosDeleteError(e.message); }
             };
 
             const togglePos = (id) => setForm(f=>({
@@ -6917,10 +6935,10 @@
                                                             style={{padding:'5px 12px',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',border:'none',borderRadius:'6px',fontSize:'11px',fontWeight:'600',color:'#4338CA',cursor:'pointer'}}>
                                                             Edit
                                                         </button>
-                                                        {!m.is_bootstrap_admin && (
-                                                            <button onClick={()=>setDelConfirm(m)}
-                                                                style={{padding:'5px 12px',background:dm?'rgba(239,68,68,0.15)':'#FEF2F2',border:'none',borderRadius:'6px',fontSize:'11px',fontWeight:'600',color:dm?'#fca5a5':'#DC2626',cursor:'pointer'}}>
-                                                                Deactivate
+                                                        {!m.is_bootstrap_admin && canDelete && (
+                                                            <button onClick={()=>setDelConfirm(m)} title="Bootstrap Admin Only"
+                                                                style={{padding:'5px 12px',background:dm?'rgba(239,68,68,0.15)':'#FEF2F2',border:'none',borderRadius:'6px',fontSize:'11px',fontWeight:'600',color:dm?'#fca5a5':'#DC2626',cursor:'pointer',display:'inline-flex',alignItems:'center',gap:'4px'}}>
+                                                                <Icon name='trash-2' size={11} color={dm?'#fca5a5':'#DC2626'} />Delete
                                                             </button>
                                                         )}
                                                     </div>
@@ -7019,13 +7037,22 @@
                                                 {positions.length===0 ? (
                                                     <p style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',textAlign:'center',padding:'10px'}}>No positions found</p>
                                                 ) : positions.map(p=>(
-                                                    <label key={p.id} style={{display:'flex',alignItems:'center',gap:'8px',padding:'5px 6px',borderRadius:'6px',cursor:'pointer',background:form.position_ids.includes(p.id)?`${posTypeColor[p.position_type]||'#6366F1'}10`:'transparent'}}>
-                                                        <input type="checkbox" checked={form.position_ids.includes(p.id)} onChange={()=>togglePos(p.id)}/>
-                                                        <span style={{fontSize:'12px',color:dm?'#c0cfec':'#334155',flex:1}}>{p.title}</span>
+                                                    <div key={p.id} style={{display:'flex',alignItems:'center',gap:'8px',padding:'5px 6px',borderRadius:'6px',background:form.position_ids.includes(p.id)?`${posTypeColor[p.position_type]||'#6366F1'}10`:'transparent'}}>
+                                                        <label style={{display:'flex',alignItems:'center',gap:'8px',cursor:'pointer',flex:1,minWidth:0}}>
+                                                            <input type="checkbox" checked={form.position_ids.includes(p.id)} onChange={()=>togglePos(p.id)}/>
+                                                            <span style={{fontSize:'12px',color:dm?'#c0cfec':'#334155',flex:1}}>{p.title}</span>
+                                                        </label>
                                                         <span style={{fontSize:'10px',fontWeight:'600',color:posTypeColor[p.position_type]||'#6366F1',background:`${posTypeColor[p.position_type]||'#6366F1'}15`,padding:'1px 6px',borderRadius:'8px'}}>{p.position_type}</span>
                                                         {!p.is_vacant && <span style={{fontSize:'10px',color:'#15803D',background:'#DCFCE7',padding:'1px 6px',borderRadius:'8px'}}>Occupied</span>}
                                                         {p.is_vacant && <span style={{fontSize:'10px',color:'#DC2626',background:dm?'rgba(239,68,68,0.15)':'#FEF2F2',padding:'1px 6px',borderRadius:'8px'}}>Vacant</span>}
-                                                    </label>
+                                                        {canDelete && (
+                                                            <button type="button" title="Delete position (Bootstrap Admin Only)"
+                                                                onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); setPosDeleteError(''); setDelPosConfirm(p); }}
+                                                                style={{background:'none',border:'none',cursor:'pointer',padding:'2px',display:'flex',flexShrink:0}}>
+                                                                <Icon name='trash-2' size={12} color={dm?'#fca5a5':'#DC2626'} />
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 ))}
                                             </div>
                                             {form.position_ids.length>0 && (
@@ -7100,6 +7127,30 @@
                                 <div style={{padding:'12px 20px',borderTop:`1px solid ${dm?'rgba(99,102,241,0.10)':'#EEF2F8'}`,display:'flex',gap:'10px',justifyContent:'center',background:dm?'rgba(4,8,20,0.6)':'#F8FAFF'}}>
                                     <button onClick={()=>setDelConfirm(null)} style={{padding:'9px 20px',background:cardBg,border:`2px solid ${borderC}`,borderRadius:'8px',fontSize:'13px',fontWeight:'600',cursor:'pointer',color:dm?'#c0cfec':'#334155'}}>Cancel</button>
                                     <button onClick={handleDelete} style={{padding:'9px 20px',background:'#DC2626',color:'white',border:'none',borderRadius:'8px',fontSize:'13px',fontWeight:'700',cursor:'pointer'}}>Deactivate</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ── DELETE POSITION CONFIRM (Bootstrap Admin Only) ──────── */}
+                    {delPosConfirm && (
+                        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1200,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                            <div style={{background:cardBg,borderRadius:'14px',width:'420px',boxShadow:'0 20px 60px rgba(0,0,0,0.25)',overflow:'hidden'}}>
+                                <div style={{padding:'20px 24px',textAlign:'center'}}>
+                                    <div style={{display:'flex',justifyContent:'center',marginBottom:'12px'}}><Icon name='trash-2' size={36} color='#EF4444' /></div>
+                                    <h3 style={{fontSize:'16px',fontWeight:'700',color:textP,margin:'0 0 8px'}}>Delete Position?</h3>
+                                    <p style={{fontSize:'13px',color:textM,margin:'0 0 12px'}}>
+                                        <strong>{delPosConfirm.title}</strong> will be permanently removed from the Org Chart. This cannot be undone.
+                                    </p>
+                                    {posDeleteError && (
+                                        <div style={{fontSize:'12px',color:'#DC2626',background:dm?'rgba(239,68,68,0.12)':'#FEF2F2',padding:'8px',borderRadius:'6px',marginBottom:'4px',textAlign:'left',display:'flex',alignItems:'flex-start',gap:'6px'}}>
+                                            <Icon name='alert-triangle' size={12} color='#DC2626' style={{flexShrink:0,marginTop:'2px'}} />{posDeleteError}
+                                        </div>
+                                    )}
+                                </div>
+                                <div style={{padding:'12px 20px',borderTop:`1px solid ${dm?'rgba(99,102,241,0.10)':'#EEF2F8'}`,display:'flex',gap:'10px',justifyContent:'center',background:dm?'rgba(4,8,20,0.6)':'#F8FAFF'}}>
+                                    <button onClick={()=>{setDelPosConfirm(null); setPosDeleteError('');}} style={{padding:'9px 20px',background:cardBg,border:`2px solid ${borderC}`,borderRadius:'8px',fontSize:'13px',fontWeight:'600',cursor:'pointer',color:dm?'#c0cfec':'#334155'}}>Cancel</button>
+                                    <button onClick={handleDeletePosition} style={{padding:'9px 20px',background:'#DC2626',color:'white',border:'none',borderRadius:'8px',fontSize:'13px',fontWeight:'700',cursor:'pointer'}}>Delete Position</button>
                                 </div>
                             </div>
                         </div>
