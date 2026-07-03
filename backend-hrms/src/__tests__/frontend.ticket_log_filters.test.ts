@@ -7,15 +7,17 @@
 //   2. matchSearch             — title, ticketNumber, requesterName, assigneeName
 //   3. matchStatus             — normalisation, empty = all
 //   4. matchPriority           — by id (String coercion), by label, empty = all
-//   5. matchCategory           — same as priority
-//   6. matchAssignee           — exact name, empty = all
-//   7. matchFrom / matchTo     — date range lower and upper bounds
-//   8. Combined filters        — multiple active at once
-//   9. hasActiveFilters        — truthy/falsy detection
-//  10. clearFilters            — resets all to empty
-//  11. uniquePriorities        — deduplication from ticket list
-//  12. uniqueCategories        — deduplication from ticket list
-//  13. uniqueAssignees         — deduplication + alphabetical sort
+//   5. matchAssignee           — exact name, empty = all
+//   6. matchFrom / matchTo     — date range lower and upper bounds
+//   7. Combined filters        — multiple active at once
+//   8. hasActiveFilters        — truthy/falsy detection
+//   9. clearFilters            — resets all to empty
+//  10. uniquePriorities        — deduplication from ticket list
+//  11. uniqueAssignees         — deduplication + alphabetical sort
+//
+// NOTE: the Ticket Log category filter was intentionally removed on
+// 2026-06-12 (commit d9c158d — "was showing Care Coordination" bug) and
+// is NOT part of the current, stable feature set. No tests for it here.
 // ============================================================
 
 import * as fs from 'fs';
@@ -31,11 +33,6 @@ describe('index.html — Ticket Log filters (code integrity)', () => {
   it('priorityFilter state is declared', () => {
     expect(html).toContain('priorityFilter');
     expect(html).toContain('setPriorityFilter');
-  });
-
-  it('categoryFilter state is declared', () => {
-    expect(html).toContain('categoryFilter');
-    expect(html).toContain('setCategoryFilter');
   });
 
   it('assigneeFilter state is declared', () => {
@@ -58,10 +55,6 @@ describe('index.html — Ticket Log filters (code integrity)', () => {
     expect(html).toContain('uniquePriorities');
   });
 
-  it('uniqueCategories is computed via useMemo', () => {
-    expect(html).toContain('uniqueCategories');
-  });
-
   it('uniqueAssignees is computed via useMemo', () => {
     expect(html).toContain('uniqueAssignees');
   });
@@ -69,10 +62,6 @@ describe('index.html — Ticket Log filters (code integrity)', () => {
   // Filter logic in the filtered array
   it('matchPriority clause is present in filtered computation', () => {
     expect(html).toContain('matchPriority');
-  });
-
-  it('matchCategory clause is present in filtered computation', () => {
-    expect(html).toContain('matchCategory');
   });
 
   it('matchAssignee clause is present in filtered computation', () => {
@@ -90,10 +79,6 @@ describe('index.html — Ticket Log filters (code integrity)', () => {
   // UI elements
   it('"All Priorities" option exists in priority dropdown', () => {
     expect(html).toContain('All Priorities');
-  });
-
-  it('"All Categories" option exists in category dropdown', () => {
-    expect(html).toContain('All Categories');
   });
 
   it('"All Assignees" option exists in assignee dropdown', () => {
@@ -120,9 +105,8 @@ describe('index.html — Ticket Log filters (code integrity)', () => {
   });
 
   it('active filter controls get blue border (#6366F1)', () => {
-    // At least priority, category, and date inputs should have this pattern
+    // At least priority and assignee inputs should have this pattern
     expect(html).toContain("priorityFilter?'#6366F1'");
-    expect(html).toContain("categoryFilter?'#6366F1'");
     expect(html).toContain("assigneeFilter?'#6366F1'");
   });
 
@@ -158,7 +142,7 @@ interface LogTicket {
 // Mirror the filter logic exactly as written in TicketLogPage
 function applyFilters(
   tickets: LogTicket[],
-  { search = '', statusFilter = '', priorityFilter = '', categoryFilter = '', assigneeFilter = '', dateFrom = '', dateTo = '' }
+  { search = '', statusFilter = '', priorityFilter = '', assigneeFilter = '', dateFrom = '', dateTo = '' }
 ): LogTicket[] {
   return tickets.filter(t => {
     const q = search.toLowerCase();
@@ -172,33 +156,21 @@ function applyFilters(
     const matchPriority = !priorityFilter
       || String(t.priority||'') === String(priorityFilter)
       || (t.priorityLabel||'').toLowerCase() === priorityFilter.toLowerCase();
-    const matchCategory = !categoryFilter
-      || String(t.category||'') === String(categoryFilter)
-      || (t.categoryLabel||'').toLowerCase() === categoryFilter.toLowerCase();
     const matchAssignee = !assigneeFilter
       || (t.assigneeName||'') === assigneeFilter;
     const createdMs = t.createdAt ? new Date(t.createdAt).getTime() : null;
     const matchFrom = !dateFrom || (createdMs !== null && createdMs >= new Date(dateFrom).getTime());
     const matchTo   = !dateTo   || (createdMs !== null && createdMs <= new Date(dateTo + 'T23:59:59').getTime());
-    return matchSearch && matchStatus && matchPriority && matchCategory && matchAssignee && matchFrom && matchTo;
+    return matchSearch && matchStatus && matchPriority && matchAssignee && matchFrom && matchTo;
   });
 }
 
-// Mirror uniquePriorities, uniqueCategories, uniqueAssignees derivations
+// Mirror uniquePriorities, uniqueAssignees derivations
 function deriveUniquePriorities(tickets: LogTicket[]) {
   const seen = new Map<string, number | string>();
   tickets.forEach(t => {
     if (t.priorityLabel && !seen.has(t.priorityLabel))
       seen.set(t.priorityLabel, t.priority || t.priorityLabel);
-  });
-  return [...seen.entries()].map(([label, val]) => ({ label, val }));
-}
-
-function deriveUniqueCategories(tickets: LogTicket[]) {
-  const seen = new Map<string, number | string>();
-  tickets.forEach(t => {
-    if (t.categoryLabel && !seen.has(t.categoryLabel))
-      seen.set(t.categoryLabel, t.category || t.categoryLabel);
   });
   return [...seen.entries()].map(([label, val]) => ({ label, val }));
 }
@@ -212,8 +184,8 @@ function deriveUniqueAssignees(tickets: LogTicket[]): string[] {
 }
 
 // Mirror hasActiveFilters
-function hasActiveFilters(filters: { search?: string; statusFilter?: string; priorityFilter?: string; categoryFilter?: string; assigneeFilter?: string; dateFrom?: string; dateTo?: string }): boolean {
-  return !!(filters.search || filters.statusFilter || filters.priorityFilter || filters.categoryFilter || filters.assigneeFilter || filters.dateFrom || filters.dateTo);
+function hasActiveFilters(filters: { search?: string; statusFilter?: string; priorityFilter?: string; assigneeFilter?: string; dateFrom?: string; dateTo?: string }): boolean {
+  return !!(filters.search || filters.statusFilter || filters.priorityFilter || filters.assigneeFilter || filters.dateFrom || filters.dateTo);
 }
 
 // Sample tickets
@@ -347,38 +319,7 @@ describe('matchPriority', () => {
   });
 });
 
-// ── 5. matchCategory ──────────────────────────────────────────────────────────
-
-describe('matchCategory', () => {
-  it('returns all tickets when categoryFilter is empty', () => {
-    expect(applyFilters(TICKETS, { categoryFilter: '' })).toHaveLength(5);
-  });
-
-  it('filters by category id', () => {
-    // category 1 = IT Support → 2 tickets
-    const r = applyFilters(TICKETS, { categoryFilter: '1' });
-    expect(r).toHaveLength(2);
-    r.forEach(t => expect(t.categoryLabel).toBe('IT Support'));
-  });
-
-  it('filters by category label (case-insensitive fallback)', () => {
-    const tickets = [{ ...TICKETS[1], category: null, categoryLabel: 'HR' }];
-    const r = applyFilters(tickets, { categoryFilter: 'HR' });
-    expect(r).toHaveLength(1);
-  });
-
-  it('category label match is case-insensitive', () => {
-    const tickets = [{ ...TICKETS[1], category: null, categoryLabel: 'HR' }];
-    const r = applyFilters(tickets, { categoryFilter: 'hr' });
-    expect(r).toHaveLength(1);
-  });
-
-  it('returns empty when category not present', () => {
-    expect(applyFilters(TICKETS, { categoryFilter: '999' })).toHaveLength(0);
-  });
-});
-
-// ── 6. matchAssignee ──────────────────────────────────────────────────────────
+// ── 5. matchAssignee ──────────────────────────────────────────────────────────
 
 describe('matchAssignee', () => {
   it('returns all tickets when assigneeFilter is empty', () => {
@@ -406,7 +347,7 @@ describe('matchAssignee', () => {
   });
 });
 
-// ── 7. matchFrom / matchTo ────────────────────────────────────────────────────
+// ── 6. matchFrom / matchTo ────────────────────────────────────────────────────
 
 describe('matchFrom (date range lower bound)', () => {
   it('returns all tickets when dateFrom is empty', () => {
@@ -481,7 +422,7 @@ describe('matchFrom + matchTo combined (date range)', () => {
   });
 });
 
-// ── 8. Combined filters ───────────────────────────────────────────────────────
+// ── 7. Combined filters ───────────────────────────────────────────────────────
 
 describe('combined filters', () => {
   it('search + status together narrow results', () => {
@@ -497,19 +438,18 @@ describe('combined filters', () => {
     expect(r[0].ticketNumber).toBe('TKT-000001');
   });
 
-  it('category + assignee together narrow results', () => {
-    // IT Support (1) + Bob Jones → 1 ticket (TKT-1)
-    const r = applyFilters(TICKETS, { categoryFilter: '1', assigneeFilter: 'Bob Jones' });
+  it('priority + assignee together narrow results', () => {
+    // Medium priority (2) + Bob Jones → 1 ticket (TKT-1)
+    const r = applyFilters(TICKETS, { priorityFilter: '2', assigneeFilter: 'Bob Jones' });
     expect(r).toHaveLength(1);
     expect(r[0].ticketNumber).toBe('TKT-000001');
   });
 
-  it('all five filters active simultaneously', () => {
+  it('all four filters active simultaneously', () => {
     const r = applyFilters(TICKETS, {
       search: 'printer',
       statusFilter: 'open',
       priorityFilter: '2',
-      categoryFilter: '1',
       assigneeFilter: 'Bob Jones',
     });
     expect(r).toHaveLength(1);
@@ -523,12 +463,12 @@ describe('combined filters', () => {
   });
 });
 
-// ── 9. hasActiveFilters ───────────────────────────────────────────────────────
+// ── 8. hasActiveFilters ───────────────────────────────────────────────────────
 
 describe('hasActiveFilters', () => {
   it('is false when all filters are empty strings', () => {
     expect(hasActiveFilters({})).toBe(false);
-    expect(hasActiveFilters({ search: '', statusFilter: '', priorityFilter: '', categoryFilter: '', assigneeFilter: '', dateFrom: '', dateTo: '' })).toBe(false);
+    expect(hasActiveFilters({ search: '', statusFilter: '', priorityFilter: '', assigneeFilter: '', dateFrom: '', dateTo: '' })).toBe(false);
   });
 
   it('is true when search is non-empty', () => {
@@ -541,10 +481,6 @@ describe('hasActiveFilters', () => {
 
   it('is true when priorityFilter is set', () => {
     expect(hasActiveFilters({ priorityFilter: '2' })).toBe(true);
-  });
-
-  it('is true when categoryFilter is set', () => {
-    expect(hasActiveFilters({ categoryFilter: '1' })).toBe(true);
   });
 
   it('is true when assigneeFilter is set', () => {
@@ -560,26 +496,26 @@ describe('hasActiveFilters', () => {
   });
 
   it('is true when any single filter is set among all empty', () => {
-    expect(hasActiveFilters({ search: '', statusFilter: 'open', priorityFilter: '', categoryFilter: '', assigneeFilter: '', dateFrom: '', dateTo: '' })).toBe(true);
+    expect(hasActiveFilters({ search: '', statusFilter: 'open', priorityFilter: '', assigneeFilter: '', dateFrom: '', dateTo: '' })).toBe(true);
   });
 });
 
-// ── 10. clearFilters ─────────────────────────────────────────────────────────
+// ── 9. clearFilters ─────────────────────────────────────────────────────────
 
 describe('clearFilters effect', () => {
   it('after clear, no filters are active', () => {
     // Simulate clear by resetting all to ''
-    const cleared = { search: '', statusFilter: '', priorityFilter: '', categoryFilter: '', assigneeFilter: '', dateFrom: '', dateTo: '' };
+    const cleared = { search: '', statusFilter: '', priorityFilter: '', assigneeFilter: '', dateFrom: '', dateTo: '' };
     expect(hasActiveFilters(cleared)).toBe(false);
   });
 
   it('after clear, all tickets are returned', () => {
-    const cleared = { search: '', statusFilter: '', priorityFilter: '', categoryFilter: '', assigneeFilter: '', dateFrom: '', dateTo: '' };
+    const cleared = { search: '', statusFilter: '', priorityFilter: '', assigneeFilter: '', dateFrom: '', dateTo: '' };
     expect(applyFilters(TICKETS, cleared)).toHaveLength(5);
   });
 });
 
-// ── 11. uniquePriorities ──────────────────────────────────────────────────────
+// ── 10. uniquePriorities ──────────────────────────────────────────────────────
 
 describe('uniquePriorities derivation', () => {
   it('returns one entry per unique priority label', () => {
@@ -624,42 +560,7 @@ describe('uniquePriorities derivation', () => {
   });
 });
 
-// ── 12. uniqueCategories ──────────────────────────────────────────────────────
-
-describe('uniqueCategories derivation', () => {
-  it('returns one entry per unique category label', () => {
-    // IT Support, HR, Facilities, Finance → 4 unique
-    expect(deriveUniqueCategories(TICKETS)).toHaveLength(4);
-  });
-
-  it('val is the category id when present', () => {
-    const opts = deriveUniqueCategories(TICKETS);
-    const it = opts.find(o => o.label === 'IT Support');
-    expect(it?.val).toBe(1);
-  });
-
-  it('val falls back to label when category id is null', () => {
-    const tickets: LogTicket[] = [{ category: null, categoryLabel: 'Custom Category' }];
-    const opts = deriveUniqueCategories(tickets);
-    expect(opts[0].val).toBe('Custom Category');
-  });
-
-  it('deduplicates — IT Support appears once despite two tickets', () => {
-    const its = deriveUniqueCategories(TICKETS).filter(o => o.label === 'IT Support');
-    expect(its).toHaveLength(1);
-  });
-
-  it('returns empty for empty ticket list', () => {
-    expect(deriveUniqueCategories([])).toHaveLength(0);
-  });
-
-  it('ignores tickets with null categoryLabel', () => {
-    const tickets: LogTicket[] = [{ category: 1, categoryLabel: null }];
-    expect(deriveUniqueCategories(tickets)).toHaveLength(0);
-  });
-});
-
-// ── 13. uniqueAssignees ───────────────────────────────────────────────────────
+// ── 11. uniqueAssignees ───────────────────────────────────────────────────────
 
 describe('uniqueAssignees derivation', () => {
   it('returns sorted unique assignee names', () => {
