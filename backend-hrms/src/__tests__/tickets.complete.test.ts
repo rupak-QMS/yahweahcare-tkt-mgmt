@@ -6,6 +6,29 @@
 import request from 'supertest';
 import express from 'express';
 import { pool } from '../db/pool';
+import { notify } from '../modules/notifications/notifications.service';
+import * as emailNotify from '../services/email/notification.service';
+
+// See tickets.approval.test.ts for why these are mocked: notify()/notifyTicketXxx()
+// now run (awaited) before the response is sent, so their internal pool.query()
+// calls would otherwise consume entries from this file's mockPool.query sequence.
+jest.mock('../modules/notifications/notifications.service', () => ({
+  notify: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('../services/email/notification.service', () => ({
+  notifyTicketCreated:       jest.fn().mockResolvedValue(undefined),
+  notifyResolutionSubmitted: jest.fn().mockResolvedValue(undefined),
+  notifyTicketApproved:      jest.fn().mockResolvedValue(undefined),
+  notifyTicketRejected:      jest.fn().mockResolvedValue(undefined),
+  notifyTicketClosed:        jest.fn().mockResolvedValue(undefined),
+  notifyTicketReopened:      jest.fn().mockResolvedValue(undefined),
+  notifyTicketEscalated:     jest.fn().mockResolvedValue(undefined),
+  notifyCommentAdded:        jest.fn().mockResolvedValue(undefined),
+  notifyAttachmentAdded:     jest.fn().mockResolvedValue(undefined),
+  notifyExtensionRequested:  jest.fn().mockResolvedValue(undefined),
+  notifyExtensionApproved:   jest.fn().mockResolvedValue(undefined),
+  notifyExtensionRejected:   jest.fn().mockResolvedValue(undefined),
+}));
 
 const mockPool = pool as any;
 
@@ -28,6 +51,24 @@ beforeAll(async () => {
   }
   require('../modules/tickets/tickets.routes');
   await new Promise(resolve => setImmediate(resolve));
+});
+
+// The complete/reject routes now also await getActorName()/getTicketDept()
+// and an extra ticket lookup as part of the notify block (moved before
+// res.json() so notifications reliably fire — see tickets.routes.ts). Give
+// pool.query a safe fallback for any call beyond the explicitly queued ones
+// below, instead of letting it return undefined (which would crash a raw,
+// un-try/caught destructure further down the same handler).
+beforeEach(() => {
+  mockPool.query.mockResolvedValue({ rows: [] });
+  // jest.config's resetMocks:true clears the .mockResolvedValue(undefined) set
+  // in the jest.mock() factories above before each test, so notify()/
+  // notifyTicketXxx() would otherwise return `undefined` instead of a Promise,
+  // making the route's `.catch(() => {})` on the result throw.
+  (notify as jest.Mock).mockResolvedValue(undefined);
+  Object.values(emailNotify).forEach((fn: any) => {
+    if (typeof fn?.mockResolvedValue === 'function') fn.mockResolvedValue(undefined);
+  });
 });
 
 const ticketRow = {

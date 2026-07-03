@@ -512,12 +512,15 @@ export async function notify(ev: NotifyEvent): Promise<void> {
       })
     );
 
-    // Email notifications — role-aware per-group sending
-    try {
-      if ('ticketId' in ev) {
-        await sendRoleAwareTicketEmails(ev as TicketEvent);
-      } else {
-        // User events: send to all recipients with a single generic email
+    // Email notifications for ticket events are handled by the separate
+    // queue-based pipeline (services/email/notification.service.ts →
+    // notifyTicketCreated/notifyTicketApproved/etc, called alongside notify()
+    // at each route). That pipeline has retry/backoff and is what the Email
+    // Config admin page reads from. Sending here too would duplicate every
+    // ticket email, so this function only sends email for user lifecycle
+    // events (which have no equivalent in the queue-based pipeline).
+    if (!('ticketId' in ev)) {
+      try {
         const { rows: emailRows } = await pool.query(
           `SELECT email FROM yc_tkt_mgmt.users WHERE id = ANY($1) AND is_active = TRUE AND email IS NOT NULL`,
           [recipients]
@@ -526,9 +529,9 @@ export async function notify(ev: NotifyEvent): Promise<void> {
         if (recipientEmails.length) {
           await sendUserEventEmail(ev as UserEvent, recipientEmails);
         }
+      } catch (emailErr) {
+        console.warn('[notify] email send error', emailErr);
       }
-    } catch (emailErr) {
-      console.warn('[notify] email send error', emailErr);
     }
 
   } catch (err) {

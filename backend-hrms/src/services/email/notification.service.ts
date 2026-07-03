@@ -28,8 +28,21 @@ interface UserRow {
 }
 
 async function getTicket(ticketId: number): Promise<TicketRow | null> {
+  // NOTE: the live schema's real column names are assigned_to/created_by/
+  // priority_id/category_id/due_date — not assignee_id/requester_id/
+  // priority/category/due_at. Every call to this function was throwing
+  // a "column does not exist" error (silently swallowed by each caller's
+  // try/catch), which is why no ticket-lifecycle email ever reached the
+  // notification_queue. Aliased here to match the TicketRow shape the
+  // rest of this file expects, without having to touch every call site.
   const { rows } = await pool.query<TicketRow>(
-    `SELECT id, title, assignee_id, requester_id, priority, category, due_at, status
+    `SELECT id, title,
+            assigned_to AS assignee_id,
+            created_by  AS requester_id,
+            priority_id AS priority,
+            category_id AS category,
+            due_date    AS due_at,
+            status
      FROM yc_tkt_mgmt.tickets WHERE id = $1`,
     [ticketId],
   );
@@ -42,6 +55,17 @@ async function getUser(userId: number): Promise<UserRow | null> {
     [userId],
   );
   return rows[0] ?? null;
+}
+
+async function getApprovers(ticketId: number): Promise<UserRow[]> {
+  const { rows } = await pool.query<UserRow>(
+    `SELECT u.id, u.name, u.email
+     FROM yc_tkt_mgmt.ticket_approvers ta
+     JOIN yc_tkt_mgmt.users u ON u.id = ta.approver_user_id
+     WHERE ta.ticket_id = $1`,
+    [ticketId],
+  );
+  return rows;
 }
 
 async function buildPayload(
@@ -74,25 +98,35 @@ async function buildPayload(
 
 // ── Notify helpers ────────────────────────────────────────────
 
-/** Filter out nulls and build recipient list */
-function recipients(...users: Array<UserRow | null>): Array<{ email: string; name: string }> {
-  return users
-    .filter((u): u is UserRow => u !== null && Boolean(u.email))
-    .map((u) => ({ email: u.email, name: u.name }));
+/** Filter out nulls, flatten arrays (e.g. approver lists), de-dupe by email, build recipient list */
+function recipients(...users: Array<UserRow | null | UserRow[]>): Array<{ email: string; name: string }> {
+  const flat = users.flatMap((u) => (Array.isArray(u) ? u : [u]));
+  const seen = new Set<string>();
+  const out: Array<{ email: string; name: string }> = [];
+  for (const u of flat) {
+    if (!u || !u.email || seen.has(u.email)) continue;
+    seen.add(u.email);
+    out.push({ email: u.email, name: u.name });
+  }
+  return out;
 }
 
 // ── Public API ────────────────────────────────────────────────
 
 /**
  * Call from ticket route after creating a ticket.
- * Notifies assignee (if set) and requester.
+ * Notifies the assignee and any approvers (matches the in-app/push
+ * recipient logic in notifications.service.ts's resolveRecipients()).
  */
 export async function notifyTicketCreated(ticketId: number, actorId: number): Promise<void> {
   try {
     const ticket = await getTicket(ticketId);
     if (!ticket) return;
-    const { payload, assignee, requester } = await buildPayload(ticket, actorId);
-    const rcpts = recipients(assignee, requester);
+    const [{ payload, assignee }, approvers] = await Promise.all([
+      buildPayload(ticket, actorId),
+      getApprovers(ticketId),
+    ]);
+    const rcpts = recipients(assignee, approvers);
     if (!rcpts.length) return;
     await enqueue({ eventType: 'ticket.created', recipients: rcpts, payload, ticketId });
   } catch (e) { console.error('[notify] ticket.created', e); }
@@ -119,14 +153,17 @@ export async function notifyTicketAssigned(
 
 /**
  * Called when assignee submits resolution (pending approval).
- * Notifies requester / manager.
+ * Notifies the approvers who need to review it, plus the requester.
  */
 export async function notifyResolutionSubmitted(ticketId: number, actorId: number): Promise<void> {
   try {
     const ticket = await getTicket(ticketId);
     if (!ticket) return;
-    const { payload, requester } = await buildPayload(ticket, actorId);
-    const rcpts = recipients(requester);
+    const [{ payload, requester }, approvers] = await Promise.all([
+      buildPayload(ticket, actorId),
+      getApprovers(ticketId),
+    ]);
+    const rcpts = recipients(requester, approvers);
     if (!rcpts.length) return;
     await enqueue({ eventType: 'ticket.resolution_submitted', recipients: rcpts, payload, ticketId });
   } catch (e) { console.error('[notify] ticket.resolution_submitted', e); }

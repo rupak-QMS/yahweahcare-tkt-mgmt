@@ -93,14 +93,17 @@ router.post('/', requireAuth, async (req, res, next) => {
       await pool.query(`INSERT INTO yc_tkt_mgmt.staff_positions (user_id, position_id, is_primary) VALUES ($1,$2,TRUE) ON CONFLICT DO NOTHING`, [rows[0].id, posId]);
     }
     if (req.auth) await logAudit({ userId: req.auth.userId, actorEmail: req.auth.email, action: 'user.create', module: 'users', targetType: 'user', targetId: rows[0].id, metadata: { email: rows[0].email }, req });
-    res.status(201).json({ user: rows[0] });
 
-    // Notify
-    notify({
+    // Notify (awaited before responding — Vercel serverless functions can
+    // freeze immediately after the response is sent, so fire-and-forget
+    // calls placed after res.json() are not guaranteed to run to completion)
+    await notify({
       type: 'user.created', targetUserId: rows[0].id, targetUserName: rows[0].name,
       actorId: req.auth?.userId ?? rows[0].id, actorName: req.auth?.email,
       deptId: rows[0].department_id ?? undefined,
     }).catch(() => {});
+
+    res.status(201).json({ user: rows[0] });
   } catch (err: unknown) {
     const e = err as { code?: string };
     if (e.code === '23505') return res.status(409).json({ error: 'duplicate_email', message: 'A user with this email already exists' });
@@ -171,9 +174,8 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
       `SELECT id, email, name, is_active, position_id, department_id, COALESCE(is_bootstrap_admin, FALSE) AS is_bootstrap_admin FROM yc_tkt_mgmt.users WHERE id=$1`, [id]
     );
     if (req.auth) await logAudit({ userId: req.auth.userId, actorEmail: req.auth.email, action: 'user.update', module: 'users', targetType: 'user', targetId: id, metadata: { changes: req.body }, req });
-    res.json({ user: updRows[0] });
 
-    // Notify if position changed
+    // Notify if position changed (awaited before responding — see note above)
     const positionChanged = 'position_id' in req.body || 'position_ids' in req.body;
     if (positionChanged) {
       // Get new position title
@@ -184,12 +186,14 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
         );
         posTitle = pRows[0]?.title || posTitle;
       } catch { /* ignore */ }
-      notify({
+      await notify({
         type: 'user.position_changed', targetUserId: id, targetUserName: target.name,
         actorId: req.auth?.userId ?? id, actorName: req.auth?.email,
         deptId: updRows[0]?.department_id ?? undefined, extra: posTitle,
       }).catch(() => {});
     }
+
+    res.json({ user: updRows[0] });
   } catch (err) { next(err); }
 });
 
@@ -212,14 +216,15 @@ router.delete('/:id', requireAuth, async (req, res, next) => {
       );
     }
     if (req.auth) await logAudit({ userId: req.auth.userId, actorEmail: req.auth.email, action: 'user.delete', module: 'users', targetType: 'user', targetId: id, req });
-    res.json({ ok: true, message: rows[0].name + ' has been deactivated. Their positions are now vacant.' });
 
-    // Notify
-    notify({
+    // Notify (awaited before responding — see note above)
+    await notify({
       type: 'user.deleted', targetUserId: id, targetUserName: rows[0].name,
       actorId: req.auth?.userId ?? id, actorName: req.auth?.email,
       deptId: rows[0].department_id ?? undefined,
     }).catch(() => {});
+
+    res.json({ ok: true, message: rows[0].name + ' has been deactivated. Their positions are now vacant.' });
   } catch (err) { next(err); }
 });
 

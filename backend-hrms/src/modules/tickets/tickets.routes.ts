@@ -664,18 +664,19 @@ router.post('/', requireAuth, async (req, res, next) => {
     );
     const t = dbTicket(rows[0]);
     t.approvers = apRows.map(dbApprover);
-    res.status(201).json({ ticket: t });
 
-    // Fire notifications (after response sent)
+    // Fire notifications BEFORE responding — Vercel serverless functions can
+    // freeze immediately after the response is sent, so fire-and-forget calls
+    // placed after res.json() are not guaranteed to run to completion.
     const actorName = await getActorName(actorId);
     const deptId    = await getTicketDept(actorId, resolvedAssignee ? Number(resolvedAssignee) : null);
-    notify({
+    await notify({
       type: 'ticket.created', ticketId, ticketTitle: resolvedTitle,
       actorId: actorId!, actorName, creatorId: actorId ?? undefined,
       assigneeId: resolvedAssignee ? Number(resolvedAssignee) : undefined,
       approverIds: resolvedApprovers, deptId,
     }).catch(() => {});
-    notifyTicketCreated(ticketId, actorId!).catch(() => {});
+    await notifyTicketCreated(ticketId, actorId!).catch(() => {});
     // If critical/urgent priority — fire extra notification to escalation chain
     try {
       const { rows: priLabel } = await pool.query(
@@ -683,7 +684,7 @@ router.post('/', requireAuth, async (req, res, next) => {
       );
       const label = (priLabel[0]?.label || '').toLowerCase();
       if (label === 'critical' || label === 'urgent') {
-        notify({
+        await notify({
           type: 'ticket.critical', ticketId, ticketTitle: resolvedTitle,
           actorId: actorId!, actorName, creatorId: actorId ?? undefined,
           assigneeId: resolvedAssignee ? Number(resolvedAssignee) : undefined,
@@ -691,6 +692,8 @@ router.post('/', requireAuth, async (req, res, next) => {
         }).catch(() => {});
       }
     } catch (_) {}
+
+    res.status(201).json({ ticket: t });
   } catch (err) { next(err); }
 });
 
@@ -759,21 +762,22 @@ router.post('/:id/complete', requireAuth, async (req, res, next) => {
     );
 
     await logAudit({ userId: actorId ?? undefined, actorEmail: req.auth?.email, action: 'ticket.complete', module: 'tickets', targetType: 'ticket', targetId: id, metadata: {}, req });
-    res.json({ ticket: dbTicket(rows[0]) });
 
-    // Notify
+    // Notify (awaited before responding — see note above)
     const actorName = await getActorName(actorId);
     const deptId    = await getTicketDept(tRows[0].created_by, tRows[0].assigned_to);
     const { rows: apIdsC } = await pool.query(
       `SELECT approver_user_id FROM yc_tkt_mgmt.ticket_approvers WHERE ticket_id=$1`, [id]
     );
-    notify({
+    await notify({
       type: 'ticket.completed', ticketId: id, ticketTitle: tRows[0].title,
       actorId: actorId!, actorName, creatorId: tRows[0].created_by ?? undefined,
       assigneeId: tRows[0].assigned_to ?? undefined,
       approverIds: apIdsC.map(r => r.approver_user_id), deptId,
     }).catch(() => {});
-    notifyResolutionSubmitted(id, actorId!).catch(() => {});
+    await notifyResolutionSubmitted(id, actorId!).catch(() => {});
+
+    res.json({ ticket: dbTicket(rows[0]) });
   } catch (err) { next(err); }
 });
 
@@ -849,18 +853,19 @@ router.post('/:id/approve', requireAuth, async (req, res, next) => {
     const t = dbTicket(ticket);
     t.approvers = allAp.map(dbApprover);
     await logAudit({ userId, actorEmail: req.auth?.email, action: 'ticket.approve', module: 'tickets', targetType: 'ticket', targetId: id, metadata: {}, req });
-    res.json({ ticket: t });
 
-    // Notify
+    // Notify (awaited before responding — see note above)
     const actorName2 = await getActorName(userId);
     const { rows: tInfo2 } = await pool.query(`SELECT title, created_by, assigned_to FROM yc_tkt_mgmt.tickets WHERE id=$1`, [id]);
     const deptId2 = await getTicketDept(tInfo2[0]?.created_by, tInfo2[0]?.assigned_to);
-    notify({
+    await notify({
       type: 'ticket.approved', ticketId: id, ticketTitle: tInfo2[0]?.title ?? `Ticket #${id}`,
       actorId: userId, actorName: actorName2, creatorId: tInfo2[0]?.created_by ?? undefined,
       assigneeId: tInfo2[0]?.assigned_to ?? undefined, deptId: deptId2,
     }).catch(() => {});
-    notifyTicketApproved(id, userId, acceptanceNote ?? undefined).catch(() => {});
+    await notifyTicketApproved(id, userId, acceptanceNote ?? undefined).catch(() => {});
+
+    res.json({ ticket: t });
   } catch (err) { next(err); }
 });
 
@@ -923,18 +928,19 @@ router.post('/:id/reject', requireAuth, async (req, res, next) => {
     const t = dbTicket(rows[0]);
     t.approvers = allAp.map(dbApprover);
     await logAudit({ userId, actorEmail: req.auth?.email, action: 'ticket.reject', module: 'tickets', targetType: 'ticket', targetId: id, metadata: { justification }, req });
-    res.json({ ticket: t });
 
-    // Notify
+    // Notify (awaited before responding — see note above)
     const actorName3 = await getActorName(userId);
     const { rows: tInfo3 } = await pool.query(`SELECT title, created_by, assigned_to FROM yc_tkt_mgmt.tickets WHERE id=$1`, [id]);
     const deptId3 = await getTicketDept(tInfo3[0]?.created_by, tInfo3[0]?.assigned_to);
-    notify({
+    await notify({
       type: 'ticket.rejected', ticketId: id, ticketTitle: tInfo3[0]?.title ?? `Ticket #${id}`,
       actorId: userId, actorName: actorName3, creatorId: tInfo3[0]?.created_by ?? undefined,
       assigneeId: tInfo3[0]?.assigned_to ?? undefined, deptId: deptId3,
     }).catch(() => {});
-    notifyTicketRejected(id, userId, justification).catch(() => {});
+    await notifyTicketRejected(id, userId, justification).catch(() => {});
+
+    res.json({ ticket: t });
   } catch (err) { next(err); }
 });
 
@@ -1002,18 +1008,19 @@ router.post('/:id/reopen', requireAuth, async (req, res, next) => {
     t.approvers = allAp.map(dbApprover);
 
     await logAudit({ userId, actorEmail: req.auth?.email, action: 'ticket.reopen', module: 'tickets', targetType: 'ticket', targetId: id, metadata: { justification }, req });
-    res.json({ ticket: t });
 
-    // Notify — ticket is sent back to assignee for rework
+    // Notify (awaited before responding — see note above) — ticket is sent back to assignee for rework
     const actorNameR = await getActorName(userId);
     const { rows: tInfoR } = await pool.query(`SELECT title, created_by, assigned_to FROM yc_tkt_mgmt.tickets WHERE id=$1`, [id]);
     const deptIdR = await getTicketDept(tInfoR[0]?.created_by, tInfoR[0]?.assigned_to);
-    notify({
+    await notify({
       type: 'ticket.reopened', ticketId: id, ticketTitle: tInfoR[0]?.title ?? `Ticket #${id}`,
       actorId: userId, actorName: actorNameR, creatorId: tInfoR[0]?.created_by ?? undefined,
       assigneeId: tInfoR[0]?.assigned_to ?? undefined, deptId: deptIdR,
     }).catch(() => {});
-    notifyTicketReopened(id, userId, justification).catch(() => {});
+    await notifyTicketReopened(id, userId, justification).catch(() => {});
+
+    res.json({ ticket: t });
   } catch (err) { next(err); }
 });
 
@@ -1064,15 +1071,17 @@ router.post('/:id/close', requireAuth, async (req, res, next) => {
     t.approvers = allAp.map(dbApprover);
 
     await logAudit({ userId, actorEmail: req.auth?.email, action: 'ticket.close', module: 'tickets', targetType: 'ticket', targetId: id, metadata: { title: tRows[0].title }, req });
-    res.json({ ticket: t });
 
+    // Notify (awaited before responding — see note above)
     const deptIdC = await getTicketDept(tRows[0].created_by, tRows[0].assigned_to);
-    notify({
+    await notify({
       type: 'ticket.closed', ticketId: id, ticketTitle: tRows[0].title,
       actorId: userId, actorName: closerName, creatorId: tRows[0].created_by ?? undefined,
       assigneeId: tRows[0].assigned_to ?? undefined, deptId: deptIdC,
     }).catch(() => {});
-    notifyTicketClosed(id, userId).catch(() => {});
+    await notifyTicketClosed(id, userId).catch(() => {});
+
+    res.json({ ticket: t });
   } catch (err) { next(err); }
 });
 
@@ -1188,29 +1197,30 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
     await Promise.all(activityInserts);
 
     await logAudit({ userId: actorId ?? undefined, actorEmail: req.auth?.email, action: 'ticket.update', module: 'tickets', targetType: 'ticket', targetId: id, metadata: req.body, req });
-    res.json({ ticket: dbTicket(rows[0]) });
 
-    // Notify on assignee change (ticket.assigned → new assignee)
+    // Notify on assignee change (ticket.assigned → new assignee) — awaited before responding
     if ('assigneeId' in req.body && req.body.assigneeId && req.body.assigneeId !== old.assigned_to) {
       const actorNameA = await getActorName(actorId);
       const deptIdA    = await getTicketDept(old.created_by, req.body.assigneeId);
-      notify({
+      await notify({
         type: 'ticket.assigned', ticketId: id, ticketTitle: (old.title as string),
         actorId: actorId!, actorName: actorNameA,
         assigneeId: Number(req.body.assigneeId), deptId: deptIdA,
       }).catch(() => {});
     }
 
-    // Notify on status change only
+    // Notify on status change only — awaited before responding
     if ('status' in req.body && req.body.status !== old.status) {
       const actorNameU = await getActorName(actorId);
       const deptIdU    = await getTicketDept(old.created_by, old.assigned_to);
-      notify({
+      await notify({
         type: 'ticket.status_changed', ticketId: id, ticketTitle: (old.title as string),
         actorId: actorId!, actorName: actorNameU, extra: req.body.status,
         creatorId: old.created_by ?? undefined, assigneeId: old.assigned_to ?? undefined, deptId: deptIdU,
       }).catch(() => {});
     }
+
+    res.json({ ticket: dbTicket(rows[0]) });
   } catch (err) { next(err); }
 });
 
@@ -1287,17 +1297,19 @@ router.post('/:id/request-extension', requireAuth, async (req, res, next) => {
     );
     const t = dbTicket(rows[0]);
     t.approvers = allAp.map(dbApprover);
-    res.json({ ticket: t });
 
+    // Notify (awaited before responding — see note above)
     const actorName = await getActorName(actorId);
     const deptId    = await getTicketDept(tRows[0].created_by, tRows[0].assigned_to);
-    notify({
+    await notify({
       type: 'ticket.extension_requested', ticketId: id, ticketTitle: tRows[0].title,
       actorId: actorId!, actorName, creatorId: tRows[0].created_by ?? undefined,
       assigneeId: tRows[0].assigned_to ?? undefined,
       approverIds: allAp.map(r => r.approver_user_id), deptId, extra: newDueDate,
     }).catch(() => {});
-    notifyExtensionRequested(id, actorId!, newDueDate, note?.trim()).catch(() => {});
+    await notifyExtensionRequested(id, actorId!, newDueDate, note?.trim()).catch(() => {});
+
+    res.json({ ticket: t });
   } catch (err) { next(err); }
 });
 
@@ -1359,12 +1371,12 @@ router.post('/:id/respond-extension', requireAuth, async (req, res, next) => {
     );
     const t = dbTicket(rows[0]);
     t.approvers = allAp.map(dbApprover);
-    res.json({ ticket: t });
 
+    // Notify (awaited before responding — see note above)
     const actorName = await getActorName(actorId);
     const deptId    = await getTicketDept(tRows[0].created_by, tRows[0].assigned_to);
     const evType = action === 'approve' ? 'ticket.extension_approved' : 'ticket.extension_denied';
-    notify({
+    await notify({
       type: evType, ticketId: id, ticketTitle: tRows[0].title,
       actorId: actorId!, actorName, creatorId: tRows[0].created_by ?? undefined,
       assigneeId: tRows[0].assigned_to ?? undefined,
@@ -1372,10 +1384,12 @@ router.post('/:id/respond-extension', requireAuth, async (req, res, next) => {
       extra: action === 'approve' ? tRows[0].extension_requested_due : undefined,
     }).catch(() => {});
     if (action === 'approve') {
-      notifyExtensionApproved(id, actorId!, tRows[0].extension_requested_due).catch(() => {});
+      await notifyExtensionApproved(id, actorId!, tRows[0].extension_requested_due).catch(() => {});
     } else {
-      notifyExtensionRejected(id, actorId!, note?.trim()).catch(() => {});
+      await notifyExtensionRejected(id, actorId!, note?.trim()).catch(() => {});
     }
+
+    res.json({ ticket: t });
   } catch (err) { next(err); }
 });
 
@@ -1454,17 +1468,18 @@ router.post('/:id/escalate', requireAuth, async (req, res, next) => {
     const t = dbTicket(rows[0]) as ReturnType<typeof dbTicket> & { escalations: unknown[] };
     t.approvers = apRows.map(dbApprover);
     t.escalations = escRows;
-    res.json({ ticket: t });
 
-    // Notify
+    // Notify (awaited before responding — see note above)
     const actorNameE = await getActorName(userId);
     const deptIdE    = await getTicketDept(tRows[0].created_by, escalateToUserId);
-    notify({
+    await notify({
       type: 'ticket.escalated', ticketId: id, ticketTitle: tRows[0].title,
       actorId: userId, actorName: actorNameE, creatorId: tRows[0].created_by ?? undefined,
       assigneeId: escalateToUserId, deptId: deptIdE,
     }).catch(() => {});
-    notifyTicketEscalated(id, userId, reason?.trim()).catch(() => {});
+    await notifyTicketEscalated(id, userId, reason?.trim()).catch(() => {});
+
+    res.json({ ticket: t });
   } catch (err) { next(err); }
 });
 
@@ -1522,8 +1537,10 @@ router.post('/:id/attachments', requireAuth, async (req, res, next) => {
     );
 
     const t = dbTicket(rows[0]);
+    // Notify (awaited before responding — see note above)
+    await notifyAttachmentAdded(ticketId, actorId!, sanitised.map(a => a.name)).catch(() => {});
+
     res.json({ ticket: t, attachments: t.attachments });
-    notifyAttachmentAdded(ticketId, actorId!, sanitised.map(a => a.name)).catch(() => {});
   } catch (err) { next(err); }
 });
 
@@ -1564,8 +1581,10 @@ router.post('/:id/comments', requireAuth, async (req, res, next) => {
       `INSERT INTO yc_tkt_mgmt.activity (ticket_id, user_id, action) VALUES ($1,$2,'commented')`,
       [ticketId, actorId]
     );
+    // Notify (awaited before responding — see note above)
+    await notifyCommentAdded(ticketId, actorId!, body.trim()).catch(() => {});
+
     res.status(201).json({ comment: dbComment(rows[0]) });
-    notifyCommentAdded(ticketId, actorId!, body.trim()).catch(() => {});
   } catch (err) { next(err); }
 });
 

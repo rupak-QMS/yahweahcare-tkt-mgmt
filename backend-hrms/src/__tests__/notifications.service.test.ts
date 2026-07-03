@@ -362,19 +362,13 @@ describe('resolveRecipients() via notify()', () => {
 // ────────────────────────────────────────────────────────────────────────────
 
 describe('email dispatch via notify()', () => {
-  it('calls sendTicketEventEmailToRole with recipient emails for ticket events', async () => {
-    mockSendTicketEmailToRole.mockResolvedValueOnce(undefined);
-    // assigneeId=99 → 1 recipient, email fetched
-    mockPool.query
-      .mockResolvedValueOnce(OK)
-      .mockResolvedValueOnce({ rows: [{ email: 'assignee@test.com' }] });
+  it('does NOT call sendTicketEventEmailToRole for ticket events — that pipeline is now owned by services/email/notification.service.ts (queue+retry), to avoid every ticket event sending two emails', async () => {
+    // assigneeId=99 → 1 recipient (push/in-app insert only, no email path here)
+    mockPool.query.mockResolvedValueOnce(OK);
     const ev: TicketEvent = { type: 'ticket.created', ticketId: 1, ticketTitle: 'T', actorId: 1, assigneeId: 99 };
     await notify(ev);
-    expect(mockSendTicketEmailToRole).toHaveBeenCalledTimes(1);
+    expect(mockSendTicketEmailToRole).not.toHaveBeenCalled();
     expect(mockSendUserEmail).not.toHaveBeenCalled();
-    const [, emails, role] = mockSendTicketEmailToRole.mock.calls[0];
-    expect(emails).toContain('assignee@test.com');
-    expect(role).toBe('assignee');
   });
 
   it('calls sendUserEventEmail for user events', async () => {

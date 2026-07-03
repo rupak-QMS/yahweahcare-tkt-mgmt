@@ -8,6 +8,33 @@
 import request from 'supertest';
 import express from 'express';
 import { pool } from '../db/pool';
+import { notify } from '../modules/notifications/notifications.service';
+import * as emailNotify from '../services/email/notification.service';
+
+// The route handlers now await notify()/notifyTicketXxx() BEFORE sending the
+// response (previously they fired-and-forgot after res.json(), which meant
+// they silently never ran to completion on Vercel's serverless runtime).
+// These tests exercise the ticket-approval business logic, not notification
+// delivery, so the notification modules are mocked out here — otherwise
+// their internal pool.query() calls would consume entries from this file's
+// hand-crafted mockPool.query sequence meant for the approval flow itself.
+jest.mock('../modules/notifications/notifications.service', () => ({
+  notify: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('../services/email/notification.service', () => ({
+  notifyTicketCreated:       jest.fn().mockResolvedValue(undefined),
+  notifyResolutionSubmitted: jest.fn().mockResolvedValue(undefined),
+  notifyTicketApproved:      jest.fn().mockResolvedValue(undefined),
+  notifyTicketRejected:      jest.fn().mockResolvedValue(undefined),
+  notifyTicketClosed:        jest.fn().mockResolvedValue(undefined),
+  notifyTicketReopened:      jest.fn().mockResolvedValue(undefined),
+  notifyTicketEscalated:     jest.fn().mockResolvedValue(undefined),
+  notifyCommentAdded:        jest.fn().mockResolvedValue(undefined),
+  notifyAttachmentAdded:     jest.fn().mockResolvedValue(undefined),
+  notifyExtensionRequested:  jest.fn().mockResolvedValue(undefined),
+  notifyExtensionApproved:   jest.fn().mockResolvedValue(undefined),
+  notifyExtensionRejected:   jest.fn().mockResolvedValue(undefined),
+}));
 
 const mockPool = pool as any;
 
@@ -30,6 +57,27 @@ beforeAll(async () => {
   }
   require('../modules/tickets/tickets.routes');
   await new Promise(resolve => setImmediate(resolve));
+});
+
+// The approve route now also awaits getActorName()/getTicketDept() and an
+// extra ticket lookup as part of the notify block (moved before res.json()
+// so notifications reliably fire — see tickets.routes.ts). Those calls sit
+// after every mockResolvedValueOnce() sequence below and are irrelevant to
+// what each test actually asserts, so give pool.query a safe fallback for
+// any call beyond the explicitly queued ones instead of letting it return
+// undefined (which would crash a raw, un-try/caught destructure).
+// jest.config's resetMocks:true clears every mock's implementation (including
+// the .mockResolvedValue(undefined) set in the jest.mock() factories above)
+// before each test. Without re-applying it here, notify()/notifyTicketXxx()
+// return `undefined` instead of a Promise, so the route's `.catch(() => {})`
+// on the result throws "Cannot read properties of undefined (reading 'catch')".
+beforeEach(() => {
+  const mockPool = pool as any;
+  mockPool.query.mockResolvedValue({ rows: [] });
+  (notify as jest.Mock).mockResolvedValue(undefined);
+  Object.values(emailNotify).forEach((fn: any) => {
+    if (typeof fn?.mockResolvedValue === 'function') fn.mockResolvedValue(undefined);
+  });
 });
 
 const baseTicketRow = {
