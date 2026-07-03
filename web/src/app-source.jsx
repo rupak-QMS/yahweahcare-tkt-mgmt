@@ -6837,8 +6837,8 @@
                             </div>
                             <div style={{display:'flex',gap:'10px'}}>
                                 <button onClick={()=>setShowPosModal(true)}
-                                    style={{padding:'9px 16px',background:cardBg,border:`2px solid ${borderC}`,borderRadius:'10px',fontSize:'13px',fontWeight:'600',color:'#4338CA',cursor:'pointer'}}>
-                                    + New Position
+                                    style={{padding:'9px 16px',background:cardBg,border:`2px solid ${borderC}`,borderRadius:'10px',fontSize:'13px',fontWeight:'600',color:'#4338CA',cursor:'pointer',display:'inline-flex',alignItems:'center',gap:'6px'}}>
+                                    <Icon name='tag' size={13} color='#4338CA' />{canDelete ? 'Manage Positions' : '+ New Position'}
                                 </button>
                                 <button onClick={openAdd}
                                     style={{padding:'9px 18px',background:'linear-gradient(135deg,#6366F1,#7C3AED)',color:'white',border:'none',borderRadius:'10px',fontSize:'13px',fontWeight:'700',cursor:'pointer',boxShadow:'0 3px 12px rgba(99,102,241,0.35)'}}>
@@ -7073,37 +7073,65 @@
                         </div>
                     )}
 
-                    {/* ── NEW POSITION MODAL ────────────────────────────────── */}
+                    {/* ── MANAGE POSITIONS MODAL (create + delete) ───────────── */}
                     {showPosModal && (
                         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1100,display:'flex',alignItems:'center',justifyContent:'center',padding:'20px'}}>
-                            <div style={{background:cardBg,borderRadius:'14px',width:'100%',maxWidth:'440px',boxShadow:'0 20px 60px rgba(0,0,0,0.25)'}}>
-                                <div style={{padding:'16px 20px',borderBottom:`1px solid ${borderC}`,background:'linear-gradient(135deg,#6366F1,#7C3AED)',borderRadius:'14px 14px 0 0',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                                    <h3 style={{fontSize:'14px',fontWeight:'700',color:'white',margin:0,display:'flex',alignItems:'center',gap:'6px'}}><Icon name='tag' size={14} color='white' />Create New Position</h3>
+                            <div style={{background:cardBg,borderRadius:'14px',width:'100%',maxWidth:'480px',maxHeight:'85vh',display:'flex',flexDirection:'column',boxShadow:'0 20px 60px rgba(0,0,0,0.25)'}}>
+                                <div style={{padding:'16px 20px',borderBottom:`1px solid ${borderC}`,background:'linear-gradient(135deg,#6366F1,#7C3AED)',borderRadius:'14px 14px 0 0',display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0}}>
+                                    <h3 style={{fontSize:'14px',fontWeight:'700',color:'white',margin:0,display:'flex',alignItems:'center',gap:'6px'}}><Icon name='tag' size={14} color='white' />Manage Positions</h3>
                                     <button onClick={()=>setShowPosModal(false)} style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',borderRadius:'50%',width:'26px',height:'26px',cursor:'pointer'}}>✕</button>
                                 </div>
-                                <div style={{padding:'16px 20px',display:'grid',gap:'12px'}}>
-                                    <div>
-                                        <label style={labelStyle}>Position Title <span style={{color:'#DC2626'}}>*</span></label>
-                                        <input style={inputStyle} value={posForm.title} onChange={e=>setPosForm(f=>({...f,title:e.target.value}))} placeholder="e.g. Community Support Worker" autoFocus/>
+                                <div style={{padding:'16px 20px',overflow:'auto',flex:1}}>
+                                    <p style={{fontSize:'11px',fontWeight:'800',color:dm?'#818cf8':'#4F46E5',textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 10px'}}>Create New Position</p>
+                                    <div style={{display:'grid',gap:'12px',marginBottom:'20px'}}>
+                                        <div>
+                                            <label style={labelStyle}>Position Title <span style={{color:'#DC2626'}}>*</span></label>
+                                            <input style={inputStyle} value={posForm.title} onChange={e=>setPosForm(f=>({...f,title:e.target.value}))} placeholder="e.g. Community Support Worker" autoFocus/>
+                                        </div>
+                                        <div>
+                                            <label style={labelStyle}>Department</label>
+                                            <select style={inputStyle} value={posForm.department_id} onChange={e=>setPosForm(f=>({...f,department_id:e.target.value}))}>
+                                                <option value="">— Select —</option>
+                                                {departments.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label style={labelStyle}>Reports To (Parent Position)</label>
+                                            <select style={inputStyle} value={posForm.parent_id} onChange={e=>setPosForm(f=>({...f,parent_id:e.target.value}))}>
+                                                <option value="">— Root / Top Level —</option>
+                                                {positions.map(p=><option key={p.id} value={p.id}>{p.title}</option>)}
+                                            </select>
+                                        </div>
+                                        <button onClick={handleAddPosition} style={{padding:'9px 16px',background:'linear-gradient(135deg,#6366F1,#7C3AED)',color:'white',border:'none',borderRadius:'8px',fontSize:'12px',fontWeight:'700',cursor:'pointer'}}>+ Create Position</button>
                                     </div>
-                                    <div>
-                                        <label style={labelStyle}>Department</label>
-                                        <select style={inputStyle} value={posForm.department_id} onChange={e=>setPosForm(f=>({...f,department_id:e.target.value}))}>
-                                            <option value="">— Select —</option>
-                                            {departments.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label style={labelStyle}>Reports To (Parent Position)</label>
-                                        <select style={inputStyle} value={posForm.parent_id} onChange={e=>setPosForm(f=>({...f,parent_id:e.target.value}))}>
-                                            <option value="">— Root / Top Level —</option>
-                                            {positions.map(p=><option key={p.id} value={p.id}>{p.title}</option>)}
-                                        </select>
+
+                                    <div style={{borderTop:`1px solid ${borderC}`,paddingTop:'14px'}}>
+                                        <p style={{fontSize:'11px',fontWeight:'800',color:dm?'#c0cfec':'#334155',textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 8px'}}>
+                                            Existing Positions ({positions.length}){!canDelete && <span style={{fontWeight:'500',textTransform:'none',letterSpacing:0}}> — deleting is Bootstrap Admin only</span>}
+                                        </p>
+                                        <div style={{border:`1.5px solid ${borderC}`,borderRadius:'8px',maxHeight:'220px',overflow:'auto'}}>
+                                            {positions.length===0 ? (
+                                                <p style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',textAlign:'center',padding:'14px'}}>No positions found</p>
+                                            ) : positions.map(p=>(
+                                                <div key={p.id} style={{display:'flex',alignItems:'center',gap:'8px',padding:'7px 10px',borderBottom:`1px solid ${borderC}`}}>
+                                                    <span style={{fontSize:'12px',color:dm?'#c0cfec':'#334155',flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.title}</span>
+                                                    <span style={{fontSize:'10px',fontWeight:'600',color:posTypeColor[p.position_type]||'#6366F1',background:`${posTypeColor[p.position_type]||'#6366F1'}15`,padding:'1px 6px',borderRadius:'8px',flexShrink:0}}>{p.position_type}</span>
+                                                    {!p.is_vacant && <span style={{fontSize:'10px',color:'#15803D',background:'#DCFCE7',padding:'1px 6px',borderRadius:'8px',flexShrink:0}}>Occupied</span>}
+                                                    {p.is_vacant && <span style={{fontSize:'10px',color:'#DC2626',background:dm?'rgba(239,68,68,0.15)':'#FEF2F2',padding:'1px 6px',borderRadius:'8px',flexShrink:0}}>Vacant</span>}
+                                                    {canDelete && (
+                                                        <button type="button" title="Delete position (Bootstrap Admin Only)"
+                                                            onClick={()=>{ setPosDeleteError(''); setDelPosConfirm(p); }}
+                                                            style={{background:'none',border:'none',cursor:'pointer',padding:'2px',display:'flex',flexShrink:0}}>
+                                                            <Icon name='trash-2' size={12} color={dm?'#fca5a5':'#DC2626'} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
-                                <div style={{padding:'12px 20px',borderTop:'1px solid #E0E7FF',display:'flex',justifyContent:'flex-end',gap:'8px',background:'#F8F9FF',borderRadius:'0 0 14px 14px'}}>
-                                    <button onClick={()=>setShowPosModal(false)} style={{padding:'8px 14px',background:cardBg,border:`2px solid ${borderC}`,borderRadius:'8px',fontSize:'12px',fontWeight:'600',color:textM,cursor:'pointer'}}>Cancel</button>
-                                    <button onClick={handleAddPosition} style={{padding:'8px 16px',background:'linear-gradient(135deg,#6366F1,#7C3AED)',color:'white',border:'none',borderRadius:'8px',fontSize:'12px',fontWeight:'700',cursor:'pointer'}}>Create Position</button>
+                                <div style={{padding:'12px 20px',borderTop:`1px solid ${borderC}`,display:'flex',justifyContent:'flex-end',gap:'8px',background:dm?'rgba(4,8,20,0.6)':'#F8F9FF',borderRadius:'0 0 14px 14px',flexShrink:0}}>
+                                    <button onClick={()=>setShowPosModal(false)} style={{padding:'8px 16px',background:cardBg,border:`2px solid ${borderC}`,borderRadius:'8px',fontSize:'12px',fontWeight:'600',color:textM,cursor:'pointer'}}>Close</button>
                                 </div>
                             </div>
                         </div>
