@@ -5113,18 +5113,18 @@
                         const tickets  = (ticketsRes.ok ? await ticketsRes.json() : { tickets: [] }).tickets || [];
                         const now = Date.now();
 
-                        // Exclude director-level users from team comparison
+                        // Exclude director-level users and users without a department from team comparison
                         const isDirector = u => Array.isArray(u.positions)
                             ? u.positions.some(p => (p.type||p.position_type||'').toLowerCase() === 'director')
                             : (u.position_type||'').toLowerCase() === 'director';
-                        const users = allUsers.filter(u => !isDirector(u));
+                        const users = allUsers.filter(u => !isDirector(u) && u.department_name);
 
                         const userDept = {};
-                        users.forEach(u => { userDept[u.id] = u.department_name || 'No Department'; });
+                        users.forEach(u => { userDept[u.id] = u.department_name; });
 
                         const depts = {};
                         users.forEach(u => {
-                            const d = u.department_name || 'No Department';
+                            const d = u.department_name;
                             if (!depts[d]) depts[d] = { name: d, staff: [], tickets: [] };
                             depts[d].staff.push(u);
                         });
