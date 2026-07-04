@@ -6871,9 +6871,9 @@
 
             const Avatar = ({name, size=36}) => {
                 const ini=(name||'').split(' ').slice(0,2).map(w=>w[0]?.toUpperCase()||'').join('');
-                const colors=['#6366F1','#EC4899','#14B8A6','#F59E0B','#8B5CF6','#10B981'];
+                const colors=['#5B7C99','#8A7256','#6B8E7F','#9C7B8B','#7D8CA3','#A0896F'];
                 const bg=colors[(name||'').charCodeAt(0)%colors.length];
-                return <div style={{width:size,height:size,borderRadius:'50%',background:bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:size*0.38,fontWeight:700,color:'white',flexShrink:0}}>{ini}</div>;
+                return <div style={{width:size,height:size,borderRadius:'50%',background:bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:size*0.36,fontWeight:600,letterSpacing:'0.02em',color:'white',flexShrink:0}}>{ini}</div>;
             };
 
             const inputStyle = { width:'100%', padding:'8px 10px', border:`1px solid ${borderC}`, borderRadius:'6px', fontSize:'13px', boxSizing:'border-box' };
