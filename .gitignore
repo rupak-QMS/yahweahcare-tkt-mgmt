@@ -41,6 +41,7 @@ coverage/
 
 # Backup files
 *.bak
+*.backup
 
 # Power Apps (if you want to exclude legacy artefacts)
 # YPC_Ticket_Management_Copy_*/
