@@ -3128,11 +3128,11 @@
                                             {label:'Ticket Type', node: <span style={{fontSize:13,color:textP,fontWeight:500}}>{ticketType}</span>},
                                             {label:'Subject',     node: <span style={{fontSize:13,color:textP}}>{ticketSubject}</span>},
                                             {label:'Assigned To', node: <div>
-                                                <span style={{fontSize:13,color:textP,fontWeight:500,display:'block'}}>{selectedTicket.assigned||'Unassigned'}</span>
+                                                <span style={{fontSize:13,color:textP,fontWeight:500,display:'block'}}>{selectedTicket.assigned||'Unassigned'}{selectedTicket.assigneeActive===false && <ExStaffBadge />}</span>
                                                 {selectedTicket.assigneeEmail && <span style={{fontSize:11,color:textM}}>{selectedTicket.assigneeEmail}</span>}
                                             </div>},
                                             {label:'Reported By', node: <div>
-                                                <span style={{fontSize:13,color:textP,fontWeight:500,display:'block'}}>{selectedTicket.requesterName||'—'}</span>
+                                                <span style={{fontSize:13,color:textP,fontWeight:500,display:'block'}}>{selectedTicket.requesterName||'—'}{selectedTicket.requesterActive===false && <ExStaffBadge />}</span>
                                                 {selectedTicket.requesterEmail && <span style={{fontSize:11,color:textM}}>{selectedTicket.requesterEmail}</span>}
                                             </div>},
                                             {label:'Category',    node: <CatBadge label={selectedTicket.categoryLabel||selectedTicket.category} size='lg' />},
