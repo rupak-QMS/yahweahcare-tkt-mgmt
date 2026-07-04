@@ -20,11 +20,19 @@
 //                                 unlike other ticket events, since there is no
 //                                 equivalent in the queue-based email pipeline)
 //   ticket.status_changed   → creator + assignee (legacy fallback)
+//
+// UserEvents (user.created/user.position_changed/user.deleted) → the
+// affected staff member (targetUserId) + bootstrap admins + directors.
+// The affected staff member gets their own personally-addressed subject/
+// body (in-app, push, AND email — email includes them even if user.deleted
+// just set is_active=FALSE, since they're exactly who needs to know);
+// admins/directors get an observer-facing summary instead. See
+// buildUserEventMessageForTarget() / email.service.ts's sendUserEventEmailToRole().
 // ============================================================
 
 import webpush from 'web-push';
 import { pool } from '../../db/pool';
-import { sendTicketEventEmailToRole, sendTicketEventEmail, sendUserEventEmail, type RecipientRole } from './email.service';
+import { sendTicketEventEmailToRole, sendTicketEventEmail, sendUserEventEmailToRole, type RecipientRole } from './email.service';
 
 // ── VAPID setup ───────────────────────────────────────────
 const VAPID_PUBLIC  = process.env.VAPID_PUBLIC_KEY  || '';
@@ -252,6 +260,11 @@ async function resolveRecipients(ev: NotifyEvent): Promise<number[]> {
 }
 
 // ── Message templates ─────────────────────────────────────
+// NOTE: for UserEvents, buildMessage() below produces the *admin/observer*
+// facing copy (used for bootstrap admins + directors). The affected staff
+// member themselves (ev.targetUserId) gets a distinct, personally-addressed
+// message from buildUserEventMessageForTarget() instead — see notify()'s
+// per-recipient loop, which picks whichever applies.
 function buildMessage(ev: NotifyEvent): { subject: string; body: string } {
   const actor = ev.actorName || `User #${ev.actorId}`;
 
@@ -356,6 +369,22 @@ function buildMessage(ev: NotifyEvent): { subject: string; body: string } {
       };
     default:
       return { subject: 'Yahwehcare notification', body: 'You have a new notification.' };
+  }
+}
+
+// Personalised in-app/push copy for the staff member a UserEvent is ABOUT —
+// addressed to them directly, distinct from the admin/director wording above.
+function buildUserEventMessageForTarget(ue: UserEvent): { subject: string; body: string } {
+  const actor = ue.actorName || `User #${ue.actorId}`;
+  switch (ue.type) {
+    case 'user.created':
+      return { subject: 'Welcome to Yahwehcare!', body: `Your account has been created by ${actor}. You can now sign in to Yahwehcare Ticket Management.` };
+    case 'user.position_changed':
+      return { subject: 'Your Position Has Been Updated', body: `${actor} changed your position to "${ue.extra || 'a new role'}".` };
+    case 'user.deleted':
+      return { subject: 'Your Account Has Been Deactivated', body: `${actor} has deactivated your Yahwehcare account. You will no longer be able to sign in.` };
+    default:
+      return { subject: 'Yahwehcare notification', body: 'You have a new notification about your account.' };
   }
 }
 
@@ -497,27 +526,38 @@ export async function notify(ev: NotifyEvent): Promise<void> {
     const recipients = await resolveRecipients(ev);
     if (!recipients.length) return;
 
+    const isUserEvent   = !('ticketId' in ev);
+    const targetUserId  = isUserEvent ? (ev as UserEvent).targetUserId : undefined;
+    // Precompute the target's own personalised copy once — reused for their
+    // in-app row, their push notification, and (below) their email.
+    const targetMessage = isUserEvent ? buildUserEventMessageForTarget(ev as UserEvent) : null;
+
     const ticketId = 'ticketId' in ev ? (ev as TicketEvent).ticketId : undefined;
-    const pushPayload = {
-      title: subject,
-      body,
-      icon:  '/icon-512.png',
-      badge: '/icon-512.png',
-      data:  {
-        ticketId,
-        type: ev.type,
-        url:  ticketId ? `/tickets/${ticketId}` : '/',
-      },
-    };
 
     await Promise.all(
       recipients.map(async (recipientId) => {
+        // The staff member a UserEvent is about gets their own addressed
+        // message (e.g. "Your Account Has Been Deactivated"); everyone else
+        // (bootstrap admins / directors) gets the observer-facing default.
+        const isTargetRecipient = isUserEvent && recipientId === targetUserId;
+        const msg = isTargetRecipient && targetMessage ? targetMessage : { subject, body };
+        const pushPayload = {
+          title: msg.subject,
+          body:  msg.body,
+          icon:  '/icon-512.png',
+          badge: '/icon-512.png',
+          data:  {
+            ticketId,
+            type: ev.type,
+            url:  ticketId ? `/tickets/${ticketId}` : '/',
+          },
+        };
         try {
           await pool.query(
             `INSERT INTO yc_tkt_mgmt.notifications
                (recipient_id, ticket_id, channel, subject, body, status)
              VALUES ($1, $2, 'push', $3, $4, 'pending')`,
-            [recipientId, ticketId ?? null, subject, body]
+            [recipientId, ticketId ?? null, msg.subject, msg.body]
           );
         } catch (dbErr) {
           console.warn('[notify] db insert error', dbErr);
@@ -533,16 +573,24 @@ export async function notify(ev: NotifyEvent): Promise<void> {
     // Config admin page reads from. Sending here too would duplicate every
     // ticket email, so this function only sends email for user lifecycle
     // events (which have no equivalent in the queue-based pipeline).
-    if (!('ticketId' in ev)) {
+    if (isUserEvent) {
+      const ue = ev as UserEvent;
       try {
+        // The target's own email must be included even though we just
+        // deactivated them (is_active is now FALSE for user.deleted) — that
+        // is precisely the person who needs to hear about it. Everyone else
+        // (admins/directors) must still be active to receive email.
         const { rows: emailRows } = await pool.query(
-          `SELECT email FROM yc_tkt_mgmt.users WHERE id = ANY($1) AND is_active = TRUE AND email IS NOT NULL`,
-          [recipients]
+          `SELECT id, email FROM yc_tkt_mgmt.users
+            WHERE id = ANY($1) AND email IS NOT NULL AND (is_active = TRUE OR id = $2)`,
+          [recipients, ue.targetUserId]
         );
-        const recipientEmails = emailRows.map((r: { email: string }) => r.email).filter(Boolean);
-        if (recipientEmails.length) {
-          await sendUserEventEmail(ev as UserEvent, recipientEmails);
-        }
+        const targetEmails = emailRows.filter((r: { id: number }) => r.id === ue.targetUserId).map((r: { email: string }) => r.email).filter(Boolean);
+        const adminEmails  = emailRows.filter((r: { id: number }) => r.id !== ue.targetUserId).map((r: { email: string }) => r.email).filter(Boolean);
+        await Promise.all([
+          targetEmails.length ? sendUserEventEmailToRole(ue, targetEmails, 'target') : Promise.resolve(),
+          adminEmails.length  ? sendUserEventEmailToRole(ue, adminEmails,  'admin')  : Promise.resolve(),
+        ]);
       } catch (emailErr) {
         console.warn('[notify] email send error', emailErr);
       }

@@ -203,6 +203,56 @@
             );
         }
 
+        // Shared numbered-page-button pagination bar — same look/behaviour as
+        // the main Tickets page's pager (Showing X-Y of Z, first/last/current±1
+        // page buttons with ellipsis, Prev/Next, Rows-per-page selector).
+        // Colors are passed in so each host page's own light/dark palette applies.
+        function PageBar({ page, setPage, pageSize, setPageSize, total, itemLabel = 'item', itemLabelPlural, dm, bg, border, muted }) {
+            const totalPages = Math.max(1, Math.ceil(total / pageSize));
+            const safePage   = Math.min(Math.max(1, page), totalPages);
+            const pageStart  = (safePage - 1) * pageSize;
+
+            const btn = (label, onClick, disabled, active = false) => (
+                <button key={label} onClick={onClick} disabled={disabled}
+                    style={{minWidth:32,height:32,padding:'0 6px',borderRadius:6,border:`1px solid ${active?'#6366F1':border}`,background:active?'#6366F1':bg,color:active?'#fff':disabled?(dm?'#3a4f6a':'#CBD5E1'):(dm?'#a5b4fc':'#4B5563'),fontSize:13,fontWeight:active?700:500,cursor:disabled?'not-allowed':'pointer',transition:'all 0.15s'}}>
+                    {label}
+                </button>
+            );
+
+            const pages = [];
+            const addPage = n => { if (n >= 1 && n <= totalPages && !pages.includes(n)) pages.push(n); };
+            addPage(1); addPage(totalPages);
+            for (let i = safePage - 1; i <= safePage + 1; i++) addPage(i);
+            pages.sort((a, b) => a - b);
+            const pageButtons = [];
+            let prev = 0;
+            for (const p of pages) {
+                if (p - prev > 1) pageButtons.push(<span key={`e${p}`} style={{color:muted,fontSize:13,padding:'0 2px'}}>…</span>);
+                pageButtons.push(btn(p, () => setPage(p), false, p === safePage));
+                prev = p;
+            }
+
+            return (
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10,padding:'12px 16px',borderTop:`1px solid ${border}`}}>
+                    <span style={{fontSize:12.5,color:muted,flexShrink:0}}>
+                        {total === 0 ? 'No results' : `Showing ${pageStart+1}–${Math.min(pageStart+pageSize,total)} of ${total} ${total!==1?(itemLabelPlural||`${itemLabel}s`):itemLabel}`}
+                    </span>
+                    <div style={{display:'flex',alignItems:'center',gap:4}}>
+                        {btn('‹ Prev', () => setPage(p => Math.max(1, p - 1)), safePage === 1)}
+                        {pageButtons}
+                        {btn('Next ›', () => setPage(p => Math.min(totalPages, p + 1)), safePage === totalPages)}
+                    </div>
+                    <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
+                        <span style={{fontSize:12.5,color:muted}}>Rows</span>
+                        <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }}
+                            style={{fontSize:12.5,padding:'3px 6px',borderRadius:6,border:`1px solid ${border}`,background:bg,color:dm?'#a5b4fc':'#374151',cursor:'pointer'}}>
+                            {[10, 25, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
+                        </select>
+                    </div>
+                </div>
+            );
+        }
+
 
 
         // API Service Layer — all routes go to YCTMBackend (HRMS_API)
@@ -8532,7 +8582,7 @@
             const [logStatus, setLogStatus] = React.useState('');
             const [page, setPage]           = React.useState(1);
             const [total, setTotal]         = React.useState(0);
-            const PAGE_SIZE = 50;
+            const [pageSize, setPageSize]   = React.useState(25);
 
             const bg   = dm ? '#0F172A' : '#F9FAFB';
             const card = dm ? '#1E293B' : '#FFFFFF';
@@ -8558,7 +8608,7 @@
             const loadLogs = React.useCallback(async () => {
                 setLoading(true);
                 try {
-                    const params = new URLSearchParams({ page, limit: PAGE_SIZE });
+                    const params = new URLSearchParams({ page, limit: pageSize });
                     if (logStatus) params.set('status', logStatus);
                     if (logFilter) params.set('search', logFilter);
                     const d = await apiFetch('/email/logs?' + params);
@@ -8566,7 +8616,7 @@
                     setTotal(d.total || 0);
                 } catch (e) { showToast('Failed to load logs: ' + e.message); }
                 finally { setLoading(false); }
-            }, [apiFetch, page, logStatus, logFilter]);
+            }, [apiFetch, page, pageSize, logStatus, logFilter]);
 
             const loadQueue = React.useCallback(async () => {
                 setLoading(true);
@@ -8597,7 +8647,7 @@
                 if (tab === 'logs')  loadLogs();
                 if (tab === 'queue') loadQueue();
                 if (tab === 'stats') loadStats();
-            }, [tab, page, logStatus]);
+            }, [tab, page, pageSize, logStatus]);
 
             const handleTest = async () => {
                 if (!testEmail.trim()) return showToast('Enter a recipient email first');
@@ -8638,8 +8688,6 @@
                 background: tab === id ? '#4F46E5' : (dm ? '#1E293B' : '#F3F4F6'),
                 color: tab === id ? '#fff' : muted,
             });
-
-            const totalPages = Math.ceil(total / PAGE_SIZE);
 
             return (
                 <main style={{flex:1, overflowY:'auto', background:bg, padding:'24px'}}>
@@ -8744,13 +8792,8 @@
                                         </tbody>
                                     </table>
                                 </div>
-                                {totalPages > 1 && (
-                                    <div style={{padding:'12px 16px',display:'flex',gap:8,justifyContent:'flex-end',borderTop:`1px solid ${bdr}`}}>
-                                        <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1} style={{padding:'5px 12px',borderRadius:6,border:`1px solid ${bdr}`,background:'transparent',color:txt,cursor:'pointer',fontSize:12}}>← Prev</button>
-                                        <span style={{fontSize:12,color:muted,padding:'5px 0'}}>Page {page} / {totalPages}</span>
-                                        <button onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={page===totalPages} style={{padding:'5px 12px',borderRadius:6,border:`1px solid ${bdr}`,background:'transparent',color:txt,cursor:'pointer',fontSize:12}}>Next →</button>
-                                    </div>
-                                )}
+                                <PageBar page={page} setPage={setPage} pageSize={pageSize} setPageSize={setPageSize}
+                                    total={total} itemLabel='log' dm={dm} bg={bg} border={bdr} muted={muted} />
                             </div>
                         )}
 
@@ -8984,7 +9027,7 @@
             const [searchInput, setSearchInput] = React.useState('');
             const [page, setPage]       = React.useState(1);
             const [toast, setToast]     = React.useState('');
-            const PAGE_SIZE = 50;
+            const [pageSize, setPageSize] = React.useState(25);
 
             const bg   = dm ? '#0F172A' : '#F9FAFB';
             const card = dm ? '#1E293B' : '#FFFFFF';
@@ -8997,7 +9040,7 @@
             const loadEntries = React.useCallback(async () => {
                 setLoading(true);
                 try {
-                    const params = new URLSearchParams({ limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE });
+                    const params = new URLSearchParams({ limit: pageSize, offset: (page - 1) * pageSize });
                     if (search) params.set('search', search);
                     const res = await authFetch(`${HRMS_API}/audit-logs?${params}`);
                     if (!res.ok) throw new Error('Failed to fetch activity log');
@@ -9006,13 +9049,11 @@
                     setTotal(d.total || 0);
                 } catch (e) { showToast('Failed to load activity log: ' + e.message); }
                 finally { setLoading(false); }
-            }, [page, search]);
+            }, [page, pageSize, search]);
 
             React.useEffect(() => { loadEntries(); }, [loadEntries]);
 
             const runSearch = () => { setPage(1); setSearch(searchInput.trim()); };
-
-            const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
             return (
                 <main style={{flex:1, overflowY:'auto', background:bg, padding:'24px'}}>
@@ -9071,13 +9112,8 @@
                                     </tbody>
                                 </table>
                             </div>
-                            {totalPages > 1 && (
-                                <div style={{padding:'12px 16px',display:'flex',gap:8,justifyContent:'flex-end',borderTop:`1px solid ${bdr}`}}>
-                                    <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1} style={{padding:'5px 12px',borderRadius:6,border:`1px solid ${bdr}`,background:'transparent',color:txt,cursor:'pointer',fontSize:12}}>← Prev</button>
-                                    <span style={{fontSize:12,color:muted,padding:'5px 0'}}>Page {page} / {totalPages}</span>
-                                    <button onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={page===totalPages} style={{padding:'5px 12px',borderRadius:6,border:`1px solid ${bdr}`,background:'transparent',color:txt,cursor:'pointer',fontSize:12}}>Next →</button>
-                                </div>
-                            )}
+                            <PageBar page={page} setPage={setPage} pageSize={pageSize} setPageSize={setPageSize}
+                                total={total} itemLabel='entry' itemLabelPlural='entries' dm={dm} bg={bg} border={bdr} muted={muted} />
                         </div>
                     </div>
                 </main>

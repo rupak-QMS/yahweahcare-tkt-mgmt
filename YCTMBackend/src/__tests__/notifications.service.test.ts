@@ -13,6 +13,10 @@
 //   • ticket.escalated/extension_requested query getDeptManagerIds only when deptId present.
 //   • ticket.critical always queries getDirectorIds (and optionally getDeptManagerIds).
 //   • User events query bootstrap admins + directors + add targetUserId.
+//   • User events are role-aware: the target (affected staff member) gets a
+//     personally-addressed subject/body for in-app/push/email; admins/
+//     directors get an observer-facing summary instead. The target's email
+//     is included even if they were just deactivated (is_active=FALSE).
 // ============================================================
 
 import { pool } from '../db/pool';
@@ -31,13 +35,13 @@ jest.mock('web-push', () => {
 });
 
 // ── Mock email service ─────────────────────────────────────────────────────────
-const mockSendTicketEmail       = jest.fn();
-const mockSendTicketEmailToRole = jest.fn();
-const mockSendUserEmail         = jest.fn();
+const mockSendTicketEmail        = jest.fn();
+const mockSendTicketEmailToRole  = jest.fn();
+const mockSendUserEmailToRole    = jest.fn();
 jest.mock('../modules/notifications/email.service', () => ({
   sendTicketEventEmail:       mockSendTicketEmail,
   sendTicketEventEmailToRole: mockSendTicketEmailToRole,
-  sendUserEventEmail:         mockSendUserEmail,
+  sendUserEventEmailToRole:   mockSendUserEmailToRole,
   buildTicketEventHtml:       jest.fn().mockReturnValue('<html>'),
   buildScheduledReportHtml:   jest.fn().mockReturnValue('<html>'),
   buildSlaBreachHtml:         jest.fn().mockReturnValue('<html>'),
@@ -115,20 +119,28 @@ describe('buildMessage() via notify()', () => {
       .mockResolvedValueOnce({ rows: [{ email: 'user@test.com' }] });   // email fetch [1]
   }
 
-  // Set up mocks for a user event (admins + directors + INSERT + email fetch)
-  function setupUser() {
+  // Set up mocks for a user event where the admin recipient (99) and the
+  // target recipient (50) are distinct people — recipients resolve in order
+  // [admin(99), target(50)], so calls[2] is the admin's INSERT (observer-facing
+  // buildMessage() copy) and calls[3] is the target's INSERT (personalised
+  // buildUserEventMessageForTarget() copy).
+  function setupUserTwoRecipients() {
     mockPool.query
       .mockResolvedValueOnce({ rows: [{ id: 99 }] })                    // admins [0]
       .mockResolvedValueOnce({ rows: [] })                               // directors [1]
-      .mockResolvedValueOnce(OK)                                         // INSERT notification [2]
-      .mockResolvedValueOnce({ rows: [{ email: 'admin@test.com' }] });   // email fetch [3]
+      .mockResolvedValueOnce(OK)                                         // INSERT for admin 99 [2]
+      .mockResolvedValueOnce(OK)                                         // INSERT for target 50 [3]
+      .mockResolvedValueOnce({ rows: [] });                              // email fetch [4]
   }
 
-  // Ticket INSERT is calls[0]; user event INSERT is calls[2]
+  // Ticket INSERT is calls[0]
   function ticketSubject():  string { return mockPool.query.mock.calls[0][1][2]; }
   function ticketBody():     string { return mockPool.query.mock.calls[0][1][3]; }
-  function userSubject():    string { return mockPool.query.mock.calls[2][1][2]; }
-  function userBody():       string { return mockPool.query.mock.calls[2][1][3]; }
+  // User event: admin recipient's INSERT is calls[2], target recipient's is calls[3]
+  function adminSubject():   string { return mockPool.query.mock.calls[2][1][2]; }
+  function adminBody():      string { return mockPool.query.mock.calls[2][1][3]; }
+  function targetSubject():  string { return mockPool.query.mock.calls[3][1][2]; }
+  function targetBody():     string { return mockPool.query.mock.calls[3][1][3]; }
 
   it('ticket.created — subject and body contain ticket title', async () => {
     setupTicket();
@@ -196,26 +208,31 @@ describe('buildMessage() via notify()', () => {
     expect(ticketSubject().toLowerCase()).toContain('close');
   });
 
-  it('user.created — subject contains target user name', async () => {
-    setupUser();
-    const ev: UserEvent = { type: 'user.created', targetUserId: 99, targetUserName: 'Jane Smith', actorId: 99 };
+  it('user.created — admin recipient sees observer-facing copy with target name; target recipient sees personalised welcome', async () => {
+    setupUserTwoRecipients();
+    const ev: UserEvent = { type: 'user.created', targetUserId: 50, targetUserName: 'Jane Smith', actorId: 1 };
     await notify(ev);
-    expect(userSubject()).toContain('Jane Smith');
+    expect(adminSubject()).toContain('Jane Smith');
+    expect(targetSubject()).toBe('Welcome to Yahwehcare!');
+    expect(targetSubject()).not.toContain('Jane Smith'); // personalised copy addresses "you", not by name
   });
 
-  it('user.position_changed — subject contains target user name and body contains new position', async () => {
-    setupUser();
-    const ev: UserEvent = { type: 'user.position_changed', targetUserId: 99, targetUserName: 'Bob Jones', actorId: 99, extra: 'Senior Developer' };
+  it('user.position_changed — admin subject/body contain target name and new position; target sees personalised copy', async () => {
+    setupUserTwoRecipients();
+    const ev: UserEvent = { type: 'user.position_changed', targetUserId: 50, targetUserName: 'Bob Jones', actorId: 1, extra: 'Senior Developer' };
     await notify(ev);
-    expect(userSubject()).toContain('Bob Jones');
-    expect(userBody()).toContain('Senior Developer');
+    expect(adminSubject()).toContain('Bob Jones');
+    expect(adminBody()).toContain('Senior Developer');
+    expect(targetSubject()).toBe('Your Position Has Been Updated');
+    expect(targetBody()).toContain('Senior Developer');
   });
 
-  it('user.deleted — subject contains target user name', async () => {
-    setupUser();
-    const ev: UserEvent = { type: 'user.deleted', targetUserId: 99, targetUserName: 'Charlie', actorId: 99 };
+  it('user.deleted — admin subject contains target name; target sees personalised deactivation copy', async () => {
+    setupUserTwoRecipients();
+    const ev: UserEvent = { type: 'user.deleted', targetUserId: 50, targetUserName: 'Charlie', actorId: 1 };
     await notify(ev);
-    expect(userSubject()).toContain('Charlie');
+    expect(adminSubject()).toContain('Charlie');
+    expect(targetSubject()).toBe('Your Account Has Been Deactivated');
   });
 
   it('uses "User #<id>" in body when actorName is undefined (ticket event)', async () => {
@@ -368,21 +385,56 @@ describe('email dispatch via notify()', () => {
     const ev: TicketEvent = { type: 'ticket.created', ticketId: 1, ticketTitle: 'T', actorId: 1, assigneeId: 99 };
     await notify(ev);
     expect(mockSendTicketEmailToRole).not.toHaveBeenCalled();
-    expect(mockSendUserEmail).not.toHaveBeenCalled();
+    expect(mockSendUserEmailToRole).not.toHaveBeenCalled();
   });
 
-  it('calls sendUserEventEmail for user events', async () => {
-    mockSendUserEmail.mockResolvedValueOnce(undefined);
-    // admins=[99]=targetUserId → 1 recipient
+  it('calls sendUserEventEmailToRole with role "target" when the only recipient is the target themself', async () => {
+    mockSendUserEmailToRole.mockResolvedValueOnce(undefined);
+    // admins=[99]=targetUserId → 1 recipient, which is also the target
     mockPool.query
-      .mockResolvedValueOnce({ rows: [{ id: 99 }] })                    // admins
-      .mockResolvedValueOnce({ rows: [] })                               // directors
-      .mockResolvedValueOnce(OK)                                         // INSERT
-      .mockResolvedValueOnce({ rows: [{ email: 'admin@test.com' }] });   // email fetch
-    const ev: UserEvent = { type: 'user.created', targetUserId: 99, targetUserName: 'New User', actorId: 99 };
+      .mockResolvedValueOnce({ rows: [{ id: 99 }] })                              // admins
+      .mockResolvedValueOnce({ rows: [] })                                         // directors
+      .mockResolvedValueOnce(OK)                                                   // INSERT
+      .mockResolvedValueOnce({ rows: [{ id: 99, email: 'target@test.com' }] });    // email fetch
+    const ev: UserEvent = { type: 'user.created', targetUserId: 99, targetUserName: 'New User', actorId: 1 };
     await notify(ev);
-    expect(mockSendUserEmail).toHaveBeenCalledTimes(1);
+    expect(mockSendUserEmailToRole).toHaveBeenCalledTimes(1);
+    expect(mockSendUserEmailToRole).toHaveBeenCalledWith(ev, ['target@test.com'], 'target');
     expect(mockSendTicketEmail).not.toHaveBeenCalled();
+  });
+
+  it('splits recipients into target vs admin email groups and sends a role-specific email to each', async () => {
+    mockSendUserEmailToRole.mockResolvedValue(undefined);
+    // admins=[1] (not the target), target=50 → 2 recipients
+    mockPool.query
+      .mockResolvedValueOnce({ rows: [{ id: 1 }] })                                // admins
+      .mockResolvedValueOnce({ rows: [] })                                          // directors
+      .mockResolvedValueOnce(OK)                                                    // INSERT for admin 1
+      .mockResolvedValueOnce(OK)                                                    // INSERT for target 50
+      .mockResolvedValueOnce({ rows: [                                              // email fetch
+        { id: 1,  email: 'admin@test.com' },
+        { id: 50, email: 'target@test.com' },
+      ] });
+    const ev: UserEvent = { type: 'user.deleted', targetUserId: 50, targetUserName: 'Deactivated Person', actorId: 1 };
+    await notify(ev);
+    expect(mockSendUserEmailToRole).toHaveBeenCalledTimes(2);
+    expect(mockSendUserEmailToRole).toHaveBeenCalledWith(ev, ['target@test.com'], 'target');
+    expect(mockSendUserEmailToRole).toHaveBeenCalledWith(ev, ['admin@test.com'], 'admin');
+  });
+
+  it('still emails the target even though they were just deactivated (is_active=FALSE) — query ORs in their own id', async () => {
+    mockSendUserEmailToRole.mockResolvedValue(undefined);
+    mockPool.query
+      .mockResolvedValueOnce({ rows: [] })                                          // admins (none)
+      .mockResolvedValueOnce({ rows: [] })                                          // directors (none)
+      .mockResolvedValueOnce(OK)                                                    // INSERT for target 50
+      .mockResolvedValueOnce({ rows: [{ id: 50, email: 'target@test.com' }] });      // email fetch
+    const ev: UserEvent = { type: 'user.deleted', targetUserId: 50, targetUserName: 'Deactivated Person', actorId: 1 };
+    await notify(ev);
+    const emailFetchSql = mockPool.query.mock.calls[3][0] as string;
+    expect(emailFetchSql).toContain('is_active = TRUE OR id');
+    expect(mockSendUserEmailToRole).toHaveBeenCalledTimes(1);
+    expect(mockSendUserEmailToRole).toHaveBeenCalledWith(ev, ['target@test.com'], 'target');
   });
 
   it('does not call email functions when email fetch returns no rows', async () => {

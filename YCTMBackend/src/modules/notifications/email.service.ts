@@ -605,21 +605,117 @@ export async function sendTicketEventEmail(ev: TicketEvent, recipientEmails: str
   await sendEmail(recipientEmails, subject, html);
 }
 
-// ── User event email ──────────────────────────────────────
-export async function sendUserEventEmail(ev: UserEvent, recipientEmails: string[]): Promise<void> {
-  if (!recipientEmails.length) return;
-  const name   = esc(ev.targetUserName);
-  const action = esc(ev.actorName || `User #${ev.actorId}`);
-  const lines: Record<string, string> = {
-    'user.created':          `${action} added <strong>${name}</strong> to the team.`,
-    'user.position_changed': `${action} updated <strong>${name}</strong>'s position to <strong>${esc(ev.extra || 'new role')}</strong>.`,
-    'user.deleted':          `${action} removed <strong>${name}</strong> from the team.`,
+// ── User event email — role-aware (target vs admin) ──────
+// Mirrors the ticket-event pattern above: the person the event is ABOUT
+// (the "target" — e.g. the staff member being deactivated) gets a message
+// addressed to them directly, while bootstrap admins/directors get an
+// observer-facing summary. Both share the same visual design system.
+export type UserRecipientRole = 'target' | 'admin';
+
+function buildUserEventSubject(ev: UserEvent, role: UserRecipientRole): string {
+  const name = ev.targetUserName;
+  switch (ev.type) {
+    case 'user.created':
+      return role === 'target'
+        ? `Welcome to Yahwehcare — Your Account Is Ready`
+        : `[TMS] New Team Member Added: ${name}`;
+    case 'user.position_changed':
+      return role === 'target'
+        ? `Your Position Has Been Updated`
+        : `[TMS] Position Changed: ${name}`;
+    case 'user.deleted':
+      return role === 'target'
+        ? `Your Yahwehcare Account Has Been Deactivated`
+        : `[TMS] Staff Deactivated: ${name}`;
+    default:
+      return `[TMS] Team Update: ${name}`;
+  }
+}
+
+function buildUserEventBody(ev: UserEvent, role: UserRecipientRole, frontendUrl: string): string {
+  const actor = esc(ev.actorName || `User #${ev.actorId}`);
+  const name  = esc(ev.targetUserName);
+  const position = esc(ev.extra || 'a new role');
+
+  type Cfg = { badgeLabel: string; badgeColor: string; badgeBg: string; headline: string; reason: string; action: string; cta?: string; ctaUrl?: string; ctaColor?: string };
+
+  const cfgMap: Record<UserEvent['type'], Partial<Record<UserRecipientRole, Cfg>>> = {
+    'user.created': {
+      target: {
+        badgeLabel: 'Account Created', badgeColor: SUCCESS, badgeBg: '#ECFDF5',
+        headline:   'Welcome to Yahwehcare!',
+        reason:     `You are receiving this email because a Yahwehcare account was created for you by <strong>${actor}</strong>.`,
+        action:     `You can now sign in with your Microsoft (Azure AD) account to access Yahwehcare Ticket Management.`,
+        cta: 'Sign In →', ctaUrl: frontendUrl, ctaColor: SUCCESS,
+      },
+      admin: {
+        badgeLabel: 'New Team Member', badgeColor: BRAND, badgeBg: LIGHT,
+        headline:   `${name} joined the team`,
+        reason:     `You are receiving this email as a Bootstrap Admin / Director.`,
+        action:     `<strong>${actor}</strong> added <strong>${name}</strong> to the team.`,
+        cta: 'Open Staff Management →', ctaUrl: `${frontendUrl}#staff-management`,
+      },
+    },
+    'user.position_changed': {
+      target: {
+        badgeLabel: 'Position Updated', badgeColor: BRAND, badgeBg: LIGHT,
+        headline:   'Your position has been updated',
+        reason:     `You are receiving this email because your position at Yahwehcare was changed by <strong>${actor}</strong>.`,
+        action:     `Your position is now <strong>${position}</strong>.`,
+        cta: 'View My Profile →', ctaUrl: `${frontendUrl}#settings`,
+      },
+      admin: {
+        badgeLabel: 'Position Changed', badgeColor: BRAND, badgeBg: LIGHT,
+        headline:   `${name}'s position changed`,
+        reason:     `You are receiving this email as a Bootstrap Admin / Director.`,
+        action:     `<strong>${actor}</strong> changed <strong>${name}</strong>'s position to <strong>${position}</strong>.`,
+        cta: 'Open Staff Management →', ctaUrl: `${frontendUrl}#staff-management`,
+      },
+    },
+    'user.deleted': {
+      target: {
+        badgeLabel: 'Account Deactivated', badgeColor: DANGER, badgeBg: '#FEF2F2',
+        headline:   'Your account has been deactivated',
+        reason:     `You are receiving this email because your Yahwehcare account was deactivated by <strong>${actor}</strong>.`,
+        action:     `You will no longer be able to sign in to Yahwehcare Ticket Management, and any open tickets assigned to you have been flagged for reassignment. If you believe this is a mistake, please contact your manager or the Yahwehcare admin team directly.`,
+        // No CTA — a deactivated account has nowhere to sign back in to.
+      },
+      admin: {
+        badgeLabel: 'Staff Deactivated', badgeColor: WARN, badgeBg: '#FFF7ED',
+        headline:   `${name} has been deactivated`,
+        reason:     `You are receiving this email as a Bootstrap Admin / Director.`,
+        action:     `<strong>${actor}</strong> deactivated <strong>${name}</strong>'s account. Their org chart position(s) are now vacant, and any tickets they were assigned to have been flagged for the ticket creator to reassign.`,
+        cta: 'Open Staff Management →', ctaUrl: `${frontendUrl}#staff-management`,
+      },
+    },
   };
-  const subject = `[TMS] Team Update: ${ev.targetUserName}`;
-  const body = `
-    <h2 style="margin:0 0 12px;font-size:20px;font-weight:700;color:${TEXT};">Team Update</h2>
-    <p style="font-size:14px;color:${MUTED};line-height:1.6;">${lines[ev.type] ?? `${name} was updated.`}</p>
-    ${ctaButton('Open Staff Management →', `${env.FRONTEND_URL}?page=staff-management`)}
+
+  const cfg: Cfg = cfgMap[ev.type]?.[role] ?? {
+    badgeLabel: 'Team Update', badgeColor: BRAND, badgeBg: LIGHT,
+    headline:   `${name} was updated`,
+    reason:     `You are receiving this email as ${role === 'target' ? 'the affected team member' : 'a Bootstrap Admin / Director'}.`,
+    action:     `<strong>${actor}</strong> updated ${name}'s account.`,
+  };
+
+  return `
+    <div style="margin-bottom:16px;">${badge(cfg.badgeLabel, cfg.badgeColor, cfg.badgeBg)}</div>
+    <h2 style="margin:0 0 16px;font-size:20px;color:${TEXT};font-weight:700;">${cfg.headline}</h2>
+    ${infoBox(`📌 <strong>Why you received this email:</strong> ${cfg.reason}`, '#374151', '#F9FAFB', '#E5E7EB')}
+    <p style="margin:16px 0;font-size:14px;color:${MUTED};line-height:1.6;">${cfg.action}</p>
+    ${cfg.cta && cfg.ctaUrl ? ctaButton(cfg.cta, cfg.ctaUrl, cfg.ctaColor ?? BRAND) : ''}
   `;
-  await sendEmail(recipientEmails, subject, baseLayout(subject, body));
+}
+
+/** Send a role-aware user-lifecycle email — target (the affected staff member)
+ *  or admin (bootstrap admins / directors observing the change) get distinct
+ *  subject lines and body copy, matching the ticket-event email pattern. */
+export async function sendUserEventEmailToRole(
+  ev: UserEvent,
+  recipientEmails: string[],
+  role: UserRecipientRole,
+): Promise<void> {
+  if (!recipientEmails.length) return;
+  const subject = buildUserEventSubject(ev, role);
+  const html    = baseLayout(subject, buildUserEventBody(ev, role, env.FRONTEND_URL));
+  await sendEmail(recipientEmails, subject, html);
 }
