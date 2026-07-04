@@ -106,6 +106,29 @@ describe('DELETE /audit-logs', () => {
     expect(deleteCall[1]).toEqual(['auth', onePeriod[0].period_start, onePeriod[0].period_end]);
   });
 
+  it('ANDs the caller\'s own date filter with the archived-period restriction — never OR — so a filter reaching outside every archived period cannot match non-archived rows', async () => {
+    mockBootstrapCheck(true);
+    mockPool.query
+      .mockResolvedValueOnce({ rows: onePeriod })         // archived periods: 2025-07-01..2025-10-01
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 });  // DELETE — 0 rows, because the requested
+                                                           // range (2026, entirely outside the only
+                                                           // archived period) can never intersect it
+    const res = await request(makeApp())
+      .delete('/audit-logs?since=2026-01-01T00:00:00.000Z&until=2026-12-31T23:59:59.000Z&confirm=true');
+    expect(res.status).toBe(200);
+    expect(res.body.deletedCount).toBe(0);
+
+    const deleteCall = mockPool.query.mock.calls[2];
+    // Both the user's own since/until filter AND the archived-period clause
+    // must be present, joined by AND (not OR) — this is what guarantees a
+    // filter can never reach unarchived rows regardless of what it targets.
+    expect(deleteCall[0]).toMatch(/WHERE 1=1 AND a\.created_at >= \$1 AND a\.created_at <= \$2 AND \(+a\.created_at >= \$3 AND a\.created_at < \$4\)+/);
+    expect(deleteCall[1]).toEqual([
+      '2026-01-01T00:00:00.000Z', '2026-12-31T23:59:59.000Z',
+      onePeriod[0].period_start, onePeriod[0].period_end,
+    ]);
+  });
+
   it('combines multiple archived periods with OR', async () => {
     mockBootstrapCheck(true);
     const twoPeriods = [
