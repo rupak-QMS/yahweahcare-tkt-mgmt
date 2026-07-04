@@ -6958,8 +6958,18 @@
                                                         <div>
                                                             <div style={{fontSize:'13px',fontWeight:'700',color:textP,display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}>
                                                                 {m.name}
-                                                                {m.is_bootstrap_admin && <span title="System Administration — not part of org hierarchy" style={{fontSize:'9px',fontWeight:'700',background:'#D97706',color:'#fff',padding:'2px 7px',borderRadius:'10px',border:'none',boxShadow:'0 1px 3px rgba(217,119,6,0.45)',display:'inline-flex',alignItems:'center',gap:'3px'}}><Icon name='star' size={9} color='#fff' />Bootstrap Admin</span>}
-                                                                {!m.is_bootstrap_admin && (m.positions||[]).some(p=>(p.type||p.position_type||'').toLowerCase()==='director') && <span title="Organisational Leadership — part of org hierarchy" style={{fontSize:'9px',fontWeight:'700',background:'#16A34A',color:'#fff',padding:'2px 7px',borderRadius:'10px',border:'none',boxShadow:'0 1px 3px rgba(22,163,74,0.45)',display:'inline-flex',alignItems:'center',gap:'3px'}}><Icon name='building-2' size={9} color='#fff' />Director</span>}
+                                                                {m.is_bootstrap_admin && (
+                                                                    <span title="System Administration — not part of org hierarchy" style={{display:'inline-flex',alignItems:'stretch',borderRadius:'6px',overflow:'hidden',fontSize:'9px',fontWeight:'700',boxShadow:'0 1px 3px rgba(217,119,6,0.25)'}}>
+                                                                        <span style={{background:'#D97706',color:'#fff',padding:'2px 5px',display:'flex',alignItems:'center'}}><Icon name='star' size={9} color='#fff' /></span>
+                                                                        <span style={{background:dm?'rgba(217,119,6,0.18)':'#FEF3C7',color:dm?'#fcd34d':'#92400E',padding:'2px 7px'}}>Bootstrap Admin</span>
+                                                                    </span>
+                                                                )}
+                                                                {!m.is_bootstrap_admin && (m.positions||[]).some(p=>(p.type||p.position_type||'').toLowerCase()==='director') && (
+                                                                    <span title="Organisational Leadership — part of org hierarchy" style={{display:'inline-flex',alignItems:'stretch',borderRadius:'6px',overflow:'hidden',fontSize:'9px',fontWeight:'700',boxShadow:'0 1px 3px rgba(22,163,74,0.25)'}}>
+                                                                        <span style={{background:'#16A34A',color:'#fff',padding:'2px 5px',display:'flex',alignItems:'center'}}><Icon name='building-2' size={9} color='#fff' /></span>
+                                                                        <span style={{background:dm?'rgba(22,163,74,0.18)':'#DCFCE7',color:dm?'#4ade80':'#15803D',padding:'2px 7px'}}>Director</span>
+                                                                    </span>
+                                                                )}
                                                             </div>
                                                             <div style={{fontSize:'11px',color:textM}}>{m.email}</div>
                                                             {m.phone && <div style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8'}}>{m.phone}</div>}
@@ -6975,11 +6985,12 @@
                                                             {(m.positions||[]).map(p=>{
                                                                 const pc = posTypeColor[p.type]||'#6366F1';
                                                                 return p.is_primary ? (
-                                                                    <span key={p.id} title="Primary position" style={{fontSize:'10px',fontWeight:'700',padding:'2px 8px',borderRadius:'10px',background:pc,color:'#fff',border:'none',boxShadow:`0 1px 3px ${pc}55`,display:'inline-flex',alignItems:'center',gap:'3px'}}>
-                                                                        <Icon name='star' size={8} color='#fff' />{p.title}
+                                                                    <span key={p.id} title="Primary position" style={{display:'inline-flex',alignItems:'stretch',borderRadius:'6px',overflow:'hidden',fontSize:'10px',fontWeight:'700',boxShadow:`0 1px 3px ${pc}30`}}>
+                                                                        <span style={{background:pc,color:'#fff',padding:'2px 6px',display:'flex',alignItems:'center'}}><Icon name='star' size={9} color='#fff' /></span>
+                                                                        <span style={{background:`${pc}18`,color:pc,padding:'2px 8px'}}>{p.title}</span>
                                                                     </span>
                                                                 ) : (
-                                                                    <span key={p.id} style={{fontSize:'10px',fontWeight:'600',padding:'2px 8px',borderRadius:'10px',background:`${pc}15`,color:pc,border:`1px solid ${pc}30`,display:'inline-flex',alignItems:'center',gap:'3px'}}>
+                                                                    <span key={p.id} style={{fontSize:'10px',fontWeight:'600',padding:'2px 8px',borderRadius:'6px',background:`${pc}15`,color:pc,border:`1px solid ${pc}30`,display:'inline-flex',alignItems:'center',gap:'3px'}}>
                                                                         {p.title}
                                                                     </span>
                                                                 );
@@ -6989,19 +7000,26 @@
                                                 </td>
                                                 <td style={{padding:'12px 14px',fontSize:'12px',color:dm?'#c0cfec':'#334155'}}>{m.department_name||'—'}</td>
                                                 <td style={{padding:'12px 14px'}}>
-                                                    <span style={{fontSize:'11px',fontWeight:'600',padding:'3px 8px',borderRadius:'8px',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:'#4338CA'}}>
-                                                        {EMP_TYPES[m.employment_type]||m.employment_type||'—'}
+                                                    <span style={{display:'inline-flex',alignItems:'stretch',borderRadius:'6px',overflow:'hidden',fontSize:'11px',fontWeight:'700',whiteSpace:'nowrap',boxShadow:'0 1px 3px rgba(99,102,241,0.25)'}}>
+                                                        <span style={{background:'#4F46E5',color:'#fff',padding:'3px 7px',display:'flex',alignItems:'center'}}><Icon name='briefcase' size={11} color='#fff' /></span>
+                                                        <span style={{background:dm?'rgba(99,102,241,0.18)':'#EEF2FF',color:dm?'#a5b4fc':'#4338CA',padding:'3px 9px'}}>{EMP_TYPES[m.employment_type]||m.employment_type||'—'}</span>
                                                     </span>
                                                 </td>
                                                 <td style={{padding:'12px 14px'}}>
-                                                    <span style={{fontSize:'11px',fontWeight:'700',padding:'3px 9px',borderRadius:'8px',whiteSpace:'nowrap',display:'inline-flex',alignItems:'center',gap:'4px',color:'#fff',border:'none',
-                                                        background: m.auth_provider==='azure_ad'?'#1D4ED8':'#15803D',
-                                                        boxShadow: m.auth_provider==='azure_ad'?'0 1px 3px rgba(29,78,216,0.4)':'0 1px 3px rgba(21,128,61,0.4)'
-                                                    }}>
-                                                        {m.auth_provider==='azure_ad'
-                                                            ? <><Icon name='shield' size={11} color='#fff' />Microsoft Entra</>
-                                                            : <><Icon name='key' size={11} color='#fff' />Local</>}
-                                                    </span>
+                                                    {(() => {
+                                                        const isAzure = m.auth_provider==='azure_ad';
+                                                        const pc = isAzure ? '#1D4ED8' : '#15803D';
+                                                        return (
+                                                            <span style={{display:'inline-flex',alignItems:'stretch',borderRadius:'6px',overflow:'hidden',fontSize:'11px',fontWeight:'700',whiteSpace:'nowrap',boxShadow:`0 1px 3px ${pc}30`}}>
+                                                                <span style={{background:pc,color:'#fff',padding:'3px 7px',display:'flex',alignItems:'center'}}>
+                                                                    <Icon name={isAzure?'shield':'key'} size={11} color='#fff' />
+                                                                </span>
+                                                                <span style={{background:dm?`${pc}25`:(isAzure?'#DBEAFE':'#F0FDF4'),color:isAzure?(dm?'#93c5fd':'#1D4ED8'):(dm?'#4ade80':'#15803D'),padding:'3px 9px'}}>
+                                                                    {isAzure ? 'Microsoft Entra' : 'Local'}
+                                                                </span>
+                                                            </span>
+                                                        );
+                                                    })()}
                                                 </td>
                                                 <td style={{padding:'12px 14px'}}>
                                                     <div style={{display:'flex',gap:'6px'}}>
