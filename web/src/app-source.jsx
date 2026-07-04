@@ -997,9 +997,9 @@
                 <aside style={{width:256, background:sidebarBg, borderRight:`1px solid ${sidebarBorder}`, display:'flex', flexDirection:'column', height:'100vh', flexShrink:0, boxShadow: darkMode ? '4px 0 40px rgba(0,0,0,0.75), 1px 0 0 rgba(99,102,241,0.10)' : '2px 0 12px rgba(15,23,42,0.06), 1px 0 0 #E2E8F2'}}>
                     {/* Logo — fixed */}
                     <div style={{padding:'20px 16px 12px', flexShrink:0}}>
-                        <h1 style={{fontWeight:900, color:logoText, fontSize:18, lineHeight:1.2, letterSpacing:'0.02em',
-                            textShadow: darkMode ? '0 0 20px rgba(199,210,254,0.3)' : 'none'
-                        }}>YAHWEH<br/><span style={{fontSize:11, color:logoSub, fontWeight:600, letterSpacing:'0.12em'}}>CARE ™</span></h1>
+                        <img src="/logo.png" alt="Yahweh Care" style={{width:'100%', maxWidth:190, height:'auto', display:'block',
+                            filter: darkMode ? 'drop-shadow(0 0 20px rgba(199,210,254,0.25))' : 'none'
+                        }}/>
                     </div>
 
                     {/* Nav — scrolls independently */}
@@ -1124,16 +1124,8 @@
                         boxShadow:'0 32px 64px rgba(0,0,0,0.4)', position:'relative', zIndex:1,
                     }}>
                         {/* Logo */}
-                        <div style={{display:'flex',justifyContent:'center',alignItems:'center',gap:14,marginBottom:28}}>
-                            <div style={{width:56,height:56,borderRadius:16,background:'linear-gradient(135deg,#6366F1,#8B5CF6)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 8px 24px rgba(99,102,241,0.4)',flexShrink:0}}>
-                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-                                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                </svg>
-                            </div>
-                            <div style={{textAlign:'left'}}>
-                                <p style={{margin:0,fontSize:20,fontWeight:800,color:'#F8FAFC',letterSpacing:'-0.02em',lineHeight:1}}>YAHWEH</p>
-                                <p style={{margin:0,fontSize:20,fontWeight:800,color:'#818CF8',letterSpacing:'-0.02em',lineHeight:1}}>CARE</p>
-                            </div>
+                        <div style={{display:'flex',justifyContent:'center',alignItems:'center',marginBottom:28}}>
+                            <img src="/logo.png" alt="Yahweh Care" style={{height:48, width:'auto', display:'block'}}/>
                         </div>
 
                         <div style={{height:1,background:'rgba(255,255,255,0.08)',margin:'0 0 28px'}}/>
@@ -1205,16 +1197,8 @@
                         boxShadow:'0 32px 64px rgba(0,0,0,0.4)', position:'relative', zIndex:1,
                     }}>
                         {/* Logo */}
-                        <div style={{display:'flex',justifyContent:'center',alignItems:'center',gap:14,marginBottom:28}}>
-                            <div style={{width:56,height:56,borderRadius:16,background:'linear-gradient(135deg,#6366F1,#8B5CF6)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 8px 24px rgba(99,102,241,0.4)',flexShrink:0}}>
-                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-                                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                </svg>
-                            </div>
-                            <div style={{textAlign:'left'}}>
-                                <p style={{margin:0,fontSize:20,fontWeight:800,color:'#F8FAFC',letterSpacing:'-0.02em',lineHeight:1}}>YAHWEH</p>
-                                <p style={{margin:0,fontSize:20,fontWeight:800,color:'#818CF8',letterSpacing:'-0.02em',lineHeight:1}}>CARE</p>
-                            </div>
+                        <div style={{display:'flex',justifyContent:'center',alignItems:'center',marginBottom:28}}>
+                            <img src="/logo.png" alt="Yahweh Care" style={{height:48, width:'auto', display:'block'}}/>
                         </div>
 
                         <div style={{height:1,background:'rgba(255,255,255,0.08)',margin:'0 0 28px'}}/>
@@ -1282,22 +1266,8 @@
                     }}>
 
                         {/* Logo mark */}
-                        <div style={{display:'flex', justifyContent:'center', alignItems:'center', gap:14, marginBottom:28}}>
-                            <div style={{
-                                width:56, height:56, borderRadius:16,
-                                background:'linear-gradient(135deg,#6366F1,#8B5CF6)',
-                                display:'flex', alignItems:'center', justifyContent:'center',
-                                boxShadow:'0 8px 24px rgba(99,102,241,0.4)',
-                                flexShrink:0,
-                            }}>
-                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-                                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                </svg>
-                            </div>
-                            <div style={{textAlign:'left'}}>
-                                <p style={{margin:0, fontSize:20, fontWeight:800, color:'#F8FAFC', letterSpacing:'-0.02em', lineHeight:1}}>YAHWEH</p>
-                                <p style={{margin:0, fontSize:20, fontWeight:800, color:'#818CF8', letterSpacing:'-0.02em', lineHeight:1}}>CARE <span style={{fontSize:10, verticalAlign:'super', fontWeight:400, color:'#94A3B8'}}>™</span></p>
-                            </div>
+                        <div style={{display:'flex', justifyContent:'center', alignItems:'center', marginBottom:28}}>
+                            <img src="/logo.png" alt="Yahweh Care" style={{height:48, width:'auto', display:'block'}}/>
                         </div>
 
                         {/* Divider */}
