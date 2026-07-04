@@ -15,6 +15,20 @@ const isSuperAdmin = (role: string) => role === 'super_admin';
 const isAdminOrAbove = (role: string) => ['super_admin', 'admin'].includes(role);
 const isManagerOrAbove = (role: string) => ['super_admin', 'admin', 'manager', 'hr'].includes(role);
 
+// ── Auto-migrate: ensure users.address exists ───────────────
+// (phone already exists on the live schema; address does not — added here rather
+//  than in a migration file since the live DB has drifted from the repo's migrations)
+let addressMigrated = false;
+async function ensureAddressColumn() {
+  if (addressMigrated) return;
+  try {
+    await pool.query(`ALTER TABLE yc_tkt_mgmt.users ADD COLUMN IF NOT EXISTS address text`);
+    addressMigrated = true;
+  } catch (err) {
+    console.warn('[users] address column migration skipped:', err);
+  }
+}
+
 // GET /users — returns all users with their department and position via correlated subquery
 router.get('/', optionalAuth, async (req, res, next) => {
   try {
@@ -109,6 +123,57 @@ router.post('/', requireAuth, async (req, res, next) => {
     if (e.code === '23505') return res.status(409).json({ error: 'duplicate_email', message: 'A user with this email already exists' });
     next(err);
   }
+});
+
+// GET /users/me — current user's own profile (self-service, not admin CRUD)
+// Registered before PATCH /:id / GET /:id-style routes so Express doesn't treat "me" as an :id param.
+router.get('/me', requireAuth, async (req, res, next) => {
+  try {
+    await ensureAddressColumn();
+    const { rows } = await pool.query(
+      `SELECT u.id, u.email, u.name, u.phone, u.address, u.employment_type, u.designation,
+              u.department_id, u.role, COALESCE(u.is_bootstrap_admin, FALSE) AS is_bootstrap_admin,
+              u.avatar_initials, d.name AS department_name,
+              (SELECT COALESCE(json_agg(p.title ORDER BY sp.is_primary DESC NULLS LAST), '[]'::json)
+                 FROM yc_tkt_mgmt.staff_positions sp
+                 JOIN yc_tkt_mgmt.positions p ON p.id = sp.position_id
+                WHERE sp.user_id = u.id) AS positions
+         FROM yc_tkt_mgmt.users u
+         LEFT JOIN yc_tkt_mgmt.departments d ON d.id = u.department_id
+        WHERE u.id = $1`,
+      [req.auth!.userId]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'not_found' });
+    res.json({ user: rows[0] });
+  } catch (err) { next(err); }
+});
+
+// PATCH /users/me — self-service profile update, phone + address ONLY.
+// Deliberately separate from the admin PATCH /:id below (different fieldMap, no
+// admin-only checks) so a regular staff member can never touch name/email/role/
+// department/position/active-status on their own account through this route.
+router.patch('/me', requireAuth, async (req, res, next) => {
+  try {
+    await ensureAddressColumn();
+    const fieldMap: Record<string, string> = { phone: 'phone', address: 'address' };
+    const updates: string[] = []; const values: unknown[] = []; let i = 1;
+    for (const [key, col] of Object.entries(fieldMap)) {
+      if (key in req.body) {
+        updates.push(`${col} = $${i++}`);
+        const val = req.body[key];
+        values.push(val === '' ? null : val);
+      }
+    }
+    if (updates.length) {
+      values.push(req.auth!.userId);
+      await pool.query(`UPDATE yc_tkt_mgmt.users SET ${updates.join(', ')}, updated_at=NOW() WHERE id=$${i}`, values);
+    }
+    const { rows } = await pool.query(
+      `SELECT id, email, name, phone, address FROM yc_tkt_mgmt.users WHERE id=$1`, [req.auth!.userId]
+    );
+    if (req.auth) await logAudit({ userId: req.auth.userId, actorEmail: req.auth.email, action: 'user.update', module: 'users', targetType: 'user', targetId: req.auth.userId, metadata: { changes: req.body, self: true }, req });
+    res.json({ user: rows[0] });
+  } catch (err) { next(err); }
 });
 
 // PATCH /users/:id — update

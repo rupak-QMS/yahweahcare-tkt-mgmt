@@ -313,7 +313,7 @@
         //   Dept Manager           → + org-chart, staff-performance, team-comparison
         //   HR Manager             → + staff-management  (also gets manager pages)
         //   Director / Bootstrap   → all pages
-        const STAFF_PAGES    = ['dashboard','create-ticket','tickets','calendar','analytics'];
+        const STAFF_PAGES    = ['dashboard','create-ticket','tickets','calendar','analytics','settings'];
         const MANAGER_PAGES  = [...STAFF_PAGES, 'org-chart','staff-performance','team-comparison','ticket-log'];
         const HR_PAGES       = [...MANAGER_PAGES, 'staff-management'];
         const DIRECTOR_PAGES    = [...HR_PAGES, 'scheduled-reports'];
@@ -554,6 +554,21 @@
                     const res = await authFetch(`${API_BASE_URL}/users`);
                     if (!res.ok) throw new Error('Failed to fetch users');
                     return res.json();
+                },
+                me: {
+                    get: async () => {
+                        const res = await authFetch(`${API_BASE_URL}/users/me`);
+                        if (!res.ok) throw new Error('Failed to fetch profile');
+                        return res.json();
+                    },
+                    update: async (data) => {
+                        const res = await authFetch(`${API_BASE_URL}/users/me`, {
+                            method: 'PATCH',
+                            body: JSON.stringify(data)
+                        });
+                        if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.message || 'Failed to update profile'); }
+                        return res.json();
+                    }
                 }
             }
         };
@@ -742,7 +757,7 @@
                 'calendar':'Calendar','analytics':'Analytics','org-chart':'Org Chart',
                 'staff-performance':'Staff Performance','team-comparison':'Team Comparison',
                 'staff-management':'Staff Management','scheduled-reports':'Scheduled Reports',
-                'ticket-log':'Ticket Log','email-config':'Email Config',
+                'ticket-log':'Ticket Log','email-config':'Email Config','settings':'My Profile',
             };
 
             React.useEffect(() => {
@@ -910,13 +925,11 @@
                                         })()}
                                     </div>
                                 </div>
-                                {getAccessiblePages(currentUser).includes('staff-management') && (
-                                <button onClick={() => { setUserMenuOpen(false); setCurrentPage('staff-management'); }}
+                                <button onClick={() => { setUserMenuOpen(false); setCurrentPage('settings'); }}
                                     style={{width:'100%',textAlign:'left',display:'flex',alignItems:'center',gap:10,padding:'10px 16px',background:'none',border:'none',cursor:'pointer',fontSize:13,color:textC}}>
                                     <Icon name="settings" size={15} />
                                     <span style={{fontWeight:500}}>Settings</span>
                                 </button>
-                                )}
                                 <div style={{height:1, background:border, margin:'0 12px'}}/>
                                 <button onClick={() => { setUserMenuOpen(false); onSignOut(); }}
                                     style={{width:'100%',textAlign:'left',display:'flex',alignItems:'center',gap:10,padding:'10px 16px',background:'none',border:'none',cursor:'pointer',fontSize:13,color:'#DC2626',fontWeight:600}}>
@@ -966,7 +979,7 @@
 
             const handleSettings = () => {
                 setProfileOpen(false);
-                setCurrentPage('staff-management');
+                setCurrentPage('settings');
             };
 
             const handleSignOut = () => {
@@ -1038,12 +1051,10 @@
                                 border: `1px solid ${darkMode ? 'rgba(99,102,241,0.18)' : '#E2E8F0'}`,
                                 overflow:'hidden', zIndex:50,
                             }}>
-                                {allowedPages.includes('staff-management') && (
                                 <button onClick={handleSettings} style={{width:'100%',textAlign:'left',display:'flex',alignItems:'center',gap:10,padding:'10px 14px',background:'none',border:'none',cursor:'pointer',fontSize:13,color:sidebarText}}>
                                     <Icon name="settings" size={15} />
                                     <span style={{fontWeight:500}}>Settings</span>
                                 </button>
-                                )}
                                 <div style={{height:1, background:sidebarBorder, margin:'0 12px'}}/>
                                 <button onClick={handleSignOut} style={{width:'100%',textAlign:'left',display:'flex',alignItems:'center',gap:10,padding:'10px 14px',background:'none',border:'none',cursor:'pointer',fontSize:13,color:'#DC2626',fontWeight:600}}>
                                     <Icon name='log-out' size={15} />
@@ -8373,6 +8384,134 @@
             );
         }
         // ── Email Config Page (Bootstrap Admin only) ──────────────────────────────
+        // ── SettingsPage — "My Profile": view own details, edit phone + address only ──
+        function SettingsPage() {
+            const dm = React.useContext(DarkModeContext);
+            const [profile, setProfile]   = React.useState(null);
+            const [loading, setLoading]   = React.useState(true);
+            const [saving, setSaving]     = React.useState(false);
+            const [loadError, setLoadError] = React.useState('');
+            const [toastMsg, setToastMsg] = React.useState('');
+            const [phone, setPhone]       = React.useState('');
+            const [address, setAddress]   = React.useState('');
+
+            const bg    = dm ? '#0F172A' : '#F9FAFB';
+            const card  = dm ? '#1E293B' : '#FFFFFF';
+            const bdr   = dm ? '#334155' : '#E2E8F0';
+            const txt   = dm ? '#E2E8F0' : '#1E293B';
+            const muted = dm ? '#94A3B8' : '#6B7280';
+
+            const showToast = (msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(''), 3500); };
+
+            const load = React.useCallback(async () => {
+                setLoading(true); setLoadError('');
+                try {
+                    const d = await API.users.me.get();
+                    setProfile(d.user);
+                    setPhone(d.user?.phone || '');
+                    setAddress(d.user?.address || '');
+                } catch (e) { setLoadError(e.message); }
+                finally { setLoading(false); }
+            }, []);
+
+            React.useEffect(() => { load(); }, [load]);
+
+            const dirty = profile && (phone !== (profile.phone || '') || address !== (profile.address || ''));
+
+            const handleSave = async () => {
+                setSaving(true);
+                try {
+                    const d = await API.users.me.update({ phone: phone.trim(), address: address.trim() });
+                    setProfile(p => ({ ...p, ...d.user }));
+                    showToast('Profile updated');
+                } catch (e) { showToast('Failed to save: ' + e.message); }
+                finally { setSaving(false); }
+            };
+
+            const initials = (profile?.name || '').split(/\s+/).map(w => w[0] || '').slice(0, 2).join('').toUpperCase();
+
+            const fieldRow = (label, value) => (
+                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 0', borderBottom:`1px solid ${bdr}`}}>
+                    <span style={{fontSize:12, color:muted, fontWeight:600}}>{label}</span>
+                    <span style={{fontSize:13, color:txt, fontWeight:500}}>{value || '—'}</span>
+                </div>
+            );
+
+            return (
+                <main style={{flex:1, overflowY:'auto', background:bg, padding:'24px'}}>
+                    {toastMsg && (
+                        <div style={{position:'fixed',top:20,right:20,background:'#1E293B',color:'#fff',padding:'10px 18px',borderRadius:10,zIndex:9999,fontSize:13,boxShadow:'0 4px 16px rgba(0,0,0,0.3)'}}>
+                            {toastMsg}
+                        </div>
+                    )}
+                    <div style={{maxWidth:640, margin:'0 auto'}}>
+                        <div style={{marginBottom:24}}>
+                            <h1 style={{fontSize:22,fontWeight:800,color:txt,margin:0,display:'flex',alignItems:'center',gap:'8px'}}><Icon name='settings' size={22} color={txt} />My Profile</h1>
+                            <p style={{fontSize:13,color:muted,margin:'4px 0 0'}}>View your account details. You can update your phone number and address below.</p>
+                        </div>
+
+                        {loading && (
+                            <div style={{background:card,border:`1px solid ${bdr}`,borderRadius:12,padding:32,textAlign:'center',color:muted}}>Loading profile…</div>
+                        )}
+
+                        {!loading && loadError && (
+                            <div style={{background:card,border:`1px solid ${bdr}`,borderRadius:12,padding:32,textAlign:'center'}}>
+                                <p style={{color:'#EF4444',fontSize:13,marginBottom:12}}>{loadError}</p>
+                                <button onClick={load} style={{padding:'8px 18px',borderRadius:8,border:`1px solid ${bdr}`,background:'transparent',color:txt,cursor:'pointer',fontSize:13}}>Retry</button>
+                            </div>
+                        )}
+
+                        {!loading && !loadError && profile && (
+                            <>
+                                <div style={{background:card,border:`1px solid ${bdr}`,borderRadius:12,padding:20,marginBottom:20,display:'flex',alignItems:'center',gap:14}}>
+                                    <div style={{width:52,height:52,borderRadius:'50%',background:'#F97316',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:700,fontSize:18,flexShrink:0}}>
+                                        {initials || '?'}
+                                    </div>
+                                    <div>
+                                        <p style={{fontSize:16,fontWeight:700,color:txt,margin:0}}>{profile.name}</p>
+                                        <p style={{fontSize:12,color:muted,margin:'2px 0 0'}}>{profile.email}</p>
+                                        {profile.is_bootstrap_admin && (
+                                            <span style={{display:'inline-block',fontSize:'9px',fontWeight:700,padding:'2px 8px',borderRadius:10,background:'#FEF3C7',color:'#92400E',border:'1px solid #FDE68A',marginTop:5}}>★ Bootstrap Admin</span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div style={{background:card,border:`1px solid ${bdr}`,borderRadius:12,padding:'4px 20px',marginBottom:20}}>
+                                    {fieldRow('Department', profile.department_name)}
+                                    {fieldRow('Position', Array.isArray(profile.positions) && profile.positions.length ? profile.positions.join(', ') : profile.designation)}
+                                    {fieldRow('Employment Type', profile.employment_type ? profile.employment_type.replace(/_/g,' ') : null)}
+                                    <div style={{padding:'10px 0'}}>
+                                        <span style={{fontSize:12, color:muted, fontWeight:600}}>Role, department, and position are managed by your administrator.</span>
+                                    </div>
+                                </div>
+
+                                <div style={{background:card,border:`1px solid ${bdr}`,borderRadius:12,padding:20}}>
+                                    <p style={{fontSize:13,fontWeight:700,color:txt,margin:'0 0 14px'}}>Contact Details</p>
+
+                                    <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,fontWeight:600,color:muted,marginBottom:6}}>
+                                        <Icon name='phone' size={13} color={muted} />Phone Number
+                                    </label>
+                                    <input value={phone} onChange={e=>setPhone(e.target.value)} placeholder="e.g. 0400 000 000"
+                                        style={{width:'100%',padding:'9px 12px',borderRadius:8,border:`1px solid ${bdr}`,background:bg,color:txt,fontSize:13,boxSizing:'border-box',marginBottom:16}}/>
+
+                                    <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,fontWeight:600,color:muted,marginBottom:6}}>
+                                        <Icon name='map-pin' size={13} color={muted} />Address
+                                    </label>
+                                    <textarea rows="3" value={address} onChange={e=>setAddress(e.target.value)} placeholder="Street, suburb, state, postcode"
+                                        style={{width:'100%',padding:'9px 12px',borderRadius:8,border:`1px solid ${bdr}`,background:bg,color:txt,fontSize:13,boxSizing:'border-box',resize:'vertical',fontFamily:'inherit',marginBottom:16}}/>
+
+                                    <button onClick={handleSave} disabled={saving || !dirty}
+                                        style={{padding:'10px 22px',borderRadius:8,border:'none',background:(saving||!dirty)?'#94A3B8':'#4F46E5',color:'#fff',fontWeight:600,cursor:(saving||!dirty)?'not-allowed':'pointer',fontSize:13,display:'inline-flex',alignItems:'center',gap:'6px'}}>
+                                        {saving ? <><YCLoader size={13} />Saving…</> : <><Icon name='check-circle' size={14} color='#fff' />Save Changes</>}
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </main>
+            );
+        }
+
         function EmailConfigPage() {
             const dm = React.useContext(DarkModeContext);
             const BACKEND = window.location.hostname === 'localhost' ? 'http://localhost:4001' : 'https://yahweahcare-tkt-mgmt-hx48.vercel.app';
@@ -8879,6 +9018,7 @@
                     case 'ticket-log': return <TicketLogPage />;
                     case 'scheduled-reports': return <ScheduledReportsPage />;
                     case 'email-config':      return <EmailConfigPage />;
+                    case 'settings':          return <SettingsPage />;
                     default: return <Dashboard />;
                 }
             };
