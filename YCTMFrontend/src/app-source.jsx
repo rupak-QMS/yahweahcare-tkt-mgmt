@@ -6867,7 +6867,7 @@
                     : [...f.position_ids, id]
             }));
 
-            const posTypeColor = { director:'#16A34A', ops:'#DC2626', finance:'#D97706', strategic:'#7C3AED', staff:'#3B82F6', external:'#94A3B8' };
+            const posTypeColor = { director:'#5F8F6E', ops:'#B0655B', finance:'#A0824F', strategic:'#8B7BA8', staff:'#5B7C99', external:'#8B8F94' };
 
             const Avatar = ({name, size=36}) => {
                 const ini=(name||'').split(' ').slice(0,2).map(w=>w[0]?.toUpperCase()||'').join('');
@@ -6959,15 +6959,15 @@
                                                             <div style={{fontSize:'13px',fontWeight:'700',color:textP,display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}>
                                                                 {m.name}
                                                                 {m.is_bootstrap_admin && (
-                                                                    <span title="System Administration — not part of org hierarchy" style={{display:'inline-flex',alignItems:'stretch',borderRadius:'6px',overflow:'hidden',fontSize:'9px',fontWeight:'700',boxShadow:'0 1px 3px rgba(217,119,6,0.25)'}}>
-                                                                        <span style={{background:'#D97706',color:'#fff',padding:'2px 5px',display:'flex',alignItems:'center'}}><Icon name='star' size={9} color='#fff' /></span>
-                                                                        <span style={{background:dm?'rgba(217,119,6,0.18)':'#FEF3C7',color:dm?'#fcd34d':'#92400E',padding:'2px 7px'}}>Bootstrap Admin</span>
+                                                                    <span title="System Administration — not part of org hierarchy" style={{display:'inline-flex',alignItems:'stretch',borderRadius:'6px',overflow:'hidden',fontSize:'9px',fontWeight:'600',border:`1px solid ${dm?'rgba(160,130,79,0.35)':'#E4D9C4'}`}}>
+                                                                        <span style={{background:'#A0824F',color:'#fff',padding:'2px 5px',display:'flex',alignItems:'center'}}><Icon name='star' size={9} color='#fff' /></span>
+                                                                        <span style={{background:dm?'rgba(160,130,79,0.16)':'#F5EFE3',color:dm?'#d4c19c':'#6B5636',padding:'2px 7px'}}>Bootstrap Admin</span>
                                                                     </span>
                                                                 )}
                                                                 {!m.is_bootstrap_admin && (m.positions||[]).some(p=>(p.type||p.position_type||'').toLowerCase()==='director') && (
-                                                                    <span title="Organisational Leadership — part of org hierarchy" style={{display:'inline-flex',alignItems:'stretch',borderRadius:'6px',overflow:'hidden',fontSize:'9px',fontWeight:'700',boxShadow:'0 1px 3px rgba(22,163,74,0.25)'}}>
-                                                                        <span style={{background:'#16A34A',color:'#fff',padding:'2px 5px',display:'flex',alignItems:'center'}}><Icon name='building-2' size={9} color='#fff' /></span>
-                                                                        <span style={{background:dm?'rgba(22,163,74,0.18)':'#DCFCE7',color:dm?'#4ade80':'#15803D',padding:'2px 7px'}}>Director</span>
+                                                                    <span title="Organisational Leadership — part of org hierarchy" style={{display:'inline-flex',alignItems:'stretch',borderRadius:'6px',overflow:'hidden',fontSize:'9px',fontWeight:'600',border:`1px solid ${dm?'rgba(95,143,110,0.35)':'#D7E5DA'}`}}>
+                                                                        <span style={{background:'#5F8F6E',color:'#fff',padding:'2px 5px',display:'flex',alignItems:'center'}}><Icon name='building-2' size={9} color='#fff' /></span>
+                                                                        <span style={{background:dm?'rgba(95,143,110,0.16)':'#EBF2ED',color:dm?'#a8cbb2':'#3E6249',padding:'2px 7px'}}>Director</span>
                                                                     </span>
                                                                 )}
                                                             </div>
@@ -6985,7 +6985,7 @@
                                                             {(m.positions||[]).map(p=>{
                                                                 const pc = posTypeColor[p.type]||'#6366F1';
                                                                 return p.is_primary ? (
-                                                                    <span key={p.id} title="Primary position" style={{display:'inline-flex',alignItems:'stretch',borderRadius:'6px',overflow:'hidden',fontSize:'10px',fontWeight:'700',boxShadow:`0 1px 3px ${pc}30`}}>
+                                                                    <span key={p.id} title="Primary position" style={{display:'inline-flex',alignItems:'stretch',borderRadius:'6px',overflow:'hidden',fontSize:'10px',fontWeight:'600',border:`1px solid ${pc}35`}}>
                                                                         <span style={{background:pc,color:'#fff',padding:'2px 6px',display:'flex',alignItems:'center'}}><Icon name='star' size={9} color='#fff' /></span>
                                                                         <span style={{background:`${pc}18`,color:pc,padding:'2px 8px'}}>{p.title}</span>
                                                                     </span>
@@ -7000,21 +7000,23 @@
                                                 </td>
                                                 <td style={{padding:'12px 14px',fontSize:'12px',color:dm?'#c0cfec':'#334155'}}>{m.department_name||'—'}</td>
                                                 <td style={{padding:'12px 14px'}}>
-                                                    <span style={{display:'inline-flex',alignItems:'stretch',borderRadius:'6px',overflow:'hidden',fontSize:'11px',fontWeight:'700',whiteSpace:'nowrap',boxShadow:'0 1px 3px rgba(99,102,241,0.25)'}}>
-                                                        <span style={{background:'#4F46E5',color:'#fff',padding:'3px 7px',display:'flex',alignItems:'center'}}><Icon name='briefcase' size={11} color='#fff' /></span>
-                                                        <span style={{background:dm?'rgba(99,102,241,0.18)':'#EEF2FF',color:dm?'#a5b4fc':'#4338CA',padding:'3px 9px'}}>{EMP_TYPES[m.employment_type]||m.employment_type||'—'}</span>
+                                                    <span style={{display:'inline-flex',alignItems:'stretch',borderRadius:'6px',overflow:'hidden',fontSize:'11px',fontWeight:'600',whiteSpace:'nowrap',border:`1px solid ${dm?'rgba(91,124,153,0.35)':'#D8E1E8'}`}}>
+                                                        <span style={{background:'#5B7C99',color:'#fff',padding:'3px 7px',display:'flex',alignItems:'center'}}><Icon name='briefcase' size={11} color='#fff' /></span>
+                                                        <span style={{background:dm?'rgba(91,124,153,0.16)':'#EDF1F4',color:dm?'#a9c0d4':'#3E5A70',padding:'3px 9px'}}>{EMP_TYPES[m.employment_type]||m.employment_type||'—'}</span>
                                                     </span>
                                                 </td>
                                                 <td style={{padding:'12px 14px'}}>
                                                     {(() => {
                                                         const isAzure = m.auth_provider==='azure_ad';
-                                                        const pc = isAzure ? '#1D4ED8' : '#15803D';
+                                                        const pc = isAzure ? '#5B7C99' : '#6B8E7F';
+                                                        const tint = isAzure ? (dm?'rgba(91,124,153,0.16)':'#EDF1F4') : (dm?'rgba(107,142,127,0.16)':'#EEF2EF');
+                                                        const txt = isAzure ? (dm?'#a9c0d4':'#3E5A70') : (dm?'#a9c7b3':'#3F5F49');
                                                         return (
-                                                            <span style={{display:'inline-flex',alignItems:'stretch',borderRadius:'6px',overflow:'hidden',fontSize:'11px',fontWeight:'700',whiteSpace:'nowrap',boxShadow:`0 1px 3px ${pc}30`}}>
+                                                            <span style={{display:'inline-flex',alignItems:'stretch',borderRadius:'6px',overflow:'hidden',fontSize:'11px',fontWeight:'600',whiteSpace:'nowrap',border:`1px solid ${pc}35`}}>
                                                                 <span style={{background:pc,color:'#fff',padding:'3px 7px',display:'flex',alignItems:'center'}}>
                                                                     <Icon name={isAzure?'shield':'key'} size={11} color='#fff' />
                                                                 </span>
-                                                                <span style={{background:dm?`${pc}25`:(isAzure?'#DBEAFE':'#F0FDF4'),color:isAzure?(dm?'#93c5fd':'#1D4ED8'):(dm?'#4ade80':'#15803D'),padding:'3px 9px'}}>
+                                                                <span style={{background:tint,color:txt,padding:'3px 9px'}}>
                                                                     {isAzure ? 'Microsoft Entra' : 'Local'}
                                                                 </span>
                                                             </span>
@@ -7024,17 +7026,17 @@
                                                 <td style={{padding:'12px 14px'}}>
                                                     <div style={{display:'flex',gap:'6px'}}>
                                                         <button onClick={()=>openEdit(m)}
-                                                            style={{padding:'5px 12px',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',border:'none',borderRadius:'6px',fontSize:'11px',fontWeight:'600',color:'#4338CA',cursor:'pointer',display:'inline-flex',alignItems:'center',gap:'4px',transition:'transform 0.12s ease, box-shadow 0.12s ease'}}
-                                                            onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-1px)';e.currentTarget.style.boxShadow='0 2px 6px rgba(67,56,202,0.25)';}}
-                                                            onMouseLeave={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.boxShadow='none';}}>
-                                                            <Icon name='pencil' size={11} color='#4338CA' />Edit
+                                                            style={{padding:'5px 12px',background:'transparent',border:`1px solid ${borderC}`,borderRadius:'6px',fontSize:'11px',fontWeight:'600',color:textP,cursor:'pointer',display:'inline-flex',alignItems:'center',gap:'4px',transition:'background 0.12s ease, border-color 0.12s ease'}}
+                                                            onMouseEnter={e=>{e.currentTarget.style.background=dm?'rgba(255,255,255,0.04)':'#F8FAFC';e.currentTarget.style.borderColor=dm?'#475569':'#CBD5E1';}}
+                                                            onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.borderColor=borderC;}}>
+                                                            <Icon name='pencil' size={11} color={textM} />Edit
                                                         </button>
                                                         {!m.is_bootstrap_admin && canDelete && (
                                                             <button onClick={()=>setDelConfirm(m)} title="Bootstrap Admin Only"
-                                                                style={{padding:'5px 12px',background:dm?'rgba(239,68,68,0.15)':'#FEF2F2',border:'none',borderRadius:'6px',fontSize:'11px',fontWeight:'600',color:dm?'#fca5a5':'#DC2626',cursor:'pointer',display:'inline-flex',alignItems:'center',gap:'4px',transition:'transform 0.12s ease, box-shadow 0.12s ease'}}
-                                                                onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-1px)';e.currentTarget.style.boxShadow='0 2px 6px rgba(220,38,38,0.25)';}}
-                                                                onMouseLeave={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.boxShadow='none';}}>
-                                                                <Icon name='trash-2' size={11} color={dm?'#fca5a5':'#DC2626'} />Delete
+                                                                style={{padding:'5px 12px',background:'transparent',border:`1px solid ${dm?'rgba(176,101,91,0.4)':'#E4CFCB'}`,borderRadius:'6px',fontSize:'11px',fontWeight:'600',color:dm?'#c99b93':'#8B4A41',cursor:'pointer',display:'inline-flex',alignItems:'center',gap:'4px',transition:'background 0.12s ease'}}
+                                                                onMouseEnter={e=>{e.currentTarget.style.background=dm?'rgba(176,101,91,0.12)':'#F7ECEA';}}
+                                                                onMouseLeave={e=>{e.currentTarget.style.background='transparent';}}>
+                                                                <Icon name='trash-2' size={11} color={dm?'#c99b93':'#8B4A41'} />Delete
                                                             </button>
                                                         )}
                                                     </div>
@@ -7050,18 +7052,18 @@
                         {!loading && (
                             <div style={{display:'flex',gap:'12px',marginTop:'14px',flexWrap:'wrap'}}>
                                 {[
-                                    {label:'Total Staff',   val:staff.length,                                                color:'#4F46E5', icon:'users'},
-                                    {label:'Active',        val:staff.filter(s=>s.is_active).length,                        color:'#16A34A', icon:'check-circle'},
-                                    {label:'Unassigned',    val:staff.filter(s=>s.is_active&&(s.positions||[]).length===0).length, color:'#D97706', icon:'alert-triangle'},
-                                    {label:'Entra Login',   val:staff.filter(s=>s.auth_provider==='azure_ad').length,        color:'#1D4ED8', icon:'shield'},
-                                    {label:'Vacant Positions', val:positions.filter(p=>p.is_vacant).length,                  color:'#DC2626', icon:'tag'},
+                                    {label:'Total Staff',   val:staff.length,                                                color:'#5B7C99', icon:'users'},
+                                    {label:'Active',        val:staff.filter(s=>s.is_active).length,                        color:'#5F8F6E', icon:'check-circle'},
+                                    {label:'Unassigned',    val:staff.filter(s=>s.is_active&&(s.positions||[]).length===0).length, color:'#A0824F', icon:'alert-triangle'},
+                                    {label:'Entra Login',   val:staff.filter(s=>s.auth_provider==='azure_ad').length,        color:'#7D8CA3', icon:'shield'},
+                                    {label:'Vacant Positions', val:positions.filter(p=>p.is_vacant).length,                  color:'#B0655B', icon:'tag'},
                                 ].map(s=>(
                                     <div key={s.label} className="stat-card" style={{background:cardBg,border:`1px solid ${borderC}`,borderRadius:'10px',padding:'10px 16px',display:'flex',gap:'10px',alignItems:'center',cursor:'default'}}>
-                                        <div style={{width:'28px',height:'28px',borderRadius:'50%',background:s.color,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:`0 2px 6px ${s.color}55`}}>
+                                        <div style={{width:'28px',height:'28px',borderRadius:'50%',background:s.color,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
                                             <Icon name={s.icon} size={13} color='#fff' />
                                         </div>
                                         <div>
-                                            <div style={{fontSize:'18px',fontWeight:'800',color:s.color,lineHeight:1.1}}>{s.val}</div>
+                                            <div style={{fontSize:'18px',fontWeight:'700',color:textP,lineHeight:1.1}}>{s.val}</div>
                                             <div style={{fontSize:'11px',color:textM,fontWeight:'600'}}>{s.label}</div>
                                         </div>
                                     </div>
