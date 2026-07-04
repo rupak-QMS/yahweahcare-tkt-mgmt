@@ -1524,7 +1524,7 @@
                 }
                 for (const t of resTkts) {
                     const due = t.dueAt||t.expectedCompletion; if(!due){slaOk++;continue;}
-                    const fin = t.updatedAt||t.resolvedAt; if(!fin){slaOk++;continue;}
+                    const fin = t.resolvedAt||t.updatedAt; if(!fin){slaOk++;continue;}
                     if(new Date(fin)<=new Date(due)) slaOk++;
                 }
                 const slaFailed = resTkts.length - slaOk;
