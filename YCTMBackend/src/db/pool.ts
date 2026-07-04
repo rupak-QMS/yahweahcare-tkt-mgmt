@@ -17,8 +17,14 @@ export const pool = new Pool({
   connectionTimeoutMillis: 5_000,
 });
 
-pool.on('connect', (client) => {
-  client.query('SET search_path TO yc_tkt_mgmt, public').catch(() => {});
-});
+// NOTE: previously set search_path via `pool.on('connect', ...)` calling
+// client.query() without awaiting it. pg-pool hands the client to the
+// next caller immediately after emitting 'connect' (synchronously, not
+// awaited), so that fire-and-forget query raced with whatever real query
+// ran next on the same client - the source of the recurring
+// "Calling client.query() when the client is already executing a query"
+// deprecation warning in production logs. Removed rather than reworked:
+// every query in this codebase already fully-qualifies the schema
+// (yc_tkt_mgmt.<table>), so search_path was never actually load-bearing.
 pool.on('error', (err) => console.error('[pool] idle client error', err));
 console.log('[db] Using pg Pool (Neon pooler endpoint)');
