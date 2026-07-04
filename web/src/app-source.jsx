@@ -6636,7 +6636,7 @@
             const EMP_TYPES = { full_time:'Full Time', part_time:'Part Time', casual:'Casual', contractor:'Contractor' };
             const POS_TYPES  = ['director','ops','finance','strategic','staff','external'];
             const EMPTY_FORM = {
-                name:'', email:'', phone:'', employment_type:'full_time',
+                name:'', email:'', phone:'', address:'', employment_type:'full_time',
                 department_id:'', manager_id:'', start_date:'',
                 profile_notes:'', position_ids:[], auth_provider:'azure_ad'
             };
@@ -6713,7 +6713,7 @@
             const openAdd = () => { setForm(EMPTY_FORM); setModalMode('add'); setSelStaff(null); setError(''); setShowModal(true); };
             const openEdit = (m) => {
                 setForm({
-                    name: m.name||'', email: m.email||'', phone: m.phone||'',
+                    name: m.name||'', email: m.email||'', phone: m.phone||'', address: m.address||'',
                     employment_type: m.employment_type||'full_time',
                     department_id: m.department_id||'', manager_id: m.manager_id||'',
                     start_date: m.start_date ? m.start_date.slice(0,10) : '',
@@ -6738,6 +6738,7 @@
                         name:            form.name.trim(),
                         email:           form.email.trim(),
                         phone:           form.phone || null,
+                        address:         form.address || null,
                         employment_type: form.employment_type || 'full_time',
                         department_id:   form.department_id   || null,
                         manager_id:      form.manager_id      || null,
@@ -6908,6 +6909,7 @@
                                                             </div>
                                                             <div style={{fontSize:'11px',color:textM}}>{m.email}</div>
                                                             {m.phone && <div style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8'}}>{m.phone}</div>}
+                                                            {m.address && <div title={m.address} style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8',maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{m.address}</div>}
                                                         </div>
                                                     </div>
                                                 </td>
@@ -7037,6 +7039,11 @@
                                         <div>
                                             <label style={labelStyle}>Phone Number</label>
                                             <input style={inputStyle} value={form.phone} onChange={e=>setForm(f=>({...f,phone:e.target.value}))} placeholder="+61 4xx xxx xxx"/>
+                                        </div>
+                                        {/* Address */}
+                                        <div style={{gridColumn:'1/-1'}}>
+                                            <label style={labelStyle}>Address</label>
+                                            <input style={inputStyle} value={form.address} onChange={e=>setForm(f=>({...f,address:e.target.value}))} placeholder="Street, suburb, state, postcode"/>
                                         </div>
                                         {/* Positions */}
                                         <div style={{gridColumn:'1/-1'}}>

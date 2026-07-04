@@ -49,11 +49,15 @@ router.get('/', optionalAuth, async (req, res, next) => {
     else if (status === 'inactive') where.push('u.is_active = FALSE');
     if (deptId) { where.push('u.department_id = $' + pi); params.push(deptId); pi++; }
 
+    await ensureAddressColumn();
     const { rows } = await pool.query(
       // Only select columns that exist in the live DB schema (legacy 000_reset_schema).
-      // is_bootstrap_admin is added by migration 008. Non-existent columns like auth_provider,
-      // employment_type, phone, manager_id, start_date, profile_notes are intentionally excluded.
+      // is_bootstrap_admin is added by migration 008. phone/address are real live columns
+      // (address auto-migrated above) — surfaced here so Staff Management stays in sync
+      // with the self-service My Profile page. Other non-existent columns like auth_provider,
+      // employment_type, manager_id, start_date, profile_notes are still intentionally excluded.
       'SELECT u.id, u.email, u.name, u.is_active, u.department_id, u.position_id, u.created_at,' +
+      ' u.phone, u.address,' +
       ' COALESCE(u.is_bootstrap_admin, FALSE) AS is_bootstrap_admin,' +
       ' d.name AS department_name,' +
       ' (SELECT COALESCE(json_agg(' +
@@ -80,7 +84,7 @@ router.get('/', optionalAuth, async (req, res, next) => {
 // POST /users — create staff
 router.post('/', requireAuth, async (req, res, next) => {
   try {
-    const { email, name, phone, employment_type, department_id, manager_id,
+    const { email, name, phone, address, employment_type, department_id, manager_id,
       start_date, profile_notes, position_id, auth_provider, is_active, designation } = req.body || {};
     if (!email?.trim()) return res.status(400).json({ error: 'missing_fields', message: 'Email is required' });
     if (!name?.trim())  return res.status(400).json({ error: 'missing_fields', message: 'Name is required' });
@@ -90,14 +94,15 @@ router.post('/', requireAuth, async (req, res, next) => {
     const initials = (name.trim().split(/\s+/).map((s: string) => s[0] || '').slice(0, 2).join('') || '?').toUpperCase();
     const active = is_active !== false;
     const posId  = position_id ? Number(position_id) : null;
+    await ensureAddressColumn();
     const { rows } = await pool.query(
       `INSERT INTO yc_tkt_mgmt.users
-         (email, name, phone, employment_type, department_id, manager_id,
+         (email, name, phone, address, employment_type, department_id, manager_id,
           start_date, profile_notes, position_id, auth_provider, is_active,
           avatar_initials, designation, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NOW(),NOW())
-       RETURNING id, email, name, is_active, position_id, department_id, manager_id, employment_type, auth_provider, avatar_initials`,
-      [email.toLowerCase().trim(), name.trim(), phone || null, employment_type || 'full_time',
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,NOW(),NOW())
+       RETURNING id, email, name, is_active, position_id, department_id, manager_id, employment_type, auth_provider, avatar_initials, phone, address`,
+      [email.toLowerCase().trim(), name.trim(), phone || null, address || null, employment_type || 'full_time',
        department_id ? Number(department_id) : null, manager_id ? Number(manager_id) : null,
        start_date || null, profile_notes || null, posId, auth_provider || 'azure_ad',
        active, initials, designation || null]
@@ -179,6 +184,7 @@ router.patch('/me', requireAuth, async (req, res, next) => {
 // PATCH /users/:id — update
 router.patch('/:id', requireAuth, async (req, res, next) => {
   try {
+    await ensureAddressColumn();
     const id = Number(req.params.id);
     const { rows: tRows } = await pool.query(`SELECT * FROM yc_tkt_mgmt.users WHERE id = $1`, [id]);
     const target = tRows[0];
@@ -198,7 +204,7 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
     const fieldMap: Record<string, string> = {
       name: 'name', email: 'email',
       department_id: 'department_id', position_id: 'position_id',
-      is_active: 'is_active',
+      is_active: 'is_active', phone: 'phone', address: 'address',
     };
     const updates: string[] = []; const values: unknown[] = []; let i = 1;
     for (const [key, col] of Object.entries(fieldMap)) {
@@ -239,7 +245,7 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
     }
 
     const { rows: updRows } = await pool.query(
-      `SELECT id, email, name, is_active, position_id, department_id, COALESCE(is_bootstrap_admin, FALSE) AS is_bootstrap_admin FROM yc_tkt_mgmt.users WHERE id=$1`, [id]
+      `SELECT id, email, name, phone, address, is_active, position_id, department_id, COALESCE(is_bootstrap_admin, FALSE) AS is_bootstrap_admin FROM yc_tkt_mgmt.users WHERE id=$1`, [id]
     );
     if (req.auth) await logAudit({ userId: req.auth.userId, actorEmail: req.auth.email, action: 'user.update', module: 'users', targetType: 'user', targetId: id, metadata: { changes: req.body }, req });
 
