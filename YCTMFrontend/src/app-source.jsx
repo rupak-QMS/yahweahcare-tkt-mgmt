@@ -403,21 +403,21 @@
         function getRoleBadgeInfo(user) {
             if (!user) return null;
             if (user.isBootstrapAdmin)
-                return { label:'⭐ Bootstrap Admin', desc:'System Administration — not part of org hierarchy',
-                         bg:'#FEF3C7', color:'#D97706', border:'#FDE68A', dot:'#F59E0B' };
+                return { label:'Bootstrap Admin', desc:'System Administration — not part of org hierarchy',
+                         bg:'#F5EFE3', color:'#6B5636', border:'#E4D9C4', dot:'#A0824F' };
             const pt = (user.positionType || '').toLowerCase();
             const r  = (user.role || '').toLowerCase();
             if (pt === 'director' || r === 'director')
-                return { label:'🏢 Director', desc:'Organisational Leadership — part of org hierarchy',
-                         bg:'#DCFCE7', color:'#15803D', border:'#86EFAC', dot:'#22C55E' };
+                return { label:'Director', desc:'Organisational Leadership — part of org hierarchy',
+                         bg:'#EBF2ED', color:'#3E6249', border:'#D7E5DA', dot:'#5F8F6E' };
             if (r === 'hr')
-                return { label:'📋 HR Manager', desc:'Human Resources Department',
-                         bg:'#F3E8FF', color:'#7E22CE', border:'#C4B5FD', dot:'#A855F7' };
+                return { label:'HR Manager', desc:'Human Resources Department',
+                         bg:'#EFEBF2', color:'#5A4870', border:'#DBD2E3', dot:'#8B7BA8' };
             if (r === 'manager' || ['ops','finance','strategic'].includes(pt))
-                return { label:'👔 Manager', desc:'Department Manager',
-                         bg:'#DBEAFE', color:'#1D4ED8', border:'#93C5FD', dot:'#3B82F6' };
-            return { label:'👤 Staff', desc:'Staff Member',
-                     bg:'#EEF2FF', color:'#4338CA', border:'#C7D2FE', dot:'#6366F1' };
+                return { label:'Manager', desc:'Department Manager',
+                         bg:'#EDF1F4', color:'#3E5A70', border:'#D8E1E8', dot:'#5B7C99' };
+            return { label:'Staff', desc:'Staff Member',
+                     bg:'#EDF0F0', color:'#455251', border:'#D9E0DF', dot:'#6B8E7F' };
         }
 
         // Fallback mock data — IDs must match actual DB seed values
@@ -662,7 +662,7 @@
             const r = Math.round(size * 0.22);
             return (
                 <div className="yc-spin" style={{display:'inline-flex',alignItems:'center',justifyContent:'center',animation:'spin 0.65s linear infinite',width:size,height:size,flexShrink:0}}>
-                    <div style={{width:size,height:size,borderRadius:r,background:'linear-gradient(135deg,#6366F1,#8B5CF6)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 4px 14px rgba(99,102,241,0.35)'}}>
+                    <div style={{width:size,height:size,borderRadius:r,background:'#4F46E5',display:'flex',alignItems:'center',justifyContent:'center'}}>
                         <svg width={Math.round(size*0.58)} height={Math.round(size*0.58)} viewBox="0 0 24 24" fill="none">
                             <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
@@ -749,7 +749,7 @@
                 if (pushStatus === 'unsupported') return;
                 if (pushStatus === 'denied') {
                     // Try to open site settings directly so user can reset the permission
-                    showToast('Notifications blocked — click the 🔒 lock icon in your browser address bar → Site settings → Notifications → Allow');
+                    showToast('Notifications blocked — click the lock icon in your browser address bar → Site settings → Notifications → Allow');
                     return;
                 }
                 if (pushStatus === 'loading') return;
@@ -1137,7 +1137,7 @@
                                 boxShadow: darkMode ? 'none' : '0 1px 2px rgba(15,23,42,0.04)',
                                 transition:'border-color 0.15s, background 0.15s',
                             }}>
-                            <div style={{width:34,height:34,borderRadius:9,background:'linear-gradient(135deg,#4338CA,#6366F1)',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:700,fontSize:12,flexShrink:0,letterSpacing:'0.02em'}}>
+                            <div style={{width:34,height:34,borderRadius:9,background:'#4F46E5',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:700,fontSize:12,flexShrink:0,letterSpacing:'0.02em'}}>
                                 {initials}
                             </div>
                             <div style={{flex:1, minWidth:0, textAlign:'left'}}>
@@ -1146,7 +1146,7 @@
                                 {(()=>{
                                     const rb = getRoleBadgeInfo(currentUser);
                                     if (!rb) return null;
-                                    const label = rb.label.split(' ').slice(1).join(' ') || rb.label;
+                                    const label = rb.label;
                                     return (
                                         <span style={{display:'inline-flex',alignItems:'center',gap:5,fontSize:'10px',fontWeight:700,padding:'2px 8px 2px 6px',borderRadius:20,background:darkMode?'rgba(255,255,255,0.06)':'#F8FAFC',color:darkMode?'#c7d0e8':'#334155',border:`1px solid ${darkMode?'rgba(255,255,255,0.08)':'#E2E8F0'}`,marginTop:5,letterSpacing:'0.02em'}}>
                                             <span style={{width:5,height:5,borderRadius:'50%',background:rb.dot,flexShrink:0}}/>
@@ -1210,9 +1210,9 @@
                             style={{
                                 width:'100%',display:'flex',alignItems:'center',justifyContent:'center',gap:10,
                                 padding:'13px 0',borderRadius:12,border:'none',cursor:'pointer',
-                                background: hovered ? 'linear-gradient(135deg,#4F46E5,#7C3AED)' : 'linear-gradient(135deg,#6366F1,#8B5CF6)',
+                                background: hovered ? '#4338CA' : '#4F46E5',
                                 color:'white',fontSize:14,fontWeight:700,
-                                boxShadow: hovered ? '0 8px 24px rgba(99,102,241,0.5)' : '0 4px 16px rgba(99,102,241,0.35)',
+                                boxShadow: hovered ? '0 4px 14px rgba(79,70,229,0.4)' : '0 2px 8px rgba(79,70,229,0.3)',
                                 transition:'all 0.2s',
                             }}
                         >
@@ -1374,9 +1374,9 @@
                             style={{
                                 width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:10,
                                 padding:'13px 0', borderRadius:12, border:'none', cursor:'pointer',
-                                background: hovered ? 'linear-gradient(135deg,#4F46E5,#7C3AED)' : 'linear-gradient(135deg,#6366F1,#8B5CF6)',
+                                background: hovered ? '#4338CA' : '#4F46E5',
                                 color:'white', fontSize:14, fontWeight:700,
-                                boxShadow: hovered ? '0 8px 24px rgba(99,102,241,0.5)' : '0 4px 16px rgba(99,102,241,0.35)',
+                                boxShadow: hovered ? '0 4px 14px rgba(79,70,229,0.4)' : '0 2px 8px rgba(79,70,229,0.3)',
                                 transition:'all 0.2s',
                             }}
                         >
@@ -1434,7 +1434,7 @@
                                     <p style={{fontSize:'11px',color:textM,margin:0}}>{data.subtitle}</p>
                                 </div>
                             </div>
-                            <button onClick={onClose} style={{background:dm?'rgba(255,255,255,0.06)':'#F3F4F6',border:'none',borderRadius:'8px',width:'30px',height:'30px',cursor:'pointer',color:textM,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:'16px',lineHeight:1}}>✕</button>
+                            <button onClick={onClose} style={{background:dm?'rgba(255,255,255,0.06)':'#F3F4F6',border:'none',borderRadius:'8px',width:'30px',height:'30px',cursor:'pointer',color:textM,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><Icon name='x' size={15} color={textM} /></button>
                         </div>
                         <div style={{padding:'20px 24px',flex:1}}>
                             {/* KPI chips */}
@@ -1855,7 +1855,7 @@
                             </div>
                             <div onClick={()=>!loading&&setInsight(buildInsight('category-chart'))} style={{...card,padding:'20px',cursor:loading?'default':'pointer',transition:'transform 0.12s'}} onMouseEnter={e=>{if(!loading)e.currentTarget.style.transform='translateY(-2px)'}} onMouseLeave={e=>e.currentTarget.style.transform=''}>
                                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'14px'}}>
-                                    <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,margin:0}}>📑 Category Breakdown</h2>
+                                    <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,margin:0,display:'flex',alignItems:'center',gap:6}}><Icon name='tag' size={14} color={textM} />Category Breakdown</h2>
                                     {!loading && <span style={{fontSize:'9px',color:dm?'rgba(99,102,241,0.5)':'rgba(99,102,241,0.4)',fontWeight:'700',letterSpacing:'0.06em'}}>CLICK FOR INSIGHTS</span>}
                                 </div>
                                 <div style={{height:'220px',position:'relative'}}>
@@ -2183,12 +2183,12 @@
 
                         {error && (
                             <div className="flex items-center gap-3 bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-xl mb-5 text-sm">
-                                <span>⚠️</span> {error}
+                                <Icon name='alert-triangle' size={14} color='#DC2626' /> {error}
                             </div>
                         )}
                         {success && (
                             <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-100 text-emerald-700 px-4 py-3 rounded-xl mb-5 text-sm">
-                                <span>✅</span> Ticket created successfully!
+                                <Icon name='check-circle' size={14} color='#059669' /> Ticket created successfully!
                             </div>
                         )}
 
@@ -2305,7 +2305,7 @@
                                                 onDragLeave={e=>{e.currentTarget.style.borderColor=dm?'rgba(99,102,241,0.3)':'#C7D2FE';}}
                                                 onDrop={e=>{e.preventDefault();e.currentTarget.style.borderColor=dm?'rgba(99,102,241,0.3)':'#C7D2FE';const dt={target:{files:e.dataTransfer.files,value:''}};handleFileChange(dt);}}>
                                                 <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.rtf,.jpg,.jpeg,.png,.gif,.bmp,.heic,.heif" onChange={handleFileChange} style={{display:'none'}}/>
-                                                <span style={{fontSize:20}}>📎</span>
+                                                <Icon name='paperclip' size={18} color={dm?'#818cf8':'#4F46E5'} />
                                                 <span style={{fontSize:12,color:dm?'#8fa4cc':'#64748B'}}>Click to attach files or drag &amp; drop</span>
                                             </label>
                                             {attachError && <p style={{fontSize:11,color:'#DC2626',marginTop:4}}>{attachError}</p>}
@@ -2313,10 +2313,10 @@
                                                 <div style={{marginTop:8,display:'flex',flexDirection:'column',gap:4}}>
                                                     {attachments.map((a,i)=>(
                                                         <div key={i} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 10px',background:dm?'rgba(99,102,241,0.08)':'#EEF2FF',borderRadius:6,fontSize:12}}>
-                                                            <span>{a.type.startsWith('image/')?'🖼️':a.type.includes('pdf')?'📄':a.type.includes('sheet')||a.type.includes('excel')?'bar-chart-2':'file-edit'}</span>
+                                                            <Icon name={a.type.startsWith('image/')?'eye':a.type.includes('pdf')?'scroll-text':a.type.includes('sheet')||a.type.includes('excel')?'bar-chart-2':'file-edit'} size={14} color={dm?'#818cf8':'#4F46E5'} />
                                                             <span style={{flex:1,color:dm?'#c7d2fe':'#1E1B4B',fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{a.name}</span>
                                                             <span style={{color:dm?'#4a607f':'#94A3B8',flexShrink:0}}>{(a.size/1024).toFixed(0)} KB</span>
-                                                            <button type="button" onClick={()=>removeAttachment(i)} style={{background:'none',border:'none',cursor:'pointer',color:'#DC2626',fontSize:14,lineHeight:1,padding:'0 2px',flexShrink:0}}>✕</button>
+                                                            <button type="button" onClick={()=>removeAttachment(i)} style={{background:'none',border:'none',cursor:'pointer',color:'#DC2626',display:'flex',alignItems:'center',padding:'0 2px',flexShrink:0}}><Icon name='x' size={13} color='#DC2626' /></button>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -2327,11 +2327,11 @@
                                     {/* Reporter Information */}
                                     <div className={cardCls}>
                                         <div className="flex items-center justify-between mb-5">
-                                            <div className={sectionHeadCls} style={{marginBottom:0}}>
-                                                <span style={{color:dm?'#818cf8':'#4F46E5', fontSize:'15px'}}>👤</span> Reporter Information
+                                            <div className={sectionHeadCls} style={{marginBottom:0,display:'flex',alignItems:'center',gap:6}}>
+                                                <Icon name='user' size={14} color={dm?'#818cf8':'#4F46E5'} /> Reporter Information
                                             </div>
                                             <span className="text-xs text-gray-400 flex items-center gap-1">
-                                                <span>🔒</span> Auto-filled from your account
+                                                <Icon name='lock' size={11} color='currentColor' /> Auto-filled from your account
                                             </span>
                                         </div>
                                         <div className="grid gap-4 mb-4 yc-grid-2-col" style={{gridTemplateColumns:"repeat(2,1fr)"}} >
@@ -2387,8 +2387,8 @@
                                                 />
                                                 {approverSearch && (
                                                     <button type="button" onClick={() => setApproverSearch('')}
-                                                        style={{position:'absolute', right:'8px', top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:dm?'#4a607f':'#94A3B8', fontSize:'14px', lineHeight:1, padding:0}}>
-                                                        ×
+                                                        style={{position:'absolute', right:'8px', top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:dm?'#4a607f':'#94A3B8', padding:0, display:'flex', alignItems:'center'}}>
+                                                        <Icon name='x' size={13} color={dm?'#4a607f':'#94A3B8'} />
                                                     </button>
                                                 )}
                                             </div>
@@ -2568,9 +2568,9 @@
                                         type="submit"
                                         disabled={loading}
                                         className="w-full py-3 rounded-xl font-semibold text-sm text-white transition-all"
-                                        style={{background: loading ? '#A5B4FC' : 'linear-gradient(135deg, #6366F1, #8B5CF6)', boxShadow: loading ? 'none' : '0 4px 14px rgba(99,102,241,0.35)'}}
+                                        style={{background: loading ? '#A5B4FC' : '#4F46E5', boxShadow: loading ? 'none' : '0 2px 8px rgba(79,70,229,0.3)'}}
                                     >
-                                        {loading ? <><YCLoader size={16} /><span style={{marginLeft:8}}>Creating ticket…</span></> : '➕  Create Ticket'}
+                                        {loading ? <><YCLoader size={16} /><span style={{marginLeft:8}}>Creating ticket…</span></> : <span style={{display:'inline-flex',alignItems:'center',gap:6,justifyContent:'center'}}><Icon name='plus-circle' size={14} color='#fff' />Create Ticket</span>}
                                     </button>
                                 </div>
                             </div>
@@ -2919,16 +2919,16 @@
                                     <Icon name='search' size={14} color={dm?'#4a607f':'#94A3B8'} />
                                     <input type="text" placeholder="Search by title or ticket ID…" value={search} onChange={e=>setSearch(e.target.value)}
                                         style={{flex:1,border:'none',outline:'none',fontSize:'12.5px',color:dm?'#c0cfec':'#334155',background:'transparent',minWidth:0}}/>
-                                    {search && <button onClick={()=>setSearch('')} style={{border:'none',background:'none',color:dm?'#4a607f':'#94A3B8',cursor:'pointer',fontSize:'15px',padding:'0',lineHeight:1,flexShrink:0}}>×</button>}
+                                    {search && <button onClick={()=>setSearch('')} style={{border:'none',background:'none',color:dm?'#4a607f':'#94A3B8',cursor:'pointer',padding:'0',display:'flex',alignItems:'center',flexShrink:0}}><Icon name='x' size={14} color={dm?'#4a607f':'#94A3B8'} /></button>}
                                 </div>
                                 {/* Priority */}
                                 <select value={priorityFilter} onChange={e=>setPriorityFilter(e.target.value)}
                                     style={{flex:'0 1 130px',minWidth:'110px',border:`1px solid ${priorityFilter?'#6366F1':(dm?'rgba(99,102,241,0.14)':'#E2E8F2')}`,borderRadius:'8px',padding:'6px 10px',fontSize:'12px',background:dm?'rgba(8,16,36,0.5)':'#F8FAFF',color:priorityFilter?(dm?'#a5b4fc':'#4F46E5'):(dm?'#8fa4cc':'#64748B'),outline:'none',cursor:'pointer'}}>
                                     <option value="">All Priorities</option>
-                                    <option value="Critical">🔴 Critical</option>
-                                    <option value="High">🟠 High</option>
-                                    <option value="Medium">🔵 Medium</option>
-                                    <option value="Low">🟢 Low</option>
+                                    <option value="Critical">Critical</option>
+                                    <option value="High">High</option>
+                                    <option value="Medium">Medium</option>
+                                    <option value="Low">Low</option>
                                 </select>
                                 {/* Assignee */}
                                 <select value={assigneeFilter} onChange={e=>setAssigneeFilter(e.target.value)}
@@ -2944,7 +2944,7 @@
                                     style={{flex:'0 1 130px',minWidth:'110px',border:`1px solid ${dateTo?'#6366F1':(dm?'rgba(99,102,241,0.14)':'#E2E8F2')}`,borderRadius:'8px',padding:'6px 10px',fontSize:'12px',background:dm?'rgba(8,16,36,0.5)':'#F8FAFF',color:dateTo?(dm?'#a5b4fc':'#4F46E5'):(dm?'#8fa4cc':'#64748B'),outline:'none',colorScheme:dm?'dark':'light'}}/>
                                 {/* Clear + count */}
                                 {hasActiveFilters && (
-                                    <button onClick={clearFilters} style={{border:'none',background:'none',color:dm?'#a5b4fc':'#6366F1',cursor:'pointer',fontSize:'12px',fontWeight:'600',padding:'6px 4px',flexShrink:0,whiteSpace:'nowrap'}}>✕ Clear</button>
+                                    <button onClick={clearFilters} style={{border:'none',background:'none',color:dm?'#a5b4fc':'#6366F1',cursor:'pointer',fontSize:'12px',fontWeight:'600',padding:'6px 4px',flexShrink:0,whiteSpace:'nowrap',display:'inline-flex',alignItems:'center',gap:4}}><Icon name='x' size={12} color={dm?'#a5b4fc':'#6366F1'} />Clear</button>
                                 )}
                                 <span style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',marginLeft:'auto',whiteSpace:'nowrap',flexShrink:0}}>{filteredNew.length} ticket{filteredNew.length!==1?'s':''}</span>
                             </div>
@@ -3149,14 +3149,14 @@
                                                     <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'6px',flexWrap:'wrap'}}>
                                                         <span style={{fontSize:11,fontWeight:700,color:ps.color,background:cardBg,borderRadius:6,padding:'2px 8px',border:`1px solid ${ps.border}`}}>{selectedTicket.id}</span>
                                                         <Badge text={selectedTicket.status} st={sst(selectedTicket.status)}/>
-                                                        {selectedTicket.isEscalated && <span style={{fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:20,background:'#FFF7ED',color:'#C2410C',border:'1px solid #FED7AA'}}>⬆ Escalated</span>}
+                                                        {selectedTicket.isEscalated && <span style={{fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:20,background:'#FFF7ED',color:'#C2410C',border:'1px solid #FED7AA',display:'inline-flex',alignItems:'center',gap:3}}><Icon name='trending-up' size={9} color='#C2410C' />Escalated</span>}
                                                         {hasPendingExt && <span style={{fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:20,background:'#FFF7ED',color:'#92400E',border:'1px solid #FDE68A'}}>⏳ Extension Requested</span>}
                                                     </div>
                                                     <h2 style={{fontSize:'15px',fontWeight:'700',color:textP,margin:0,lineHeight:1.3}}>{selectedTicket.title}</h2>
                                                     {selectedTicket.category && <div style={{margin:'6px 0 0'}}><CatBadge label={selectedTicket.categoryLabel||selectedTicket.category} size='lg' /></div>}
                                                 </div>
                                                 <button onClick={closeDrawer}
-                                                    style={{background:dm?'rgba(99,102,241,0.08)':'white',border:`1px solid ${borderC}`,borderRadius:'8px',width:32,height:32,fontSize:18,cursor:'pointer',color:textM,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>×</button>
+                                                    style={{background:dm?'rgba(99,102,241,0.08)':'white',border:`1px solid ${borderC}`,borderRadius:'8px',width:32,height:32,cursor:'pointer',color:textM,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><Icon name='x' size={16} color={textM} /></button>
                                             </div>
                                         </div>
                                     );
@@ -3189,7 +3189,7 @@
                                             {label:'Sub-Category',node: <span style={{fontSize:13,color:selectedTicket.subcategory?(dm?'#c0cfec':'#334155'):(dm?'#4a607f':'#94A3B8'),fontStyle:selectedTicket.subcategory?'normal':'italic'}}>{selectedTicket.subcategory||'Not specified'}</span>},
                                             {label:'Created',     node: <span style={{fontSize:13,color:dm?'#c0cfec':'#334155'}}>{selectedTicket.date}</span>},
                                             {label:'Due Date',    node: raw
-                                                ? <span style={{fontSize:13,fontWeight:od?700:400,color:od?'#EF4444':(dm?'#c0cfec':'#334155')}}>{new Date(raw).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'})}{od?' ⚠️ Overdue':''}</span>
+                                                ? <span style={{fontSize:13,fontWeight:od?700:400,color:od?'#EF4444':(dm?'#c0cfec':'#334155'),display:'inline-flex',alignItems:'center',gap:5}}>{new Date(raw).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'})}{od && <><Icon name='alert-triangle' size={12} color='#EF4444' />Overdue</>}</span>
                                                 : <span style={{fontSize:13,color:dm?'#4a607f':'#94A3B8'}}>Not set</span>},
                                             {label:'NDIS Related',node: <span style={{fontSize:13,color:dm?'#c0cfec':'#334155'}}>{selectedTicket.ndisRelated?'Yes':'No'}</span>},
                                         ];
@@ -3606,7 +3606,7 @@
                                             {!escalateMode ? (
                                                 <button
                                                     onClick={() => { setEscalateMode(true); setActionError(''); }}
-                                                    style={{width:'100%',padding:'11px 16px',background:'linear-gradient(135deg,#F97316,#EA580C)',color:'#fff',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer',display:'inline-flex',alignItems:'center',justifyContent:'center',gap:'7px',boxShadow:'0 2px 8px rgba(234,88,12,0.25)',letterSpacing:'0.01em'}}
+                                                    style={{width:'100%',padding:'11px 16px',background:'#C2410C',color:'#fff',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer',display:'inline-flex',alignItems:'center',justifyContent:'center',gap:'7px',letterSpacing:'0.01em'}}
                                                 >
                                                     <Icon name='arrow-up-circle' size={15} color='#fff' />Escalate This Ticket
                                                 </button>
@@ -3858,7 +3858,7 @@
                                                             } catch(e){ setActionError(e.message); }
                                                             finally{ setActionLoading(false); }
                                                         }} style={{flex:1,padding:'9px',background:'#DC2626',color:'white',border:'none',borderRadius:9,fontSize:13,fontWeight:700,cursor:'pointer',opacity:(actionLoading||!deleteJustification.trim())?0.5:1}}>
-                                                            {actionLoading?<><YCLoader size={13} /><span style={{marginLeft:6}}>Deleting…</span></>:'🗑 Permanently Delete'}
+                                                            {actionLoading?<><YCLoader size={13} /><span style={{marginLeft:6}}>Deleting…</span></>:<span style={{display:'inline-flex',alignItems:'center',gap:6,justifyContent:'center'}}><Icon name='trash-2' size={13} color='#fff' />Permanently Delete</span>}
                                                         </button>
                                                         <button onClick={()=>{setDeleteMode(false);setDeleteJustification('');setActionError('');}}
                                                             style={{padding:'9px 14px',background:dm?'rgba(6,9,22,0.7)':'#F5F7FF',color:dm?'#c0cfec':'#334155',border:'none',borderRadius:9,fontSize:13,fontWeight:600,cursor:'pointer'}}>Cancel</button>
@@ -4167,11 +4167,11 @@
                                     <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'6px'}}>
                                         <span style={{fontSize:'11px',fontWeight:'800',color:textM}}>{t.ticketNumber||`#${t.id}`}</span>
                                         <span style={{fontSize:'10px',fontWeight:'700',color:sc,background:sc+'22',borderRadius:'20px',padding:'2px 8px'}}>{ST_LABEL[t.status]||t.status}</span>
-                                        {od && <span style={{fontSize:'10px',fontWeight:'700',color:'#EF4444',background:dm?'rgba(239,68,68,0.14)':'#FEF2F2',borderRadius:'20px',padding:'2px 8px'}}>⚠ Overdue</span>}
+                                        {od && <span style={{fontSize:'10px',fontWeight:'700',color:'#EF4444',background:dm?'rgba(239,68,68,0.14)':'#FEF2F2',borderRadius:'20px',padding:'2px 8px',display:'inline-flex',alignItems:'center',gap:3}}><Icon name='alert-triangle' size={9} color='#EF4444' />Overdue</span>}
                                     </div>
                                     <div style={{fontSize:'16px',fontWeight:'800',color:textP,lineHeight:1.35}}>{t.title||'Untitled ticket'}</div>
                                 </div>
-                                <button onClick={()=>setViewTicket(null)} style={{flexShrink:0,background:dm?'rgba(255,255,255,0.06)':'#F1F5F9',border:'none',borderRadius:'8px',width:'30px',height:'30px',color:textM,fontSize:'17px',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',lineHeight:1}}>×</button>
+                                <button onClick={()=>setViewTicket(null)} style={{flexShrink:0,background:dm?'rgba(255,255,255,0.06)':'#F1F5F9',border:'none',borderRadius:'8px',width:'30px',height:'30px',color:textM,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}><Icon name='x' size={15} color={textM} /></button>
                             </div>
                             {/* Body */}
                             <div style={{padding:'16px 20px'}}>
@@ -4212,7 +4212,7 @@
                             {/* Footer actions */}
                             <div style={{padding:'14px 20px',borderTop:`1px solid ${dm?'rgba(99,102,241,0.12)':'#F0F4FF'}`,display:'flex',gap:'10px'}}>
                                 <button onClick={()=>setViewTicket(null)} style={{flex:'0 0 auto',padding:'9px 16px',borderRadius:'9px',border:`1px solid ${borderC}`,background:'transparent',color:textM,fontSize:'12px',fontWeight:'700',cursor:'pointer'}}>Close</button>
-                                <button onClick={()=>{ window.location.hash='tickets'; }} style={{flex:1,padding:'9px 16px',borderRadius:'9px',border:'none',background:'linear-gradient(135deg,#6366F1,#818CF8)',color:'white',fontSize:'12px',fontWeight:'700',cursor:'pointer',boxShadow:'0 4px 14px rgba(99,102,241,0.35)'}}>Open in Tickets →</button>
+                                <button onClick={()=>{ window.location.hash='tickets'; }} style={{flex:1,padding:'9px 16px',borderRadius:'9px',border:'none',background:'#4F46E5',color:'white',fontSize:'12px',fontWeight:'700',cursor:'pointer'}}>Open in Tickets →</button>
                             </div>
                         </div>
                     </div>
@@ -4237,8 +4237,8 @@
                             <span style={{fontSize:'10px',fontWeight:'600',color:c.text,background:c.bg,borderRadius:'4px',padding:'2px 7px'}}>{c.label}</span>
                             {(t.priorityLabel||t.priority) && <span style={{fontSize:'10px',fontWeight:'600',color:dm?'#8fa4cc':'#64748B',background:dm?'rgba(99,102,241,0.1)':'#F1F5F9',borderRadius:'4px',padding:'2px 7px',textTransform:'capitalize'}}>{t.priorityLabel||t.priority}</span>}
                         </div>
-                        {t.assigneeName && <div style={{fontSize:'11px',color:textM,marginBottom:'4px'}}>👤 {t.assigneeName}</div>}
-                        {t.dueAt && <div style={{fontSize:'11px',color:od?'#EF4444':textM}}>📅 Due: {new Date(t.dueAt).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'})}{od?' · Overdue':''}</div>}
+                        {t.assigneeName && <div style={{fontSize:'11px',color:textM,marginBottom:'4px',display:'flex',alignItems:'center',gap:4}}><Icon name='user' size={10} color={textM} />{t.assigneeName}</div>}
+                        {t.dueAt && <div style={{fontSize:'11px',color:od?'#EF4444':textM,display:'flex',alignItems:'center',gap:4}}><Icon name='calendar' size={10} color={od?'#EF4444':textM} />Due: {new Date(t.dueAt).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'})}{od?' · Overdue':''}</div>}
                     </div>
                 );
             };
@@ -4278,8 +4278,8 @@
                                     >
                                         {d && (<>
                                             {/* Top accent stripe */}
-                                            {isHol && <div style={{position:'absolute',top:0,left:0,right:0,height:'2.5px',background:'linear-gradient(90deg,#EF4444,#F87171)'}}/>}
-                                            {!isHol && odCnt>0 && <div style={{position:'absolute',top:0,left:0,right:0,height:'2.5px',background:'linear-gradient(90deg,#F97316,#FDBA74)'}}/>}
+                                            {isHol && <div style={{position:'absolute',top:0,left:0,right:0,height:'2.5px',background:'#DC2626'}}/>}
+                                            {!isHol && odCnt>0 && <div style={{position:'absolute',top:0,left:0,right:0,height:'2.5px',background:'#C2410C'}}/>}
                                             {/* Date row */}
                                             <div style={{display:'flex',alignItems:'center',gap:'4px',padding:'5px 6px 3px'}}>
                                                 <div style={{width:'24px',height:'24px',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px',fontWeight:isTd?'800':'500',background:isTd?'#6366F1':'transparent',color:isTd?'white':isWknd?(dm?'#3d5070':'#94A3B8'):(dm?'#c0cfec':'#334155'),boxShadow:isTd?'0 2px 8px rgba(99,102,241,0.5)':'none',flexShrink:0}}>{d}</div>
@@ -4357,7 +4357,7 @@
                     <div style={{flex:1,padding:'20px 24px'}}>
                         {/* Day header */}
                         <div style={{display:'flex',alignItems:'center',gap:'16px',marginBottom:'20px'}}>
-                            <div style={{width:'56px',height:'56px',borderRadius:'14px',background:dayDs===todayStr?'linear-gradient(135deg,#6366F1,#818CF8)':'linear-gradient(135deg,rgba(99,102,241,0.15),rgba(99,102,241,0.05))',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',boxShadow:dayDs===todayStr?'0 4px 16px rgba(99,102,241,0.4)':'none'}}>
+                            <div style={{width:'56px',height:'56px',borderRadius:'14px',background:dayDs===todayStr?'#4F46E5':(dm?'rgba(99,102,241,0.1)':'rgba(99,102,241,0.08)'),display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
                                 <div style={{fontSize:'10px',fontWeight:'800',color:dayDs===todayStr?'rgba(255,255,255,0.8)':(dm?'#6b80a4':'#94A3B8'),textTransform:'uppercase',letterSpacing:'0.1em'}}>{MS[dayAnchor.getMonth()]}</div>
                                 <div style={{fontSize:'22px',fontWeight:'800',color:dayDs===todayStr?'white':(dm?'#c0cfec':'#1E293B'),lineHeight:1}}>{dayAnchor.getDate()}</div>
                             </div>
@@ -4386,7 +4386,7 @@
                         <div style={{fontSize:'11px',fontWeight:'700',color:textM,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:'8px'}}>Tickets Due — {tkts.length}</div>
                         {tkts.length===0 ? (
                             <div style={{textAlign:'center',padding:'40px 20px',color:dm?'#4a607f':'#94A3B8',fontSize:'13px'}}>
-                                <div style={{fontSize:'28px',marginBottom:'8px'}}>🎉</div>
+                                <div style={{marginBottom:'8px',display:'flex',justifyContent:'center'}}><Icon name='check-circle' size={26} color={dm?'#4a607f':'#94A3B8'} /></div>
                                 No tickets due on this day
                             </div>
                         ) : tkts.map((t,i)=>{
@@ -4407,7 +4407,7 @@
                                         <div style={{display:'flex',gap:'6px',flexWrap:'wrap'}}>
                                             <span style={{fontSize:'10px',fontWeight:'600',color:c.text,background:c.bg,borderRadius:'4px',padding:'2px 7px'}}>{c.label}</span>
                                             {(t.priorityLabel||t.priority) && <span style={{fontSize:'10px',fontWeight:'600',color:dm?'#8fa4cc':'#64748B',background:dm?'rgba(99,102,241,0.1)':'#F1F5F9',borderRadius:'4px',padding:'2px 7px',textTransform:'capitalize'}}>{t.priorityLabel||t.priority}</span>}
-                                            {t.assigneeName && <span style={{fontSize:'10px',color:textM}}>👤 {t.assigneeName}</span>}
+                                            {t.assigneeName && <span style={{fontSize:'10px',color:textM,display:'inline-flex',alignItems:'center',gap:3}}><Icon name='user' size={9} color={textM} />{t.assigneeName}</span>}
                                         </div>
                                     </div>
                                 </div>
@@ -4438,7 +4438,7 @@
                 const sortedDates = Object.keys(groups).sort();
                 if (sortedDates.length===0) return (
                     <div style={{textAlign:'center',padding:'60px 20px',color:dm?'#4a607f':'#94A3B8'}}>
-                        <div style={{fontSize:'32px',marginBottom:'10px'}}>📋</div>
+                        <div style={{marginBottom:'10px',display:'flex',justifyContent:'center'}}><Icon name='calendar' size={30} color={dm?'#4a607f':'#94A3B8'} /></div>
                         <div style={{fontSize:'14px',fontWeight:'600'}}>No events in the next 3 months</div>
                     </div>
                 );
@@ -4523,8 +4523,8 @@
 
                     {/* Reschedule toast */}
                     {toast && (
-                        <div style={{position:'fixed',bottom:'24px',left:'50%',transform:'translateX(-50%)',zIndex:10001,display:'flex',alignItems:'center',gap:'10px',padding:'12px 20px',borderRadius:'12px',background:toast.type==='error'?'#DC2626':(dm?'linear-gradient(135deg,#1e293b,#0f172a)':'#111827'),color:'white',fontSize:'13px',fontWeight:'600',boxShadow:'0 12px 32px rgba(0,0,0,0.35)',border:toast.type==='error'?'1px solid rgba(255,255,255,0.15)':`1px solid ${dm?'rgba(99,102,241,0.3)':'rgba(255,255,255,0.1)'}`}}>
-                            <span style={{fontSize:'15px'}}>{toast.type==='error'?'⚠️':'✅'}</span>
+                        <div style={{position:'fixed',bottom:'24px',left:'50%',transform:'translateX(-50%)',zIndex:10001,display:'flex',alignItems:'center',gap:'10px',padding:'12px 20px',borderRadius:'12px',background:toast.type==='error'?'#DC2626':'#111827',color:'white',fontSize:'13px',fontWeight:'600',boxShadow:'0 12px 32px rgba(0,0,0,0.35)',border:toast.type==='error'?'1px solid rgba(255,255,255,0.15)':`1px solid ${dm?'rgba(99,102,241,0.3)':'rgba(255,255,255,0.1)'}`}}>
+                            <Icon name={toast.type==='error'?'alert-triangle':'check-circle'} size={15} color={toast.type==='error'?'#FCA5A5':'#34D399'} />
                             <span>{toast.msg}</span>
                         </div>
                     )}
@@ -4639,13 +4639,13 @@
                                     const tkts = tktMap[selectedDay]||[];
                                     const dl = new Date(sy,sm2-1,sd2).toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
                                     return (
-                                        <div style={{background:cardBg,borderRadius:'13px',border:'2px solid rgba(99,102,241,0.55)',overflow:'hidden',boxShadow:dm?'0 4px 24px rgba(99,102,241,0.2)':'0 2px 10px rgba(99,102,241,0.1)'}}>
-                                            <div style={{background:'linear-gradient(135deg,#6366F1,#818CF8)',padding:'13px 16px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                                        <div style={{background:cardBg,borderRadius:'13px',border:`1px solid ${borderC}`,overflow:'hidden'}}>
+                                            <div style={{background:'#4F46E5',padding:'13px 16px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                                                 <div>
                                                     <div style={{fontSize:'10px',color:'rgba(255,255,255,0.7)',fontWeight:'700',textTransform:'uppercase',letterSpacing:'0.06em'}}>Selected Day</div>
                                                     <div style={{fontSize:'14px',fontWeight:'800',color:'white',marginTop:'2px'}}>{dl}</div>
                                                 </div>
-                                                <button onClick={()=>setSelectedDay(null)} style={{background:'rgba(255,255,255,0.18)',border:'none',borderRadius:'7px',width:'28px',height:'28px',color:'white',fontSize:'17px',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',lineHeight:1}}>×</button>
+                                                <button onClick={()=>setSelectedDay(null)} style={{background:'rgba(255,255,255,0.18)',border:'none',borderRadius:'7px',width:'28px',height:'28px',color:'white',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}><Icon name='x' size={15} color='#fff' /></button>
                                             </div>
                                             <div style={{padding:'12px 14px'}}>
                                                 {hols.length===0&&tkts.length===0 && <p style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',margin:0,textAlign:'center',padding:'8px 0'}}>No tickets or holidays</p>}
@@ -4668,8 +4668,8 @@
                                                                 <div style={{fontSize:'12px',fontWeight:'700',color:textP,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.title||'—'}</div>
                                                                 <div style={{display:'flex',gap:'5px',marginTop:'4px',flexWrap:'wrap'}}>
                                                                     {(t.priorityLabel||t.priority) && <span style={{fontSize:'10px',color:c.text,fontWeight:'600',textTransform:'capitalize'}}>{t.priorityLabel||t.priority}</span>}
-                                                                    {od && <span style={{fontSize:'10px',color:'#EF4444',fontWeight:'700'}}>⚠ Overdue</span>}
-                                                                    {done && <span style={{fontSize:'10px',color:'#10B981',fontWeight:'700'}}>✓ Done</span>}
+                                                                    {od && <span style={{fontSize:'10px',color:'#EF4444',fontWeight:'700',display:'inline-flex',alignItems:'center',gap:2}}><Icon name='alert-triangle' size={9} color='#EF4444' />Overdue</span>}
+                                                                    {done && <span style={{fontSize:'10px',color:'#10B981',fontWeight:'700',display:'inline-flex',alignItems:'center',gap:2}}><Icon name='check' size={9} color='#10B981' />Done</span>}
                                                                 </div>
                                                             </div>
                                                         );
@@ -5026,7 +5026,7 @@
             };
 
             const top3 = [...staffMetrics].sort((a,b)=>b.resolved-a.resolved).slice(0,3);
-            const MEDAL = ['🥇','🥈','🥉'];
+            const RANK_COLOR = ['#A0824F','#8B8F94','#A0896F'];
             const slaColor = v => v===null?'#9CA3AF':v>=80?'#10B981':v>=60?'#F59E0B':'#EF4444';
             const insightBg = {positive:'#F0FDF4',warning:'#FFFBEB',danger:'#FEF2F2',info:'#EFF6FF'};
             const insightBorder = {positive:'#BBF7D0',warning:'#FDE68A',danger:'#FECACA',info:'#BFDBFE'};
@@ -5092,8 +5092,8 @@
                             <h2 style={{fontSize:'14px',fontWeight:'700',color:textP,marginBottom:'16px',display:'flex',alignItems:'center',gap:'6px'}}><Icon name='star' size={14} color='#F59E0B' />Top Performers</h2>
                             <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'14px'}}>
                                 {top3.map((s,idx) => (
-                                    <div key={s.id} style={{border:`1px solid ${dm?'rgba(99,102,241,0.2)':(idx===0?'#FDE68A':idx===1?'#D1D5DB':'#E5E7EB')}`,borderRadius:'12px',padding:'20px',textAlign:'center',background:dm?(idx===0?'rgba(234,179,8,0.12)':idx===1?'rgba(99,102,241,0.08)':'rgba(99,102,241,0.05)'):(idx===0?'linear-gradient(135deg,#FFFBEB,#FEF3C7)':idx===1?'linear-gradient(135deg,#F8FAFC,#F1F5F9)':'#FAFAFA')}}>
-                                        <div style={{fontSize:'24px',marginBottom:'8px'}}>{MEDAL[idx]}</div>
+                                    <div key={s.id} style={{border:`1px solid ${borderC}`,borderRadius:'12px',padding:'20px',textAlign:'center',background:cardBg}}>
+                                        <div style={{width:'30px',height:'30px',borderRadius:'50%',background:RANK_COLOR[idx],display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 10px'}}><Icon name='award' size={15} color='#fff' /></div>
                                         <div style={{width:'44px',height:'44px',borderRadius:'50%',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:'#4338CA',fontWeight:'800',fontSize:'14px',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 10px'}}>{s.initials}</div>
                                         <div style={{fontWeight:'700',fontSize:'13px',color:textP,marginBottom:'2px'}}>{s.name}</div>
                                         <div style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8',marginBottom:'12px'}}>{s.dept}</div>
@@ -5384,7 +5384,6 @@
                 </th>
             );
 
-            const MEDAL = ['🥇','🥈','🥉'];
             const top3  = [...deptMetrics].sort((a,b)=>b.resolved-a.resolved).slice(0,3);
 
             return (
@@ -5417,13 +5416,15 @@
                         {/* Podium */}
                         {top3.length>0 && (
                         <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,padding:'20px 24px',marginBottom:'20px',boxShadow:'0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.06),0 0 0 1px rgba(15,23,42,0.03)'}}>
-                            <h2 style={{fontSize:'14px',fontWeight:700,color:textP,marginBottom:'16px'}}>🏆 Top Performing Departments</h2>
+                            <h2 style={{fontSize:'14px',fontWeight:700,color:textP,marginBottom:'16px',display:'flex',alignItems:'center',gap:6}}><Icon name='award' size={14} color={textM} />Top Performing Departments</h2>
                             <div style={{display:'flex',gap:'16px',flexWrap:'wrap'}}>
-                                {top3.map((d,i) => (
-                                    <div key={d.name} onClick={()=>setSelectedDept(d)} style={{flex:'1 1 200px',borderRadius:'10px',border:'2px solid',borderColor:i===0?'#F59E0B':i===1?'#9CA3AF':'#CD7C3A',padding:'16px',background:dm?(i===0?'rgba(245,158,11,0.08)':i===1?'rgba(156,163,175,0.08)':'rgba(205,124,58,0.08)'):(i===0?'#FFFBEB':i===1?'#F9FAFB':'#FFF8F3'),cursor:'pointer',transition:'box-shadow 0.15s'}}
-                                        onMouseEnter={e=>e.currentTarget.style.boxShadow='0 4px 16px rgba(99,102,241,0.15)'}
+                                {top3.map((d,i) => {
+                                    const rankC = ['#A0824F','#8B8F94','#A0896F'][i];
+                                    return (
+                                    <div key={d.name} onClick={()=>setSelectedDept(d)} style={{flex:'1 1 200px',borderRadius:'10px',border:`1px solid ${borderC}`,padding:'16px',background:cardBg,cursor:'pointer',transition:'box-shadow 0.15s'}}
+                                        onMouseEnter={e=>e.currentTarget.style.boxShadow='0 4px 16px rgba(15,23,42,0.1)'}
                                         onMouseLeave={e=>e.currentTarget.style.boxShadow='none'}>
-                                        <div style={{fontSize:'24px'}}>{MEDAL[i]}</div>
+                                        <div style={{width:26,height:26,borderRadius:'50%',background:rankC,display:'flex',alignItems:'center',justifyContent:'center'}}><Icon name='award' size={13} color='#fff' /></div>
                                         <div style={{fontWeight:700,fontSize:'14px',color:textP,marginTop:6}}>{d.name}</div>
                                         <div style={{fontSize:'12px',color:textM,marginTop:4}}>
                                             {d.staff} staff · {d.resolved} resolved{d.resRate!=null?` · ${d.resRate}% rate`:''}
@@ -5435,7 +5436,8 @@
                                             <div style={{fontSize:'10px',color:dm?'#4a607f':'#94A3B8',marginTop:2}}>{d.sla}% SLA compliance</div>
                                         </>)}
                                     </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
                         )}
@@ -5526,7 +5528,7 @@
                         </div>
                         ) : (
                         <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,padding:'48px',textAlign:'center'}}>
-                            <div style={{fontSize:'40px',marginBottom:'12px'}}>📭</div>
+                            <div style={{marginBottom:'12px',display:'flex',justifyContent:'center'}}><Icon name='inbox' size={36} color={dm?'#4a607f':'#94A3B8'} /></div>
                             <p style={{color:dm?'#4a607f':'#94A3B8',fontSize:'14px'}}>No department data yet — seed tickets and assign them to staff to see metrics.</p>
                         </div>
                         )}
@@ -5574,7 +5576,7 @@
                                                 <div style={{fontSize:'18px',fontWeight:700,color:textP}}>{d.name}</div>
                                                 <div style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',marginTop:'2px'}}>{d.staff} staff · {d.assigned} tickets</div>
                                             </div>
-                                            <button onClick={()=>setSelectedDept(null)} style={{background:'none',border:'none',fontSize:'22px',cursor:'pointer',color:dm?'#4a607f':'#94A3B8',lineHeight:1,padding:'4px 8px'}}>×</button>
+                                            <button onClick={()=>setSelectedDept(null)} style={{background:'none',border:'none',cursor:'pointer',color:dm?'#4a607f':'#94A3B8',padding:'4px 8px',display:'flex',alignItems:'center'}}><Icon name='x' size={18} color={dm?'#4a607f':'#94A3B8'} /></button>
                                         </div>
                                         <div style={{padding:'20px 24px',flex:1}}>
                                             {/* metric chips */}
@@ -6158,12 +6160,12 @@
         }
 
         const ORG_TYPE_META = {
-            director:  { light:'#16A34A', dark:'#34D399', label:'Director Level' },
-            ops:       { light:'#DC2626', dark:'#FB7185', label:'Operations (Managers / Officers)' },
-            finance:   { light:'#D97706', dark:'#FBBF24', label:'Finance (Managers / Officers)' },
-            strategic: { light:'#7C3AED', dark:'#A78BFA', label:'Strategic Development (Managers / Officers)' },
-            staff:     { light:'#2563EB', dark:'#60A5FA', label:'Team / Staff' },
-            external:  { light:'#94A3B8', dark:'#94A3B8', label:'Consultant / External' },
+            director:  { light:'#5F8F6E', dark:'#8FBBA0', label:'Director Level' },
+            ops:       { light:'#B0655B', dark:'#D0958C', label:'Operations (Managers / Officers)' },
+            finance:   { light:'#A0824F', dark:'#C9AD85', label:'Finance (Managers / Officers)' },
+            strategic: { light:'#8B7BA8', dark:'#B3A3CC', label:'Strategic Development (Managers / Officers)' },
+            staff:     { light:'#5B7C99', dark:'#93AFC7', label:'Team / Staff' },
+            external:  { light:'#8B8F94', dark:'#8B8F94', label:'Consultant / External' },
         };
 
         function OrgCard({ name, title, email, type, vacant, deptLabel, extra, onClick, highlighted, dimmed, hasChildren, collapsed, onToggleCollapse, hiddenCount }) {
@@ -6199,7 +6201,7 @@
                         onMouseLeave={e => { if (onClick) e.currentTarget.style.transform = 'translateY(0)'; }}
                     >
                         {deptLabel && (
-                            <div style={{ background:`linear-gradient(135deg, ${accent}, ${accent}CC)`, borderRadius:'14.5px 14.5px 0 0', padding:'10px 8px 8px', display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
+                            <div style={{ background:accent, borderRadius:'14.5px 14.5px 0 0', padding:'10px 8px 8px', display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
                                 <div style={{ width:26, height:26, borderRadius:'50%', background:'rgba(255,255,255,0.25)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14 }}>{dlIcon}</div>
                                 <p style={{ fontSize:9, fontWeight:800, color:'white', textTransform:'uppercase', letterSpacing:'0.07em', margin:0, lineHeight:1.3 }}>{dlText}</p>
                             </div>
@@ -6208,11 +6210,10 @@
                             <div style={{
                                 width:40, height:40, borderRadius:'50%', margin:'0 auto 8px',
                                 display:'flex', alignItems:'center', justifyContent:'center',
-                                background: vacant ? (dm?'rgba(148,163,184,0.1)':'#F1F5F9') : `linear-gradient(135deg, ${accent}, ${accent}AA)`,
+                                background: vacant ? (dm?'rgba(148,163,184,0.1)':'#F1F5F9') : accent,
                                 border: vacant ? `1.5px dashed ${dm?'rgba(148,163,184,0.4)':'#CBD5E1'}` : 'none',
                                 color: vacant ? (dm?'#64748B':'#94A3B8') : 'white',
                                 fontSize: vacant ? 15 : 13, fontWeight:800,
-                                boxShadow: vacant ? 'none' : `0 2px 8px ${accent}55`,
                             }}>
                                 {vacant ? '—' : initials}
                             </div>
@@ -6298,7 +6299,7 @@
             return (
                 <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(15,23,42,0.55)', backdropFilter:'blur(3px)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
                     <div onClick={e => e.stopPropagation()} style={{ width:'100%', maxWidth:420, background: dm ? 'linear-gradient(160deg,rgba(20,32,60,0.99) 0%,rgba(10,18,38,1) 100%)' : 'white', borderRadius:20, boxShadow:'0 20px 60px rgba(0,0,0,0.35)', overflow:'hidden', border: dm ? '1px solid rgba(99,102,241,0.25)' : 'none' }}>
-                        <div style={{ background:`linear-gradient(135deg, ${accent}, ${accent}CC)`, padding:'22px 22px 18px', color:'white', position:'relative' }}>
+                        <div style={{ background:accent, padding:'22px 22px 18px', color:'white', position:'relative' }}>
                             <button onClick={onClose} style={{ position:'absolute', top:14, right:14, background:'rgba(255,255,255,0.2)', border:'none', borderRadius:'50%', width:26, height:26, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
                                 <Icon name='x' size={14} color='white' />
                             </button>
@@ -6601,7 +6602,7 @@
                                             const color = dm ? l.dark : l.light;
                                             return (
                                                 <div key={i} style={{display:'flex',alignItems:'center',gap:'6px',padding:'4px 10px',borderRadius:'6px',border:`1.5px solid ${color}40`,background:`${color}0F`}}>
-                                                    <div style={{width:'12px',height:'12px',borderRadius:'50%',background:`linear-gradient(135deg, ${color}, ${color}AA)`}}></div>
+                                                    <div style={{width:'12px',height:'12px',borderRadius:'50%',background:color}}></div>
                                                     <span style={{fontSize:'11px',color:dm?'#c0cfec':'#334155',fontWeight:'500'}}>{l.label}</span>
                                                 </div>
                                             );
@@ -6653,7 +6654,7 @@
                                 </div>
 
                                 {/* Live Stats */}
-                                <div style={{background:'linear-gradient(135deg,#6366F1,#818CF8)',borderRadius:'16px',padding:'16px',color:'white'}}>
+                                <div style={{background:'#4F46E5',borderRadius:'16px',padding:'16px',color:'white'}}>
                                     <p style={{fontSize:'11px',fontWeight:'700',textTransform:'uppercase',letterSpacing:'0.08em',opacity:0.8,margin:'0 0 10px'}}>Quick Stats</p>
                                     {[
                                         {l:'Total Positions', v: allNodes.length || '—'},
@@ -8151,7 +8152,7 @@
                     XL.utils.book_append_sheet(wb, sumWs, 'Summary');
                     const fileName = `${title.replace(/[\s/]+/g,'_')}_${new Date().toISOString().slice(0,10)}.xlsx`;
                     XL.writeFile(wb, fileName);
-                    showToast(`✅ ${fileName} downloaded — ${rows.length} records`);
+                    showToast(`${fileName} downloaded — ${rows.length} records`);
                 } catch(e) {
                     showToast('Export failed: ' + e.message, 'error');
                 } finally {
@@ -8170,7 +8171,7 @@
                 const a    = Object.assign(document.createElement('a'), { href: url, download: `${title.replace(/[\s/]+/g,'_')}_${new Date().toISOString().slice(0,10)}.csv` });
                 document.body.appendChild(a); a.click(); document.body.removeChild(a);
                 URL.revokeObjectURL(url);
-                showToast(`✅ CSV downloaded — ${rows.length} records`);
+                showToast(`CSV downloaded — ${rows.length} records`);
             };
 
             // ── Send via Resend email API ──────────────────────────────────────
@@ -8190,7 +8191,7 @@
                     });
                     if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error || 'Send failed'); }
                     const data = await res.json();
-                    showToast(`✅ Report emailed to ${data.recipients?.join(', ')} (${data.count} records)`);
+                    showToast(`Report emailed to ${data.recipients?.join(', ')} (${data.count} records)`);
                 } catch(e) { showToast('Send failed: ' + e.message, 'error'); }
                 finally { setSending(false); }
             };
@@ -8215,13 +8216,13 @@
                     if (!r.ok) { showToast(data.message || 'Failed to save schedule.', 'error'); return; }
                     setSchedules(prev => [data.schedule, ...prev]);
                     setShowSchedModal(false); setSchedRecipients([]);
-                    showToast(`✅ Schedule saved — ${label} ${schedFreq}`);
+                    showToast(`Schedule saved — ${label} ${schedFreq}`);
                 } catch(e) { showToast('Error saving schedule.', 'error'); }
             };
 
             const deleteSchedule = async id => { const r=await authFetch(`${HRMS_API}/schedules/${id}`,{method:'DELETE'}); if(r.ok) setSchedules(p=>p.filter(s=>s.id!==id)); else showToast('Failed to delete schedule.','error'); };
             const toggleSchedule = async id => { const sc=schedules.find(s=>s.id===id); if(!sc) return; const r=await authFetch(`${HRMS_API}/schedules/${id}`,{method:'PATCH',body:JSON.stringify({active:!sc.active})}); if(r.ok){const d=await r.json();setSchedules(p=>p.map(s=>s.id===id?d.schedule:s));} else showToast('Failed to update schedule.','error'); };
-            const sendScheduleNow = async id => { const r=await authFetch(`${HRMS_API}/schedules/${id}/send`,{method:'POST'}); const d=await r.json(); if(r.ok){setSchedules(p=>p.map(s=>s.id===id?d.schedule:s));showToast(`✅ Report sent to ${d.emailsSent} recipient(s)`);} else showToast(d.message||'Failed to send report.','error'); };
+            const sendScheduleNow = async id => { const r=await authFetch(`${HRMS_API}/schedules/${id}/send`,{method:'POST'}); const d=await r.json(); if(r.ok){setSchedules(p=>p.map(s=>s.id===id?d.schedule:s));showToast(`Report sent to ${d.emailsSent} recipient(s)`);} else showToast(d.message||'Failed to send report.','error'); };
 
             // ── UI helpers ─────────────────────────────────────────────────────
             const PERIOD_OPTS = [
@@ -8258,7 +8259,8 @@
                 <main style={{flex:1,overflow:'auto',background:dm?'rgba(4,8,20,0.6)':'#F8FAFF'}}>
                     {/* Toast */}
                     {toast && (
-                        <div style={{position:'fixed',top:68,right:20,zIndex:999,background:toast.type==='error'?'#FEF2F2':'#F0FDF4',border:`1px solid ${toast.type==='error'?'#FECACA':'#BBF7D0'}`,color:toast.type==='error'?'#DC2626':'#166534',padding:'11px 18px',borderRadius:10,fontSize:13,fontWeight:600,boxShadow:'0 4px 16px rgba(0,0,0,0.12)',maxWidth:400}}>
+                        <div style={{position:'fixed',top:68,right:20,zIndex:999,background:toast.type==='error'?'#FEF2F2':'#F0FDF4',border:`1px solid ${toast.type==='error'?'#FECACA':'#BBF7D0'}`,color:toast.type==='error'?'#DC2626':'#166534',padding:'11px 18px',borderRadius:10,fontSize:13,fontWeight:600,boxShadow:'0 4px 16px rgba(0,0,0,0.12)',maxWidth:400,display:'flex',alignItems:'center',gap:8}}>
+                            <Icon name={toast.type==='error'?'alert-triangle':'check-circle'} size={14} color={toast.type==='error'?'#DC2626':'#166534'} />
                             {toast.msg}
                         </div>
                     )}
@@ -8402,7 +8404,7 @@
                                                     </div>
                                                     <button onClick={()=>sendScheduleNow(sc.id)} title="Send now" style={{fontSize:10,fontWeight:700,padding:'3px 8px',borderRadius:5,border:'none',cursor:'pointer',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',color:dm?'#a5b4fc':'#4F46E5'}}>▶</button>
                                                     <button onClick={()=>toggleSchedule(sc.id)} style={{fontSize:10,fontWeight:700,padding:'3px 8px',borderRadius:5,border:'none',cursor:'pointer',background:sc.active?'#DCFCE7':(dm?'rgba(99,102,241,0.08)':'#EEF2F8'),color:sc.active?'#166534':(dm?'#8fa4cc':'#64748B')}}>{sc.active?'Active':'Paused'}</button>
-                                                    <button onClick={()=>deleteSchedule(sc.id)} style={{width:24,height:24,borderRadius:5,border:'none',cursor:'pointer',background:'#FEF2F2',color:'#DC2626',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center'}}>×</button>
+                                                    <button onClick={()=>deleteSchedule(sc.id)} style={{width:24,height:24,borderRadius:5,border:'none',cursor:'pointer',background:'#FEF2F2',color:'#DC2626',display:'flex',alignItems:'center',justifyContent:'center'}}><Icon name='trash-2' size={12} color='#DC2626' /></button>
                                                 </div>
                                             ))}
                                         </div>
@@ -8568,7 +8570,10 @@
                                         <p style={{fontSize:16,fontWeight:700,color:txt,margin:0}}>{profile.name}</p>
                                         <p style={{fontSize:12,color:muted,margin:'2px 0 0'}}>{profile.email}</p>
                                         {profile.is_bootstrap_admin && (
-                                            <span style={{display:'inline-block',fontSize:'9px',fontWeight:700,padding:'2px 8px',borderRadius:10,background:'#FEF3C7',color:'#92400E',border:'1px solid #FDE68A',marginTop:5}}>★ Bootstrap Admin</span>
+                                            <span style={{display:'inline-flex',alignItems:'stretch',borderRadius:6,overflow:'hidden',fontSize:'9px',fontWeight:700,marginTop:5,border:`1px solid ${dm?'rgba(160,130,79,0.35)':'#E4D9C4'}`}}>
+                                                <span style={{background:'#A0824F',color:'#fff',padding:'2px 5px',display:'flex',alignItems:'center'}}><Icon name='star' size={9} color='#fff' /></span>
+                                                <span style={{background:dm?'rgba(160,130,79,0.16)':'#F5EFE3',color:dm?'#d4c19c':'#6B5636',padding:'2px 7px'}}>Bootstrap Admin</span>
+                                            </span>
                                         )}
                                     </div>
                                 </div>
@@ -8967,7 +8972,7 @@
                     });
                     if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.message || e.error || 'Reactivation failed'); }
                     setConfirmUser(null);
-                    showToast(`✅ ${u.name} has been reactivated`);
+                    showToast(`${u.name} has been reactivated`);
                     fetchExStaff();
                 } catch (e) { showToast('Failed: ' + e.message); }
                 finally { setReactivating(null); }
