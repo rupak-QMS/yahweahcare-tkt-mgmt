@@ -19,8 +19,8 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
-BACKEND_DIR="$ROOT/backend-hrms"
-FRONTEND_DIR="$ROOT/frontend"
+BACKEND_DIR="$ROOT/YCTMBackend"
+FRONTEND_DIR="$ROOT/YCTMFrontend"
 
 # ── Trap Ctrl+C so we can kill both child processes cleanly ──
 cleanup() {
@@ -38,7 +38,7 @@ echo
 
 # ── Check node_modules exist ───────────────────────────────
 if [ ! -d "$BACKEND_DIR/node_modules" ]; then
-  echo -e "${YELLOW}Installing backend-hrms dependencies...${NC}"
+  echo -e "${YELLOW}Installing YCTMBackend dependencies...${NC}"
   (cd "$BACKEND_DIR" && npm install)
 fi
 

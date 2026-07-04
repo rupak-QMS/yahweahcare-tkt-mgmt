@@ -45,8 +45,8 @@ coverage/
 
 # Power Apps (if you want to exclude legacy artefacts)
 # YPC_Ticket_Management_Copy_*/
-backend-hrms/local_export.sql
-backend-hrms/users_export.csv
+YCTMBackend/local_export.sql
+YCTMBackend/users_export.csv
 .vercel
 .env*
 yahweahcare-tkt-mgmt/

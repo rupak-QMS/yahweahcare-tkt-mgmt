@@ -34,18 +34,18 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: backend-hrms/package-lock.json
+          cache-dependency-path: YCTMBackend/package-lock.json
 
       - name: Install dependencies
-        working-directory: backend-hrms
+        working-directory: YCTMBackend
         run: npm ci
 
       - name: TypeScript type-check
-        working-directory: backend-hrms
+        working-directory: YCTMBackend
         run: npx tsc --noEmit
 
       - name: Build (tsc compile)
-        working-directory: backend-hrms
+        working-directory: YCTMBackend
         run: npm run build
 
   # ── Frontend: basic sanity checks ─────────────────────────
@@ -61,10 +61,10 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Verify index.html exists
-        run: test -f web/index.html && echo "✓ web/index.html present"
+        run: test -f YCTMFrontend/index.html && echo "✓ YCTMFrontend/index.html present"
 
       - name: Verify server.js exists
-        run: test -f web/server.js && echo "✓ web/server.js present"
+        run: test -f YCTMFrontend/server.js && echo "✓ YCTMFrontend/server.js present"
 
       - name: Check for obvious syntax issues in server.js
-        run: node --check web/server.js && echo "✓ server.js syntax OK"
+        run: node --check YCTMFrontend/server.js && echo "✓ server.js syntax OK"

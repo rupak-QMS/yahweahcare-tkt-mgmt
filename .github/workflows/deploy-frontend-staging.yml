@@ -14,7 +14,7 @@ on:
   push:
     branches: [staging]
     paths:
-      - 'web/**'
+      - 'YCTMFrontend/**'
       - '.github/workflows/deploy-frontend-staging.yml'
   workflow_dispatch:
 
@@ -39,21 +39,21 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: YCTMFrontend/package-lock.json
 
       - name: Install frontend dependencies
-        working-directory: web
+        working-directory: YCTMFrontend
         run: npm ci
 
       - name: Build frontend
-        working-directory: web
+        working-directory: YCTMFrontend
         run: node build.js
 
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
 
       - name: Deploy to Vercel
-        working-directory: web
+        working-directory: YCTMFrontend
         run: |
           vercel deploy --prod \
             --token=${{ secrets.VERCEL_TOKEN }} \

@@ -187,7 +187,7 @@ fi
 
 echo
 echo "Next steps:"
-echo "  1. Update backend-hrms/.env:"
+echo "  1. Update YCTMBackend/.env:"
 echo "       DATABASE_URL=$NEON_URL"
 echo "  2. If running on Vercel/cloud, update DATABASE_URL there too"
 echo "  3. Restart backend: npm run dev"

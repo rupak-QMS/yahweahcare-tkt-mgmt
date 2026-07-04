@@ -24,7 +24,7 @@ Takes about **5 minutes**. Zero data loss. Reversible.
 Open Terminal:
 
 ```bash
-cd ~/Downloads/Yahweahcare/backend-hrms/scripts
+cd ~/Downloads/Yahweahcare/YCTMBackend/scripts
 chmod +x migrate-to-neon.sh
 ./migrate-to-neon.sh
 ```
@@ -65,10 +65,10 @@ Example output:
 
 ## Step 3 — Point the backend at Neon (1 min)
 
-Update `backend-hrms/.env`:
+Update `YCTMBackend/.env`:
 
 ```bash
-cd ~/Downloads/Yahweahcare/backend-hrms
+cd ~/Downloads/Yahweahcare/YCTMBackend
 
 # Backup the current .env
 cp .env .env.local-backup
@@ -143,7 +143,7 @@ The script captures errors to `/tmp/neon-restore.log`. Common issues:
 To roll back (point back at local):
 
 ```bash
-cd ~/Downloads/Yahweahcare/backend-hrms
+cd ~/Downloads/Yahweahcare/YCTMBackend
 mv .env.local-backup .env   # restore the original
 npm run dev
 ```
@@ -177,10 +177,10 @@ After migration, in the Neon console:
 
 ## Files in this migration
 
-- `backend-hrms/scripts/migrate-to-neon.sh` — the migration script
-- `backend-hrms/src/db/pool.ts` — auto-detects Neon URL and switches driver
-- `backend-hrms/src/db/schema.sql` — applied as part of migration (via the dump)
-- `backend-hrms/.env` — update `DATABASE_URL` here
+- `YCTMBackend/scripts/migrate-to-neon.sh` — the migration script
+- `YCTMBackend/src/db/pool.ts` — auto-detects Neon URL and switches driver
+- `YCTMBackend/src/db/schema.sql` — applied as part of migration (via the dump)
+- `YCTMBackend/.env` — update `DATABASE_URL` here
 - This file — the guide
 
 After migration is verified, you can delete the local Postgres database with `dropdb yahweahcare` and stop the local postgres service: `brew services stop postgresql@16`.

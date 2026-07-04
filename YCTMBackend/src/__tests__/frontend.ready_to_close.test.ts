@@ -7,9 +7,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-// __dirname = .../Yahweahcare/backend-hrms/src/__tests__
+// __dirname = .../Yahweahcare/YCTMBackend/src/__tests__
 // 3 levels up  = .../Yahweahcare/
-const HTML_PATH = path.resolve(__dirname, '../../../web/src/app-source.jsx');
+const HTML_PATH = path.resolve(__dirname, '../../../YCTMFrontend/src/app-source.jsx');
 const html = fs.readFileSync(HTML_PATH, 'utf-8');
 
 // ── 1. Code-integrity checks ──────────────────────────────────────────────────

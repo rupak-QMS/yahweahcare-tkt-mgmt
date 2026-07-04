@@ -23,7 +23,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-const HTML_PATH = path.resolve(__dirname, '../../../web/src/app-source.jsx');
+const HTML_PATH = path.resolve(__dirname, '../../../YCTMFrontend/src/app-source.jsx');
 const html = fs.readFileSync(HTML_PATH, 'utf-8');
 
 // ── 1. Code-integrity checks ──────────────────────────────────────────────────

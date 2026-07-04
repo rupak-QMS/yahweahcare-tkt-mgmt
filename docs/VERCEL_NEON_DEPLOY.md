@@ -55,7 +55,7 @@ End-to-end deployment guide. Total time: ~45 minutes. Total cost: **$0–$20/mo*
    **Copy this — you'll need it as `DATABASE_URL`.**
 
 4. Click **SQL Editor** in the sidebar
-5. Open `backend-hrms/src/db/schema.sql` from your local machine, copy its contents, paste into the Neon SQL editor, click **Run**
+5. Open `YCTMBackend/src/db/schema.sql` from your local machine, copy its contents, paste into the Neon SQL editor, click **Run**
 6. You should see "Success" and the schema is now in place
 
 Verify by running this in the SQL editor:
@@ -73,7 +73,7 @@ You should see 10 tables: `activity`, `attachments`, `audit_logs`, `categories`,
 From your local machine:
 
 ```bash
-cd ~/Downloads/Yahweahcare/backend-hrms
+cd ~/Downloads/Yahweahcare/YCTMBackend
 npm install
 # Export the Neon connection string
 export DATABASE_URL='<paste-the-connection-string-from-neon>'
@@ -124,7 +124,7 @@ git push origin main
 2. Click **Add New → Project**
 3. Import your `yahwehcare-hrms` repo
 4. **Configure Project**:
-   - **Root Directory**: `backend-hrms` ← important — sets the working directory
+   - **Root Directory**: `YCTMBackend` ← important — sets the working directory
    - **Framework Preset**: `Other`
    - **Build Command**: `npm run build` (auto-detected)
    - **Output Directory**: leave default
@@ -282,7 +282,7 @@ For Yahweh Care HRMS specifically (internal app, < 200 concurrent users), none o
 
 ## Cron job for SLA breach checker (optional)
 
-Add to `backend-hrms/vercel.json` to flag overdue tickets every 5 minutes:
+Add to `YCTMBackend/vercel.json` to flag overdue tickets every 5 minutes:
 
 ```json
 "crons": [
@@ -290,7 +290,7 @@ Add to `backend-hrms/vercel.json` to flag overdue tickets every 5 minutes:
 ]
 ```
 
-Then create `backend-hrms/api/cron/sla-check.ts`:
+Then create `YCTMBackend/api/cron/sla-check.ts`:
 
 ```ts
 import type { VercelRequest, VercelResponse } from '@vercel/node';
@@ -333,11 +333,11 @@ Add `CRON_SECRET` to your Vercel env vars (random 32-char string). Vercel inject
 
 | File | Purpose |
 |---|---|
-| `backend-hrms/vercel.json` | Vercel routing + headers |
-| `backend-hrms/api/index.ts` | Serverless entry — wraps Express |
-| `backend-hrms/src/db/pool.ts` | Auto-selects Neon vs pg driver |
-| `backend-hrms/src/db/schema.sql` | Run once in Neon SQL editor |
-| `backend-hrms/src/db/seed.ts` | Run locally with `DATABASE_URL` set |
+| `YCTMBackend/vercel.json` | Vercel routing + headers |
+| `YCTMBackend/api/index.ts` | Serverless entry — wraps Express |
+| `YCTMBackend/src/db/pool.ts` | Auto-selects Neon vs pg driver |
+| `YCTMBackend/src/db/schema.sql` | Run once in Neon SQL editor |
+| `YCTMBackend/src/db/seed.ts` | Run locally with `DATABASE_URL` set |
 | `frontend/vercel.json` | Static-site routing + headers |
 | `frontend/index.html` | Add `<meta name="hrms-api" ...>` after deploy |
 | `VERCEL_NEON_DEPLOY.md` | This guide |

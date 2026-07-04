@@ -192,7 +192,7 @@
 
 
 
-        // API Service Layer — all routes go to backend-hrms (HRMS_API)
+        // API Service Layer — all routes go to YCTMBackend (HRMS_API)
         // API_BASE_URL kept for legacy references; both point to the same deployed backend.
         const HRMS_API = window.__API_URL__ ||
             (window.location.hostname === 'localhost'
@@ -6661,7 +6661,7 @@
                         fetch(`${HRMS_API}/org/positions`,          { credentials:'include', headers: authHeaders() }),
                     ]);
                     const [sd,dd,pd] = await Promise.all([sR.json(),dR.json(),pR.json()]);
-                    // backend-hrms returns { users } for /users and { departments } and { positions }
+                    // YCTMBackend returns { users } for /users and { departments } and { positions }
                     const rawStaff = sd.users || sd.staff || [];
                     // Normalize to the shape the page expects
                     const normalised = rawStaff.map(u => ({

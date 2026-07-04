@@ -373,6 +373,6 @@ Bump to **App Service P1v3** + **GeneralPurpose D2s** Postgres for production-gr
 - `.github/workflows/deploy-frontend.yml` — Frontend CI/CD
 - `.github/workflows/codeql.yml` — Security scanning
 - `.github/dependabot.yml` — Automated dependency updates
-- `backend-hrms/Dockerfile` — Container image (alternative deploy path via ACR + Container Apps)
-- `backend-hrms/docker-compose.yml` — Local stack for dev
+- `YCTMBackend/Dockerfile` — Container image (alternative deploy path via ACR + Container Apps)
+- `YCTMBackend/docker-compose.yml` — Local stack for dev
 - This file — Step-by-step deployment guide

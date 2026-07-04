@@ -3,7 +3,7 @@
 --
 -- WHY THIS FILE EXISTS
 -- ---------------------
--- backend-hrms (the real production API) has never had an automated
+-- YCTMBackend (the real production API) has never had an automated
 -- migration runner. Schema changes were historically applied by hand,
 -- one .sql file at a time, directly against the Neon database:
 --   approval_workflow_migration.sql

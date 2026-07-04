@@ -17,8 +17,8 @@ set -e
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
 
 # ── Pre-flight ─────────────────────────────────────────────
-if [ ! -d backend-hrms ] || [ ! -d frontend ]; then
-  echo -e "${RED}✗ Run this from the project root (the folder with backend-hrms/ and frontend/)${NC}"
+if [ ! -d YCTMBackend ] || [ ! -d YCTMFrontend ]; then
+  echo -e "${RED}✗ Run this from the project root (the folder with YCTMBackend/ and YCTMFrontend/)${NC}"
   exit 1
 fi
 
@@ -56,8 +56,8 @@ echo
 echo -e "${GREEN}→ Creating initial commit...${NC}"
 git commit -m "Initial commit: Yahweh Care HRMS
 
-- backend-hrms/ — TypeScript + Express + MSAL Microsoft Entra SSO
-- frontend/      — React single-file ticket management UI
+- YCTMBackend/ — TypeScript + Express + MSAL Microsoft Entra SSO
+- YCTMFrontend/      — React single-file ticket management UI
 - yc_tkt_mgmt    — PostgreSQL schema with HRMS auth tables
 - RBAC           — Super Admin / Admin / HR / Manager / Employee
 - Bootstrap admins: Ron Costa, Alex
