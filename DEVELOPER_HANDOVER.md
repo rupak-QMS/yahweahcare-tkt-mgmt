@@ -303,4 +303,120 @@ Baseline handover snapshot. Session covered:
   logo image (`YCTMFrontend/logo.png`) across sidebar, login, and sign-out screens.
 - Created this handover document.
 
-_Next entry goes here — Version 2._
+### Version 2 — 2026-07-04
+
+Follow-up session, same day. Covered a full Activity Log lifecycle feature,
+a cosmetic overhaul of Staff Management (then extended app-wide), and a
+brand-color rebrand to match the real `yahwehcare.com.au` marketing site.
+
+**Activity Log export / archive / email / truncate / delete** (`YCTMBackend/src/modules/audit/`,
+`YCTMFrontend` `ActivityLogPage`):
+- New `archive.service.ts` (pure logic, unit tested) + `archive.migrate.ts`
+  (lazy `activity_log_archives` table) + rewritten `audit.routes.ts`.
+- Manual CSV/JSON/TXT export with a shared `buildAuditFilters()` filter
+  builder (date range, user, role, action, module, ticket number, status,
+  severity — derived via `SEVERITY_SQL_CASE`, ip, device, success/failure).
+- Manual AU-Financial-Quarter archive generation (`Activity_Log_AU_FY{year}_Q{n}.zip`,
+  CSV+JSON+TXT bundled via JSZip), manual email distribution to all
+  Bootstrap Admins (Resend attachment support added to `resend.service.ts`),
+  manual truncation gated on `email_status='sent'`.
+- A generic filtered **Delete** button was added, but — important
+  guarantee — it can **only** ever delete rows that fall inside an
+  already-generated-and-emailed archive period. Both delete paths (`DELETE
+  /audit-logs` and `POST /archives/:id/truncate`) AND the archived-period
+  restriction into the SQL WHERE clause, never OR — verified by a
+  regression test (`audit.routes.test.ts`) proving a filter targeting a
+  non-archived period yields 0 deletions even with `confirmAll=true`.
+- All steps write to `audit_logs` themselves (export, archive generate,
+  download, email, truncate, delete) with actor/timestamp/filters/counts.
+
+**Staff Management redesign → app-wide professional/cosmetic pass**
+(`YCTMFrontend/src/app-source.jsx`):
+- Removed every emoji and raw text glyph (✅ ✕ × ★ 🔒 📎 🥇 etc.) across
+  the **entire** frontend, replacing them with the shared `Icon` SVG
+  component. This touched every page, not just Staff Management —
+  `getRoleBadgeInfo()` (sidebar role badge, shared by every page) had
+  emoji baked into its `label` strings; the two call sites that used to
+  `.split(' ').slice(1)` to strip the emoji word now just use `rb.label`
+  directly since the label itself is clean — **if you add a new role
+  label here, don't prefix it with an emoji or that stripping logic will
+  wrongly eat the first real word.**
+- Flattened every decorative `linear-gradient` button/card/avatar to a
+  flat fill (sidebar avatar, `YCLoader`, Sign-in/Sign-out buttons,
+  Dashboard/Calendar/OrgChart/Tickets cards). Deliberately left the
+  LoginPage/LogoutPage/SignedOutScreen full-page dark background
+  gradients alone (subtle, intentional dark-splash branding, not part of
+  the "cartoonish" complaint that motivated this pass).
+- Introduced a "duotone tag" badge style (solid-color icon chip + tinted
+  label in one pill) for identity/status badges — Bootstrap Admin,
+  Director, primary-position star, login-provider (Entra/Local),
+  employment type — first on Staff Management, this is now the standard
+  badge pattern to reuse for any new status/identity badge.
+- `ORG_TYPE_META` (Org Chart's per-position-type color map, module-level
+  constant near line ~6162) and `posTypeColor` (Staff Management, local)
+  were moved from bright saturated Tailwind-ish colors to a muted
+  corporate palette. Avatar initials (`Avatar` components — there are
+  two independent copies, one in `StaffManagementPage`, one in
+  `ExStaffPage`, not shared — search for `const Avatar = (` if you need
+  to touch both) use the same muted 6-color rotation.
+- Rank/podium indicators (`StaffPerformancePage`, `TeamComparisonPage`)
+  replaced medal emoji with a small solid circular badge + `award` icon,
+  colored gold/silver/bronze from the same muted palette (`RANK_COLOR` /
+  inline equivalent).
+
+**Brand color rebrand to match `yahwehcare.com.au`**:
+- The client supplied their real brand colors: purple `#6d2773`, green
+  `#82c342`, blue `#0a6abd`. The app's entire indigo/purple-ish "brand"
+  color family (`#4F46E5`, `#4338CA`, `#6366F1`, `#818cf8`, `#a5b4fc`,
+  `#7C3AED`, `#8B5CF6`, plus the `rgba(99,102,241,*)` tint family used for
+  ~250 translucent borders/hover backgrounds, plus the `#EEF2FF` /
+  `#E0E7FF` / `#C7D2FE` light-tint family) was mechanically remapped to a
+  purple ramp derived from the client's exact `#6d2773`, across **both**
+  `app-source.jsx` and `index.html`'s `<style>` block (CSS custom
+  properties like `--brand`, and the hand-rolled Tailwind-ish utility
+  classes like `.bg-indigo-600`, `.hover\:text-indigo-600`, `.ring-indigo-500`).
+  Mapping used (exact-string, case-insensitive, so re-run similarly if you
+  find another indigo shade that was missed):
+  | Old (indigo) | New (purple) | Role |
+  |---|---|---|
+  | `#4F46E5` | `#6D2773` | primary/brand (client-supplied exact value) |
+  | `#4338CA` | `#5D2162` | darker/hover/emphasis-text variant |
+  | `#6366F1`, `#8B5CF6`, `#7C3AED` | `#833089` | mid/lighter accent (icons, borders, was-gradient-endpoints) |
+  | `#818cf8` | `#C77DB8` | light variant, legible on dark-mode backgrounds |
+  | `#a5b4fc` | `#DDA8D1` | lightest variant, disabled states |
+  | `#EEF2FF` | `#F6ECF4` | palest tint background |
+  | `#E0E7FF` | `#EAD6E6` | pale border |
+  | `#C7D2FE` | `#E3BFDA` | light border/accent |
+  | `rgba(99,102,241,X)` | `rgba(109,39,115,X)` | translucent tint/border (same alpha, new RGB = `#6D2773`) |
+  **These derived shades (everything except `#6D2773` itself) were not
+  supplied by the client — they're computationally lightened/darkened
+  from the one exact hex given.** If the client later provides an actual
+  brand style guide with official tints/shades, swap these placeholders
+  for the real ones (same find/replace approach will work, since each
+  maps from one exact old hex to one exact new hex throughout both
+  files). The brand green (`#82c342`) and blue (`#0a6abd`) were **not**
+  threaded through the app's semantic colors (success/info states) in
+  this pass — the existing muted greens/blues from the Version 2 cosmetic
+  pass were left alone. That's a reasonable follow-up if the client wants
+  full palette parity, not just the primary purple.
+- Sidebar logo (`Navigation` component, `YCTMFrontend/src/app-source.jsx`)
+  is now clickable → `setCurrentPage('dashboard')`. Only the sidebar copy
+  of the logo does this; the three splash-screen copies (`LoginPage`,
+  `LogoutPage`, `SignedOutScreen`) are unauthenticated screens and were
+  left as static images.
+- `YCLoader` (the shared spinner used by `LoadingScreen` and
+  `SectionLoader` — i.e. every loading state in the app) now spins the
+  real brand icon mark (`apple-touch-icon.png`, the circular
+  purple-ring/blue-figures/green-heart mark) instead of a generic SVG
+  glyph inside a solid-color square. Spin duration was slowed slightly
+  (0.65s → 0.9s) since spinning a detailed image reads better slower than
+  spinning an abstract glyph did.
+
+**Follow-ups worth doing next, not done in this pass**:
+- Thread the brand green/blue into semantic success/info colors for full
+  palette parity with the marketing site, if the client asks for it.
+- If the client provides an official brand style guide (exact hover/tint
+  shades, not just the one base hex per color), replace the derived
+  purple ramp above with the real values.
+
+_Next entry goes here — Version 3._

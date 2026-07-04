@@ -4,11 +4,11 @@
     <!-- Preload critical scripts — browser fetches these in parallel during HTML parse -->
     <link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js" crossorigin>
     <link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin>
-    <link rel="preload" as="script" href="app.js?v=ea53ded0">
+    <link rel="preload" as="script" href="app.js?v=fe09f77e">
     <!-- CDN connection hints -->
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="preconnect" href="https://yahweahcare-tkt-mgmt-hx48.vercel.app" crossorigin>
-    <!-- Inject API URL — overrides the default in app.js?v=ea53ded0.
+    <!-- Inject API URL — overrides the default in app.js?v=fe09f77e.
          MUST match the backend that /auth/microsoft below redirects to (Vercel+Neon,
          YCTMBackend). The old Azure App Service (api/, yahweahcare-api.azurewebsites.net,
          later renamed yahweahcare-tkt-mmt-prod) does not implement the PKCE /auth/microsoft
@@ -25,7 +25,7 @@
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
     <!--
       Script loading strategy:
-        • React, ReactDOM, app.js?v=ea53ded0, enterprise-components — all deferred: download in parallel during HTML parse,
+        • React, ReactDOM, app.js?v=fe09f77e, enterprise-components — all deferred: download in parallel during HTML parse,
           execute in document order after parsing
         • Chart.js loaded on demand (lazy) by loadChartJs() only on pages that need charts
         • React/ReactDOM pinned to 18.3.1 on jsDelivr — immutably cached, no extra DNS round-trip
@@ -33,15 +33,15 @@
     -->
     <script defer src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js" crossorigin></script>
     <script defer src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin></script>
-    <script defer src="app.js?v=ea53ded0"></script>
-    <script defer src="enterprise-components-compiled.js?v=64dfc4c4"></script>
+    <script defer src="app.js?v=fe09f77e"></script>
+    <script defer src="enterprise-components-compiled.js?v=3b91557d"></script>
     <style>
         /* ── CSS Custom Properties ──────────────────────────────────────── */
         :root {
-            --brand:      #4F46E5;
-            --brand-soft: #6366F1;
-            --brand-from: #6366F1;
-            --brand-mid:  #8B5CF6;
+            --brand:      #6D2773;
+            --brand-soft: #833089;
+            --brand-from: #833089;
+            --brand-mid:  #833089;
             --brand-to:   #06B6D4;
             --page-bg:    #F5F7FF;
             --card-bg:    #FFFFFF;
@@ -74,8 +74,8 @@
         }
         html:not(.dark) main {
             background:
-                radial-gradient(ellipse 80% 50% at 100% 0%, rgba(99,102,241,0.04) 0%, transparent 60%),
-                radial-gradient(ellipse 60% 40% at 0% 100%, rgba(139,92,246,0.03) 0%, transparent 60%),
+                radial-gradient(ellipse 80% 50% at 100% 0%, rgba(109,39,115,0.04) 0%, transparent 60%),
+                radial-gradient(ellipse 60% 40% at 0% 100%, rgba(131,47,138,0.03) 0%, transparent 60%),
                 #F5F7FF !important;
         }
 
@@ -126,8 +126,8 @@
         html:not(.dark) select:focus,
         html:not(.dark) textarea:focus {
             outline: none;
-            border-color: #6366F1;
-            box-shadow: 0 0 0 3px rgba(99,102,241,0.12), 0 1px 2px rgba(15,23,42,0.04);
+            border-color: #833089;
+            box-shadow: 0 0 0 3px rgba(109,39,115,0.12), 0 1px 2px rgba(15,23,42,0.04);
         }
         html:not(.dark) input::placeholder,
         html:not(.dark) textarea::placeholder { color: #94A3B8; }
@@ -161,20 +161,20 @@
         /* ── Scrollbars ───────────────────────────────────────────────────── */
         html:not(.dark) ::-webkit-scrollbar { width: 5px; height: 5px; background: #F5F7FF; }
         html:not(.dark) ::-webkit-scrollbar-thumb {
-            background: linear-gradient(180deg, #C7D2FE, #A5B4FC);
+            background: linear-gradient(180deg, #E3BFDA, #DDA8D1);
             border-radius: 4px;
         }
         html:not(.dark) ::-webkit-scrollbar-track { background: #F8FAFF; }
 
         /* ── Buttons ─────────────────────────────────────────────────────── */
         html:not(.dark) button:focus-visible {
-            outline: 2px solid rgba(99,102,241,0.6);
+            outline: 2px solid rgba(109,39,115,0.6);
             outline-offset: 2px;
         }
 
         /* ── Badge refinements ───────────────────────────────────────────── */
         .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: 0.02em; }
-        .badge-open        { background: #EEF2FF; color: #4338CA; border: 1px solid rgba(99,102,241,0.2); }
+        .badge-open        { background: #F6ECF4; color: #5D2162; border: 1px solid rgba(109,39,115,0.2); }
         .badge-in-progress { background: #F0FDF4; color: #15803D; border: 1px solid rgba(21,128,61,0.18); }
         .badge-resolved    { background: #ECFDF5; color: #065F46; border: 1px solid rgba(6,95,70,0.16); }
         .badge-closed      { background: #F5F3FF; color: #5B21B6; border: 1px solid rgba(91,33,182,0.16); }
@@ -192,8 +192,8 @@
             transition: background 0.12s;
         }
         html:not(.dark) .calendar-day:hover { background: #F5F7FF; }
-        html:not(.dark) .calendar-day.today { background: #EEF2FF; border-color: #6366F1; }
-        html:not(.dark) .calendar-day.event { background: #E0E7FF; }
+        html:not(.dark) .calendar-day.today { background: #F6ECF4; border-color: #833089; }
+        html:not(.dark) .calendar-day.event { background: #EAD6E6; }
 
         /* ── Dividers ─────────────────────────────────────────────────────── */
         html:not(.dark) hr { border-color: #E2E8F2; }
@@ -216,8 +216,8 @@
         /* Atmospheric page gradient — visible aurora bloom */
         html.dark main {
             background:
-                radial-gradient(ellipse 90% 50% at 15% -10%, rgba(99,102,241,0.13) 0%, transparent 65%),
-                radial-gradient(ellipse 70% 45% at 90% 110%, rgba(139,92,246,0.10) 0%, transparent 65%),
+                radial-gradient(ellipse 90% 50% at 15% -10%, rgba(109,39,115,0.13) 0%, transparent 65%),
+                radial-gradient(ellipse 70% 45% at 90% 110%, rgba(131,47,138,0.10) 0%, transparent 65%),
                 radial-gradient(ellipse 50% 30% at 60% 40%, rgba(14,165,233,0.04) 0%, transparent 60%),
                 #020817 !important;
         }
@@ -229,13 +229,13 @@
             background: linear-gradient(155deg,
                 rgba(17, 30, 58, 0.97) 0%,
                 rgba(8, 16, 36, 0.99) 100%) !important;
-            border: 1px solid rgba(99,102,241,0.16) !important;
+            border: 1px solid rgba(109,39,115,0.16) !important;
             box-shadow:
                 0 1px 0 0 rgba(255,255,255,0.045) inset,
-                0 0 0 1px rgba(99,102,241,0.08) inset,
+                0 0 0 1px rgba(109,39,115,0.08) inset,
                 0 4px 6px -1px rgba(0,0,0,0.4),
                 0 16px 48px -8px rgba(0,0,0,0.65),
-                0 0 80px -30px rgba(99,102,241,0.12) !important;
+                0 0 80px -30px rgba(109,39,115,0.12) !important;
         }
 
         /* ── Page / panel backgrounds ────────────────────────────────────── */
@@ -249,7 +249,7 @@
 
         /* ── Typography ──────────────────────────────────────────────────── */
         html.dark [style*="color: rgb(17, 24, 39)"]    { color: #f0f4ff !important; }
-        html.dark [style*="color: rgb(30, 27, 75)"]    { color: #c7d2fe !important; }
+        html.dark [style*="color: rgb(30, 27, 75)"]    { color: #E3BFDA !important; }
         html.dark [style*="color: rgb(31, 41, 55)"]    { color: #e4ecff !important; }
         html.dark [style*="color: rgb(55, 65, 81)"]    { color: #c0cfec !important; }
         html.dark [style*="color: rgb(75, 85, 99)"]    { color: #8fa4cc !important; }
@@ -266,22 +266,22 @@
         html.dark [style*="border: 1.5px solid rgb(229, 231, 235)"],
         html.dark [style*="border: 1px solid rgb(243, 244, 246)"],
         html.dark [style*="border: 1px solid rgb(240, 240, 240)"] {
-            border-color: rgba(99,102,241,0.16) !important;
+            border-color: rgba(109,39,115,0.16) !important;
         }
         html.dark [style*="border: 2px solid rgb(229, 231, 235)"],
         html.dark [style*="border: 2px solid rgb(199, 210, 254)"] {
-            border-color: rgba(99,102,241,0.28) !important;
+            border-color: rgba(109,39,115,0.28) !important;
         }
         html.dark [style*="border-bottom: 1px solid rgb(229, 231, 235)"],
         html.dark [style*="border-bottom: 1px solid rgb(243, 244, 246)"],
         html.dark [style*="border-bottom: 1px solid rgb(240, 240, 240)"] {
-            border-color: rgba(99,102,241,0.12) !important;
+            border-color: rgba(109,39,115,0.12) !important;
         }
         html.dark [style*="border-top: 1px solid rgb(229, 231, 235)"] {
-            border-color: rgba(99,102,241,0.12) !important;
+            border-color: rgba(109,39,115,0.12) !important;
         }
         html.dark .border, html.dark .border-gray-200 {
-            border-color: rgba(99,102,241,0.15) !important;
+            border-color: rgba(109,39,115,0.15) !important;
         }
         /* ── Tailwind bg-white cards & panels ────────────────────────────── */
         html.dark div.bg-white,
@@ -290,12 +290,12 @@
         html.dark .rounded-xl.bg-white,
         html.dark .rounded-lg.bg-white {
             background: linear-gradient(155deg, rgba(17,30,58,0.97) 0%, rgba(8,16,36,0.99) 100%) !important;
-            border-color: rgba(99,102,241,0.16) !important;
+            border-color: rgba(109,39,115,0.16) !important;
             box-shadow:
                 0 1px 0 rgba(255,255,255,0.04) inset,
                 0 4px 6px rgba(0,0,0,0.4),
                 0 16px 48px rgba(0,0,0,0.6),
-                0 0 80px -30px rgba(99,102,241,0.10) !important;
+                0 0 80px -30px rgba(109,39,115,0.10) !important;
         }
 
         /* ── Tailwind bg-white on form inputs ─────────────────────────────── */
@@ -304,14 +304,14 @@
         html.dark textarea.bg-white {
             background: rgba(2, 8, 23, 0.9) !important;
             color: #e2eaf8 !important;
-            border-color: rgba(99,102,241,0.22) !important;
+            border-color: rgba(109,39,115,0.22) !important;
             box-shadow: inset 0 2px 6px rgba(0,0,0,0.5) !important;
         }
         html.dark input.bg-white:focus,
         html.dark select.bg-white:focus,
         html.dark textarea.bg-white:focus {
-            border-color: rgba(99,102,241,0.55) !important;
-            box-shadow: inset 0 2px 6px rgba(0,0,0,0.5), 0 0 0 3px rgba(99,102,241,0.15) !important;
+            border-color: rgba(109,39,115,0.55) !important;
+            box-shadow: inset 0 2px 6px rgba(0,0,0,0.5), 0 0 0 3px rgba(109,39,115,0.15) !important;
         }
 
         /* ── Tailwind bg-gray-50 read-only / disabled inputs ──────────────── */
@@ -320,7 +320,7 @@
         html.dark textarea.bg-gray-50 {
             background: rgba(8, 16, 32, 0.85) !important;
             color: #5a7099 !important;
-            border-color: rgba(99,102,241,0.12) !important;
+            border-color: rgba(109,39,115,0.12) !important;
         }
 
         /* ── Tailwind text colors inside forms ────────────────────────────── */
@@ -331,15 +331,15 @@
         html.dark .text-gray-400 { color: #4a607f !important; }
 
         /* ── Tailwind border colors ────────────────────────────────────────── */
-        html.dark .border-gray-100 { border-color: rgba(99,102,241,0.14) !important; }
-        html.dark .border-gray-200 { border-color: rgba(99,102,241,0.16) !important; }
-        html.dark .border-gray-300 { border-color: rgba(99,102,241,0.22) !important; }
+        html.dark .border-gray-100 { border-color: rgba(109,39,115,0.14) !important; }
+        html.dark .border-gray-200 { border-color: rgba(109,39,115,0.16) !important; }
+        html.dark .border-gray-300 { border-color: rgba(109,39,115,0.22) !important; }
 
         /* ── Focus ring for Tailwind ring utilities ────────────────────────── */
         html.dark .focus\:ring-indigo-500:focus,
         html.dark .focus\:ring-2:focus {
-            --tw-ring-color: rgba(99,102,241,0.4) !important;
-            box-shadow: 0 0 0 3px rgba(99,102,241,0.15) !important;
+            --tw-ring-color: rgba(109,39,115,0.4) !important;
+            box-shadow: 0 0 0 3px rgba(109,39,115,0.15) !important;
         }
 
         /* ── Section heading text in forms ────────────────────────────────── */
@@ -356,8 +356,8 @@
         /* ── Semantic badge / chip backgrounds ───────────────────────────── */
         html.dark [style*="background: rgb(238, 242, 255)"],
         html.dark [style*="background: rgb(224, 231, 255)"] {
-            background: rgba(99,102,241,0.15) !important;
-            border-color: rgba(99,102,241,0.35) !important;
+            background: rgba(109,39,115,0.15) !important;
+            border-color: rgba(109,39,115,0.35) !important;
         }
         html.dark [style*="background: rgb(224, 242, 254)"],
         html.dark [style*="background: rgb(219, 234, 254)"] {
@@ -386,8 +386,8 @@
         }
         html.dark [style*="background: rgb(245, 243, 255)"],
         html.dark [style*="background: rgb(243, 232, 255)"] {
-            background: rgba(139,92,246,0.12) !important;
-            border-color: rgba(139,92,246,0.30) !important;
+            background: rgba(131,47,138,0.12) !important;
+            border-color: rgba(131,47,138,0.30) !important;
         }
         html.dark [style*="background: rgb(240, 253, 250)"] {
             background: rgba(20,184,166,0.12) !important;
@@ -395,12 +395,12 @@
         }
 
         /* Stat icon areas */
-        html.dark [style*="background: rgb(238, 242, 255)"] { background: rgba(99,102,241,0.15) !important; }
+        html.dark [style*="background: rgb(238, 242, 255)"] { background: rgba(109,39,115,0.15) !important; }
         html.dark [style*="background: rgb(224, 242, 254)"] { background: rgba(14,165,233,0.12) !important; }
         html.dark [style*="background: rgb(236, 253, 245)"] { background: rgba(16,185,129,0.12) !important; }
         html.dark [style*="background: rgb(254, 242, 242)"] { background: rgba(239,68,68,0.12) !important; }
         html.dark [style*="background: rgb(255, 241, 242)"] { background: rgba(239,68,68,0.12) !important; }
-        html.dark [style*="background: rgb(245, 243, 255)"] { background: rgba(139,92,246,0.12) !important; }
+        html.dark [style*="background: rgb(245, 243, 255)"] { background: rgba(131,47,138,0.12) !important; }
         html.dark [style*="background: rgb(255, 251, 235)"] { background: rgba(245,158,11,0.12) !important; }
 
         /* ── Form inputs / selects ────────────────────────────────────────── */
@@ -409,19 +409,19 @@
         html.dark textarea {
             background: rgba(2, 8, 23, 0.9) !important;
             color: #e2eaf8 !important;
-            border-color: rgba(99,102,241,0.22) !important;
+            border-color: rgba(109,39,115,0.22) !important;
             box-shadow:
                 inset 0 2px 6px rgba(0,0,0,0.5),
-                0 0 0 1px rgba(99,102,241,0.06) !important;
+                0 0 0 1px rgba(109,39,115,0.06) !important;
         }
         html.dark input:focus,
         html.dark select:focus,
         html.dark textarea:focus {
-            border-color: rgba(99,102,241,0.55) !important;
+            border-color: rgba(109,39,115,0.55) !important;
             box-shadow:
                 inset 0 2px 6px rgba(0,0,0,0.5),
-                0 0 0 3px rgba(99,102,241,0.15),
-                0 0 16px rgba(99,102,241,0.08) !important;
+                0 0 0 3px rgba(109,39,115,0.15),
+                0 0 16px rgba(109,39,115,0.08) !important;
             outline: none !important;
         }
         html.dark input::placeholder,
@@ -433,24 +433,24 @@
         html.dark th {
             background: linear-gradient(90deg, rgba(6,15,34,0.95) 0%, rgba(9,20,40,0.95) 100%) !important;
             color: #6b80a4 !important;
-            border-bottom: 1px solid rgba(99,102,241,0.18) !important;
+            border-bottom: 1px solid rgba(109,39,115,0.18) !important;
             letter-spacing: 0.06em;
             text-transform: uppercase;
             font-size: 0.7rem !important;
         }
         html.dark td {
-            border-color: rgba(99,102,241,0.07) !important;
+            border-color: rgba(109,39,115,0.07) !important;
             color: #c0cfec !important;
         }
         html.dark tr:hover > td,
         html.dark .table-row:hover {
-            background: rgba(99,102,241,0.07) !important;
+            background: rgba(109,39,115,0.07) !important;
         }
 
         /* ── Scrollbars ───────────────────────────────────────────────────── */
         html.dark ::-webkit-scrollbar { background: #020817; width: 4px; height: 4px; }
         html.dark ::-webkit-scrollbar-thumb {
-            background: linear-gradient(180deg, rgba(99,102,241,0.5), rgba(79,70,229,0.35));
+            background: linear-gradient(180deg, rgba(109,39,115,0.5), rgba(109,39,115,0.35));
             border-radius: 4px;
         }
         html.dark ::-webkit-scrollbar-track { background: rgba(2,8,23,0.8); }
@@ -459,12 +459,12 @@
         html.dark [style*="background: rgb(255, 255, 255)"][style*="border-radius"],
         html.dark [style*="background:white"][style*="position: absolute"] {
             background: linear-gradient(155deg, rgba(14,24,48,0.98) 0%, rgba(6,12,28,0.99) 100%) !important;
-            border: 1px solid rgba(99,102,241,0.22) !important;
+            border: 1px solid rgba(109,39,115,0.22) !important;
             box-shadow:
-                0 0 0 1px rgba(99,102,241,0.08) inset,
+                0 0 0 1px rgba(109,39,115,0.08) inset,
                 0 24px 64px rgba(0,0,0,0.75),
-                0 0 0 1px rgba(99,102,241,0.1),
-                0 0 40px -10px rgba(99,102,241,0.15) !important;
+                0 0 0 1px rgba(109,39,115,0.1),
+                0 0 40px -10px rgba(109,39,115,0.15) !important;
         }
 
         /* ── Gray chip / pill backgrounds ─────────────────────────────────── */
@@ -485,30 +485,30 @@
         html.dark [style*="background: rgb(79, 70, 229)"],
         html.dark [style*="background: rgb(67, 56, 202)"],
         html.dark [style*="background: rgb(99, 102, 241)"] {
-            background: linear-gradient(135deg, #5b5ef0 0%, #4338ca 100%) !important;
+            background: linear-gradient(135deg, #5b5ef0 0%, #5D2162 100%) !important;
             box-shadow:
-                0 4px 14px rgba(99,102,241,0.5),
+                0 4px 14px rgba(109,39,115,0.5),
                 0 2px 4px rgba(0,0,0,0.4),
                 inset 0 1px 0 rgba(255,255,255,0.12) !important;
         }
 
         /* ── Calendar ─────────────────────────────────────────────────────── */
         html.dark .calendar-day {
-            border-color: rgba(99,102,241,0.10) !important;
+            border-color: rgba(109,39,115,0.10) !important;
             color: #c0cfec !important;
         }
-        html.dark .calendar-day:hover { background: rgba(99,102,241,0.08) !important; }
+        html.dark .calendar-day:hover { background: rgba(109,39,115,0.08) !important; }
         html.dark .calendar-day.today {
-            background: rgba(99,102,241,0.22) !important;
-            border-color: rgba(99,102,241,0.55) !important;
-            box-shadow: 0 0 12px rgba(99,102,241,0.25) !important;
+            background: rgba(109,39,115,0.22) !important;
+            border-color: rgba(109,39,115,0.55) !important;
+            box-shadow: 0 0 12px rgba(109,39,115,0.25) !important;
         }
-        html.dark .calendar-day.event { background: rgba(99,102,241,0.14) !important; }
+        html.dark .calendar-day.event { background: rgba(109,39,115,0.14) !important; }
 
         /* ── Misc ─────────────────────────────────────────────────────────── */
         html.dark [style*="background: rgb(30, 27, 75)"]  { background: rgba(30,27,75,0.55)  !important; }
         html.dark [style*="background: rgb(238, 242, 255)"][style*="border-radius: 8px"] {
-            background: rgba(99,102,241,0.10) !important;
+            background: rgba(109,39,115,0.10) !important;
         }
 
         /* ── Stat value numbers — larger text glow ────────────────────────── */
@@ -528,16 +528,16 @@
 
         /* ── Focus ring on interactive elements ──────────────────────────── */
         html.dark button:focus-visible {
-            outline: 2px solid rgba(99,102,241,0.6) !important;
+            outline: 2px solid rgba(109,39,115,0.6) !important;
             outline-offset: 2px;
-            box-shadow: 0 0 0 4px rgba(99,102,241,0.12) !important;
+            box-shadow: 0 0 0 4px rgba(109,39,115,0.12) !important;
         }
 
         /* ── Dividers ─────────────────────────────────────────────────────── */
         html.dark hr,
         html.dark [style*="border-top: 1px solid"],
         html.dark [style*="borderTop: '1px solid"] {
-            border-color: rgba(99,102,241,0.10) !important;
+            border-color: rgba(109,39,115,0.10) !important;
             opacity: 1 !important;
         }
 
@@ -731,7 +731,7 @@
         .text-orange-400{color:#FB923C}.text-orange-500{color:#F97316}.text-orange-600{color:#EA580C}.text-orange-700{color:#C2410C}.text-orange-800{color:#9A3412}
         .text-red-400{color:#F87171}.text-red-500{color:#EF4444}.text-red-600{color:#DC2626}.text-red-700{color:#B91C1C}
         .text-yellow-500{color:#EAB308}.text-yellow-600{color:#CA8A04}
-        .text-indigo-600{color:#4F46E5}.text-indigo-700{color:#4338CA}
+        .text-indigo-600{color:#6D2773}.text-indigo-700{color:#5D2162}
         .text-purple-600{color:#9333EA}
         .text-teal-600{color:#0D9488}
         /* Colors — background */
@@ -742,7 +742,7 @@
         .bg-orange-50{background-color:#FFF7ED}.bg-orange-100{background-color:#FFEDD5}.bg-orange-600{background-color:#EA580C}.bg-orange-700{background-color:#C2410C}
         .bg-red-50{background-color:#FEF2F2}.bg-red-100{background-color:#FEE2E2}.bg-red-500{background-color:#EF4444}.bg-red-600{background-color:#DC2626}
         .bg-yellow-50{background-color:#FEFCE8}.bg-yellow-100{background-color:#FEF9C3}
-        .bg-indigo-50{background-color:#EEF2FF}.bg-indigo-100{background-color:#E0E7FF}.bg-indigo-600{background-color:#4F46E5}.bg-indigo-700{background-color:#4338CA}
+        .bg-indigo-50{background-color:#F6ECF4}.bg-indigo-100{background-color:#EAD6E6}.bg-indigo-600{background-color:#6D2773}.bg-indigo-700{background-color:#5D2162}
         .bg-purple-50{background-color:#F5F3FF}.bg-purple-600{background-color:#9333EA}
         /* Colors — border */
         .border{border-width:1px;border-style:solid}.border-0{border:0}.border-2{border-width:2px;border-style:solid}
@@ -753,7 +753,7 @@
         .border-emerald-100{border-color:#D1FAE5}.border-emerald-200{border-color:#A7F3D0}
         .border-orange-100{border-color:#FFEDD5}.border-orange-200{border-color:#FED7AA}
         .border-red-100{border-color:#FEE2E2}.border-red-200{border-color:#FECACA}
-        .border-indigo-500{border-color:#6366F1}.border-transparent{border-color:transparent}
+        .border-indigo-500{border-color:#833089}.border-transparent{border-color:transparent}
         /* Divide */
         .divide-y>*+*{border-top-width:1px;border-top-style:solid;border-top-color:inherit}
         .divide-gray-100>*+*{border-top-color:#F3F4F6}.divide-gray-200>*+*{border-top-color:#E5E7EB}
@@ -786,44 +786,44 @@
         .z-0{z-index:0}.z-10{z-index:10}.z-20{z-index:20}.z-30{z-index:30}.z-40{z-index:40}.z-50{z-index:50}
         /* Ring / focus */
         .ring-0{box-shadow:none}
-        .ring-1{box-shadow:0 0 0 1px rgba(99,102,241,.5)}
-        .ring-2{box-shadow:0 0 0 2px rgba(99,102,241,.5)}
-        .ring-indigo-500{--ring:rgba(99,102,241,.5)}
+        .ring-1{box-shadow:0 0 0 1px rgba(109,39,115,.5)}
+        .ring-2{box-shadow:0 0 0 2px rgba(109,39,115,.5)}
+        .ring-indigo-500{--ring:rgba(109,39,115,.5)}
         /* Hover / focus (state classes) */
         .hover\:bg-gray-50:hover{background-color:#F9FAFB}
         .hover\:bg-gray-100:hover{background-color:#F3F4F6}
         .hover\:bg-gray-200:hover{background-color:#E5E7EB}
         .hover\:bg-orange-50:hover{background-color:#FFF7ED}
         .hover\:bg-orange-700:hover{background-color:#C2410C}
-        .hover\:bg-indigo-700:hover{background-color:#4338CA}
+        .hover\:bg-indigo-700:hover{background-color:#5D2162}
         .hover\:bg-red-50:hover{background-color:#FEF2F2}
         .hover\:text-gray-900:hover{color:#111827}
-        .hover\:text-indigo-600:hover{color:#4F46E5}
+        .hover\:text-indigo-600:hover{color:#6D2773}
         .hover\:text-red-600:hover{color:#DC2626}
         .hover\:border-gray-300:hover{border-color:#D1D5DB}
         .hover\:shadow-md:hover{box-shadow:0 4px 6px rgba(0,0,0,.07),0 2px 4px rgba(0,0,0,.06)}
         .hover\:underline:hover{text-decoration:underline}
         .hover\:opacity-90:hover{opacity:.9}
         .focus\:outline-none:focus{outline:none}
-        .focus\:ring-2:focus{box-shadow:0 0 0 2px var(--ring,rgba(99,102,241,.5))}
-        .focus\:ring-indigo-500:focus{--ring:rgba(99,102,241,.5)}
+        .focus\:ring-2:focus{box-shadow:0 0 0 2px var(--ring,rgba(109,39,115,.5))}
+        .focus\:ring-indigo-500:focus{--ring:rgba(109,39,115,.5)}
         .focus\:ring-orange-400:focus{--ring:rgba(251,146,60,.5)}
         .focus\:border-transparent:focus{border-color:transparent}
-        .focus\:border-indigo-500:focus{border-color:#6366F1}
+        .focus\:border-indigo-500:focus{border-color:#833089}
         .disabled\:opacity-50:disabled{opacity:.5}
         .disabled\:cursor-not-allowed:disabled{cursor:not-allowed}
         /* Active */
         .active\:scale-95:active{transform:scale(.95)}
         /* Group */
         .group{}.group:hover .group-hover\:block{display:block}
-        .group:hover .group-hover\:text-indigo-600{color:#4F46E5}
+        .group:hover .group-hover\:text-indigo-600{color:#6D2773}
     </style>
 </head>
 <body class="bg-gray-50">
-    <!-- Boot loader — shown while app.js?v=ea53ded0 parses; React overwrites it on mount -->
+    <!-- Boot loader — shown while app.js?v=fe09f77e parses; React overwrites it on mount -->
     <div id="root">
       <div id="app-boot-loader" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:#F5F7FF;gap:16px;">
-        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="12" fill="#4F46E5"/><path d="M14 24C14 18.477 18.477 14 24 14s10 4.477 10 10-4.477 10-10 10" stroke="#fff" stroke-width="3" stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" from="0 24 24" to="360 24 24" dur="0.8s" repeatCount="indefinite"/></path></svg>
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="12" fill="#6D2773"/><path d="M14 24C14 18.477 18.477 14 24 14s10 4.477 10 10-4.477 10-10 10" stroke="#fff" stroke-width="3" stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" from="0 24 24" to="360 24 24" dur="0.8s" repeatCount="indefinite"/></path></svg>
         <p style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;color:#64748B;margin:0;">Loading Yahwehcare…</p>
       </div>
     </div>
@@ -876,6 +876,6 @@
         })();
     </script>
 
-    <!-- app.js?v=ea53ded0 + enterprise-components-compiled.js?v=64dfc4c4 are loaded via defer in <head> above -->
+    <!-- app.js?v=fe09f77e + enterprise-components-compiled.js?v=3b91557d are loaded via defer in <head> above -->
 </body>
 </html>
