@@ -190,6 +190,19 @@
             );
         }
 
+        // Small inline pill flagging a deactivated staff member wherever their
+        // name is shown on a ticket (assignee or requester) — driven by the
+        // assigneeActive/requesterActive flags added to the tickets API.
+        function ExStaffBadge() {
+            return (
+                <span title="This person no longer works at Yahwehcare" style={{
+                    display:'inline-block', marginLeft:'6px', fontSize:'9px', fontWeight:700,
+                    color:'#991B1B', background:'#FEF2F2', border:'1px solid #FECACA',
+                    borderRadius:'10px', padding:'1px 6px', verticalAlign:'middle',
+                }}>No longer with Yahwehcare</span>
+            );
+        }
+
 
 
         // API Service Layer — all routes go to YCTMBackend (HRMS_API)
@@ -317,7 +330,7 @@
         const MANAGER_PAGES  = [...STAFF_PAGES, 'org-chart','staff-performance','team-comparison','ticket-log'];
         const HR_PAGES       = [...MANAGER_PAGES, 'staff-management'];
         const DIRECTOR_PAGES    = [...HR_PAGES, 'scheduled-reports'];
-        const BOOTSTRAP_PAGES   = [...DIRECTOR_PAGES, 'email-config'];
+        const BOOTSTRAP_PAGES   = [...DIRECTOR_PAGES, 'email-config', 'ex-staff', 'activity-log'];
 
         function getAccessiblePages(sessionUser) {
             if (!sessionUser) return STAFF_PAGES;
@@ -758,6 +771,7 @@
                 'staff-performance':'Staff Performance','team-comparison':'Team Comparison',
                 'staff-management':'Staff Management','scheduled-reports':'Scheduled Reports',
                 'ticket-log':'Ticket Log','email-config':'Email Config','settings':'My Profile',
+                'ex-staff':'Ex-Staff','activity-log':'Activity Log',
             };
 
             React.useEffect(() => {
@@ -967,6 +981,8 @@
                 { id: 'ticket-log',        label: 'Ticket Log',        icon: 'scroll-text' },
                 { id: 'scheduled-reports', label: 'Scheduled Reports', icon: 'send' },
                 { id: 'email-config',      label: 'Email Config',       icon: 'mail-cog' },
+                { id: 'ex-staff',          label: 'Ex-Staff',          icon: 'users-minus' },
+                { id: 'activity-log',      label: 'Activity Log',      icon: 'activity' },
             ].filter(p => allowedPages.includes(p.id));
 
             // Close dropdown when clicking outside
@@ -4123,7 +4139,7 @@
                                     </div>
                                     <div>
                                         <div style={{fontSize:'10px',fontWeight:'700',color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:'4px'}}>Assignee</div>
-                                        <div style={{fontSize:'12px',fontWeight:'600',color:textP}}>{t.assigneeName||'Unassigned'}</div>
+                                        <div style={{fontSize:'12px',fontWeight:'600',color:textP}}>{t.assigneeName||'Unassigned'}{t.assigneeActive===false && <ExStaffBadge />}</div>
                                     </div>
                                     <div>
                                         <div style={{fontSize:'10px',fontWeight:'700',color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:'4px'}}>Due Date</div>
@@ -6655,8 +6671,10 @@
                 setLoading(true);
                 try {
                     const uqp = getUserQueryParams(getSessionUser());
+                    // Only active staff belong here — deactivated staff move to the
+                    // Ex-Staff page (bootstrap-admin only) so they don't clutter this list.
                     const [sR,dR,pR] = await Promise.all([
-                        fetch(`${HRMS_API}/users?limit=200${uqp}`, { credentials:'include', headers: authHeaders() }),
+                        fetch(`${HRMS_API}/users?limit=200&status=active${uqp}`, { credentials:'include', headers: authHeaders() }),
                         fetch(`${HRMS_API}/org/departments`,        { credentials:'include', headers: authHeaders() }),
                         fetch(`${HRMS_API}/org/positions`,          { credentials:'include', headers: authHeaders() }),
                     ]);
@@ -7551,8 +7569,8 @@
                                             </div>
                                             <h2 style={{fontSize:16,fontWeight:700,color:textP,margin:'0 0 6px'}}>{ticket.title}</h2>
                                             <div style={{display:'flex',gap:16,flexWrap:'wrap',fontSize:11,color:textM}}>
-                                                <span style={{display:'inline-flex',alignItems:'center',gap:'3px'}}><Icon name='user' size={11} color={textM} />Raised by: <strong>{ticket.requesterName||'—'}</strong></span>
-                                                <span style={{display:'inline-flex',alignItems:'center',gap:'3px'}}><Icon name='wrench' size={11} color={textM} />Assigned to: <strong>{ticket.assigneeName||'Unassigned'}</strong></span>
+                                                <span style={{display:'inline-flex',alignItems:'center',gap:'3px'}}><Icon name='user' size={11} color={textM} />Raised by: <strong>{ticket.requesterName||'—'}</strong>{ticket.requesterActive===false && <ExStaffBadge />}</span>
+                                                <span style={{display:'inline-flex',alignItems:'center',gap:'3px'}}><Icon name='wrench' size={11} color={textM} />Assigned to: <strong>{ticket.assigneeName||'Unassigned'}</strong>{ticket.assigneeActive===false && <ExStaffBadge />}</span>
                                                 {ticket.categoryLabel && <CatBadge label={ticket.categoryLabel} />}
                                                 <span style={{display:'inline-flex',alignItems:'center',gap:'3px'}}><Icon name='calendar' size={11} color={textM} />Created: <strong>{fmtTime(ticket.createdAt)}</strong></span>
                                                 {ticket.closedAt && <span style={{display:'inline-flex',alignItems:'center',gap:'3px'}}><Icon name='lock' size={11} color={textM} />Closed: <strong>{fmtTime(ticket.closedAt)}</strong></span>}
@@ -8805,6 +8823,267 @@
             );
         }
 
+        // ============================================================
+        // EX-STAFF PAGE (Bootstrap Admin only)
+        // ============================================================
+        // Lists deactivated staff and lets a bootstrap admin reactivate someone
+        // who rejoins Yahwehcare. Reuses the PATCH /users/:id {is_active:true}
+        // route — the backend already gates activation/deactivation symmetrically
+        // to bootstrap admins only (see users.routes.ts).
+        function ExStaffPage() {
+            const dm = React.useContext(DarkModeContext);
+            const [staff, setStaff]     = React.useState([]);
+            const [loading, setLoading] = React.useState(true);
+            const [search, setSearch]   = React.useState('');
+            const debouncedSearch = useDebounce(search, 150);
+            const [toast, setToast]     = React.useState('');
+            const [reactivating, setReactivating] = React.useState(null); // user id in flight
+            const [confirmUser, setConfirmUser] = React.useState(null);
+
+            const bg   = dm ? '#0F172A' : '#F9FAFB';
+            const card = dm ? '#1E293B' : '#FFFFFF';
+            const bdr  = dm ? '#334155' : '#E2E8F0';
+            const txt  = dm ? '#E2E8F0' : '#1E293B';
+            const muted = dm ? '#94A3B8' : '#6B7280';
+
+            const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3500); };
+
+            const fetchExStaff = React.useCallback(async () => {
+                setLoading(true);
+                try {
+                    const res = await authFetch(`${HRMS_API}/users?status=inactive&limit=200`);
+                    if (!res.ok) throw new Error('Failed to fetch ex-staff');
+                    const data = await res.json();
+                    setStaff(data.users || []);
+                } catch (e) { showToast('Failed to load ex-staff: ' + e.message); }
+                finally { setLoading(false); }
+            }, []);
+
+            React.useEffect(() => { fetchExStaff(); }, [fetchExStaff]);
+
+            const filtered = React.useMemo(() => {
+                const q = debouncedSearch.toLowerCase();
+                if (!q) return staff;
+                return staff.filter(s =>
+                    s.name?.toLowerCase().includes(q) ||
+                    s.email?.toLowerCase().includes(q) ||
+                    s.department_name?.toLowerCase().includes(q) ||
+                    (s.positions || []).some(p => p.title?.toLowerCase().includes(q))
+                );
+            }, [staff, debouncedSearch]);
+
+            const handleReactivate = async (u) => {
+                setReactivating(u.id);
+                try {
+                    const res = await authFetch(`${HRMS_API}/users/${u.id}`, {
+                        method: 'PATCH',
+                        body: JSON.stringify({ is_active: true }),
+                    });
+                    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.message || e.error || 'Reactivation failed'); }
+                    setConfirmUser(null);
+                    showToast(`✅ ${u.name} has been reactivated`);
+                    fetchExStaff();
+                } catch (e) { showToast('Failed: ' + e.message); }
+                finally { setReactivating(null); }
+            };
+
+            const Avatar = ({ name, size = 36 }) => {
+                const ini = (name || '').split(' ').slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('');
+                return <div style={{width:size,height:size,borderRadius:'50%',background:'#94A3B8',display:'flex',alignItems:'center',justifyContent:'center',fontSize:size*0.38,fontWeight:700,color:'white',flexShrink:0}}>{ini}</div>;
+            };
+
+            return (
+                <main style={{flex:1, overflowY:'auto', background:bg, padding:'24px'}}>
+                    {toast && (
+                        <div style={{position:'fixed',top:20,right:20,background:'#1E293B',color:'#fff',padding:'10px 18px',borderRadius:10,zIndex:9999,fontSize:13,boxShadow:'0 4px 16px rgba(0,0,0,0.3)'}}>
+                            {toast}
+                        </div>
+                    )}
+                    <div style={{maxWidth:1100, margin:'0 auto'}}>
+                        <div style={{marginBottom:24}}>
+                            <h1 style={{fontSize:22,fontWeight:800,color:txt,margin:0,display:'flex',alignItems:'center',gap:'8px'}}><Icon name='users-minus' size={22} color={txt} />Ex-Staff</h1>
+                            <p style={{fontSize:13,color:muted,margin:'4px 0 0'}}>Staff who no longer work at Yahwehcare. Reactivate someone here if they rejoin. Bootstrap Admin only.</p>
+                        </div>
+
+                        <div style={{background:card,border:`1px solid ${bdr}`,borderRadius:12,overflow:'hidden'}}>
+                            <div style={{padding:'14px 16px',borderBottom:`1px solid ${bdr}`,display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}>
+                                <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search name / email / department…"
+                                    style={{padding:'7px 10px',borderRadius:6,border:`1px solid ${bdr}`,background:bg,color:txt,fontSize:12,width:260}}/>
+                                <button onClick={fetchExStaff} style={{padding:'7px 14px',borderRadius:6,border:`1px solid ${bdr}`,background:'transparent',color:muted,fontSize:12,cursor:'pointer'}}>↻ Refresh</button>
+                                <span style={{marginLeft:'auto',fontSize:12,color:muted}}>{filtered.length} of {staff.length} total</span>
+                            </div>
+                            <div style={{overflowX:'auto'}}>
+                                <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+                                    <thead>
+                                        <tr style={{background:dm?'#0F172A':'#F8FAFC'}}>
+                                            {['Staff','Email','Department','Position','Action'].map(h=>(
+                                                <th key={h} style={{padding:'10px 14px',textAlign:'left',fontWeight:600,color:muted,borderBottom:`1px solid ${bdr}`,whiteSpace:'nowrap'}}>{h}</th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {loading && <tr><td colSpan={5} style={{padding:24,textAlign:'center',color:muted}}>Loading…</td></tr>}
+                                        {!loading && !filtered.length && <tr><td colSpan={5} style={{padding:24,textAlign:'center',color:muted}}>No ex-staff found</td></tr>}
+                                        {filtered.map(s => (
+                                            <tr key={s.id} style={{borderBottom:`1px solid ${bdr}`}}>
+                                                <td style={{padding:'9px 14px',color:txt}}>
+                                                    <div style={{display:'flex',alignItems:'center',gap:10}}>
+                                                        <Avatar name={s.name} />
+                                                        <div>
+                                                            <div style={{fontWeight:600}}>{s.name}</div>
+                                                            <span style={{fontSize:10,fontWeight:700,color:'#991B1B',background:dm?'rgba(239,68,68,0.12)':'#FEF2F2',padding:'1px 6px',borderRadius:10}}>No longer with Yahwehcare</span>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td style={{padding:'9px 14px',color:muted}}>{s.email}</td>
+                                                <td style={{padding:'9px 14px',color:muted}}>{s.department_name || '—'}</td>
+                                                <td style={{padding:'9px 14px',color:muted}}>{(s.positions||[]).map(p=>p.title).join(', ') || '—'}</td>
+                                                <td style={{padding:'9px 14px'}}>
+                                                    <button onClick={()=>setConfirmUser(s)} disabled={reactivating===s.id}
+                                                        style={{padding:'5px 12px',borderRadius:6,border:'none',background:'#10B981',color:'#fff',fontSize:11,fontWeight:700,cursor:'pointer'}}>
+                                                        {reactivating===s.id ? 'Reactivating…' : 'Reactivate'}
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    {confirmUser && (
+                        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:10000}} onClick={()=>setConfirmUser(null)}>
+                            <div style={{background:card,borderRadius:12,padding:24,maxWidth:400,width:'90%'}} onClick={e=>e.stopPropagation()}>
+                                <h3 style={{margin:'0 0 10px',fontSize:16,fontWeight:700,color:txt}}>Reactivate {confirmUser.name}?</h3>
+                                <p style={{fontSize:13,color:muted,margin:'0 0 18px'}}>They will regain access to Yahwehcare and appear in Staff Management again.</p>
+                                <div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
+                                    <button onClick={()=>setConfirmUser(null)} style={{padding:'8px 16px',borderRadius:8,border:`1px solid ${bdr}`,background:'transparent',color:txt,cursor:'pointer',fontSize:13}}>Cancel</button>
+                                    <button onClick={()=>handleReactivate(confirmUser)} disabled={reactivating===confirmUser.id} style={{padding:'8px 16px',borderRadius:8,border:'none',background:'#10B981',color:'#fff',cursor:'pointer',fontSize:13,fontWeight:700}}>
+                                        {reactivating===confirmUser.id ? 'Reactivating…' : 'Confirm Reactivate'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </main>
+            );
+        }
+
+        // ============================================================
+        // ACTIVITY LOG PAGE (Bootstrap Admin only)
+        // ============================================================
+        // Thin viewer over GET /audit-logs (rbac.middleware.ts now lets
+        // isBootstrapAdmin bypass the audit.read permission check).
+        function ActivityLogPage() {
+            const dm = React.useContext(DarkModeContext);
+            const [entries, setEntries] = React.useState([]);
+            const [total, setTotal]     = React.useState(0);
+            const [loading, setLoading] = React.useState(false);
+            const [search, setSearch]   = React.useState('');
+            const [searchInput, setSearchInput] = React.useState('');
+            const [page, setPage]       = React.useState(1);
+            const [toast, setToast]     = React.useState('');
+            const PAGE_SIZE = 50;
+
+            const bg   = dm ? '#0F172A' : '#F9FAFB';
+            const card = dm ? '#1E293B' : '#FFFFFF';
+            const bdr  = dm ? '#334155' : '#E2E8F0';
+            const txt  = dm ? '#E2E8F0' : '#1E293B';
+            const muted = dm ? '#94A3B8' : '#6B7280';
+
+            const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3500); };
+
+            const loadEntries = React.useCallback(async () => {
+                setLoading(true);
+                try {
+                    const params = new URLSearchParams({ limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE });
+                    if (search) params.set('search', search);
+                    const res = await authFetch(`${HRMS_API}/audit-logs?${params}`);
+                    if (!res.ok) throw new Error('Failed to fetch activity log');
+                    const d = await res.json();
+                    setEntries(d.entries || []);
+                    setTotal(d.total || 0);
+                } catch (e) { showToast('Failed to load activity log: ' + e.message); }
+                finally { setLoading(false); }
+            }, [page, search]);
+
+            React.useEffect(() => { loadEntries(); }, [loadEntries]);
+
+            const runSearch = () => { setPage(1); setSearch(searchInput.trim()); };
+
+            const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+            return (
+                <main style={{flex:1, overflowY:'auto', background:bg, padding:'24px'}}>
+                    {toast && (
+                        <div style={{position:'fixed',top:20,right:20,background:'#1E293B',color:'#fff',padding:'10px 18px',borderRadius:10,zIndex:9999,fontSize:13,boxShadow:'0 4px 16px rgba(0,0,0,0.3)'}}>
+                            {toast}
+                        </div>
+                    )}
+                    <div style={{maxWidth:1200, margin:'0 auto'}}>
+                        <div style={{marginBottom:24}}>
+                            <h1 style={{fontSize:22,fontWeight:800,color:txt,margin:0,display:'flex',alignItems:'center',gap:'8px'}}><Icon name='activity' size={22} color={txt} />Activity Log</h1>
+                            <p style={{fontSize:13,color:muted,margin:'4px 0 0'}}>Every recorded action across the system — logins, staff changes, ticket events, and more. Bootstrap Admin only.</p>
+                        </div>
+
+                        <div style={{background:card,border:`1px solid ${bdr}`,borderRadius:12,overflow:'hidden'}}>
+                            <div style={{padding:'14px 16px',borderBottom:`1px solid ${bdr}`,display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}>
+                                <input value={searchInput} onChange={e=>setSearchInput(e.target.value)}
+                                    onKeyDown={e=>e.key==='Enter' && runSearch()}
+                                    placeholder="Search by user, action, module, target…"
+                                    style={{padding:'7px 10px',borderRadius:6,border:`1px solid ${bdr}`,background:bg,color:txt,fontSize:12,width:280}}/>
+                                <button onClick={runSearch} style={{padding:'7px 16px',borderRadius:6,border:'none',background:'#4F46E5',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer'}}>Search</button>
+                                {search && (
+                                    <button onClick={()=>{setSearchInput('');setSearch('');setPage(1);}} style={{padding:'7px 14px',borderRadius:6,border:`1px solid ${bdr}`,background:'transparent',color:muted,fontSize:12,cursor:'pointer'}}>Clear</button>
+                                )}
+                                <button onClick={loadEntries} style={{padding:'7px 14px',borderRadius:6,border:`1px solid ${bdr}`,background:'transparent',color:muted,fontSize:12,cursor:'pointer'}}>↻ Refresh</button>
+                                <span style={{marginLeft:'auto',fontSize:12,color:muted}}>{total} total</span>
+                            </div>
+                            <div style={{overflowX:'auto'}}>
+                                <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+                                    <thead>
+                                        <tr style={{background:dm?'#0F172A':'#F8FAFC'}}>
+                                            {['Time','User','Action','Module','Target','Result'].map(h=>(
+                                                <th key={h} style={{padding:'10px 14px',textAlign:'left',fontWeight:600,color:muted,borderBottom:`1px solid ${bdr}`,whiteSpace:'nowrap'}}>{h}</th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {loading && <tr><td colSpan={6} style={{padding:24,textAlign:'center',color:muted}}>Loading…</td></tr>}
+                                        {!loading && !entries.length && <tr><td colSpan={6} style={{padding:24,textAlign:'center',color:muted}}>No activity found</td></tr>}
+                                        {entries.map(e => (
+                                            <tr key={e.id} style={{borderBottom:`1px solid ${bdr}`}}>
+                                                <td style={{padding:'9px 14px',color:muted,whiteSpace:'nowrap'}}>{e.created_at ? new Date(e.created_at).toLocaleString('en-AU',{dateStyle:'short',timeStyle:'short'}) : '—'}</td>
+                                                <td style={{padding:'9px 14px',color:txt,whiteSpace:'nowrap'}}>{e.user_name || e.actor_email || '—'}</td>
+                                                <td style={{padding:'9px 14px',color:txt}}><code style={{fontSize:11}}>{e.action}</code></td>
+                                                <td style={{padding:'9px 14px',color:muted}}>{e.module || '—'}</td>
+                                                <td style={{padding:'9px 14px',color:muted}}>{e.target_type ? `${e.target_type}${e.target_id ? ' #' + e.target_id : ''}` : '—'}</td>
+                                                <td style={{padding:'9px 14px'}}>
+                                                    <span style={{padding:'2px 8px',borderRadius:12,fontSize:11,fontWeight:700,
+                                                        background: e.success===false ? (dm?'rgba(239,68,68,0.12)':'#FEF2F2') : (dm?'rgba(16,185,129,0.12)':'#ECFDF5'),
+                                                        color: e.success===false ? '#EF4444' : '#10B981'}}>
+                                                        {e.success===false ? 'Failed' : 'Success'}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {totalPages > 1 && (
+                                <div style={{padding:'12px 16px',display:'flex',gap:8,justifyContent:'flex-end',borderTop:`1px solid ${bdr}`}}>
+                                    <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1} style={{padding:'5px 12px',borderRadius:6,border:`1px solid ${bdr}`,background:'transparent',color:txt,cursor:'pointer',fontSize:12}}>← Prev</button>
+                                    <span style={{fontSize:12,color:muted,padding:'5px 0'}}>Page {page} / {totalPages}</span>
+                                    <button onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={page===totalPages} style={{padding:'5px 12px',borderRadius:6,border:`1px solid ${bdr}`,background:'transparent',color:txt,cursor:'pointer',fontSize:12}}>Next →</button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </main>
+            );
+        }
+
         // isMobile — module-level, stable reference (not recreated per render)
         const isMobile = () => window.innerWidth < 1024;
 
@@ -9004,6 +9283,8 @@
                     case 'ticket-log': return <TicketLogPage />;
                     case 'scheduled-reports': return <ScheduledReportsPage />;
                     case 'email-config':      return <EmailConfigPage />;
+                    case 'ex-staff':          return <ExStaffPage />;
+                    case 'activity-log':      return <ActivityLogPage />;
                     case 'settings':          return <SettingsPage />;
                     default: return <Dashboard />;
                 }

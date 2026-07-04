@@ -176,6 +176,10 @@ function buildSubject(ev: TicketEvent, role: RecipientRole): string {
       approver: `${tid} CRITICAL — Urgent Ticket Requires Your Attention: "${title}"`,
       admin:    `${tid} CRITICAL Ticket Alert: "${title}"`,
     },
+    'ticket.assignee_deactivated': {
+      creator: `${tid} Action Needed — Reassign This Ticket: "${title}"`,
+      admin:   `${tid} Assignee Deactivated — Reassignment Needed: "${title}"`,
+    },
   };
 
   return subjects[ev.type]?.[role] ?? subjects[ev.type]?.['admin'] ?? `${tid} Ticket Update: "${title}"`;
@@ -398,6 +402,22 @@ function buildBody(ev: TicketEvent, role: RecipientRole, frontendUrl: string): s
         reason:     `A critical ticket has been raised.`,
         action:     `<strong>${actor}</strong> flagged this ticket as critical priority.`,
         cta:        'View Critical Ticket →', ctaColor: DANGER,
+      },
+    },
+    'ticket.assignee_deactivated': {
+      creator: {
+        badgeLabel: 'Action Needed — Reassign This Ticket', badgeColor: WARN, badgeBg: '#FFF7ED',
+        headline:   title,
+        reason:     `You are receiving this email because you are <strong>the Requester</strong> of this ticket. The staff member it was assigned to is no longer with Yahwehcare, so it needs a new assignee.`,
+        action:     `${ev.extra || 'The assignee'} has been deactivated and can no longer work on tickets. Please open this ticket and reassign it to another staff member as soon as possible.`,
+        cta:        'Reassign This Ticket →', ctaColor: WARN,
+      },
+      admin: {
+        badgeLabel: 'Assignee Deactivated', badgeColor: WARN, badgeBg: '#FFF7ED',
+        headline:   title,
+        reason:     `A ticket's assignee has been deactivated and the ticket needs reassigning.`,
+        action:     `${ev.extra || 'The assignee'} has been deactivated. This ticket needs a new assignee.`,
+        cta:        'View Ticket →', ctaColor: WARN,
       },
     },
   };

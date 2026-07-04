@@ -460,8 +460,8 @@ describe('sendPush() via notify()', () => {
       const [subArg, payloadStr] = mockSendNotification.mock.calls[0];
       expect(subArg.endpoint).toBe('https://fcm.googleapis.com/push/1');
       const payload = JSON.parse(payloadStr as string);
-      expect(payload.icon).toBe('/favicon.svg');
-      expect(payload.badge).toBe('/favicon.svg');
+      expect(payload.icon).toBe('/icon-512.png');
+      expect(payload.badge).toBe('/icon-512.png');
       expect(typeof payload.title).toBe('string');
 
       delete process.env.VAPID_PUBLIC_KEY;

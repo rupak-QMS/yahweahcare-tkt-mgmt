@@ -16,6 +16,9 @@
 //   ticket.extension_approved  → assignee
 //   ticket.extension_denied    → assignee
 //   ticket.critical         → assignee + dept manager + director
+//   ticket.assignee_deactivated → creator (reassign prompt — also emailed directly,
+//                                 unlike other ticket events, since there is no
+//                                 equivalent in the queue-based email pipeline)
 //   ticket.status_changed   → creator + assignee (legacy fallback)
 // ============================================================
 
@@ -89,6 +92,7 @@ export interface TicketEvent {
     | 'ticket.extension_approved'
     | 'ticket.extension_denied'
     | 'ticket.critical'
+    | 'ticket.assignee_deactivated' // assignee was deactivated — creator must reassign
     | 'ticket.status_changed'; // legacy
   ticketId:    number;
   ticketTitle: string;
@@ -231,6 +235,11 @@ async function resolveRecipients(ev: NotifyEvent): Promise<number[]> {
       break;
     }
 
+    case 'ticket.assignee_deactivated':
+      // → creator only (they need to reassign the ticket to someone active)
+      if (te.creatorId) set.add(te.creatorId);
+      break;
+
     case 'ticket.status_changed':
     default:
       // legacy fallback → creator + assignee
@@ -334,6 +343,11 @@ function buildMessage(ev: NotifyEvent): { subject: string; body: string } {
       return {
         subject: `Critical Ticket ${tid} Requires Attention`,
         body:    `A critical priority ticket has been assigned: ${tid} — "${title}"`,
+      };
+    case 'ticket.assignee_deactivated':
+      return {
+        subject: `Action Needed: Reassign Ticket ${tid}`,
+        body:    `${te.extra || 'The assignee'} is no longer with Yahwehcare. Ticket ${tid} ("${title}") needs to be reassigned to someone else.`,
       };
     case 'ticket.status_changed':
       return {
@@ -487,8 +501,8 @@ export async function notify(ev: NotifyEvent): Promise<void> {
     const pushPayload = {
       title: subject,
       body,
-      icon:  '/favicon.svg',
-      badge: '/favicon.svg',
+      icon:  '/icon-512.png',
+      badge: '/icon-512.png',
       data:  {
         ticketId,
         type: ev.type,
@@ -532,6 +546,24 @@ export async function notify(ev: NotifyEvent): Promise<void> {
       } catch (emailErr) {
         console.warn('[notify] email send error', emailErr);
       }
+    } else if ((ev as TicketEvent).type === 'ticket.assignee_deactivated') {
+      // Unlike other ticket events, this one has no equivalent in the
+      // queue-based email pipeline (services/email/notification.service.ts)
+      // — it's rare/administrative, not a ticket-lifecycle event those
+      // notifyTicketXxx() functions cover — so it's safe to email directly
+      // here without risking a duplicate send.
+      try {
+        const { rows: emailRows } = await pool.query(
+          `SELECT email FROM yc_tkt_mgmt.users WHERE id = ANY($1) AND is_active = TRUE AND email IS NOT NULL`,
+          [recipients]
+        );
+        const recipientEmails = emailRows.map((r: { email: string }) => r.email).filter(Boolean);
+        if (recipientEmails.length) {
+          await sendTicketEventEmailToRole(ev as TicketEvent, recipientEmails, 'creator');
+        }
+      } catch (emailErr) {
+        console.warn('[notify] email send error', emailErr);
+      }
     }
 
   } catch (err) {
@@ -554,8 +586,8 @@ export async function sendCronNotification(opts: {
     const pushPayload = {
       title: opts.subject,
       body:  opts.body,
-      icon:  '/favicon.svg',
-      badge: '/favicon.svg',
+      icon:  '/icon-512.png',
+      badge: '/icon-512.png',
       data:  { ticketId: opts.ticketId, type: 'cron', url: `/tickets/${opts.ticketId}` },
     };
 

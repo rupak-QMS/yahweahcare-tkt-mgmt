@@ -176,8 +176,13 @@ function dbTicket(row: Record<string, unknown>) {
     statusLabel:    row.status_label    || null,
     requesterName:  row.requester_name  || null,
     requesterEmail: row.requester_email || null,
+    // Defaults to true (active) when the column wasn't joined for this query
+    // (e.g. some code paths select tickets without the users JOIN) — only
+    // ever false when we positively know the account was deactivated.
+    requesterActive: row.requester_active !== false,
     assigneeName:   row.assignee_name   || null,
     assigneeEmail:  row.assignee_email  || null,
+    assigneeActive: row.assignee_active !== false,
     departmentName: row.department_name || null,
     // resolution note (set when assignee marks complete)
     resolutionNote: row.resolution_note || null,
@@ -317,8 +322,8 @@ router.get('/', optionalAuth, async (req, res, next) => {
              cat.icon      AS category_icon,
              pri.label     AS priority_label,
              pri.sla_hours AS priority_sla_hours,
-             ureq.name     AS requester_name,  ureq.email  AS requester_email,
-             uasgn.name    AS assignee_name,   uasgn.email AS assignee_email,
+             ureq.name     AS requester_name,  ureq.email  AS requester_email,  ureq.is_active  AS requester_active,
+             uasgn.name    AS assignee_name,   uasgn.email AS assignee_email,   uasgn.is_active AS assignee_active,
              COUNT(*) OVER() AS total
         FROM yc_tkt_mgmt.tickets v
         LEFT JOIN yc_tkt_mgmt.categories  cat  ON cat.id   = v.category_id
@@ -521,15 +526,29 @@ router.get('/:id', optionalAuth, async (req, res, next) => {
       }));
     } catch (_) {}
 
-    // Enrich ticket row with assignee name (single-ticket query has no JOIN)
+    // Enrich ticket row with assignee + requester name/email/active-status
+    // (single-ticket query has no JOIN, unlike the list endpoint above)
     if (tRows[0].assigned_to) {
       try {
         const { rows: uRows } = await pool.query(
-          `SELECT name, email FROM yc_tkt_mgmt.users WHERE id = $1`, [tRows[0].assigned_to]
+          `SELECT name, email, is_active FROM yc_tkt_mgmt.users WHERE id = $1`, [tRows[0].assigned_to]
         );
         if (uRows[0]) {
-          (tRows[0] as Record<string, unknown>).assignee_name  = uRows[0].name;
-          (tRows[0] as Record<string, unknown>).assignee_email = uRows[0].email;
+          (tRows[0] as Record<string, unknown>).assignee_name   = uRows[0].name;
+          (tRows[0] as Record<string, unknown>).assignee_email  = uRows[0].email;
+          (tRows[0] as Record<string, unknown>).assignee_active = uRows[0].is_active;
+        }
+      } catch (_) {}
+    }
+    if (tRows[0].created_by) {
+      try {
+        const { rows: uRows } = await pool.query(
+          `SELECT name, email, is_active FROM yc_tkt_mgmt.users WHERE id = $1`, [tRows[0].created_by]
+        );
+        if (uRows[0]) {
+          (tRows[0] as Record<string, unknown>).requester_name   = uRows[0].name;
+          (tRows[0] as Record<string, unknown>).requester_email  = uRows[0].email;
+          (tRows[0] as Record<string, unknown>).requester_active = uRows[0].is_active;
         }
       } catch (_) {}
     }

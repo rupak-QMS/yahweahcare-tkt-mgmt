@@ -20,6 +20,7 @@ router.get('/', requirePermission('audit.read'), async (req, res) => {
   const module = (req.query.module as string) || null;
   const since  = (req.query.since  as string) || null;
   const until  = (req.query.until  as string) || null;
+  const search = (req.query.search as string) || null;
 
   const where: string[] = ['1=1']; const params: unknown[] = []; let i = 1;
   if (userId) { where.push(`a.user_id = $${i++}`); params.push(userId); }
@@ -27,6 +28,13 @@ router.get('/', requirePermission('audit.read'), async (req, res) => {
   if (module) { where.push(`a.module  = $${i++}`); params.push(module); }
   if (since)  { where.push(`a.created_at >= $${i++}`); params.push(since); }
   if (until)  { where.push(`a.created_at <= $${i++}`); params.push(until); }
+  if (search) {
+    // Free-text search across actor email, action, module, target type, and
+    // the joined user's name — powers the Activity Log page's search box.
+    where.push(`(a.actor_email ILIKE $${i} OR a.action ILIKE $${i} OR a.module ILIKE $${i} OR a.target_type ILIKE $${i} OR u.name ILIKE $${i})`);
+    params.push(`%${search}%`);
+    i++;
+  }
 
   const { rows } = await pool.query(
     `SELECT a.id, a.user_id, a.actor_email, a.action, a.module, a.target_type, a.target_id,

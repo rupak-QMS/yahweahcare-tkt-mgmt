@@ -191,9 +191,10 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
     if (!target) return res.status(404).json({ error: 'not_found' });
     if (target.is_bootstrap_admin && 'is_active' in req.body && req.body.is_active === false)
       return res.status(403).json({ error: 'bootstrap_admin_deactivate_blocked', message: 'Bootstrap admins cannot be deactivated' });
-    // Deactivating a staff member is a bootstrap-admin-only action (Ron / Alex).
-    if ('is_active' in req.body && req.body.is_active === false && !req.auth?.isBootstrapAdmin)
-      return res.status(403).json({ error: 'forbidden', message: 'Only bootstrap admins can deactivate staff members' });
+    // Deactivating OR reactivating a staff member is a bootstrap-admin-only
+    // action (Ron / Alex) — symmetric with the delete/deactivate route below.
+    if ('is_active' in req.body && !req.auth?.isBootstrapAdmin)
+      return res.status(403).json({ error: 'forbidden', message: 'Only bootstrap admins can activate or deactivate staff members' });
     // If email is being changed, enforce org-domain policy
     if ('email' in req.body && req.body.email) {
       const domainCheck = validateEmail(req.body.email.toString().trim());
@@ -300,7 +301,37 @@ router.delete('/:id', requireAuth, async (req, res, next) => {
       deptId: rows[0].department_id ?? undefined,
     }).catch(() => {});
 
-    res.json({ ok: true, message: rows[0].name + ' has been deactivated. Their positions are now vacant.' });
+    // Find every still-open ticket this person was assigned to, and tell
+    // each ticket's creator they need to reassign it — a deactivated staff
+    // member can no longer work on anything. Awaited before responding
+    // (same Vercel-serverless reason as the notify() calls above).
+    let reassignCount = 0;
+    try {
+      const { rows: openTickets } = await pool.query(
+        `SELECT id, title, created_by FROM yc_tkt_mgmt.tickets
+          WHERE assigned_to = $1 AND status NOT IN ('resolved', 'closed') AND created_by IS NOT NULL`,
+        [id]
+      );
+      reassignCount = openTickets.length;
+      await Promise.all(openTickets.map(t => notify({
+        type: 'ticket.assignee_deactivated',
+        ticketId: t.id as number,
+        ticketTitle: t.title as string,
+        actorId: req.auth?.userId ?? id,
+        actorName: req.auth?.email,
+        creatorId: t.created_by as number,
+        assigneeId: id,
+        extra: rows[0].name,
+      }).catch(() => {})));
+    } catch (reassignErr) {
+      console.warn('[users] reassign-notify lookup failed:', reassignErr);
+    }
+
+    res.json({
+      ok: true,
+      message: rows[0].name + ' has been deactivated. Their positions are now vacant.' +
+        (reassignCount ? ` ${reassignCount} open ticket${reassignCount === 1 ? '' : 's'} need${reassignCount === 1 ? 's' : ''} to be reassigned — the ticket creator${reassignCount === 1 ? '' : 's'} have been notified.` : ''),
+    });
   } catch (err) { next(err); }
 });
 

@@ -38,8 +38,12 @@ export function requireRole(...allowed: RoleName[]) {
 export function requirePermission(...required: string[]) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.auth) return res.status(401).json({ error: 'unauthenticated' });
-    // Super admins have all permissions implicitly — never block them
-    if (req.auth.role === 'super_admin') return next();
+    // Super admins have all permissions implicitly — never block them.
+    // Bootstrap admins (Ron / Alex — see auth.middleware.ts) also bypass:
+    // their real DB-backed flag is the top authority in this app and their
+    // role/permission grants shouldn't be able to lock them out of anything
+    // (e.g. the Activity Log page reading GET /audit-logs).
+    if (req.auth.role === 'super_admin' || req.auth.isBootstrapAdmin) return next();
     const missing = required.filter(p => !req.auth!.permissions.includes(p));
     if (missing.length > 0) {
       return deny(req, res, `Missing permission(s): ${missing.join(', ')}.`);
@@ -51,8 +55,8 @@ export function requirePermission(...required: string[]) {
 export function requireAnyPermission(...options: string[]) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.auth) return res.status(401).json({ error: 'unauthenticated' });
-    // Super admins have all permissions implicitly — never block them
-    if (req.auth.role === 'super_admin') return next();
+    // Super admins and bootstrap admins bypass — see requirePermission above.
+    if (req.auth.role === 'super_admin' || req.auth.isBootstrapAdmin) return next();
     const has = options.some(p => req.auth!.permissions.includes(p));
     if (!has) {
       return deny(req, res, `Requires one of: ${options.join(', ')}.`);
