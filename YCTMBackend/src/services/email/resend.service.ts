@@ -16,6 +16,12 @@ function getClient(): Resend | null {
   return _resend;
 }
 
+export interface EmailAttachment {
+  filename: string;
+  /** Raw file bytes — passed straight through to the Resend SDK. */
+  content:  Buffer;
+}
+
 export interface SendEmailOptions {
   to:          string | string[];
   subject:     string;
@@ -24,6 +30,8 @@ export interface SendEmailOptions {
   ticketId?:   number;
   /** Queue row ID — written to logs so we can trace retries */
   queueId?:    string;
+  /** Optional file attachments (e.g. the quarterly Activity Log ZIP archive) */
+  attachments?: EmailAttachment[];
 }
 
 export interface SendEmailResult {
@@ -59,6 +67,9 @@ export async function sendEmail(opts: SendEmailOptions): Promise<SendEmailResult
       to: validTo,
       subject: opts.subject,
       html: opts.html,
+      ...(opts.attachments?.length
+        ? { attachments: opts.attachments.map(a => ({ filename: a.filename, content: a.content })) }
+        : {}),
     });
 
     if (error) {

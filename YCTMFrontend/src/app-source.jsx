@@ -9028,6 +9028,14 @@
             const [page, setPage]       = React.useState(1);
             const [toast, setToast]     = React.useState('');
             const [pageSize, setPageSize] = React.useState(25);
+            const [tab, setTab]         = React.useState('log'); // 'log' | 'archive'
+
+            // ── Advanced filters (Export Filters requirement) ───────────────
+            const emptyFilters = { dateFrom:'', dateTo:'', user:'', role:'', module:'', action:'', ticketNumber:'', status:'', severity:'', ipAddress:'', device:'', success:'' };
+            const [filterDraft, setFilterDraft] = React.useState(emptyFilters);
+            const [filters, setFilters]         = React.useState(emptyFilters);
+            const [showFilters, setShowFilters] = React.useState(false);
+            const [exporting, setExporting]     = React.useState('');
 
             const bg   = dm ? '#0F172A' : '#F9FAFB';
             const card = dm ? '#1E293B' : '#FFFFFF';
@@ -9037,11 +9045,28 @@
 
             const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3500); };
 
+            const buildFilterParams = React.useCallback((extra = {}) => {
+                const params = new URLSearchParams(extra);
+                if (search) params.set('search', search);
+                if (filters.dateFrom)     params.set('since', new Date(filters.dateFrom).toISOString());
+                if (filters.dateTo)       params.set('until', new Date(filters.dateTo + 'T23:59:59').toISOString());
+                if (filters.user)         params.set('user', filters.user);
+                if (filters.role)         params.set('role', filters.role);
+                if (filters.module)       params.set('module', filters.module);
+                if (filters.action)       params.set('action', filters.action);
+                if (filters.ticketNumber) params.set('ticketNumber', filters.ticketNumber);
+                if (filters.status)       params.set('status', filters.status);
+                if (filters.severity)     params.set('severity', filters.severity);
+                if (filters.ipAddress)    params.set('ipAddress', filters.ipAddress);
+                if (filters.device)       params.set('device', filters.device);
+                if (filters.success)      params.set('success', filters.success);
+                return params;
+            }, [search, filters]);
+
             const loadEntries = React.useCallback(async () => {
                 setLoading(true);
                 try {
-                    const params = new URLSearchParams({ limit: pageSize, offset: (page - 1) * pageSize });
-                    if (search) params.set('search', search);
+                    const params = buildFilterParams({ limit: pageSize, offset: (page - 1) * pageSize });
                     const res = await authFetch(`${HRMS_API}/audit-logs?${params}`);
                     if (!res.ok) throw new Error('Failed to fetch activity log');
                     const d = await res.json();
@@ -9049,11 +9074,122 @@
                     setTotal(d.total || 0);
                 } catch (e) { showToast('Failed to load activity log: ' + e.message); }
                 finally { setLoading(false); }
-            }, [page, pageSize, search]);
+            }, [page, pageSize, buildFilterParams]);
 
-            React.useEffect(() => { loadEntries(); }, [loadEntries]);
+            React.useEffect(() => { if (tab === 'log') loadEntries(); }, [loadEntries, tab]);
 
             const runSearch = () => { setPage(1); setSearch(searchInput.trim()); };
+            const applyFilters = () => { setPage(1); setFilters(filterDraft); setShowFilters(false); };
+            const clearFilters = () => { setFilterDraft(emptyFilters); setFilters(emptyFilters); setPage(1); };
+            const activeFilterCount = Object.values(filters).filter(Boolean).length;
+
+            const handleExport = async (format) => {
+                setExporting(format);
+                try {
+                    const params = buildFilterParams({ format });
+                    const res = await authFetch(`${HRMS_API}/audit-logs/export?${params}`);
+                    if (!res.ok) { const t = await res.text(); throw new Error(t || 'Export failed'); }
+                    const blob = await res.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = Object.assign(document.createElement('a'), { href: url, download: `activity-log-${new Date().toISOString().slice(0,10)}.${format}` });
+                    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    showToast(`${format.toUpperCase()} export downloaded`);
+                } catch (e) { showToast('Export failed: ' + e.message); }
+                finally { setExporting(''); }
+            };
+
+            // ── Manual Quarterly Archive workflow ────────────────────────────
+            const defaultQuarter = React.useMemo(() => {
+                const now = new Date();
+                const y = now.getFullYear(), m = now.getMonth();
+                const curFyYear  = m >= 6 ? y + 1 : y;
+                const curQuarter = (m >= 6 && m <= 8) ? 1 : m >= 9 ? 2 : m <= 2 ? 3 : 4;
+                let fyYear = curFyYear, quarter = curQuarter - 1;
+                if (quarter < 1) { quarter = 4; fyYear = curFyYear - 1; }
+                return { fyYear, quarter };
+            }, []);
+            const [archiveFyYear, setArchiveFyYear]   = React.useState(defaultQuarter.fyYear);
+            const [archiveQuarter, setArchiveQuarter] = React.useState(defaultQuarter.quarter);
+            const [archives, setArchives]             = React.useState([]);
+            const [archiveLoading, setArchiveLoading] = React.useState(false);
+            const [generating, setGenerating]         = React.useState(false);
+            const [emailingId, setEmailingId]         = React.useState(null);
+            const [truncateTarget, setTruncateTarget] = React.useState(null);
+            const [truncateAck, setTruncateAck]       = React.useState(false);
+            const [truncating, setTruncating]         = React.useState(false);
+
+            const loadArchives = React.useCallback(async () => {
+                setArchiveLoading(true);
+                try {
+                    const res = await authFetch(`${HRMS_API}/audit-logs/archives`);
+                    if (!res.ok) throw new Error('Failed to load archives');
+                    const d = await res.json();
+                    setArchives(d.archives || []);
+                } catch (e) { showToast('Failed to load archives: ' + e.message); }
+                finally { setArchiveLoading(false); }
+            }, []);
+
+            React.useEffect(() => { if (tab === 'archive') loadArchives(); }, [tab, loadArchives]);
+
+            const handleGenerateArchive = async () => {
+                setGenerating(true);
+                try {
+                    const res = await authFetch(`${HRMS_API}/audit-logs/archive/generate`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ fyYear: Number(archiveFyYear), quarter: Number(archiveQuarter) }),
+                    });
+                    const d = await res.json();
+                    if (!res.ok) throw new Error(d.message || d.error || 'Generation failed');
+                    showToast(`Archive generated — ${d.archive.recordCount} records`);
+                    loadArchives();
+                } catch (e) { showToast('Generate failed: ' + e.message); }
+                finally { setGenerating(false); }
+            };
+
+            const handleDownloadArchive = async (a) => {
+                try {
+                    const res = await authFetch(`${HRMS_API}/audit-logs/archives/${a.id}/download`);
+                    if (!res.ok) throw new Error('Download failed');
+                    const blob = await res.blob();
+                    const url = URL.createObjectURL(blob);
+                    const link = Object.assign(document.createElement('a'), { href: url, download: a.filename });
+                    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                } catch (e) { showToast('Download failed: ' + e.message); }
+            };
+
+            const handleEmailArchive = async (a) => {
+                setEmailingId(a.id);
+                try {
+                    const res = await authFetch(`${HRMS_API}/audit-logs/archives/${a.id}/email`, { method: 'POST' });
+                    const d = await res.json();
+                    if (!res.ok || !d.ok) throw new Error(d.message || d.error || 'Email failed');
+                    showToast(`Emailed to ${d.recipients.length} Bootstrap Admin${d.recipients.length!==1?'s':''}`);
+                    loadArchives();
+                } catch (e) { showToast('Email failed: ' + e.message); }
+                finally { setEmailingId(null); }
+            };
+
+            const confirmTruncate = async () => {
+                if (!truncateTarget) return;
+                setTruncating(true);
+                try {
+                    const res = await authFetch(`${HRMS_API}/audit-logs/archives/${truncateTarget.id}/truncate`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirm: true }),
+                    });
+                    const d = await res.json();
+                    if (!res.ok) throw new Error(d.message || d.error || 'Truncate failed');
+                    showToast(`Truncated ${d.truncatedCount} record${d.truncatedCount!==1?'s':''}`);
+                    setTruncateTarget(null); setTruncateAck(false);
+                    loadArchives();
+                    if (tab === 'log') loadEntries();
+                } catch (e) { showToast('Truncate failed: ' + e.message); }
+                finally { setTruncating(false); }
+            };
+
+            const inputStyle = { padding:'7px 10px',borderRadius:6,border:`1px solid ${bdr}`,background:bg,color:txt,fontSize:12,width:'100%',boxSizing:'border-box' };
+            const labelStyle = { fontSize:11,fontWeight:600,color:muted,display:'block',marginBottom:4 };
 
             return (
                 <main style={{flex:1, overflowY:'auto', background:bg, padding:'24px'}}>
@@ -9068,6 +9204,17 @@
                             <p style={{fontSize:13,color:muted,margin:'4px 0 0'}}>Every recorded action across the system — logins, staff changes, ticket events, and more. Bootstrap Admin only.</p>
                         </div>
 
+                        <div style={{display:'flex',gap:8,marginBottom:16}}>
+                            {[['log','Activity Log'],['archive','Quarterly Archive']].map(([id,label]) => (
+                                <button key={id} onClick={() => setTab(id)} style={{
+                                    padding:'8px 18px', borderRadius:6, border:'none', cursor:'pointer', fontSize:13, fontWeight: tab === id ? 700 : 500,
+                                    background: tab === id ? '#4F46E5' : (dm ? '#1E293B' : '#F3F4F6'),
+                                    color: tab === id ? '#fff' : muted,
+                                }}>{label}</button>
+                            ))}
+                        </div>
+
+                        {tab === 'log' && (
                         <div style={{background:card,border:`1px solid ${bdr}`,borderRadius:12,overflow:'hidden'}}>
                             <div style={{padding:'14px 16px',borderBottom:`1px solid ${bdr}`,display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}>
                                 <input value={searchInput} onChange={e=>setSearchInput(e.target.value)}
@@ -9075,12 +9222,68 @@
                                     placeholder="Search by user, action, module, target…"
                                     style={{padding:'7px 10px',borderRadius:6,border:`1px solid ${bdr}`,background:bg,color:txt,fontSize:12,width:280}}/>
                                 <button onClick={runSearch} style={{padding:'7px 16px',borderRadius:6,border:'none',background:'#4F46E5',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer'}}>Search</button>
-                                {search && (
-                                    <button onClick={()=>{setSearchInput('');setSearch('');setPage(1);}} style={{padding:'7px 14px',borderRadius:6,border:`1px solid ${bdr}`,background:'transparent',color:muted,fontSize:12,cursor:'pointer'}}>Clear</button>
+                                {(search || activeFilterCount > 0) && (
+                                    <button onClick={()=>{setSearchInput('');setSearch('');clearFilters();}} style={{padding:'7px 14px',borderRadius:6,border:`1px solid ${bdr}`,background:'transparent',color:muted,fontSize:12,cursor:'pointer'}}>Clear All</button>
                                 )}
+                                <button onClick={()=>setShowFilters(s=>!s)} style={{padding:'7px 14px',borderRadius:6,border:`1px solid ${bdr}`,background: showFilters ? (dm?'rgba(79,70,229,0.15)':'#EEF2FF') : 'transparent',color: showFilters ? '#4F46E5' : muted,fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',gap:5,fontWeight:activeFilterCount>0?700:500}}>
+                                    <Icon name='filter' size={12} color={showFilters?'#4F46E5':muted} />Filters{activeFilterCount>0?` (${activeFilterCount})`:''}
+                                </button>
                                 <button onClick={loadEntries} style={{padding:'7px 14px',borderRadius:6,border:`1px solid ${bdr}`,background:'transparent',color:muted,fontSize:12,cursor:'pointer'}}>↻ Refresh</button>
                                 <span style={{marginLeft:'auto',fontSize:12,color:muted}}>{total} total</span>
                             </div>
+
+                            {showFilters && (
+                                <div style={{padding:'16px',borderBottom:`1px solid ${bdr}`,background:dm?'#16213A':'#F8FAFC'}}>
+                                    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill, minmax(150px, 1fr))',gap:10}}>
+                                        <div><label style={labelStyle}>Date From</label><input type="date" value={filterDraft.dateFrom} onChange={e=>setFilterDraft(f=>({...f,dateFrom:e.target.value}))} style={inputStyle}/></div>
+                                        <div><label style={labelStyle}>Date To</label><input type="date" value={filterDraft.dateTo} onChange={e=>setFilterDraft(f=>({...f,dateTo:e.target.value}))} style={inputStyle}/></div>
+                                        <div><label style={labelStyle}>User</label><input value={filterDraft.user} onChange={e=>setFilterDraft(f=>({...f,user:e.target.value}))} placeholder="Name or email" style={inputStyle}/></div>
+                                        <div>
+                                            <label style={labelStyle}>User Role</label>
+                                            <select value={filterDraft.role} onChange={e=>setFilterDraft(f=>({...f,role:e.target.value}))} style={inputStyle}>
+                                                <option value="">Any role</option>
+                                                {['super_admin','admin','hr','manager','employee','staff'].map(r=><option key={r} value={r}>{r}</option>)}
+                                            </select>
+                                        </div>
+                                        <div><label style={labelStyle}>Module / Activity Type</label><input value={filterDraft.module} onChange={e=>setFilterDraft(f=>({...f,module:e.target.value}))} placeholder="e.g. auth, tickets, users" style={inputStyle}/></div>
+                                        <div><label style={labelStyle}>Action</label><input value={filterDraft.action} onChange={e=>setFilterDraft(f=>({...f,action:e.target.value}))} placeholder="e.g. user.create, login.success" style={inputStyle}/></div>
+                                        <div><label style={labelStyle}>Ticket Number</label><input value={filterDraft.ticketNumber} onChange={e=>setFilterDraft(f=>({...f,ticketNumber:e.target.value}))} placeholder="e.g. 24" style={inputStyle}/></div>
+                                        <div><label style={labelStyle}>Status</label><input value={filterDraft.status} onChange={e=>setFilterDraft(f=>({...f,status:e.target.value}))} placeholder="e.g. open, closed" style={inputStyle}/></div>
+                                        <div>
+                                            <label style={labelStyle}>Severity</label>
+                                            <select value={filterDraft.severity} onChange={e=>setFilterDraft(f=>({...f,severity:e.target.value}))} style={inputStyle}>
+                                                <option value="">Any severity</option>
+                                                {['critical','high','medium','low'].map(s=><option key={s} value={s}>{s}</option>)}
+                                            </select>
+                                        </div>
+                                        <div><label style={labelStyle}>IP Address</label><input value={filterDraft.ipAddress} onChange={e=>setFilterDraft(f=>({...f,ipAddress:e.target.value}))} placeholder="e.g. 10.0.0" style={inputStyle}/></div>
+                                        <div><label style={labelStyle}>Device / Browser <span style={{opacity:0.6}}>(optional)</span></label><input value={filterDraft.device} onChange={e=>setFilterDraft(f=>({...f,device:e.target.value}))} placeholder="e.g. Chrome, iPhone" style={inputStyle}/></div>
+                                        <div>
+                                            <label style={labelStyle}>Success / Failure</label>
+                                            <select value={filterDraft.success} onChange={e=>setFilterDraft(f=>({...f,success:e.target.value}))} style={inputStyle}>
+                                                <option value="">Any</option>
+                                                <option value="success">Success</option>
+                                                <option value="failure">Failure</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div style={{display:'flex',gap:8,marginTop:14}}>
+                                        <button onClick={applyFilters} style={{padding:'8px 18px',borderRadius:6,border:'none',background:'#4F46E5',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer'}}>Apply Filters</button>
+                                        <button onClick={()=>{setFilterDraft(emptyFilters);}} style={{padding:'8px 16px',borderRadius:6,border:`1px solid ${bdr}`,background:'transparent',color:muted,fontSize:12,cursor:'pointer'}}>Reset</button>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div style={{padding:'10px 16px',borderBottom:`1px solid ${bdr}`,display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',background:dm?'#111C33':'#FBFCFE'}}>
+                                <span style={{fontSize:11,fontWeight:700,color:muted,textTransform:'uppercase',letterSpacing:'0.05em'}}>Export:</span>
+                                {['csv','json','txt'].map(fmt => (
+                                    <button key={fmt} onClick={()=>handleExport(fmt)} disabled={!!exporting} style={{padding:'6px 14px',borderRadius:6,border:`1px solid ${bdr}`,background:'transparent',color:txt,fontSize:12,fontWeight:600,cursor:exporting?'default':'pointer',display:'flex',alignItems:'center',gap:5,opacity:exporting&&exporting!==fmt?0.5:1}}>
+                                        <Icon name='download' size={11} color={txt} />{exporting===fmt ? 'Exporting…' : fmt.toUpperCase()}
+                                    </button>
+                                ))}
+                                <span style={{fontSize:11,color:muted,marginLeft:6}}>Applies current search + filters</span>
+                            </div>
+
                             <div style={{overflowX:'auto'}}>
                                 <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
                                     <thead>
@@ -9115,7 +9318,112 @@
                             <PageBar page={page} setPage={setPage} pageSize={pageSize} setPageSize={setPageSize}
                                 total={total} itemLabel='entry' itemLabelPlural='entries' dm={dm} bg={bg} border={bdr} muted={muted} />
                         </div>
+                        )}
+
+                        {tab === 'archive' && (
+                        <div>
+                            <div style={{background:card,border:`1px solid ${bdr}`,borderRadius:12,padding:20,marginBottom:20}}>
+                                <p style={{fontSize:13,fontWeight:700,color:txt,margin:'0 0 4px'}}>Generate Quarterly Archive</p>
+                                <p style={{fontSize:12,color:muted,margin:'0 0 14px'}}>Extracts the full, unfiltered Activity Log for an Australian Financial Quarter into a CSV + JSON + TXT ZIP bundle. This never runs automatically.</p>
+                                <div style={{display:'flex',gap:10,alignItems:'flex-end',flexWrap:'wrap'}}>
+                                    <div><label style={labelStyle}>Financial Year</label><input type="number" value={archiveFyYear} onChange={e=>setArchiveFyYear(e.target.value)} style={{...inputStyle,width:110}}/></div>
+                                    <div>
+                                        <label style={labelStyle}>Quarter</label>
+                                        <select value={archiveQuarter} onChange={e=>setArchiveQuarter(e.target.value)} style={{...inputStyle,width:170}}>
+                                            <option value={1}>Q1 (Jul–Sep)</option>
+                                            <option value={2}>Q2 (Oct–Dec)</option>
+                                            <option value={3}>Q3 (Jan–Mar)</option>
+                                            <option value={4}>Q4 (Apr–Jun)</option>
+                                        </select>
+                                    </div>
+                                    <button onClick={handleGenerateArchive} disabled={generating} style={{padding:'9px 20px',borderRadius:8,border:'none',background:'#4F46E5',color:'#fff',fontWeight:600,cursor:generating?'default':'pointer',fontSize:13}}>
+                                        {generating ? 'Generating…' : `Generate Archive (Activity_Log_AU_FY${archiveFyYear}_Q${archiveQuarter}.zip)`}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div style={{background:card,border:`1px solid ${bdr}`,borderRadius:12,overflow:'hidden'}}>
+                                <div style={{padding:'14px 16px',borderBottom:`1px solid ${bdr}`,display:'flex',alignItems:'center'}}>
+                                    <span style={{fontSize:13,fontWeight:700,color:txt}}>Generated Archives</span>
+                                    <button onClick={loadArchives} style={{marginLeft:'auto',padding:'6px 12px',borderRadius:6,border:`1px solid ${bdr}`,background:'transparent',color:muted,fontSize:12,cursor:'pointer'}}>↻ Refresh</button>
+                                </div>
+                                <div style={{overflowX:'auto'}}>
+                                    <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+                                        <thead>
+                                            <tr style={{background:dm?'#0F172A':'#F8FAFC'}}>
+                                                {['Period','Filename','Records','Generated','Email','Truncated','Actions'].map(h=>(
+                                                    <th key={h} style={{padding:'10px 14px',textAlign:'left',fontWeight:600,color:muted,borderBottom:`1px solid ${bdr}`,whiteSpace:'nowrap'}}>{h}</th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {archiveLoading && <tr><td colSpan={7} style={{padding:24,textAlign:'center',color:muted}}>Loading…</td></tr>}
+                                            {!archiveLoading && !archives.length && <tr><td colSpan={7} style={{padding:24,textAlign:'center',color:muted}}>No archives generated yet</td></tr>}
+                                            {archives.map(a => (
+                                                <tr key={a.id} style={{borderBottom:`1px solid ${bdr}`}}>
+                                                    <td style={{padding:'9px 14px',color:txt,whiteSpace:'nowrap'}}>FY{a.fy_year} Q{a.quarter}</td>
+                                                    <td style={{padding:'9px 14px',color:muted,whiteSpace:'nowrap'}}><code style={{fontSize:11}}>{a.filename}</code></td>
+                                                    <td style={{padding:'9px 14px',color:txt}}>{a.record_count}</td>
+                                                    <td style={{padding:'9px 14px',color:muted,whiteSpace:'nowrap'}}>{a.generated_at ? new Date(a.generated_at).toLocaleString('en-AU',{dateStyle:'short',timeStyle:'short'}) : '—'}</td>
+                                                    <td style={{padding:'9px 14px'}}>
+                                                        {a.email_status === 'sent' && <span style={{padding:'2px 8px',borderRadius:12,fontSize:11,fontWeight:700,background:dm?'rgba(16,185,129,0.12)':'#ECFDF5',color:'#10B981'}}>Sent</span>}
+                                                        {a.email_status === 'failed' && <span style={{padding:'2px 8px',borderRadius:12,fontSize:11,fontWeight:700,background:dm?'rgba(239,68,68,0.12)':'#FEF2F2',color:'#EF4444'}}>Failed</span>}
+                                                        {!a.email_status && <span style={{padding:'2px 8px',borderRadius:12,fontSize:11,fontWeight:700,background:dm?'rgba(107,114,128,0.15)':'#F3F4F6',color:muted}}>Not Sent</span>}
+                                                    </td>
+                                                    <td style={{padding:'9px 14px'}}>
+                                                        {a.truncated_at
+                                                            ? <span style={{padding:'2px 8px',borderRadius:12,fontSize:11,fontWeight:700,background:dm?'rgba(107,114,128,0.15)':'#F3F4F6',color:muted}}>Truncated ({a.truncated_count})</span>
+                                                            : <span style={{fontSize:11,color:muted}}>—</span>}
+                                                    </td>
+                                                    <td style={{padding:'9px 14px',whiteSpace:'nowrap'}}>
+                                                        <div style={{display:'flex',gap:6}}>
+                                                            <button title="Download ZIP" onClick={()=>handleDownloadArchive(a)} style={{padding:'5px 8px',borderRadius:6,border:`1px solid ${bdr}`,background:'transparent',cursor:'pointer'}}><Icon name='download' size={12} color={txt} /></button>
+                                                            <button title="Email to all Bootstrap Admins" onClick={()=>handleEmailArchive(a)} disabled={emailingId===a.id} style={{padding:'5px 8px',borderRadius:6,border:`1px solid ${bdr}`,background:'transparent',cursor:emailingId===a.id?'default':'pointer'}}><Icon name='mail' size={12} color={txt} /></button>
+                                                            <button title={a.email_status==='sent' && !a.truncated_at ? 'Truncate archived rows' : (a.truncated_at ? 'Already truncated' : 'Must be emailed successfully first')}
+                                                                onClick={()=>{ if (a.email_status==='sent' && !a.truncated_at) { setTruncateTarget(a); setTruncateAck(false); } }}
+                                                                disabled={a.email_status!=='sent' || !!a.truncated_at}
+                                                                style={{padding:'5px 8px',borderRadius:6,border:`1px solid ${bdr}`,background:'transparent',cursor:(a.email_status==='sent' && !a.truncated_at)?'pointer':'default',opacity:(a.email_status==='sent' && !a.truncated_at)?1:0.35}}>
+                                                                <Icon name='trash-2' size={12} color='#DC2626' />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        )}
                     </div>
+
+                    {/* ── TRUNCATE CONFIRM ───────────────────────────────────── */}
+                    {truncateTarget && (
+                        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                            <div style={{background:card,borderRadius:'14px',width:'440px',boxShadow:'0 20px 60px rgba(0,0,0,0.25)',overflow:'hidden'}}>
+                                <div style={{padding:'20px 24px',textAlign:'center'}}>
+                                    <div style={{display:'flex',justifyContent:'center',marginBottom:'12px'}}><Icon name='trash-2' size={40} color='#EF4444' /></div>
+                                    <h3 style={{fontSize:'16px',fontWeight:'700',color:txt,margin:'0 0 8px'}}>Truncate Activity Log?</h3>
+                                    <p style={{fontSize:'13px',color:muted,margin:'0 0 8px'}}>
+                                        This will <strong>permanently delete {truncateTarget.record_count} record{truncateTarget.record_count!==1?'s':''}</strong> from the Activity Log for <strong>FY{truncateTarget.fy_year} Q{truncateTarget.quarter}</strong> — the exact period covered by <code style={{fontSize:11}}>{truncateTarget.filename}</code>.
+                                    </p>
+                                    <p style={{fontSize:'12px',color:'#DC2626',background:dm?'rgba(239,68,68,0.12)':'#FEF2F2',padding:'8px',borderRadius:'6px',margin:'0 0 12px'}}>
+                                        This action cannot be undone. Only the ZIP archive will remain as a record of this period.
+                                    </p>
+                                    <label style={{display:'flex',alignItems:'flex-start',gap:8,fontSize:12,color:txt,textAlign:'left',cursor:'pointer'}}>
+                                        <input type="checkbox" checked={truncateAck} onChange={e=>setTruncateAck(e.target.checked)} style={{marginTop:2}}/>
+                                        I confirm the archive has been generated, emailed to all Bootstrap Administrators, and safely retained.
+                                    </label>
+                                </div>
+                                <div style={{padding:'12px 20px',borderTop:`1px solid ${bdr}`,display:'flex',gap:'10px',justifyContent:'center',background:dm?'rgba(4,8,20,0.6)':'#F8FAFF'}}>
+                                    <button onClick={()=>{setTruncateTarget(null);setTruncateAck(false);}} style={{padding:'9px 20px',background:card,border:`2px solid ${bdr}`,borderRadius:'8px',fontSize:'13px',fontWeight:'600',cursor:'pointer',color:txt}}>Cancel</button>
+                                    <button onClick={confirmTruncate} disabled={!truncateAck || truncating} style={{padding:'9px 20px',background: !truncateAck ? (dm?'#4b1113':'#FCA5A5') : '#DC2626',color:'white',border:'none',borderRadius:'8px',fontSize:'13px',fontWeight:'700',cursor:(!truncateAck||truncating)?'default':'pointer'}}>
+                                        {truncating ? 'Truncating…' : 'Truncate Permanently'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </main>
             );
         }

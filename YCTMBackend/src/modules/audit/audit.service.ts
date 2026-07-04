@@ -15,6 +15,8 @@ export type AuditAction =
   | 'permission.grant' | 'permission.revoke'
   | 'password.reset.request' | 'password.reset.success'
   | 'audit.export'
+  | 'activitylog.export' | 'activitylog.archive_generate' | 'activitylog.archive_download'
+  | 'activitylog.archive_email' | 'activitylog.truncate'
   | 'system.seed'
   | 'dept.create' | 'dept.update' | 'dept.delete'
   | 'position.create' | 'position.update' | 'position.delete'

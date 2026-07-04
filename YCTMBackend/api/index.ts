@@ -32,6 +32,7 @@ import orgRoutes           from '../src/modules/org/org.routes';
 import { pool }            from '../src/db/pool';
 import { sendEmail, buildSlaBreachHtml, type SlaBreachTicket } from '../src/modules/notifications/email.service';
 import { ensureEmailTables } from '../src/services/email/email.migrate';
+import { ensureArchiveTable } from '../src/modules/audit/archive.migrate';
 import { processQueue }      from '../src/services/email/email.queue';
 import { sendOverdueReminders, sendDueTomorrowReminders } from '../src/services/email/notification.service';
 import emailAdminRoutes      from '../src/modules/email/email.routes';
@@ -54,6 +55,9 @@ process.on('uncaughtException', (err) => {
 
 // Ensure email tables exist on first cold start (idempotent)
 ensureEmailTables().catch((e) => console.error('[startup] ensureEmailTables:', e));
+
+// Ensure the activity log archive table exists on first cold start (idempotent)
+ensureArchiveTable().catch((e) => console.error('[startup] ensureArchiveTable:', e));
 
 // Ensure users.role column exists (schema patch — safe to run repeatedly)
 pool.query(`ALTER TABLE yc_tkt_mgmt.users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'staff'`)
