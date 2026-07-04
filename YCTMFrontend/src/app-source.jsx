@@ -9153,7 +9153,12 @@
                 finally { setArchiveLoading(false); }
             }, []);
 
-            React.useEffect(() => { if (tab === 'archive') loadArchives(); }, [tab, loadArchives]);
+            // Load once on mount (not just when the Archive tab is opened) so the
+            // Activity Log tab's Delete button can gate itself on whether any
+            // period has been archived + emailed yet; also refreshed by the
+            // generate/email/truncate handlers below so the gate updates live.
+            React.useEffect(() => { loadArchives(); }, [loadArchives]);
+            const hasArchivedPeriod = archives.some(a => a.email_status === 'sent');
 
             const handleGenerateArchive = async () => {
                 setGenerating(true);
@@ -9305,8 +9310,11 @@
                                     </button>
                                 ))}
                                 <span style={{fontSize:11,color:muted,marginLeft:6}}>Applies current search + filters</span>
-                                <button onClick={()=>{setDeleteConfirmOpen(true);setDeleteAck(false);}} disabled={!!exporting || total===0}
-                                    style={{marginLeft:'auto',padding:'6px 14px',borderRadius:6,border:`1px solid ${dm?'rgba(239,68,68,0.4)':'#FECACA'}`,background:'transparent',color:'#EF4444',fontSize:12,fontWeight:600,cursor:total===0?'default':'pointer',display:'flex',alignItems:'center',gap:5,opacity:total===0?0.4:1}}>
+                                <button
+                                    onClick={()=>{ if (hasArchivedPeriod) { setDeleteConfirmOpen(true); setDeleteAck(false); } }}
+                                    disabled={!!exporting || total===0 || !hasArchivedPeriod}
+                                    title={hasArchivedPeriod ? 'Delete entries matching your filters — only entries already covered by an archived + emailed Quarterly Archive can be deleted' : 'No period has been archived and emailed yet — generate and email a Quarterly Archive first'}
+                                    style={{marginLeft:'auto',padding:'6px 14px',borderRadius:6,border:`1px solid ${dm?'rgba(239,68,68,0.4)':'#FECACA'}`,background:'transparent',color:'#EF4444',fontSize:12,fontWeight:600,cursor:(total===0||!hasArchivedPeriod)?'default':'pointer',display:'flex',alignItems:'center',gap:5,opacity:(total===0||!hasArchivedPeriod)?0.4:1}}>
                                     <Icon name='trash-2' size={11} color='#EF4444' />Delete{activeFilterCount>0||search?' Filtered':''}
                                 </button>
                             </div>
@@ -9458,17 +9466,17 @@
                             <div style={{background:card,borderRadius:'14px',width:'440px',boxShadow:'0 20px 60px rgba(0,0,0,0.25)',overflow:'hidden'}}>
                                 <div style={{padding:'20px 24px',textAlign:'center'}}>
                                     <div style={{display:'flex',justifyContent:'center',marginBottom:'12px'}}><Icon name='trash-2' size={40} color='#EF4444' /></div>
-                                    <h3 style={{fontSize:'16px',fontWeight:'700',color:txt,margin:'0 0 8px'}}>Delete Activity Log Entries?</h3>
+                                    <h3 style={{fontSize:'16px',fontWeight:'700',color:txt,margin:'0 0 8px'}}>Delete Archived Activity Log Entries?</h3>
                                     <p style={{fontSize:'13px',color:muted,margin:'0 0 8px'}}>
-                                        This will <strong>permanently delete {total} record{total!==1?'s':''}</strong> matching your current search and filters.
+                                        Up to <strong>{total} record{total!==1?'s':''}</strong> match your current search and filters. Only the ones already covered by a <strong>generated + emailed Quarterly Archive</strong> will actually be permanently deleted — anything not yet archived is left untouched, no matter what you filter by.
                                     </p>
                                     {noFiltersApplied && (
                                         <p style={{fontSize:'12px',color:'#DC2626',background:dm?'rgba(239,68,68,0.12)':'#FEF2F2',padding:'8px',borderRadius:'6px',margin:'0 0 8px'}}>
-                                            No search or filters are applied — this will delete the <strong>entire</strong> Activity Log.
+                                            No search or filters are applied — this will delete every archived entry across every emailed Quarterly Archive.
                                         </p>
                                     )}
                                     <p style={{fontSize:'12px',color:'#DC2626',background:dm?'rgba(239,68,68,0.12)':'#FEF2F2',padding:'8px',borderRadius:'6px',margin:'0 0 12px'}}>
-                                        This action cannot be undone. Export a copy first if you need a record of these entries.
+                                        This action cannot be undone. The ZIP archive(s) will remain as the record of these entries.
                                     </p>
                                     <label style={{display:'flex',alignItems:'flex-start',gap:8,fontSize:12,color:txt,textAlign:'left',cursor:'pointer'}}>
                                         <input type="checkbox" checked={deleteAck} onChange={e=>setDeleteAck(e.target.checked)} style={{marginTop:2}}/>

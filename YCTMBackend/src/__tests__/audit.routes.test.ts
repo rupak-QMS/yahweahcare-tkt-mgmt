@@ -60,40 +60,76 @@ describe('requireBootstrapAdmin gating', () => {
   });
 });
 
-// ── DELETE /audit-logs — manual, filtered deletion ───────────────────────────
+// ── DELETE /audit-logs — manual, filtered deletion of ARCHIVED entries only ──
 
 describe('DELETE /audit-logs', () => {
+  const onePeriod = [{ period_start: '2025-07-01T00:00:00.000Z', period_end: '2025-10-01T00:00:00.000Z' }];
+
+  it('refuses when nothing has been archived + emailed yet, before checking anything else', async () => {
+    mockBootstrapCheck(true);
+    mockPool.query.mockResolvedValueOnce({ rows: [] }); // archived periods — none
+    const res = await request(makeApp()).delete('/audit-logs?module=auth&confirm=true');
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('no_archived_periods');
+  });
+
   it('requires confirm=true', async () => {
     mockBootstrapCheck(true);
+    mockPool.query.mockResolvedValueOnce({ rows: onePeriod }); // archived periods
     const res = await request(makeApp()).delete('/audit-logs?module=auth');
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('confirmation_required');
   });
 
-  it('refuses to wipe the entire log without confirmAll=true when no filters are applied', async () => {
+  it('refuses to wipe every archived entry without confirmAll=true when no filters are applied', async () => {
     mockBootstrapCheck(true);
+    mockPool.query.mockResolvedValueOnce({ rows: onePeriod });
     const res = await request(makeApp()).delete('/audit-logs?confirm=true');
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('no_filters');
   });
 
-  it('deletes matching rows when filters + confirm=true are provided', async () => {
+  it('deletes matching rows intersected with the archived+emailed period(s)', async () => {
     mockBootstrapCheck(true);
-    mockPool.query.mockResolvedValueOnce({ rows: [], rowCount: 17 }); // DELETE
+    mockPool.query
+      .mockResolvedValueOnce({ rows: onePeriod })          // archived periods
+      .mockResolvedValueOnce({ rows: [], rowCount: 17 });  // DELETE
     const res = await request(makeApp()).delete('/audit-logs?module=auth&confirm=true');
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
     expect(res.body.deletedCount).toBe(17);
 
-    const deleteCall = mockPool.query.mock.calls[1];
+    const deleteCall = mockPool.query.mock.calls[2];
     expect(deleteCall[0]).toContain('DELETE FROM yc_tkt_mgmt.audit_logs');
     expect(deleteCall[0]).toContain('a.module = $1');
-    expect(deleteCall[1]).toEqual(['auth']);
+    expect(deleteCall[0]).toContain('a.created_at >= $2 AND a.created_at < $3');
+    expect(deleteCall[1]).toEqual(['auth', onePeriod[0].period_start, onePeriod[0].period_end]);
   });
 
-  it('allows wiping the entire log when confirmAll=true is explicitly passed with no filters', async () => {
+  it('combines multiple archived periods with OR', async () => {
     mockBootstrapCheck(true);
-    mockPool.query.mockResolvedValueOnce({ rows: [], rowCount: 1946 }); // DELETE
+    const twoPeriods = [
+      { period_start: '2025-07-01T00:00:00.000Z', period_end: '2025-10-01T00:00:00.000Z' },
+      { period_start: '2025-10-01T00:00:00.000Z', period_end: '2026-01-01T00:00:00.000Z' },
+    ];
+    mockPool.query
+      .mockResolvedValueOnce({ rows: twoPeriods })
+      .mockResolvedValueOnce({ rows: [], rowCount: 5 });
+    const res = await request(makeApp()).delete('/audit-logs?confirm=true&confirmAll=true');
+    expect(res.status).toBe(200);
+    const deleteCall = mockPool.query.mock.calls[2];
+    expect(deleteCall[0]).toMatch(/\(a\.created_at >= \$1 AND a\.created_at < \$2\) OR \(a\.created_at >= \$3 AND a\.created_at < \$4\)/);
+    expect(deleteCall[1]).toEqual([
+      twoPeriods[0].period_start, twoPeriods[0].period_end,
+      twoPeriods[1].period_start, twoPeriods[1].period_end,
+    ]);
+  });
+
+  it('allows wiping every archived entry when confirmAll=true is explicitly passed with no filters', async () => {
+    mockBootstrapCheck(true);
+    mockPool.query
+      .mockResolvedValueOnce({ rows: onePeriod })
+      .mockResolvedValueOnce({ rows: [], rowCount: 1946 });
     const res = await request(makeApp()).delete('/audit-logs?confirm=true&confirmAll=true');
     expect(res.status).toBe(200);
     expect(res.body.deletedCount).toBe(1946);

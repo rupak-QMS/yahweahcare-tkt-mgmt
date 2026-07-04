@@ -98,21 +98,38 @@ router.get('/', requirePermission('audit.read'), async (req, res) => {
   res.json({ entries: rows.map(({ total: _, ...r }) => r), total });
 });
 
-// ── DELETE /audit-logs — manual, filtered deletion ──────────────
-// Deletes whatever the current search + filters match — the same
-// filter set used by the list and export routes above (mirrors
-// "delete what you'd export"). This is separate from, and does not
-// require, the quarterly archive/email/truncate workflow below; it's
-// for ad-hoc cleanup of specific filtered entries.
+// ── DELETE /audit-logs — manual, filtered deletion of ARCHIVED entries only ──
+// Deletes whatever the current search + filters match, the same filter set
+// used by the list and export routes above (mirrors "delete what you'd
+// export") — but ONLY entries that fall inside a period that has already
+// been archived AND successfully emailed to all Bootstrap Administrators
+// (activity_log_archives.email_status = 'sent'). Rows matching the filters
+// but outside every archived period are never touched, even though they'd
+// show up in the filtered list/export. This keeps the same safety guarantee
+// as the per-archive Truncate action below, just filter-driven instead of
+// whole-quarter-driven.
 //
 // Safety:
+//   - refuses with no_archived_periods if nothing has been archived+emailed yet
 //   - requires ?confirm=true
-//   - if NO search/filters are applied (i.e. this would wipe the
-//     entire Activity Log), also requires ?confirmAll=true
+//   - if NO search/filters are applied on top of the archived-period
+//     restriction, also requires ?confirmAll=true
 //   - capped at 50,000 rows per request (oldest first) so a single
 //     click can't silently nuke an unexpectedly large match
 router.delete('/', requireBootstrapAdmin, async (req, res, next) => {
   try {
+    await ensureArchiveTable();
+
+    const { rows: archivedPeriods } = await pool.query(
+      `SELECT period_start, period_end FROM yc_tkt_mgmt.activity_log_archives WHERE email_status = 'sent'`
+    );
+    if (!archivedPeriods.length) {
+      return res.status(400).json({
+        error: 'no_archived_periods',
+        message: 'No Activity Log period has been archived and emailed yet. Generate and email a Quarterly Archive before deleting any entries.',
+      });
+    }
+
     const filters = parseFilters(req);
     const { where, params } = buildAuditFilters(filters);
     const hasFilters = where !== '1=1';
@@ -126,9 +143,19 @@ router.delete('/', requireBootstrapAdmin, async (req, res, next) => {
     if (!hasFilters && !confirmAll) {
       return res.status(400).json({
         error: 'no_filters',
-        message: 'No search or filters are applied — this would delete the entire Activity Log. Apply filters first, or pass confirmAll=true to proceed anyway.',
+        message: 'No search or filters are applied — this would delete every archived entry. Apply filters first, or pass confirmAll=true to proceed anyway.',
       });
     }
+
+    // Restrict to the union of all archived+emailed periods, in addition to
+    // whatever the caller's own filters already narrowed down.
+    let i = params.length + 1;
+    const periodClauses: string[] = [];
+    for (const p of archivedPeriods as { period_start: string; period_end: string }[]) {
+      periodClauses.push(`(a.created_at >= $${i++} AND a.created_at < $${i++})`);
+      params.push(p.period_start, p.period_end);
+    }
+    const archivedWhere = `(${periodClauses.join(' OR ')})`;
 
     const del = await pool.query(
       `DELETE FROM yc_tkt_mgmt.audit_logs
@@ -136,7 +163,7 @@ router.delete('/', requireBootstrapAdmin, async (req, res, next) => {
           SELECT a.id
             FROM yc_tkt_mgmt.audit_logs a
             LEFT JOIN yc_tkt_mgmt.users u ON u.id = a.user_id
-           WHERE ${where}
+           WHERE ${where} AND ${archivedWhere}
            ORDER BY a.created_at ASC
            LIMIT 50000
         )`,
@@ -149,7 +176,7 @@ router.delete('/', requireBootstrapAdmin, async (req, res, next) => {
     await logAudit({
       userId: req.auth!.userId, actorEmail: req.auth!.email,
       action: 'activitylog.delete', module: 'audit',
-      metadata: { filters, deletedCount, confirmAll },
+      metadata: { filters, deletedCount, confirmAll, archivedPeriodCount: archivedPeriods.length },
       req,
     });
 
