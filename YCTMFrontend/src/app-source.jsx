@@ -6688,11 +6688,12 @@
 
 
             const dm = useDark();
-            const pageBg  = dm ? 'transparent' : '#F5F7FF';
-            const cardBg  = dm ? 'linear-gradient(155deg,rgba(17,30,58,0.97) 0%,rgba(8,16,36,0.99) 100%)' : 'white';
-            const borderC = dm ? 'rgba(99,102,241,0.16)' : '#E2E8F2';
-            const textP   = dm ? '#f0f4ff' : '#0F172A';
-            const textM   = dm ? '#8fa4cc' : '#64748B';
+            const pageBg  = dm ? '#0F172A' : '#F9FAFB';
+            const cardBg  = dm ? '#1E293B' : '#FFFFFF';
+            const borderC = dm ? '#334155' : '#E2E8F0';
+            const textP   = dm ? '#E2E8F0' : '#1E293B';
+            const textM   = dm ? '#94A3B8' : '#6B7280';
+            const BRAND   = '#4F46E5';
             const sessionUser = React.useMemo(() => getSessionUser(), []);
             const canDelete   = sessionUser?.isBootstrapAdmin === true; // only Ron / Alex can delete staff or positions
             const [staff,       setStaff]       = React.useState([]);
@@ -6711,11 +6712,11 @@
             const [showPosModal,setShowPosModal] = React.useState(false);
             const [saving,      setSaving]       = React.useState(false);
             const [error,       setError]        = React.useState('');
-            const [toast,       setToast]        = React.useState('');
+            const [toast,       setToast]        = React.useState(null);
             const [form,        setForm]         = React.useState(EMPTY_FORM);
             const [posForm,     setPosForm]      = React.useState({ title:'', department_id:'', position_type:'staff', dept_label:'', parent_id:'' });
 
-            const showToast = (msg) => { setToast(msg); setTimeout(()=>setToast(''),3000); };
+            const showToast = (message, tone='success') => { setToast({message, tone}); setTimeout(()=>setToast(null),3000); };
 
             const fetchAll = React.useCallback(async () => {
                 setLoading(true);
@@ -6805,7 +6806,7 @@
                         throw new Error(e.error || e.message || 'Save failed');
                     }
                     setShowModal(false);
-                    showToast(modalMode==='add' ? '✅ Staff member added' : '✅ Staff member updated');
+                    showToast(modalMode==='add' ? 'Staff member added' : 'Staff member updated');
                     fetchAll();
                 } catch(e) { setError(e.message); }
                 finally { setSaving(false); }
@@ -6818,7 +6819,7 @@
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || data.message || 'Delete failed');
                     setDelConfirm(null);
-                    showToast(`✅ ${data.message || 'Staff member deactivated'}`);
+                    showToast(data.message || 'Staff member deactivated');
                     fetchAll();
                 } catch(e) { setError(e.message); }
             };
@@ -6841,7 +6842,7 @@
                     setForm(f=>({...f, position_ids:[...f.position_ids, data.position.id]}));
                     setShowPosModal(false);
                     setPosForm({ title:'', department_id:'', position_type:'staff', dept_label:'', parent_id:'' });
-                    showToast('✅ Position created');
+                    showToast('Position created');
                 } catch(e) { setError(e.message); }
             };
 
@@ -6855,7 +6856,7 @@
                     setPositions(prev => prev.filter(p => p.id !== delPosConfirm.id));
                     setForm(f => ({ ...f, position_ids: f.position_ids.filter(id => id !== delPosConfirm.id) }));
                     setDelPosConfirm(null);
-                    showToast(`✅ ${data.message || 'Position deleted'}`);
+                    showToast(data.message || 'Position deleted');
                 } catch(e) { setPosDeleteError(e.message); }
             };
 
@@ -6882,8 +6883,9 @@
                 <main className="flex-1 overflow-auto" style={{background:pageBg}}>
                     {/* Toast */}
                     {toast && (
-                        <div style={{position:'fixed',top:20,right:20,zIndex:9999,background:'#1E1B4B',color:'white',padding:'12px 20px',borderRadius:'10px',fontSize:'13px',fontWeight:'600',boxShadow:'0 4px 20px rgba(0,0,0,0.2)'}}>
-                            {toast}
+                        <div style={{position:'fixed',top:20,right:20,zIndex:9999,background:dm?'#1E293B':'#0F172A',color:'#fff',padding:'10px 18px',borderRadius:'10px',fontSize:'13px',fontWeight:'600',boxShadow:'0 4px 16px rgba(0,0,0,0.25)',display:'flex',alignItems:'center',gap:'8px'}}>
+                            <Icon name={toast.tone==='error'?'alert-triangle':'check-circle'} size={15} color={toast.tone==='error'?'#F87171':'#34D399'} />
+                            {toast.message}
                         </div>
                     )}
 
@@ -6891,17 +6893,17 @@
                         {/* Header */}
                         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'20px'}}>
                             <div>
-                                <h1 style={{fontSize:'22px',fontWeight:'700',color:dm?'#c7d2fe':'#1E1B4B',margin:0,display:'flex',alignItems:'center',gap:'8px'}}><Icon name='briefcase' size={20} color={dm?'#818cf8':'#4F46E5'} />Staff Management</h1>
-                                <p style={{fontSize:'12px',color:dm?'#4a607f':'#94A3B8',margin:'4px 0 0'}}>Add, manage, and organise Yahweh Care staff — changes update the Org Chart instantly</p>
+                                <h1 style={{fontSize:'22px',fontWeight:'700',color:textP,margin:0,display:'flex',alignItems:'center',gap:'8px'}}><Icon name='briefcase' size={20} color={BRAND} />Staff Management</h1>
+                                <p style={{fontSize:'12px',color:textM,margin:'4px 0 0'}}>Add, manage, and organise Yahweh Care staff — changes update the Org Chart instantly</p>
                             </div>
                             <div style={{display:'flex',gap:'10px'}}>
                                 <button onClick={()=>setShowPosModal(true)}
-                                    style={{padding:'9px 16px',background:cardBg,border:`2px solid ${borderC}`,borderRadius:'10px',fontSize:'13px',fontWeight:'600',color:'#4338CA',cursor:'pointer',display:'inline-flex',alignItems:'center',gap:'6px'}}>
-                                    <Icon name='tag' size={13} color='#4338CA' />{canDelete ? 'Manage Positions' : '+ New Position'}
+                                    style={{padding:'9px 16px',background:cardBg,border:`1px solid ${borderC}`,borderRadius:'8px',fontSize:'13px',fontWeight:'600',color:textP,cursor:'pointer',display:'inline-flex',alignItems:'center',gap:'6px'}}>
+                                    <Icon name='tag' size={13} color={textM} />{canDelete ? 'Manage Positions' : 'New Position'}
                                 </button>
                                 <button onClick={openAdd}
-                                    style={{padding:'9px 18px',background:'linear-gradient(135deg,#6366F1,#7C3AED)',color:'white',border:'none',borderRadius:'10px',fontSize:'13px',fontWeight:'700',cursor:'pointer',boxShadow:'0 3px 12px rgba(99,102,241,0.35)'}}>
-                                    + Add Staff Member
+                                    style={{padding:'9px 18px',background:BRAND,color:'white',border:'none',borderRadius:'8px',fontSize:'13px',fontWeight:'700',cursor:'pointer',display:'inline-flex',alignItems:'center',gap:'6px'}}>
+                                    <Icon name='plus-circle' size={14} color='#fff' />Add Staff Member
                                 </button>
                             </div>
                         </div>
@@ -6909,13 +6911,13 @@
                         {/* Filters */}
                         <div style={{display:'flex',gap:'10px',marginBottom:'16px',flexWrap:'wrap'}}>
                             <input type="text" placeholder="Search name, email or position…" value={search} onChange={e=>setSearch(e.target.value)}
-                                style={{flex:1,minWidth:'200px',padding:'8px 12px',border:`1.5px solid ${borderC}`,borderRadius:'8px',fontSize:'13px',background:dm?'rgba(2,8,23,0.8)':'white',color:textP}} />
+                                style={{flex:1,minWidth:'200px',padding:'8px 12px',border:`1px solid ${borderC}`,borderRadius:'8px',fontSize:'13px',background:cardBg,color:textP}} />
                             <select value={deptFilter} onChange={e=>setDeptFilter(e.target.value)}
-                                style={{padding:'8px 12px',border:`1.5px solid ${borderC}`,borderRadius:'8px',fontSize:'13px',background:dm?'rgba(2,8,23,0.8)':'white',color:textP,background:cardBg,color:dm?'#c0cfec':'#334155'}}>
+                                style={{padding:'8px 12px',border:`1px solid ${borderC}`,borderRadius:'8px',fontSize:'13px',background:cardBg,color:textP}}>
                                 <option value="all">All Departments</option>
                                 {departments.map(d=><option key={d.id} value={String(d.id)}>{d.name}</option>)}
                             </select>
-                            <div style={{padding:'8px 14px',background:cardBg,border:'1.5px solid #E0E7FF',borderRadius:'8px',fontSize:'13px',color:dm?'#818cf8':'#4F46E5',fontWeight:'600'}}>
+                            <div style={{padding:'8px 14px',background:cardBg,border:`1px solid ${borderC}`,borderRadius:'8px',fontSize:'13px',color:textP,fontWeight:'600'}}>
                                 {filtered.length} staff
                             </div>
                         </div>
@@ -6928,23 +6930,23 @@
                         )}
 
                         {/* Staff Table */}
-                        <div style={{background:cardBg,borderRadius:'16px',border:`2px solid ${borderC}`,overflow:'hidden',boxShadow:'0 2px 12px rgba(99,102,241,0.07)'}}>
+                        <div style={{background:cardBg,borderRadius:'12px',border:`1px solid ${borderC}`,overflow:'hidden'}}>
                             {loading ? (
-                                <div style={{padding:'40px',textAlign:'center',color:dm?'#4a607f':'#94A3B8',fontSize:'14px'}}>Loading staff…</div>
+                                <div style={{padding:'40px',textAlign:'center',color:textM,fontSize:'14px'}}>Loading staff…</div>
                             ) : filtered.length === 0 ? (
-                                <div style={{padding:'40px',textAlign:'center',color:dm?'#4a607f':'#94A3B8',fontSize:'14px'}}>No staff found</div>
+                                <div style={{padding:'40px',textAlign:'center',color:textM,fontSize:'14px'}}>No staff found</div>
                             ) : (
                                 <table style={{width:'100%',borderCollapse:'collapse'}}>
                                     <thead>
-                                        <tr style={{background:dm?'rgba(99,102,241,0.12)':'#F8F9FF',borderBottom:`2px solid ${borderC}`}}>
+                                        <tr style={{background:dm?'#0F172A':'#F8FAFC',borderBottom:`1px solid ${borderC}`}}>
                                             {['Staff Member','Positions','Department','Employment','Login','Actions'].map(h=>(
-                                                <th key={h} style={{padding:'11px 14px',textAlign:'left',fontSize:'11px',fontWeight:'700',color:dm?'#818cf8':'#4F46E5',textTransform:'uppercase',letterSpacing:'0.05em'}}>{h}</th>
+                                                <th key={h} style={{padding:'11px 14px',textAlign:'left',fontSize:'11px',fontWeight:'700',color:textM,textTransform:'uppercase',letterSpacing:'0.05em'}}>{h}</th>
                                             ))}
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {filtered.map(m=>(
-                                            <tr key={m.id} style={{borderBottom:'1px solid #F0F2F8'}} className="table-row">
+                                            <tr key={m.id} style={{borderBottom:`1px solid ${borderC}`}} className="table-row">
                                                 <td style={{padding:'12px 14px'}}>
                                                     <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
                                                         <Avatar name={m.name} size={34}/>
@@ -6966,8 +6968,8 @@
                                                     ) : (
                                                         <div style={{display:'flex',flexWrap:'wrap',gap:'4px'}}>
                                                             {(m.positions||[]).map(p=>(
-                                                                <span key={p.id} style={{fontSize:'10px',fontWeight:'600',padding:'2px 8px',borderRadius:'10px',background:`${posTypeColor[p.type]||'#6366F1'}15`,color:posTypeColor[p.type]||'#6366F1',border:`1px solid ${posTypeColor[p.type]||'#6366F1'}30`}}>
-                                                                    {p.is_primary?'★ ':''}{p.title}
+                                                                <span key={p.id} style={{fontSize:'10px',fontWeight:'600',padding:'2px 8px',borderRadius:'10px',background:`${posTypeColor[p.type]||'#6366F1'}15`,color:posTypeColor[p.type]||'#6366F1',border:`1px solid ${posTypeColor[p.type]||'#6366F1'}30`,display:'inline-flex',alignItems:'center',gap:'3px'}}>
+                                                                    {p.is_primary && <Icon name='star' size={8} color={posTypeColor[p.type]||'#6366F1'} />}{p.title}
                                                                 </span>
                                                             ))}
                                                         </div>
@@ -7020,7 +7022,7 @@
                                     {label:'Entra Login',   val:staff.filter(s=>s.auth_provider==='azure_ad').length,        color:dm?'#93c5fd':'#1E40AF'},
                                     {label:'Vacant Positions', val:positions.filter(p=>p.is_vacant).length,                  color:'#DC2626'},
                                 ].map(s=>(
-                                    <div key={s.label} style={{background:cardBg,border:`2px solid ${borderC}`,borderRadius:'10px',padding:'10px 16px',display:'flex',gap:'10px',alignItems:'center'}}>
+                                    <div key={s.label} style={{background:cardBg,border:`1px solid ${borderC}`,borderRadius:'10px',padding:'10px 16px',display:'flex',gap:'10px',alignItems:'center'}}>
                                         <span style={{fontSize:'18px',fontWeight:'800',color:s.color}}>{s.val}</span>
                                         <span style={{fontSize:'11px',color:textM,fontWeight:'600'}}>{s.label}</span>
                                     </div>
@@ -7034,20 +7036,20 @@
                         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:'20px'}}>
                             <div style={{background:cardBg,borderRadius:'16px',width:'100%',maxWidth:'680px',maxHeight:'90vh',overflow:'auto',boxShadow:'0 20px 60px rgba(0,0,0,0.25)'}}>
                                 {/* Modal header */}
-                                <div style={{padding:'20px 24px',borderBottom:`1px solid ${borderC}`,display:'flex',justifyContent:'space-between',alignItems:'center',background:'linear-gradient(135deg,#6366F1,#7C3AED)',borderRadius:'16px 16px 0 0'}}>
-                                    <h2 style={{fontSize:'16px',fontWeight:'700',color:'white',margin:0}}>
-                                        <span style={{display:'flex',alignItems:'center',gap:'6px'}}>{modalMode==='add'?<Icon name='plus-circle' size={16} color='white' />:<Icon name='pencil' size={16} color='white' />}{modalMode==='add'?'Add New Staff Member':'Edit Staff Member'}</span>
+                                <div style={{padding:'18px 24px',borderBottom:`1px solid ${borderC}`,display:'flex',justifyContent:'space-between',alignItems:'center',background:cardBg,borderRadius:'16px 16px 0 0'}}>
+                                    <h2 style={{fontSize:'16px',fontWeight:'700',color:textP,margin:0}}>
+                                        <span style={{display:'flex',alignItems:'center',gap:'6px'}}>{modalMode==='add'?<Icon name='plus-circle' size={16} color={BRAND} />:<Icon name='pencil' size={16} color={BRAND} />}{modalMode==='add'?'Add New Staff Member':'Edit Staff Member'}</span>
                                     </h2>
-                                    <button onClick={()=>setShowModal(false)} style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',borderRadius:'50%',width:'28px',height:'28px',cursor:'pointer',fontSize:'14px'}}>✕</button>
+                                    <button onClick={()=>setShowModal(false)} style={{background:'transparent',border:'none',color:textM,borderRadius:'6px',width:'28px',height:'28px',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}><Icon name='x' size={16} color={textM} /></button>
                                 </div>
 
                                 <div style={{padding:'20px 24px'}}>
                                     {error && <div style={{background:dm?'rgba(239,68,68,0.12)':'#FEF2F2',border:`1px solid ${dm?'rgba(239,68,68,0.3)':'#FECACA'}`,borderRadius:'8px',padding:'8px 12px',marginBottom:'14px',fontSize:'12px',color:'#DC2626',display:'flex',alignItems:'center',gap:'6px'}}><Icon name='alert-triangle' size={12} color='#DC2626' />{error}</div>}
 
                                     {/* Login method notice */}
-                                    <div style={{background:'#EFF6FF',border:'1px solid #BFDBFE',borderRadius:'8px',padding:'10px 14px',marginBottom:'16px',fontSize:'12px',color:dm?'#93c5fd':'#1E40AF'}}>
+                                    <div style={{background:dm?'rgba(59,130,246,0.08)':'#EFF6FF',border:`1px solid ${dm?'rgba(59,130,246,0.25)':'#BFDBFE'}`,borderRadius:'8px',padding:'10px 14px',marginBottom:'16px',fontSize:'12px',color:dm?'#93c5fd':'#1E40AF'}}>
                                         <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'4px'}}>
-                                            <span style={{fontSize:'16px'}}>🔷</span>
+                                            <Icon name='shield' size={14} color={dm?'#93c5fd':'#1D4ED8'} />
                                             <strong>Microsoft Entra Login</strong>
                                         </div>
                                         <ul style={{margin:'4px 0 0 24px',padding:0,lineHeight:'1.7'}}>
@@ -7096,7 +7098,7 @@
                                         <div style={{gridColumn:'1/-1'}}>
                                             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'6px'}}>
                                                 <label style={{...labelStyle,margin:0}}>Org Chart Positions <span style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8',fontWeight:'400'}}>(one staff can hold multiple)</span></label>
-                                                <button onClick={()=>setShowPosModal(true)} style={{fontSize:'11px',fontWeight:'600',color:dm?'#818cf8':'#4F46E5',background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',border:'none',borderRadius:'6px',padding:'3px 8px',cursor:'pointer'}}>+ New Position</button>
+                                                <button onClick={()=>setShowPosModal(true)} style={{fontSize:'11px',fontWeight:'600',color:BRAND,background:dm?'rgba(99,102,241,0.15)':'#EEF2FF',border:'none',borderRadius:'6px',padding:'3px 8px',cursor:'pointer',display:'inline-flex',alignItems:'center',gap:'4px'}}><Icon name='plus-circle' size={11} color={BRAND} />New Position</button>
                                             </div>
                                             <div style={{border:`1.5px solid ${borderC}`,borderRadius:'8px',maxHeight:'160px',overflow:'auto',padding:'8px'}}>
                                                 {positions.length===0 ? (
@@ -7128,9 +7130,9 @@
                                 </div>
 
                                 {/* Modal footer */}
-                                <div style={{padding:'16px 24px',borderTop:'1px solid #E0E7FF',display:'flex',justifyContent:'flex-end',gap:'10px',background:'#F8F9FF',borderRadius:'0 0 16px 16px'}}>
-                                    <button onClick={()=>setShowModal(false)} style={{padding:'9px 18px',background:cardBg,border:`2px solid ${borderC}`,borderRadius:'8px',fontSize:'13px',fontWeight:'600',color:textM,cursor:'pointer'}}>Cancel</button>
-                                    <button onClick={handleSave} disabled={saving} style={{padding:'9px 20px',background:'linear-gradient(135deg,#6366F1,#7C3AED)',color:'white',border:'none',borderRadius:'8px',fontSize:'13px',fontWeight:'700',cursor:'pointer',opacity:saving?0.7:1}}>
+                                <div style={{padding:'16px 24px',borderTop:`1px solid ${borderC}`,display:'flex',justifyContent:'flex-end',gap:'10px',background:dm?'#0F172A':'#F8FAFC',borderRadius:'0 0 16px 16px'}}>
+                                    <button onClick={()=>setShowModal(false)} style={{padding:'9px 18px',background:cardBg,border:`1px solid ${borderC}`,borderRadius:'8px',fontSize:'13px',fontWeight:'600',color:textM,cursor:'pointer'}}>Cancel</button>
+                                    <button onClick={handleSave} disabled={saving} style={{padding:'9px 20px',background:BRAND,color:'white',border:'none',borderRadius:'8px',fontSize:'13px',fontWeight:'700',cursor:'pointer',opacity:saving?0.7:1}}>
                                         {saving ? 'Saving…' : (modalMode==='add'?'Add Staff Member':'Save Changes')}
                                     </button>
                                 </div>
@@ -7142,9 +7144,9 @@
                     {showPosModal && (
                         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1100,display:'flex',alignItems:'center',justifyContent:'center',padding:'20px'}}>
                             <div style={{background:cardBg,borderRadius:'14px',width:'100%',maxWidth:'480px',maxHeight:'85vh',display:'flex',flexDirection:'column',boxShadow:'0 20px 60px rgba(0,0,0,0.25)'}}>
-                                <div style={{padding:'16px 20px',borderBottom:`1px solid ${borderC}`,background:'linear-gradient(135deg,#6366F1,#7C3AED)',borderRadius:'14px 14px 0 0',display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0}}>
-                                    <h3 style={{fontSize:'14px',fontWeight:'700',color:'white',margin:0,display:'flex',alignItems:'center',gap:'6px'}}><Icon name='tag' size={14} color='white' />Manage Positions</h3>
-                                    <button onClick={()=>setShowPosModal(false)} style={{background:'rgba(255,255,255,0.2)',border:'none',color:'white',borderRadius:'50%',width:'26px',height:'26px',cursor:'pointer'}}>✕</button>
+                                <div style={{padding:'16px 20px',borderBottom:`1px solid ${borderC}`,background:cardBg,borderRadius:'14px 14px 0 0',display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0}}>
+                                    <h3 style={{fontSize:'14px',fontWeight:'700',color:textP,margin:0,display:'flex',alignItems:'center',gap:'6px'}}><Icon name='tag' size={14} color={BRAND} />Manage Positions</h3>
+                                    <button onClick={()=>setShowPosModal(false)} style={{background:'transparent',border:'none',color:textM,borderRadius:'6px',width:'26px',height:'26px',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}><Icon name='x' size={15} color={textM} /></button>
                                 </div>
                                 <div style={{padding:'16px 20px',overflow:'auto',flex:1}}>
                                     <p style={{fontSize:'11px',fontWeight:'800',color:dm?'#818cf8':'#4F46E5',textTransform:'uppercase',letterSpacing:'0.06em',margin:'0 0 10px'}}>Create New Position</p>
@@ -7167,7 +7169,7 @@
                                                 {positions.map(p=><option key={p.id} value={p.id}>{p.title}</option>)}
                                             </select>
                                         </div>
-                                        <button onClick={handleAddPosition} style={{padding:'9px 16px',background:'linear-gradient(135deg,#6366F1,#7C3AED)',color:'white',border:'none',borderRadius:'8px',fontSize:'12px',fontWeight:'700',cursor:'pointer'}}>+ Create Position</button>
+                                        <button onClick={handleAddPosition} style={{padding:'9px 16px',background:BRAND,color:'white',border:'none',borderRadius:'8px',fontSize:'12px',fontWeight:'700',cursor:'pointer',display:'inline-flex',alignItems:'center',justifyContent:'center',gap:'6px'}}><Icon name='plus-circle' size={13} color='#fff' />Create Position</button>
                                     </div>
 
                                     <div style={{borderTop:`1px solid ${borderC}`,paddingTop:'14px'}}>
@@ -7196,7 +7198,7 @@
                                     </div>
                                 </div>
                                 <div style={{padding:'12px 20px',borderTop:`1px solid ${borderC}`,display:'flex',justifyContent:'flex-end',gap:'8px',background:dm?'rgba(4,8,20,0.6)':'#F8F9FF',borderRadius:'0 0 14px 14px',flexShrink:0}}>
-                                    <button onClick={()=>setShowPosModal(false)} style={{padding:'8px 16px',background:cardBg,border:`2px solid ${borderC}`,borderRadius:'8px',fontSize:'12px',fontWeight:'600',color:textM,cursor:'pointer'}}>Close</button>
+                                    <button onClick={()=>setShowPosModal(false)} style={{padding:'8px 16px',background:cardBg,border:`1px solid ${borderC}`,borderRadius:'8px',fontSize:'12px',fontWeight:'600',color:textM,cursor:'pointer'}}>Close</button>
                                 </div>
                             </div>
                         </div>
@@ -7218,7 +7220,7 @@
                                     <p style={{fontSize:'11px',color:dm?'#4a607f':'#94A3B8'}}>This action can be undone by re-adding the staff member.</p>
                                 </div>
                                 <div style={{padding:'12px 20px',borderTop:`1px solid ${dm?'rgba(99,102,241,0.10)':'#EEF2F8'}`,display:'flex',gap:'10px',justifyContent:'center',background:dm?'rgba(4,8,20,0.6)':'#F8FAFF'}}>
-                                    <button onClick={()=>setDelConfirm(null)} style={{padding:'9px 20px',background:cardBg,border:`2px solid ${borderC}`,borderRadius:'8px',fontSize:'13px',fontWeight:'600',cursor:'pointer',color:dm?'#c0cfec':'#334155'}}>Cancel</button>
+                                    <button onClick={()=>setDelConfirm(null)} style={{padding:'9px 20px',background:cardBg,border:`1px solid ${borderC}`,borderRadius:'8px',fontSize:'13px',fontWeight:'600',cursor:'pointer',color:textP}}>Cancel</button>
                                     <button onClick={handleDelete} style={{padding:'9px 20px',background:'#DC2626',color:'white',border:'none',borderRadius:'8px',fontSize:'13px',fontWeight:'700',cursor:'pointer'}}>Deactivate</button>
                                 </div>
                             </div>
@@ -7242,7 +7244,7 @@
                                     )}
                                 </div>
                                 <div style={{padding:'12px 20px',borderTop:`1px solid ${dm?'rgba(99,102,241,0.10)':'#EEF2F8'}`,display:'flex',gap:'10px',justifyContent:'center',background:dm?'rgba(4,8,20,0.6)':'#F8FAFF'}}>
-                                    <button onClick={()=>{setDelPosConfirm(null); setPosDeleteError('');}} style={{padding:'9px 20px',background:cardBg,border:`2px solid ${borderC}`,borderRadius:'8px',fontSize:'13px',fontWeight:'600',cursor:'pointer',color:dm?'#c0cfec':'#334155'}}>Cancel</button>
+                                    <button onClick={()=>{setDelPosConfirm(null); setPosDeleteError('');}} style={{padding:'9px 20px',background:cardBg,border:`1px solid ${borderC}`,borderRadius:'8px',fontSize:'13px',fontWeight:'600',cursor:'pointer',color:textP}}>Cancel</button>
                                     <button onClick={handleDeletePosition} style={{padding:'9px 20px',background:'#DC2626',color:'white',border:'none',borderRadius:'8px',fontSize:'13px',fontWeight:'700',cursor:'pointer'}}>Delete Position</button>
                                 </div>
                             </div>
