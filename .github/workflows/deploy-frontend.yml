@@ -9,15 +9,13 @@ name: Deploy Frontend
 #     Static Web App → yahweahcare → Manage deployment token
 # ============================================================
 
+# DISABLED 2026-07-04: auto-trigger removed. The target Azure Static Web App
+# no longer exists / its deploy token is stale ("No matching Static Web App
+# was found or the api key was invalid"), so this was failing on every push.
+# The real production frontend deploys via Vercel's own Git integration, not
+# this workflow. Kept for manual/historical use only - run via Actions tab
+# ("Run workflow") if Azure hosting is ever restored.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'YCTMFrontend/**'
-      - '.github/workflows/deploy-frontend.yml'
-  pull_request:
-    types: [opened, synchronize, reopened, closed]
-    branches: [main]
   workflow_dispatch:
 
 permissions:

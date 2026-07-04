@@ -9,12 +9,13 @@ name: Deploy Backend
 #     az ad sp create-for-rbac --sdk-auth ...
 # ============================================================
 
+# DISABLED 2026-07-04: auto-trigger removed. Same root cause as
+# deploy-frontend.yml - the target Azure App Service / credentials are stale,
+# so this was failing on every push touching api/. The real production
+# backend deploys via Vercel's own Git integration, not this workflow. Kept
+# for manual/historical use only - run via Actions tab ("Run workflow") if
+# Azure hosting is ever restored.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'api/**'
-      - '.github/workflows/deploy-backend.yml'
   workflow_dispatch:
 
 permissions:
