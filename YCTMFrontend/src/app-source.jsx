@@ -9099,6 +9099,29 @@
                 finally { setExporting(''); }
             };
 
+            // ── Manual, filtered deletion (delete what you'd export) ─────────
+            const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false);
+            const [deleteAck, setDeleteAck]                 = React.useState(false);
+            const [deleting, setDeleting]                   = React.useState(false);
+            const noFiltersApplied = activeFilterCount === 0 && !search;
+
+            const handleDeleteFiltered = async () => {
+                setDeleting(true);
+                try {
+                    const extra = { confirm: 'true' };
+                    if (noFiltersApplied) extra.confirmAll = 'true';
+                    const params = buildFilterParams(extra);
+                    const res = await authFetch(`${HRMS_API}/audit-logs?${params}`, { method: 'DELETE' });
+                    const d = await res.json();
+                    if (!res.ok) throw new Error(d.message || d.error || 'Delete failed');
+                    showToast(`Deleted ${d.deletedCount} record${d.deletedCount!==1?'s':''}`);
+                    setDeleteConfirmOpen(false); setDeleteAck(false);
+                    setPage(1);
+                    loadEntries();
+                } catch (e) { showToast('Delete failed: ' + e.message); }
+                finally { setDeleting(false); }
+            };
+
             // ── Manual Quarterly Archive workflow ────────────────────────────
             const defaultQuarter = React.useMemo(() => {
                 const now = new Date();
@@ -9282,6 +9305,10 @@
                                     </button>
                                 ))}
                                 <span style={{fontSize:11,color:muted,marginLeft:6}}>Applies current search + filters</span>
+                                <button onClick={()=>{setDeleteConfirmOpen(true);setDeleteAck(false);}} disabled={!!exporting || total===0}
+                                    style={{marginLeft:'auto',padding:'6px 14px',borderRadius:6,border:`1px solid ${dm?'rgba(239,68,68,0.4)':'#FECACA'}`,background:'transparent',color:'#EF4444',fontSize:12,fontWeight:600,cursor:total===0?'default':'pointer',display:'flex',alignItems:'center',gap:5,opacity:total===0?0.4:1}}>
+                                    <Icon name='trash-2' size={11} color='#EF4444' />Delete{activeFilterCount>0||search?' Filtered':''}
+                                </button>
                             </div>
 
                             <div style={{overflowX:'auto'}}>
@@ -9419,6 +9446,39 @@
                                     <button onClick={()=>{setTruncateTarget(null);setTruncateAck(false);}} style={{padding:'9px 20px',background:card,border:`2px solid ${bdr}`,borderRadius:'8px',fontSize:'13px',fontWeight:'600',cursor:'pointer',color:txt}}>Cancel</button>
                                     <button onClick={confirmTruncate} disabled={!truncateAck || truncating} style={{padding:'9px 20px',background: !truncateAck ? (dm?'#4b1113':'#FCA5A5') : '#DC2626',color:'white',border:'none',borderRadius:'8px',fontSize:'13px',fontWeight:'700',cursor:(!truncateAck||truncating)?'default':'pointer'}}>
                                         {truncating ? 'Truncating…' : 'Truncate Permanently'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ── DELETE FILTERED CONFIRM ─────────────────────────────── */}
+                    {deleteConfirmOpen && (
+                        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                            <div style={{background:card,borderRadius:'14px',width:'440px',boxShadow:'0 20px 60px rgba(0,0,0,0.25)',overflow:'hidden'}}>
+                                <div style={{padding:'20px 24px',textAlign:'center'}}>
+                                    <div style={{display:'flex',justifyContent:'center',marginBottom:'12px'}}><Icon name='trash-2' size={40} color='#EF4444' /></div>
+                                    <h3 style={{fontSize:'16px',fontWeight:'700',color:txt,margin:'0 0 8px'}}>Delete Activity Log Entries?</h3>
+                                    <p style={{fontSize:'13px',color:muted,margin:'0 0 8px'}}>
+                                        This will <strong>permanently delete {total} record{total!==1?'s':''}</strong> matching your current search and filters.
+                                    </p>
+                                    {noFiltersApplied && (
+                                        <p style={{fontSize:'12px',color:'#DC2626',background:dm?'rgba(239,68,68,0.12)':'#FEF2F2',padding:'8px',borderRadius:'6px',margin:'0 0 8px'}}>
+                                            No search or filters are applied — this will delete the <strong>entire</strong> Activity Log.
+                                        </p>
+                                    )}
+                                    <p style={{fontSize:'12px',color:'#DC2626',background:dm?'rgba(239,68,68,0.12)':'#FEF2F2',padding:'8px',borderRadius:'6px',margin:'0 0 12px'}}>
+                                        This action cannot be undone. Export a copy first if you need a record of these entries.
+                                    </p>
+                                    <label style={{display:'flex',alignItems:'flex-start',gap:8,fontSize:12,color:txt,textAlign:'left',cursor:'pointer'}}>
+                                        <input type="checkbox" checked={deleteAck} onChange={e=>setDeleteAck(e.target.checked)} style={{marginTop:2}}/>
+                                        I confirm I want to permanently delete these Activity Log entries.
+                                    </label>
+                                </div>
+                                <div style={{padding:'12px 20px',borderTop:`1px solid ${bdr}`,display:'flex',gap:'10px',justifyContent:'center',background:dm?'rgba(4,8,20,0.6)':'#F8FAFF'}}>
+                                    <button onClick={()=>{setDeleteConfirmOpen(false);setDeleteAck(false);}} style={{padding:'9px 20px',background:card,border:`2px solid ${bdr}`,borderRadius:'8px',fontSize:'13px',fontWeight:'600',cursor:'pointer',color:txt}}>Cancel</button>
+                                    <button onClick={handleDeleteFiltered} disabled={!deleteAck || deleting} style={{padding:'9px 20px',background: !deleteAck ? (dm?'#4b1113':'#FCA5A5') : '#DC2626',color:'white',border:'none',borderRadius:'8px',fontSize:'13px',fontWeight:'700',cursor:(!deleteAck||deleting)?'default':'pointer'}}>
+                                        {deleting ? 'Deleting…' : 'Delete Permanently'}
                                     </button>
                                 </div>
                             </div>

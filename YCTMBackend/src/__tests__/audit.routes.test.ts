@@ -60,6 +60,46 @@ describe('requireBootstrapAdmin gating', () => {
   });
 });
 
+// ── DELETE /audit-logs — manual, filtered deletion ───────────────────────────
+
+describe('DELETE /audit-logs', () => {
+  it('requires confirm=true', async () => {
+    mockBootstrapCheck(true);
+    const res = await request(makeApp()).delete('/audit-logs?module=auth');
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('confirmation_required');
+  });
+
+  it('refuses to wipe the entire log without confirmAll=true when no filters are applied', async () => {
+    mockBootstrapCheck(true);
+    const res = await request(makeApp()).delete('/audit-logs?confirm=true');
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('no_filters');
+  });
+
+  it('deletes matching rows when filters + confirm=true are provided', async () => {
+    mockBootstrapCheck(true);
+    mockPool.query.mockResolvedValueOnce({ rows: [], rowCount: 17 }); // DELETE
+    const res = await request(makeApp()).delete('/audit-logs?module=auth&confirm=true');
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.deletedCount).toBe(17);
+
+    const deleteCall = mockPool.query.mock.calls[1];
+    expect(deleteCall[0]).toContain('DELETE FROM yc_tkt_mgmt.audit_logs');
+    expect(deleteCall[0]).toContain('a.module = $1');
+    expect(deleteCall[1]).toEqual(['auth']);
+  });
+
+  it('allows wiping the entire log when confirmAll=true is explicitly passed with no filters', async () => {
+    mockBootstrapCheck(true);
+    mockPool.query.mockResolvedValueOnce({ rows: [], rowCount: 1946 }); // DELETE
+    const res = await request(makeApp()).delete('/audit-logs?confirm=true&confirmAll=true');
+    expect(res.status).toBe(200);
+    expect(res.body.deletedCount).toBe(1946);
+  });
+});
+
 // ── GET /audit-logs/export ───────────────────────────────────────────────────
 
 describe('GET /audit-logs/export', () => {

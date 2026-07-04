@@ -98,6 +98,65 @@ router.get('/', requirePermission('audit.read'), async (req, res) => {
   res.json({ entries: rows.map(({ total: _, ...r }) => r), total });
 });
 
+// ── DELETE /audit-logs — manual, filtered deletion ──────────────
+// Deletes whatever the current search + filters match — the same
+// filter set used by the list and export routes above (mirrors
+// "delete what you'd export"). This is separate from, and does not
+// require, the quarterly archive/email/truncate workflow below; it's
+// for ad-hoc cleanup of specific filtered entries.
+//
+// Safety:
+//   - requires ?confirm=true
+//   - if NO search/filters are applied (i.e. this would wipe the
+//     entire Activity Log), also requires ?confirmAll=true
+//   - capped at 50,000 rows per request (oldest first) so a single
+//     click can't silently nuke an unexpectedly large match
+router.delete('/', requireBootstrapAdmin, async (req, res, next) => {
+  try {
+    const filters = parseFilters(req);
+    const { where, params } = buildAuditFilters(filters);
+    const hasFilters = where !== '1=1';
+
+    const confirm    = req.query.confirm === 'true' || req.query.confirm === '1';
+    const confirmAll = req.query.confirmAll === 'true' || req.query.confirmAll === '1';
+
+    if (!confirm) {
+      return res.status(400).json({ error: 'confirmation_required', message: 'Deletion requires confirm=true.' });
+    }
+    if (!hasFilters && !confirmAll) {
+      return res.status(400).json({
+        error: 'no_filters',
+        message: 'No search or filters are applied — this would delete the entire Activity Log. Apply filters first, or pass confirmAll=true to proceed anyway.',
+      });
+    }
+
+    const del = await pool.query(
+      `DELETE FROM yc_tkt_mgmt.audit_logs
+        WHERE id IN (
+          SELECT a.id
+            FROM yc_tkt_mgmt.audit_logs a
+            LEFT JOIN yc_tkt_mgmt.users u ON u.id = a.user_id
+           WHERE ${where}
+           ORDER BY a.created_at ASC
+           LIMIT 50000
+        )`,
+      params
+    );
+    const deletedCount = del.rowCount || 0;
+
+    // Logged AFTER the delete — this row is inserted once the statement
+    // above has already completed, so it can't have deleted itself.
+    await logAudit({
+      userId: req.auth!.userId, actorEmail: req.auth!.email,
+      action: 'activitylog.delete', module: 'audit',
+      metadata: { filters, deletedCount, confirmAll },
+      req,
+    });
+
+    res.json({ ok: true, deletedCount });
+  } catch (err) { next(err); }
+});
+
 // ── GET /audit-logs/export — manual, filtered, CSV/JSON/TXT ────
 router.get('/export', requireBootstrapAdmin, async (req, res, next) => {
   try {
