@@ -1064,24 +1064,33 @@
                         )}
                         <button onClick={e => { e.stopPropagation(); setProfileOpen(o => !o); }}
                             style={{
-                                width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 12px',
-                                borderRadius:8, border:'none', cursor:'pointer',
-                                background: darkMode ? '#374151' : '#FFF7ED',
+                                width:'100%', display:'flex', alignItems:'center', gap:10, padding:'9px 11px',
+                                borderRadius:10, cursor:'pointer',
+                                background: darkMode ? 'rgba(255,255,255,0.03)' : '#FFFFFF',
+                                border: `1px solid ${darkMode ? 'rgba(255,255,255,0.08)' : '#E5E7EB'}`,
+                                boxShadow: darkMode ? 'none' : '0 1px 2px rgba(15,23,42,0.04)',
+                                transition:'border-color 0.15s, background 0.15s',
                             }}>
-                            <div style={{width:36,height:36,borderRadius:'50%',background:'#F97316',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:700,fontSize:13,flexShrink:0}}>
+                            <div style={{width:34,height:34,borderRadius:9,background:'linear-gradient(135deg,#4338CA,#6366F1)',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:700,fontSize:12,flexShrink:0,letterSpacing:'0.02em'}}>
                                 {initials}
                             </div>
                             <div style={{flex:1, minWidth:0, textAlign:'left'}}>
-                                <p style={{fontSize:13,fontWeight:600,color:logoText,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{displayName}</p>
-                                <p style={{fontSize:11,color:logoSub,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{deptLabel}</p>
+                                <p style={{fontSize:13,fontWeight:700,color:logoText,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',margin:0,letterSpacing:'-0.01em'}}>{displayName}</p>
+                                <p style={{fontSize:11,color:logoSub,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',margin:'1px 0 0',fontWeight:500}}>{deptLabel}</p>
                                 {(()=>{
                                     const rb = getRoleBadgeInfo(currentUser);
                                     if (!rb) return null;
-                                    return <span style={{display:'inline-block',fontSize:'9px',fontWeight:700,padding:'1px 7px',borderRadius:10,background:rb.bg,color:rb.color,border:`1px solid ${rb.border}`,marginTop:3,letterSpacing:'0.03em'}}>{rb.label}</span>;
+                                    const label = rb.label.split(' ').slice(1).join(' ') || rb.label;
+                                    return (
+                                        <span style={{display:'inline-flex',alignItems:'center',gap:5,fontSize:'10px',fontWeight:700,padding:'2px 8px 2px 6px',borderRadius:20,background:darkMode?'rgba(255,255,255,0.06)':'#F8FAFC',color:darkMode?'#c7d0e8':'#334155',border:`1px solid ${darkMode?'rgba(255,255,255,0.08)':'#E2E8F0'}`,marginTop:5,letterSpacing:'0.02em'}}>
+                                            <span style={{width:5,height:5,borderRadius:'50%',background:rb.dot,flexShrink:0}}/>
+                                            {label}
+                                        </span>
+                                    );
                                 })()}
                             </div>
                             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{flexShrink:0,transform:profileOpen?'rotate(0deg)':'rotate(180deg)',transition:'transform 0.2s'}}>
-                                <path d="M2 4l4 4 4-4" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                <path d="M2 4l4 4 4-4" stroke={darkMode?'#64748B':'#94A3B8'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                             </svg>
                         </button>
                     </div>
