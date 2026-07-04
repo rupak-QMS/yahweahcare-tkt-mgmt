@@ -10,7 +10,7 @@ const CDN_ORIGINS = [
 ];
 
 // App-shell assets — cached on install, served instantly on repeat visits
-const SHELL_ASSETS = ['/', '/app.js', '/enterprise-components-compiled.js', '/favicon.svg'];
+const SHELL_ASSETS = ['/', '/app.js', '/enterprise-components-compiled.js', '/icon-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(
@@ -66,14 +66,14 @@ self.addEventListener('fetch', event => {
 
 // ── Push notification received ────────────────────────────────────────────────
 self.addEventListener('push', event => {
-  let data = { title: 'Yahwehcare', body: 'You have a new notification.', icon: '/favicon.svg', data: {} };
+  let data = { title: 'Yahwehcare', body: 'You have a new notification.', icon: '/icon-512.png', data: {} };
   try { data = Object.assign(data, event.data ? event.data.json() : {}); } catch (e) {}
 
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body:     data.body,
-      icon:     data.icon  || '/favicon.svg',
-      badge:    data.badge || '/favicon.svg',
+      icon:     data.icon  || '/icon-512.png',
+      badge:    data.badge || '/icon-512.png',
       tag:      'yc-notification',
       renotify: true,
       data:     data.data  || {},
