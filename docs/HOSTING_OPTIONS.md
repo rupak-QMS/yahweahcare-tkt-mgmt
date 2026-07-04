@@ -76,7 +76,7 @@ su - yahweh
 ```bash
 cd ~
 git clone https://github.com/Subho06031991/yahwehcare-hrms.git
-cd yahwehcare-hrms/backend-hrms
+cd yahwehcare-hrms/YCTMBackend
 cp .env.example .env
 
 # Generate strong secrets
@@ -115,7 +115,7 @@ chmod 600 .env
 
 #### 4. Update docker-compose.yml to use a stable password
 
-Edit `~/yahwehcare-hrms/backend-hrms/docker-compose.yml`:
+Edit `~/yahwehcare-hrms/YCTMBackend/docker-compose.yml`:
 
 ```yaml
 version: '3.9'
@@ -219,7 +219,7 @@ cat > ~/deploy.sh <<'EOF'
 set -e
 cd ~/yahwehcare-hrms
 git pull
-cd backend-hrms
+cd YCTMBackend
 docker compose up -d --build
 docker compose exec -T hrms-auth npm run init-db
 docker compose exec -T hrms-auth npm run seed
@@ -249,7 +249,7 @@ cat > ~/backup.sh <<'EOF'
 #!/bin/bash
 DIR=~/backups
 mkdir -p $DIR
-docker compose -f ~/yahwehcare-hrms/backend-hrms/docker-compose.yml \
+docker compose -f ~/yahwehcare-hrms/YCTMBackend/docker-compose.yml \
   exec -T postgres pg_dump -U yahweh yahweahcare \
   | gzip > $DIR/yahweahcare-$(date +%Y%m%d).sql.gz
 # Keep last 30 days
@@ -312,7 +312,7 @@ docker compose build
 
 1. Sign up at https://railway.app (login with GitHub)
 2. **New Project → Deploy from GitHub repo → yahwehcare-hrms**
-3. Railway detects the Dockerfile in `backend-hrms/` and builds it
+3. Railway detects the Dockerfile in `YCTMBackend/` and builds it
 4. **+ New → Database → PostgreSQL** — adds a managed Postgres in the same project
 5. Railway auto-injects `DATABASE_URL` env var into the backend
 6. Set the remaining env vars in **Variables** tab:
@@ -326,8 +326,8 @@ docker compose build
    # Railway CLI
    npm i -g @railway/cli
    railway login
-   railway run --service backend-hrms npm run init-db
-   railway run --service backend-hrms npm run seed
+   railway run --service YCTMBackend npm run init-db
+   railway run --service YCTMBackend npm run seed
    ```
 9. For the frontend, repeat steps 2-4 but for the `frontend/` folder — Railway will detect `server.js` and run it
 
@@ -339,7 +339,7 @@ docker compose build
 
 Similar to Railway but with EU/US regions and a separate free tier:
 
-- **Web Service** (backend-hrms) — $7/mo for "Starter" — 512 MB RAM, always-on
+- **Web Service** (YCTMBackend) — $7/mo for "Starter" — 512 MB RAM, always-on
 - **PostgreSQL** — $7/mo for "Basic" — 1 GB DB
 - **Static Site** (frontend) — free (CDN-cached)
 

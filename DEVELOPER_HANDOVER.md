@@ -29,8 +29,8 @@ Two independent halves, deployed as **two separate Vercel projects** from the
 
 | Piece | What it is | Where it lives | Deployed URL |
 |---|---|---|---|
-| Frontend | Single-file React app (no build framework — Babel + Terser compile it directly) | `web/` | `https://yahweahcare-tkt-mgmt.vercel.app` |
-| Backend | Express + TypeScript API, runs as Vercel serverless functions | `backend-hrms/` | `https://yahweahcare-tkt-mgmt-hx48.vercel.app` |
+| Frontend | Single-file React app (no build framework — Babel + Terser compile it directly) | `YCTMFrontend/` | `https://yahweahcare-tkt-mgmt.vercel.app` |
+| Backend | Express + TypeScript API, runs as Vercel serverless functions | `YCTMBackend/` | `https://yahweahcare-tkt-mgmt-hx48.vercel.app` |
 | Database | Neon (serverless Postgres) | schema `yc_tkt_mgmt` | project "neon-byzantium-park" |
 
 GitHub repo: `https://github.com/hostsubho/yahweahcare-tkt-mgmt.git`, branch
@@ -51,17 +51,17 @@ deleted, but don't expect them to do anything useful; the live workflows are
 
 ## 3. Frontend deep-dive
 
-- **Everything is one file**: `web/src/app-source.jsx`. All page components
+- **Everything is one file**: `YCTMFrontend/src/app-source.jsx`. All page components
   (`Dashboard`, `TicketsPage`, `StaffManagementPage`, `SettingsPage`,
   `EmailConfigPage`, etc.), the `API` client object, auth helpers, and the
   `App`/`Navigation` shell all live in this one ~750KB JSX file. There is no
   component-per-file structure — search within the file rather than looking
   for separate component files.
-- **Build step**: `web/build.js` compiles `src/app-source.jsx` (Babel JSX →
+- **Build step**: `YCTMFrontend/build.js` compiles `src/app-source.jsx` (Babel JSX →
   JS) and `enterprise-components.js`, then minifies both with Terser into
   `app.js` and `enterprise-components-compiled.js`, and rewrites the
   cache-busting `?v=<hash>` query strings in `index.html`. Run `node
-  build.js` from inside `web/` after any `app-source.jsx` edit — **the
+  build.js` from inside `YCTMFrontend/` after any `app-source.jsx` edit — **the
   committed `app.js` is what actually runs in production**, so if you forget
   to rebuild, your source change has no effect on the deployed site. Vercel
   also runs this same build automatically as part of its build step, but
@@ -83,7 +83,7 @@ deleted, but don't expect them to do anything useful; the live workflows are
   array in the `Navigation` component (~line 957) too — but note the
   Settings page deliberately does NOT do this; it's reached only via the
   profile dropdown menus.
-- **Service worker caching** (`web/sw.js`): caches `app.js`,
+- **Service worker caching** (`YCTMFrontend/sw.js`): caches `app.js`,
   `enterprise-components-compiled.js`, and `/` as "shell assets" with a
   stale-while-revalidate strategy. When testing a fresh deploy in a browser
   that's had the app open before, a normal reload can serve a stale cached
@@ -101,7 +101,7 @@ deleted, but don't expect them to do anything useful; the live workflows are
 
 ## 4. Backend deep-dive
 
-- Express + TypeScript in `backend-hrms/src/`, organized by module under
+- Express + TypeScript in `YCTMBackend/src/`, organized by module under
   `src/modules/<domain>/<domain>.routes.ts` (e.g. `tickets`, `users`,
   `auth`, `org`, `notifications`).
 - Deployed to Vercel as serverless functions — **this has real
@@ -141,9 +141,9 @@ deleted, but don't expect them to do anything useful; the live workflows are
 ## 5. Database — important caveats
 
 - Postgres via Neon, schema `yc_tkt_mgmt`. Connection is via `DATABASE_URL`
-  (see `backend-hrms/src/db/pool.ts`).
+  (see `YCTMBackend/src/db/pool.ts`).
 - **The live schema has drifted from the migration files in the repo.**
-  `backend-hrms/src/db/*.sql` and `api/migrations/*.sql` do not reliably
+  `YCTMBackend/src/db/*.sql` and `api/migrations/*.sql` do not reliably
   describe the current live table shapes — some columns exist live that no
   migration file adds (e.g. `users.phone`, `users.designation`,
   `users.avatar_initials`), and some migration-file columns were never
@@ -193,7 +193,7 @@ deleted, but don't expect them to do anything useful; the live workflows are
 
 ## 7. Environment variables (backend)
 
-See `backend-hrms/src/config/env.ts` for the authoritative, Zod-validated
+See `YCTMBackend/src/config/env.ts` for the authoritative, Zod-validated
 list. Highlights:
 
 - `DATABASE_URL` — Neon connection string.
@@ -256,14 +256,14 @@ If you're picking this up soon after 2026-07-04, the following areas were
 just worked on and are freshest in anyone's mind — worth a quick look before
 assuming behavior:
 
-- `SettingsPage` (My Profile) — new page, `web/src/app-source.jsx`. Backend:
+- `SettingsPage` (My Profile) — new page, `YCTMFrontend/src/app-source.jsx`. Backend:
   `GET/PATCH /users/me` in `users.routes.ts`.
 - `StaffManagementPage`'s phone/address fields — now synced with the same
   columns `SettingsPage` edits.
 - SLA Compliance dashboard calculation — `stats` `useMemo` in the main app
   component, watch the `resolvedAt || updatedAt` vs `updatedAt ||
   resolvedAt` precedence if you touch it again (the former is correct).
-- Sidebar profile widget and the app's logo (`web/logo.png`) were both
+- Sidebar profile widget and the app's logo (`YCTMFrontend/logo.png`) were both
   restyled/replaced — purely cosmetic, low risk.
 
 ---
@@ -300,7 +300,7 @@ Baseline handover snapshot. Session covered:
 - Restyled the sidebar profile widget (cleaner card, brand-color avatar,
   refined role badge).
 - Replaced the text/icon placeholder logo with the real Yahweh Care brand
-  logo image (`web/logo.png`) across sidebar, login, and sign-out screens.
+  logo image (`YCTMFrontend/logo.png`) across sidebar, login, and sign-out screens.
 - Created this handover document.
 
 _Next entry goes here — Version 2._

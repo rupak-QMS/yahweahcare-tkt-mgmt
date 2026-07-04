@@ -15,7 +15,7 @@ Enterprise-grade authentication and authorization backend with **Microsoft Entra
 
 ### Setup
 ```bash
-cd backend-hrms
+cd YCTMBackend
 npm install
 cp .env.example .env       # fill in AZURE_* values from your Entra app
 createdb yahweahcare        # or use an existing DB
@@ -36,7 +36,7 @@ curl http://localhost:4001/health
 
 ### Folder structure
 ```
-backend-hrms/
+YCTMBackend/
 ├── src/
 │   ├── server.ts                      ← Express entry, security middleware
 │   ├── config/

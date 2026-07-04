@@ -5,7 +5,7 @@
 
 SET search_path = yc_tkt_mgmt;
 
--- ── 1. Add parent_position_id column (the backend-hrms code expects this) ──
+-- ── 1. Add parent_position_id column (the YCTMBackend code expects this) ──
 ALTER TABLE yc_tkt_mgmt.positions
   ADD COLUMN IF NOT EXISTS parent_position_id INTEGER REFERENCES yc_tkt_mgmt.positions(id) ON DELETE SET NULL;
 

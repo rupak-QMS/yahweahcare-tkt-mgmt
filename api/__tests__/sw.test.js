@@ -35,7 +35,7 @@ function loadSW() {
 
   // Execute sw.js in the fake global scope
   const swCode = fs.readFileSync(
-    path.resolve(__dirname, '../../web/sw.js'), 'utf8'
+    path.resolve(__dirname, '../../YCTMFrontend/sw.js'), 'utf8'
   );
   // Replace `self.` references so they use our swGlobal
   const fn = new Function(
