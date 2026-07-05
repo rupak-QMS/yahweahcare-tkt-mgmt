@@ -7998,6 +7998,15 @@
                     { id:'account_finance',   label:'Account & Finance',    icon:'dollar-sign' },
                 ]},
             ];
+            // Per-group brand accent so the report-type picker reads as organised
+            // and "on brand" rather than plain black-on-white — each section gets
+            // its own color from the Yahwehcare palette (purple/blue/green/plum).
+            const REPORT_GROUP_COLOR = {
+                'General':           { accent:'#6D2773', border:'#DBC9DC', text:'#521D56' },
+                'Status & Priority': { accent:'#0A6ABD', border:'#C2DAEF', text:'#07477F' },
+                'Performance & SLA': { accent:'#5B892E', border:'#D6E2CB', text:'#3D5C1F' },
+                'Category Reports':  { accent:'#874E8C', border:'#E1D3E2', text:'#58335B' },
+            };
             const REPORT_TYPES = REPORT_GROUPS.flatMap(g => g.types);
 
             // ── build report rows ──────────────────────────────────────────────
@@ -8340,19 +8349,25 @@
                             <div style={s.card}>
                                 <p style={{fontSize:13,fontWeight:700,color:textP,marginBottom:14,display:'flex',alignItems:'center',gap:'6px'}}><Icon name='clipboard-list' size={14} color={textP} />Report Type</p>
                                 <div style={{display:'flex',flexDirection:'column',gap:12,maxHeight:480,overflowY:'auto',paddingRight:4}}>
-                                    {REPORT_GROUPS.map(g=>(
+                                    {REPORT_GROUPS.map(g=>{
+                                        const gc = REPORT_GROUP_COLOR[g.group] || REPORT_GROUP_COLOR['General'];
+                                        return (
                                         <div key={g.group}>
-                                            <p style={{fontSize:10,fontWeight:700,color:dm?'#4a607f':'#94A3B8',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:6}}>{g.group}</p>
+                                            <p style={{fontSize:10,fontWeight:700,color:gc.accent,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:6}}>{g.group}</p>
                                             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:5}}>
-                                                {g.types.map(r=>(
-                                                    <button key={r.id} onClick={()=>setReportType(r.id)} style={{padding:'8px 10px',borderRadius:8,border:`2px solid ${reportType===r.id?'#6D2773':'#E5E7EB'}`,background:reportType===r.id?'#F6ECF4':'white',cursor:'pointer',textAlign:'left',transition:'all 0.12s'}}>
-                                                        <Icon name={r.icon} size={13} />
-                                                        <span style={{display:'block',fontSize:11,fontWeight:700,color:reportType===r.id?'#6D2773':(dm?'#f0f4ff':'#0F172A'),marginTop:2,lineHeight:1.3}}>{r.label}</span>
+                                                {g.types.map(r=>{
+                                                    const sel = reportType===r.id;
+                                                    return (
+                                                    <button key={r.id} onClick={()=>setReportType(r.id)} style={{padding:'8px 10px',borderRadius:8,border:`2px solid ${sel?gc.accent:gc.border}`,background:sel?gc.accent:(dm?'rgba(255,255,255,0.03)':'white'),cursor:'pointer',textAlign:'left',transition:'all 0.12s'}}>
+                                                        <Icon name={r.icon} size={13} color={sel?'#fff':gc.accent} />
+                                                        <span style={{display:'block',fontSize:11,fontWeight:700,color:sel?'#fff':gc.text,marginTop:2,lineHeight:1.3}}>{r.label}</span>
                                                     </button>
-                                                ))}
+                                                    );
+                                                })}
                                             </div>
                                         </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             </div>
 
