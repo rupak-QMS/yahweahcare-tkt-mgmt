@@ -6173,9 +6173,15 @@
             const meta   = ORG_TYPE_META[type] || ORG_TYPE_META.ops;
             const accent = dm ? meta.dark : meta.light;
             const w = deptLabel ? 190 : 168;
+            // dept_label is free-text data (set via Manage Positions). When it's an
+            // "icon + words" combo (e.g. "🏢 Operations Department") the first token
+            // is the icon and the rest is the label. When it's a single word (e.g.
+            // "Director") there's no icon — show it as plain text instead of letting
+            // the whole word get treated as an icon and rendered inside the tiny
+            // 26px icon circle (which produced a stray highlighted-circle artifact).
             const dlParts = deptLabel ? deptLabel.split(' ') : [];
-            const dlIcon  = dlParts[0] || '';
-            const dlText  = dlParts.slice(1).join(' ').toUpperCase();
+            const dlIcon  = dlParts.length > 1 ? dlParts[0] : '';
+            const dlText  = (dlParts.length > 1 ? dlParts.slice(1).join(' ') : (deptLabel || '')).toUpperCase();
             const initials = orgInitials(name);
             return (
                 <div style={{ display:'flex', flexDirection:'column', alignItems:'center', opacity: dimmed ? 0.32 : 1, transition:'opacity 0.2s ease' }}>
@@ -6202,7 +6208,9 @@
                     >
                         {deptLabel && (
                             <div style={{ background:accent, borderRadius:'14.5px 14.5px 0 0', padding:'10px 8px 8px', display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
-                                <div style={{ width:26, height:26, borderRadius:'50%', background:'rgba(255,255,255,0.25)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14 }}>{dlIcon}</div>
+                                {dlIcon && (
+                                    <div style={{ width:26, height:26, borderRadius:'50%', background:'rgba(255,255,255,0.25)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14 }}>{dlIcon}</div>
+                                )}
                                 <p style={{ fontSize:9, fontWeight:800, color:'white', textTransform:'uppercase', letterSpacing:'0.07em', margin:0, lineHeight:1.3 }}>{dlText}</p>
                             </div>
                         )}
@@ -6314,7 +6322,7 @@
                             </div>
                         </div>
                         <div style={{ padding:'18px 22px 22px' }}>
-                            {deptLabel && <p style={{ fontSize:11, fontWeight:700, color:dm?'#C77DB8':'#6D2773', textTransform:'uppercase', letterSpacing:'0.06em', margin:'0 0 14px' }}>{deptLabel.replace(/^\S+\s*/, '')}</p>}
+                            {deptLabel && <p style={{ fontSize:11, fontWeight:700, color:dm?'#C77DB8':'#6D2773', textTransform:'uppercase', letterSpacing:'0.06em', margin:'0 0 14px' }}>{deptLabel.replace(/^\S+\s+/, '')}</p>}
                             <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:16 }}>
                                 <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                                     <Icon name='shield' size={13} color={dm?'#7d93bd':'#94A3B8'} />
