@@ -67,11 +67,6 @@ YCTMBackend/
 │       ├── seed.ts                    ← idempotent seeder
 │       ├── init.ts                    ← apply schema.sql
 │       └── pool.ts                    ← pg pool with search_path
-├── frontend-example/                  ← Next.js integration samples
-│   ├── AuthContext.tsx
-│   ├── LoginPage.tsx
-│   ├── ProtectedRoute.tsx
-│   └── middleware.ts
 ├── Dockerfile
 ├── docker-compose.yml
 ├── tsconfig.json
@@ -348,7 +343,11 @@ The Next.js middleware sets `Cache-Control: no-store` on every protected page, s
 
 ## 9. Frontend Integration (Next.js)
 
-See [`frontend-example/`](./frontend-example/).
+Note: the actual production frontend for this project (`YCTMFrontend/`) is a
+single-file React SPA, not Next.js — the snippets below are generic reference
+patterns for integrating this auth API with a Next.js app, kept for anyone
+building a different frontend against this backend. They don't reflect how
+`YCTMFrontend/` itself is wired up.
 
 ```tsx
 // app/layout.tsx
