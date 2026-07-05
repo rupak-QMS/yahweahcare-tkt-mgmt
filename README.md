@@ -1,64 +1,57 @@
 # Yahweahcare Ticket Management System
 
-Internal ticket management web app for Yahweahcare — a complete service desk system with categories, priorities, SLA tracking, dashboards, and a real database.
+Internal ticket management web app for Yahweh Property Care (NDIS/disability
+support provider) — categories, priorities, SLA tracking, staff/org-chart
+management, dashboards, scheduled reports, and email/push notifications.
 
-## ⚡ Quick start — see the app NOW (30 seconds)
+## Architecture
 
-Open **Finder** → **Downloads** → **Yahweahcare** → **frontend** → **double-click `index.html`**.
+Two independent apps, deployed as **two separate Vercel projects** from this
+same repo, both auto-deploying on every push to `main` (no separate deploy
+step — `git push` is the deploy):
 
-That's it. The web app opens in your browser. Click any user to log in. Data is saved in your browser.
+| Piece | What it is | Where it lives | Deployed URL |
+|---|---|---|---|
+| Frontend | Single-file React app (Babel + Terser build, no framework/bundler) | `YCTMFrontend/` | `https://yahweahcare-tkt-mgmt.vercel.app` |
+| Backend | Express + TypeScript API, runs as Vercel serverless functions | `YCTMBackend/` | `https://yahweahcare-tkt-mgmt-hx48.vercel.app` |
+| Database | Neon (serverless Postgres) | schema `yc_tkt_mgmt` | project "neon-byzantium-park" |
 
-## 🚀 Full setup with PostgreSQL database (10 minutes)
+There is also a legacy `api/` folder (an older Express backend that used to
+run on Azure App Service). It's dead code — the frontend only talks to the
+`YCTMBackend` Vercel API — but it's kept in the repo intentionally, along with
+its two associated (currently disabled) GitHub Actions workflows.
+
+See **[DEVELOPER_HANDOVER.md](./DEVELOPER_HANDOVER.md)** for the full
+architecture, deploy workflow, environment/config, data model notes, and
+version history — treat it as the source of truth for anything not covered
+here.
+
+## Local development
 
 ```bash
 cd ~/Downloads/Yahweahcare
-chmod +x start.sh
-./start.sh
+chmod +x dev.sh
+./dev.sh
 ```
 
-The script installs PostgreSQL (via Homebrew), creates the database, sets up everything, and opens the web app. See **SETUP_GUIDE.md** for the beginner-friendly version of every step.
-
-## What's included
-
-| Path | What it does |
-|---|---|
-| `frontend/index.html` | Single-file React web app — open directly in browser |
-| `backend/server.js` | Node.js + Express REST API with JWT authentication |
-| `backend/schema.sql` | PostgreSQL schema (9 tables, 1 view) |
-| `backend/init-db.js` | Creates tables and lookup data |
-| `backend/seed.js` | Inserts 7 demo users and 12 realistic tickets |
-| `start.sh` | One-shot installer/setup script |
-| `SETUP_GUIDE.md` | Step-by-step beginner instructions |
+Starts the frontend (`http://localhost:4000`) and backend
+(`http://localhost:4002`) together. First run installs `YCTMBackend`
+dependencies automatically. Requires a `.env.local` in `YCTMBackend/` with a
+valid `DATABASE_URL` (Neon) and the other secrets listed in
+`YCTMBackend/.env.example`.
 
 ## Tech stack
 
-- **Frontend:** React 18, Tailwind CSS, Recharts (charts)
-- **Backend:** Node.js, Express, JWT auth, bcrypt
-- **Database:** PostgreSQL 16
-- **All running locally on your Mac**
+- **Frontend:** React 18 (CDN-loaded UMD build), single JSX source file
+  compiled via a custom Babel + Terser build script
+- **Backend:** Node.js 20+, Express 4, TypeScript 5, Microsoft Entra ID SSO
+  (`@azure/msal-node`), JWT auth
+- **Database:** Neon serverless Postgres
+- **Hosting:** Vercel (both frontend and backend, auto-deploy on push)
 
-## Demo login
+## Docs
 
-All seeded users share password `Yahweycare2026!`.
-
-Most useful demo accounts:
-- `ron@wmxsolutions.com.au` (Manager)
-- `aisha.p@yahweycare.com.au` (IT Agent)
-- `jack.w@yahweycare.com.au` (Staff)
-
-## Features
-
-- Ticket CRUD with categories (IT, HR, Facilities, Care, Clinical, Finance, General)
-- Priority levels with automatic SLA deadlines (Critical 2h, High 8h, Medium 24h, Low 72h)
-- Status workflow (New → Assigned → In Progress → Waiting → Resolved → Closed)
-- Comments thread on each ticket
-- Full activity audit log
-- Manager dashboard with charts (open by priority, by category, agent workload)
-- SLA breach detection with visual indicators
-- Notifications queue (ready for MS Graph / Teams webhook integration)
-- Role-based access (staff see their own, agents see all, managers get reports)
-- CSV report export
-
-## Need help?
-
-See **SETUP_GUIDE.md** for step-by-step instructions and a troubleshooting section.
+- `docs/` — implementation notes, deployment guides, and design docs written
+  during development. Some describe options that were evaluated and not used
+  (e.g. Azure hosting) — `DEVELOPER_HANDOVER.md` reflects the current
+  production setup.
