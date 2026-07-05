@@ -8407,10 +8407,10 @@
                                         <input type="text" value={emailSubject} onChange={e=>setEmailSubject(e.target.value)} placeholder={`${REPORT_TYPES.find(r=>r.id===reportType)?.label} — ${new Date().toLocaleDateString('en-AU')}`} style={s.inp}/>
                                     </div>
                                     <div style={{display:'flex',gap:8}}>
-                                        <button onClick={handleSendEmail} disabled={sending||!emailTo.trim()} style={{...s.btnPri,flex:1,opacity:(sending||!emailTo.trim())?0.6:1}}>
+                                        <button onClick={handleSendEmail} disabled={sending||!emailTo.trim()} style={{...s.btnPri,background:'#5B892E',flex:1,opacity:(sending||!emailTo.trim())?0.6:1}}>
                                             <Icon name='send' size={14} color='#fff' />{sending?'Sending…':'Send Report'}
                                         </button>
-                                        <button onClick={handleExportAndSend} disabled={exporting||sending||!emailTo.trim()} style={{...s.btnPri,flex:1,opacity:(exporting||sending||!emailTo.trim())?0.6:1}}>
+                                        <button onClick={handleExportAndSend} disabled={exporting||sending||!emailTo.trim()} style={{...s.btnPri,background:'#5B892E',flex:1,opacity:(exporting||sending||!emailTo.trim())?0.6:1}}>
                                             <Icon name='zap' size={14} color='#fff' />Export & Send
                                         </button>
                                     </div>
