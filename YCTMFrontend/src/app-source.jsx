@@ -6162,7 +6162,7 @@
         const ORG_TYPE_META = {
             director:  { light:'#6D2773', dark:'#A073A4', label:'Director Level' },
             ops:       { light:'#0A6ABD', dark:'#609ED4', label:'Operations (Managers / Officers)' },
-            finance:   { light:'#82C342', dark:'#AED884', label:'Finance (Managers / Officers)' },
+            finance:   { light:'#5B892E', dark:'#94B277', label:'Finance (Managers / Officers)' },
             strategic: { light:'#874E8C', dark:'#B18CB4', label:'Strategic Development (Managers / Officers)' },
             staff:     { light:'#3685C9', dark:'#7CB0DC', label:'Team / Staff' },
             external:  { light:'#99CE64', dark:'#BDDF9A', label:'Consultant / External' },
@@ -6883,7 +6883,7 @@
                     : [...f.position_ids, id]
             }));
 
-            const posTypeColor = { director:'#6D2773', ops:'#0A6ABD', finance:'#82C342', strategic:'#874E8C', staff:'#3685C9', external:'#99CE64' };
+            const posTypeColor = { director:'#6D2773', ops:'#0A6ABD', finance:'#5B892E', strategic:'#874E8C', staff:'#3685C9', external:'#99CE64' };
 
             const Avatar = ({name, size=36}) => {
                 const ini=(name||'').split(' ').slice(0,2).map(w=>w[0]?.toUpperCase()||'').join('');
