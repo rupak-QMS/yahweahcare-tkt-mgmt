@@ -409,7 +409,7 @@
             const r  = (user.role || '').toLowerCase();
             if (pt === 'director' || r === 'director')
                 return { label:'Director', desc:'Organisational Leadership — part of org hierarchy',
-                         bg:'#EBF2ED', color:'#3E6249', border:'#D7E5DA', dot:'#5F8F6E' };
+                         bg:'#F0E9F1', color:'#521D56', border:'#DBC9DC', dot:'#6D2773' };
             if (r === 'hr')
                 return { label:'HR Manager', desc:'Human Resources Department',
                          bg:'#EFEBF2', color:'#5A4870', border:'#DBD2E3', dot:'#8B7BA8' };
@@ -6154,13 +6154,18 @@
             return (node.children || []).reduce((sum, c) => sum + 1 + orgCountDescendants(c), 0);
         }
 
+        // Brand-themed palette: director/ops/finance map directly to Yahwehcare's
+        // three official brand colors (purple #6D2773, blue #0A6ABD, green #82C342);
+        // strategic/staff/external reuse lighter tints of those same three hues so
+        // every org-chart category still reads as "on brand" rather than introducing
+        // unrelated colors.
         const ORG_TYPE_META = {
-            director:  { light:'#5F8F6E', dark:'#8FBBA0', label:'Director Level' },
-            ops:       { light:'#B0655B', dark:'#D0958C', label:'Operations (Managers / Officers)' },
-            finance:   { light:'#A0824F', dark:'#C9AD85', label:'Finance (Managers / Officers)' },
-            strategic: { light:'#8B7BA8', dark:'#B3A3CC', label:'Strategic Development (Managers / Officers)' },
-            staff:     { light:'#5B7C99', dark:'#93AFC7', label:'Team / Staff' },
-            external:  { light:'#8B8F94', dark:'#8B8F94', label:'Consultant / External' },
+            director:  { light:'#6D2773', dark:'#A073A4', label:'Director Level' },
+            ops:       { light:'#0A6ABD', dark:'#609ED4', label:'Operations (Managers / Officers)' },
+            finance:   { light:'#82C342', dark:'#AED884', label:'Finance (Managers / Officers)' },
+            strategic: { light:'#874E8C', dark:'#B18CB4', label:'Strategic Development (Managers / Officers)' },
+            staff:     { light:'#3685C9', dark:'#7CB0DC', label:'Team / Staff' },
+            external:  { light:'#99CE64', dark:'#BDDF9A', label:'Consultant / External' },
         };
 
         function OrgCard({ name, title, email, type, vacant, deptLabel, extra, onClick, highlighted, dimmed, hasChildren, collapsed, onToggleCollapse, hiddenCount }) {
@@ -6863,7 +6868,7 @@
                     : [...f.position_ids, id]
             }));
 
-            const posTypeColor = { director:'#5F8F6E', ops:'#B0655B', finance:'#A0824F', strategic:'#8B7BA8', staff:'#5B7C99', external:'#8B8F94' };
+            const posTypeColor = { director:'#6D2773', ops:'#0A6ABD', finance:'#82C342', strategic:'#874E8C', staff:'#3685C9', external:'#99CE64' };
 
             const Avatar = ({name, size=36}) => {
                 const ini=(name||'').split(' ').slice(0,2).map(w=>w[0]?.toUpperCase()||'').join('');
@@ -6961,9 +6966,9 @@
                                                                     </span>
                                                                 )}
                                                                 {!m.is_bootstrap_admin && (m.positions||[]).some(p=>(p.type||p.position_type||'').toLowerCase()==='director') && (
-                                                                    <span title="Organisational Leadership — part of org hierarchy" style={{display:'inline-flex',alignItems:'stretch',borderRadius:'6px',overflow:'hidden',fontSize:'9px',fontWeight:'600',border:`1px solid ${dm?'rgba(95,143,110,0.35)':'#D7E5DA'}`}}>
-                                                                        <span style={{background:'#5F8F6E',color:'#fff',padding:'2px 5px',display:'flex',alignItems:'center'}}><Icon name='building-2' size={9} color='#fff' /></span>
-                                                                        <span style={{background:dm?'rgba(95,143,110,0.16)':'#EBF2ED',color:dm?'#a8cbb2':'#3E6249',padding:'2px 7px'}}>Director</span>
+                                                                    <span title="Organisational Leadership — part of org hierarchy" style={{display:'inline-flex',alignItems:'stretch',borderRadius:'6px',overflow:'hidden',fontSize:'9px',fontWeight:'600',border:`1px solid ${dm?'rgba(109,39,115,0.35)':'#DBC9DC'}`}}>
+                                                                        <span style={{background:'#6D2773',color:'#fff',padding:'2px 5px',display:'flex',alignItems:'center'}}><Icon name='building-2' size={9} color='#fff' /></span>
+                                                                        <span style={{background:dm?'rgba(109,39,115,0.16)':'#F0E9F1',color:dm?'#A073A4':'#521D56',padding:'2px 7px'}}>Director</span>
                                                                     </span>
                                                                 )}
                                                             </div>
