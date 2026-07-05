@@ -404,7 +404,7 @@
             if (!user) return null;
             if (user.isBootstrapAdmin)
                 return { label:'Bootstrap Admin', desc:'System Administration — not part of org hierarchy',
-                         bg:'#F5EFE3', color:'#6B5636', border:'#E4D9C4', dot:'#A0824F' };
+                         bg:'#F6F0E8', color:'#7B5A29', border:'#EDE1CF', dot:'#B8863D' };
             const pt = (user.positionType || '').toLowerCase();
             const r  = (user.role || '').toLowerCase();
             if (pt === 'director' || r === 'director')
@@ -6872,7 +6872,7 @@
 
             const Avatar = ({name, size=36}) => {
                 const ini=(name||'').split(' ').slice(0,2).map(w=>w[0]?.toUpperCase()||'').join('');
-                const colors=['#5B7C99','#8A7256','#6B8E7F','#9C7B8B','#7D8CA3','#A0896F'];
+                const colors=['#6D2773','#0A6ABD','#82C342','#874E8C','#3685C9','#99CE64'];
                 const bg=colors[(name||'').charCodeAt(0)%colors.length];
                 return <div style={{width:size,height:size,borderRadius:'50%',background:bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:size*0.36,fontWeight:600,letterSpacing:'0.02em',color:'white',flexShrink:0}}>{ini}</div>;
             };
@@ -6960,9 +6960,9 @@
                                                             <div style={{fontSize:'13px',fontWeight:'700',color:textP,display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}>
                                                                 {m.name}
                                                                 {m.is_bootstrap_admin && (
-                                                                    <span title="System Administration — not part of org hierarchy" style={{display:'inline-flex',alignItems:'stretch',borderRadius:'6px',overflow:'hidden',fontSize:'9px',fontWeight:'600',border:`1px solid ${dm?'rgba(160,130,79,0.35)':'#E4D9C4'}`}}>
-                                                                        <span style={{background:'#A0824F',color:'#fff',padding:'2px 5px',display:'flex',alignItems:'center'}}><Icon name='star' size={9} color='#fff' /></span>
-                                                                        <span style={{background:dm?'rgba(160,130,79,0.16)':'#F5EFE3',color:dm?'#d4c19c':'#6B5636',padding:'2px 7px'}}>Bootstrap Admin</span>
+                                                                    <span title="System Administration — not part of org hierarchy" style={{display:'inline-flex',alignItems:'stretch',borderRadius:'6px',overflow:'hidden',fontSize:'9px',fontWeight:'600',border:`1px solid ${dm?'rgba(184,134,61,0.35)':'#EDE1CF'}`}}>
+                                                                        <span style={{background:'#B8863D',color:'#fff',padding:'2px 5px',display:'flex',alignItems:'center'}}><Icon name='star' size={9} color='#fff' /></span>
+                                                                        <span style={{background:dm?'rgba(184,134,61,0.16)':'#F6F0E8',color:dm?'#E0C08F':'#7B5A29',padding:'2px 7px'}}>Bootstrap Admin</span>
                                                                     </span>
                                                                 )}
                                                                 {!m.is_bootstrap_admin && (m.positions||[]).some(p=>(p.type||p.position_type||'').toLowerCase()==='director') && (
@@ -8570,9 +8570,9 @@
                                         <p style={{fontSize:16,fontWeight:700,color:txt,margin:0}}>{profile.name}</p>
                                         <p style={{fontSize:12,color:muted,margin:'2px 0 0'}}>{profile.email}</p>
                                         {profile.is_bootstrap_admin && (
-                                            <span style={{display:'inline-flex',alignItems:'stretch',borderRadius:6,overflow:'hidden',fontSize:'9px',fontWeight:700,marginTop:5,border:`1px solid ${dm?'rgba(160,130,79,0.35)':'#E4D9C4'}`}}>
-                                                <span style={{background:'#A0824F',color:'#fff',padding:'2px 5px',display:'flex',alignItems:'center'}}><Icon name='star' size={9} color='#fff' /></span>
-                                                <span style={{background:dm?'rgba(160,130,79,0.16)':'#F5EFE3',color:dm?'#d4c19c':'#6B5636',padding:'2px 7px'}}>Bootstrap Admin</span>
+                                            <span style={{display:'inline-flex',alignItems:'stretch',borderRadius:6,overflow:'hidden',fontSize:'9px',fontWeight:700,marginTop:5,border:`1px solid ${dm?'rgba(184,134,61,0.35)':'#EDE1CF'}`}}>
+                                                <span style={{background:'#B8863D',color:'#fff',padding:'2px 5px',display:'flex',alignItems:'center'}}><Icon name='star' size={9} color='#fff' /></span>
+                                                <span style={{background:dm?'rgba(184,134,61,0.16)':'#F6F0E8',color:dm?'#E0C08F':'#7B5A29',padding:'2px 7px'}}>Bootstrap Admin</span>
                                             </span>
                                         )}
                                     </div>
