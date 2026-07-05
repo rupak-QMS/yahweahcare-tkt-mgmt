@@ -7016,17 +7016,17 @@
                                                 </td>
                                                 <td style={{padding:'12px 14px',fontSize:'12px',color:dm?'#c0cfec':'#334155'}}>{m.department_name||'—'}</td>
                                                 <td style={{padding:'12px 14px'}}>
-                                                    <span style={{display:'inline-flex',alignItems:'stretch',borderRadius:'6px',overflow:'hidden',fontSize:'11px',fontWeight:'600',whiteSpace:'nowrap',border:`1px solid ${dm?'rgba(91,124,153,0.35)':'#D8E1E8'}`}}>
-                                                        <span style={{background:'#5B7C99',color:'#fff',padding:'3px 7px',display:'flex',alignItems:'center'}}><Icon name='briefcase' size={11} color='#fff' /></span>
-                                                        <span style={{background:dm?'rgba(91,124,153,0.16)':'#EDF1F4',color:dm?'#a9c0d4':'#3E5A70',padding:'3px 9px'}}>{EMP_TYPES[m.employment_type]||m.employment_type||'—'}</span>
+                                                    <span style={{display:'inline-flex',alignItems:'stretch',borderRadius:'6px',overflow:'hidden',fontSize:'11px',fontWeight:'600',whiteSpace:'nowrap',border:`1px solid ${dm?'rgba(10,106,189,0.35)':'#C2DAEF'}`}}>
+                                                        <span style={{background:'#0A6ABD',color:'#fff',padding:'3px 7px',display:'flex',alignItems:'center'}}><Icon name='briefcase' size={11} color='#fff' /></span>
+                                                        <span style={{background:dm?'rgba(10,106,189,0.16)':'#E2EDF7',color:dm?'#9CC3E8':'#07477F',padding:'3px 9px'}}>{EMP_TYPES[m.employment_type]||m.employment_type||'—'}</span>
                                                     </span>
                                                 </td>
                                                 <td style={{padding:'12px 14px'}}>
                                                     {(() => {
                                                         const isAzure = m.auth_provider==='azure_ad';
-                                                        const pc = isAzure ? '#5B7C99' : '#6B8E7F';
-                                                        const tint = isAzure ? (dm?'rgba(91,124,153,0.16)':'#EDF1F4') : (dm?'rgba(107,142,127,0.16)':'#EEF2EF');
-                                                        const txt = isAzure ? (dm?'#a9c0d4':'#3E5A70') : (dm?'#a9c7b3':'#3F5F49');
+                                                        const pc = isAzure ? '#0A6ABD' : '#5B892E';
+                                                        const tint = isAzure ? (dm?'rgba(10,106,189,0.16)':'#E2EDF7') : (dm?'rgba(91,137,46,0.16)':'#EBF1E6');
+                                                        const txt = isAzure ? (dm?'#9CC3E8':'#07477F') : (dm?'#9DB882':'#3D5C1F');
                                                         return (
                                                             <span style={{display:'inline-flex',alignItems:'stretch',borderRadius:'6px',overflow:'hidden',fontSize:'11px',fontWeight:'600',whiteSpace:'nowrap',border:`1px solid ${pc}35`}}>
                                                                 <span style={{background:pc,color:'#fff',padding:'3px 7px',display:'flex',alignItems:'center'}}>
