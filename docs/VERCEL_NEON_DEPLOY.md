@@ -12,7 +12,7 @@ End-to-end deployment guide. Total time: ~45 minutes. Total cost: **$0–$20/mo*
      ▼
    ┌──────────────────────────────────┐
    │  Vercel (frontend project)       │   yahwehcare-hrms-web.vercel.app
-   │  Static file: frontend/index.html│   (or your custom domain)
+   │  Static file: YCTMFrontend/index.html│   (or your custom domain)
    └────────────┬─────────────────────┘
                 │ fetch with credentials
                 ▼
@@ -178,7 +178,7 @@ curl https://<your-backend-vercel-url>/health
 
 6. **Tell the frontend where the backend lives** — add a `<meta>` tag to `index.html`:
 
-   Edit `frontend/index.html` and insert this line right after `<title>...</title>`:
+   Edit `YCTMFrontend/index.html` and insert this line right after `<title>...</title>`:
    ```html
    <meta name="hrms-api" content="https://yahwehcare-hrms-api-xyz.vercel.app" />
    ```
@@ -338,6 +338,6 @@ Add `CRON_SECRET` to your Vercel env vars (random 32-char string). Vercel inject
 | `YCTMBackend/src/db/pool.ts` | Auto-selects Neon vs pg driver |
 | `YCTMBackend/src/db/schema.sql` | Run once in Neon SQL editor |
 | `YCTMBackend/src/db/seed.ts` | Run locally with `DATABASE_URL` set |
-| `frontend/vercel.json` | Static-site routing + headers |
-| `frontend/index.html` | Add `<meta name="hrms-api" ...>` after deploy |
+| `YCTMFrontend/vercel.json` | Static-site routing + headers |
+| `YCTMFrontend/index.html` | Add `<meta name="hrms-api" ...>` after deploy |
 | `VERCEL_NEON_DEPLOY.md` | This guide |

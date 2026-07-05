@@ -168,10 +168,21 @@ deleted, but don't expect them to do anything useful; the live workflows are
   - `ticket_approval_history` / `ticket_escalations` also reference
     ticket_ids (e.g. 97, 191, 200–208) that don't exist in the current
     `tickets` table (only ids 4–20-ish exist as of this writing).
-- A full schema+data backup (excluding `sessions` and `audit_logs` row data)
-  was captured on 2026-07-04 — see `SQL_BKP/yahwehcare_backup_2026-07-04.sql`
-  and its `README.txt` in the repo root if you need a point-in-time
-  reference for the live schema.
+- Full schema+data backups (excluding `sessions` and `audit_logs` row data)
+  live **outside this repo**, under `Application_Backup/Yahwehcare/` on the
+  project owner's machine (timestamped folders, each with a `Codebase_Backup/`
+  and `Database_Backup/*.sql` + `README.txt`) — not tracked in git, ask the
+  project owner if you need a point-in-time reference for the live schema.
+- **`YCTMBackend/src/db/POST_RESET_RECOVERY.sql`** consolidates four
+  historically-scattered manual patch files (`approval_workflow_migration.sql`,
+  `escalation_migration.sql`, `008_fix_column_names.sql`,
+  `seed_lookup_tables.sql`) plus correct lookup-table seed data, into one
+  idempotent script. It exists because none of those four files were ever
+  referenced by any code, script, or CI step — they were applied by hand,
+  historically, directly against Neon. **If the schema is ever reset again
+  (or you're standing up a fresh environment), run this one file** instead of
+  re-discovering which of the scattered `.sql` files under `src/db/` still
+  matter.
 
 ## 6. Ticket approval workflow (data model)
 
@@ -419,4 +430,98 @@ brand-color rebrand to match the real `yahwehcare.com.au` marketing site.
   shades, not just the one base hex per color), replace the derived
   purple ramp above with the real values.
 
-_Next entry goes here — Version 3._
+### Version 3 — 2026-07-05 / 2026-07-06
+
+Two follow-up sessions. Covered a full org-chart/staff-management brand-color
+rollout (extending the Version 2 rebrand), a real rendering bug fix, two full
+backups, and a repo-wide production-readiness cleanup.
+
+**Brand-color rollout to Org Chart / Staff Management / Scheduled Reports**
+(`YCTMFrontend/src/app-source.jsx`):
+- Full palette finalized: purple `#6D2773`, blue `#0A6ABD`, green `#5B892E`
+  (deepened from an initial `#82C342`/`#AED884` after feedback), plus derived
+  tints — applied consistently across `ORG_TYPE_META` (~line 6157),
+  `posTypeColor`, the `Avatar` color rotation (`['#6D2773','#0A6ABD',
+  '#689C35','#874E8C','#3685C9','#4E7528']`), the Bootstrap Admin / Director
+  duotone badges (both moved to purple, matching each other — `getRoleBadgeInfo()`
+  and the two hardcoded copies in `StaffManagementPage`/`SettingsPage` were all
+  updated in lockstep, since they're not shared code), the Employment/Local-login
+  badges (blue/green), and a new `REPORT_GROUP_COLOR` map for the Scheduled
+  Reports report-type picker (~line 7969).
+- **If you add a new duotone badge or org-type color anywhere, there is no
+  single shared palette constant** — `ORG_TYPE_META`, `posTypeColor`, the
+  `Avatar` color arrays (two independent copies, see §3 note on `Avatar`),
+  `getRoleBadgeInfo()`, and `REPORT_GROUP_COLOR` are all separate hand-maintained
+  objects that happen to use the same hex values. Keep them in sync manually.
+
+**Bug fix — org chart card header artifact**: `OrgCard`'s header used to
+extract an "icon" from the first word of `dept_label` and render it inside a
+26px circle; this produced a visibly broken stray highlighted circle for
+single-word labels and, less obviously, for some multi-word labels too (the
+whole first word would overflow a 26px circle). Fixed by removing the
+icon-circle concept entirely — `dept_label` is now rendered as a title (first
+word) + optional uppercase subtitle (remaining words), no circular container.
+The analogous bug in `OrgDetailModal` (an empty-but-still-rendered caption
+`<p>` for single-word labels, since `{deptLabel && <p>}` only checks the
+original string's truthiness, not the derived caption's) was fixed the same
+way — compute the caption explicitly and gate rendering on that instead.
+
+**Repo cleanup / production-readiness pass** (this was a broad "remove
+everything not required" audit, not a scoped fix):
+- Removed `YCTMBackend/frontend-example/` — unused Next.js integration
+  boilerplate, confirmed via `tsconfig.json` (not in `include`) and
+  `.vercelignore` (explicitly excluded) to be dead reference material, never
+  compiled or deployed.
+- Removed nine stale root-level files: `seed-tickets.js` and
+  `scripts/seed_demo.js` (**both had a hardcoded live Neon DB password in
+  plain text** — removed from the tree, but the password is still visible in
+  git history; rotate it if this repo's history is ever exposed), `start.sh`
+  and `push-to-github.command` (referenced an old `backend/`/`frontend/`
+  folder layout that no longer exists — superseded by `dev.sh`), `demo_seed.sql`
+  (stale one-off seed data), root `package.json`/`package-lock.json` (only
+  existed to support the removed seed scripts), a stray screenshot, and
+  `Yahweahcare_TMS_Application_Overview.docx`.
+- Pruned `docs/` from 17 files down to 3 (`APPROVAL_WORKFLOW.md`,
+  `DUPLICATE_MERGE_FEATURE.md`, `VERCEL_NEON_DEPLOY.md`) — removed docs
+  describing abandoned approaches (Azure hosting, a hosting-options
+  comparison that was never acted on, the local-Postgres→Neon migration
+  guide for a migration completed long ago, old setup guides referencing the
+  pre-rename `backend/`/`frontend/` structure), completed one-off logs (a May
+  bugfix writeup, a May user/ticket audit snapshot), superseded planning
+  checklists (`BACKEND_FRONTEND_IMPLEMENTATION.md`, `CRITICAL_PATH_INTEGRATION.md`,
+  `ENTERPRISE_IMPLEMENTATION_PLAN.md`, `IMPLEMENTATION_COMPLETE.md`), and
+  `DATABASE_SCHEMA_SUMMARY.md` (described a UUID-keyed schema design that was
+  never actually what got built — the live schema uses integer IDs, see §5 —
+  so this doc was actively misleading, not just stale). Fixed two stale
+  `frontend/` path references in the kept `VERCEL_NEON_DEPLOY.md` to
+  `YCTMFrontend/`.
+- Removed three untracked, mounted-folder-only files that had never been
+  committed: `FOLDER_RENAME_2026-07-04.md` (a note-to-self about the
+  `web/`→`YCTMFrontend`, `backend-hrms/`→`YCTMBackend` rename waiting on a
+  Vercel dashboard change — the rename is long since live on `main`, so this
+  was stale), `Yahweahcare_E2E_Verification_Report.md` (a one-off incident
+  report; its one durable finding — the existence and purpose of
+  `POST_RESET_RECOVERY.sql` — was folded into §5 instead of losing it), and
+  a redundant local `SQL_BKP/` folder (superseded by the proper timestamped
+  backups under `Application_Backup/`, see §5).
+- Rewrote root `README.md` — it previously described the original prototype
+  (`frontend/`/`backend/` folders, a `start.sh` installer) which no longer
+  exists; it now describes the real `YCTMFrontend`/`YCTMBackend`/`api`
+  architecture and points to this handover doc as the source of truth.
+- **Deliberately left untouched** (per explicit scope decision, not
+  oversight): the legacy `api/` folder and both its GitHub Actions workflows
+  (`deploy-frontend.yml`, `deploy-backend.yml`) — see §2/§8; all six
+  `.github/workflows/*.yml` files; folder names/locations of `YCTMFrontend`,
+  `YCTMBackend`, and `api` (renaming any of these requires updating each
+  Vercel project's Root Directory setting in the dashboard first, which
+  can't be done from here — see the note this section replaces the deleted
+  `FOLDER_RENAME_2026-07-04.md` for).
+
+**Also noted, not yet acted on**: `git push` to this repo now returns a
+"This repository moved" notice — GitHub has redirected
+`hostsubho/yahweahcare-tkt-mgmt` to `rupak-QMS/yahweahcare-tkt-mgmt`. Pushes
+still succeed via the redirect, but the remote URL in any local clone should
+probably be updated to the new owner at some point; flagged to the project
+owner, not changed unilaterally.
+
+_Next entry goes here — Version 4._
