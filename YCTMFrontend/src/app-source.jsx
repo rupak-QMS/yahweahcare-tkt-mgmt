@@ -2043,7 +2043,8 @@
             const sessionUser = React.useMemo(() => getSessionUser(), []);
 
             const [formData, setFormData] = React.useState({
-                title_type: 'Service Request',
+                title_type: '',
+                title_type_other: '',
                 subtitle: '',
                 category_id: '',        // populated from lookups
                 subcategory: '',
@@ -2153,6 +2154,16 @@
                 setError('');
                 setSuccess(false);
                 try {
+                    if (!formData.title_type) {
+                        setError('Please select a Title Type');
+                        setLoading(false);
+                        return;
+                    }
+                    if (formData.title_type === 'Other' && !formData.title_type_other?.trim()) {
+                        setError('Please enter a Title Type');
+                        setLoading(false);
+                        return;
+                    }
                     if (!formData.subtitle?.trim()) {
                         setError('Subtitle is required');
                         setLoading(false);
@@ -2188,12 +2199,16 @@
                         setLoading(false);
                         return;
                     }
-                    await API.tickets.create({ ...formData, attachments });
+                    const submitData = { ...formData, attachments };
+                    if (submitData.title_type === 'Other') submitData.title_type = submitData.title_type_other.trim();
+                    delete submitData.title_type_other;
+                    await API.tickets.create(submitData);
                     setSuccess(true);
                     // Scroll the page back to the top so the success banner is visible
                     document.querySelector('main.flex-1.overflow-auto')?.scrollTo({ top: 0, behavior: 'smooth' });
                     setFormData({
-                        title_type: 'Service Request',
+                        title_type: '',
+                        title_type_other: '',
                         subtitle: '',
                         category_id: '',
                         subcategory: '',
@@ -2302,6 +2317,7 @@
                                             <div>
                                                 <label className={labelCls}>Title Type <span className="text-red-400">*</span></label>
                                                 <select name="title_type" value={formData.title_type} onChange={handleChange} className={inputCls}>
+                                                    <option value="">Select Title Type</option>
                                                     <option>Service Request</option>
                                                     <option>Complaint</option>
                                                     <option>Incident Report</option>
@@ -2316,6 +2332,12 @@
                                                 <label className={labelCls}>Subtitle <span className="text-red-400">*</span></label>
                                                 <input type="text" name="subtitle" value={formData.subtitle} onChange={handleChange} placeholder="Brief description" className={inputCls}/>
                                             </div>
+                                            {formData.title_type === 'Other' && (
+                                                <div style={{gridColumn:'1/-1'}}>
+                                                    <label className={labelCls}>Specify Title Type <span className="text-red-400">*</span></label>
+                                                    <input type="text" name="title_type_other" value={formData.title_type_other} onChange={handleChange} placeholder="Enter a title type" className={inputCls} autoFocus/>
+                                                </div>
+                                            )}
                                         </div>
                                         {/* Category visual picker */}
                                         <div className="mb-4">
