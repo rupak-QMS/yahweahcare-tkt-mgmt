@@ -5038,14 +5038,21 @@
                           .sort((a,b) => b.resolved - a.resolved);
 
                         // ── Team summary ──────────────────────────────────
-                        const totalTickets   = tickets.length;
-                        const totalResolved  = tickets.filter(isResolved).length;
-                        const totalAssigned  = tickets.filter(t => t.assigneeId).length;
-                        const totalEscalated = tickets.filter(t => t.isEscalated).length;
-                        const totalOverdue   = tickets.filter(t => !isResolved(t) && t.dueAt && new Date(t.dueAt) < now).length;
-                        const resolvedWithSla = tickets.filter(t => isResolved(t) && !t.slaBreached).length;
+                        // Derived from the same ticket set backing the per-staff table below
+                        // (tickets assigned to a currently-active, fetched staff member) so the
+                        // KPI row always reconciles with what the table actually shows. Tickets
+                        // assigned to an inactive/unfetched user are excluded from both.
+                        const includedIds = new Set(metrics.map(m => Number(m.id)));
+                        const scopedTickets = tickets.filter(t => t.assigneeId != null && includedIds.has(Number(t.assigneeId)));
+
+                        const totalTickets   = scopedTickets.length;
+                        const totalResolved  = scopedTickets.filter(isResolved).length;
+                        const totalAssigned  = totalTickets;
+                        const totalEscalated = scopedTickets.filter(t => t.isEscalated).length;
+                        const totalOverdue   = scopedTickets.filter(t => !isResolved(t) && t.dueAt && new Date(t.dueAt) < now).length;
+                        const resolvedWithSla = scopedTickets.filter(t => isResolved(t) && !t.slaBreached).length;
                         const teamSla = totalResolved > 0 ? Math.round((resolvedWithSla / totalResolved) * 100) : 0;
-                        const allDurs = tickets
+                        const allDurs = scopedTickets
                             .filter(t => isResolved(t) && t.resolvedAt && t.createdAt)
                             .map(t => (new Date(t.resolvedAt) - new Date(t.createdAt)) / 3600000);
                         const teamAvgHours = allDurs.length ? Math.round(allDurs.reduce((a,b)=>a+b,0)/allDurs.length) : null;
@@ -5156,7 +5163,7 @@
                     <div className="p-8 max-w-7xl mx-auto">
                         <div className="mb-7">
                             <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Staff Performance</h1>
-                            <p className="text-sm text-gray-400 mt-1">Live metrics computed from ticket data</p>
+                            <p className="text-sm text-gray-400 mt-1">Live metrics for tickets assigned to active staff</p>
                         </div>
 
                         {loading ? (
@@ -5406,10 +5413,14 @@
                             if (!depts[d]) depts[d] = { name: d, staff: [], tickets: [] };
                             depts[d].staff.push(u);
                         });
+                        // Tickets assigned to a director or a staff member without a
+                        // department can't be attributed to a real department, but they
+                        // still represent real work — bucket them under "Other" instead of
+                        // silently dropping them, so team totals aren't undercounted.
+                        const OTHER_BUCKET = 'Other (no dept / director)';
                         tickets.forEach(t => {
                             if (!t.assigneeId) return;
-                            const d = userDept[t.assigneeId];
-                            if (!d) return;
+                            const d = userDept[t.assigneeId] || OTHER_BUCKET;
                             if (!depts[d]) depts[d] = { name: d, staff: [], tickets: [] };
                             depts[d].tickets.push(t);
                         });
