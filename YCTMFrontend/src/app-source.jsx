@@ -142,6 +142,7 @@
             'compliance':       { icon:'shield',        color:'#833089', bg:'#F5F3FF', border:'#DDD6FE' },
             'finance':          { icon:'dollar-sign',   color:'#D97706', bg:'#FFFBEB', border:'#FDE68A' },
             'general enquiry':  { icon:'help-circle',   color:'#64748B', bg:'#F8FAFC', border:'#CBD5E1' },
+            'incident':         { icon:'alert-triangle', color:'#E11D48', bg:'#FFF1F2', border:'#FECDD3' },
             'payroll':          { icon:'briefcase',     color:'#10B981', bg:'#ECFDF5', border:'#A7F3D0' },
             'facilities':       { icon:'building',      color:'#64748B', bg:'#F8FAFC', border:'#CBD5E1' },
             'maintenance':      { icon:'tool',          color:'#64748B', bg:'#F8FAFC', border:'#CBD5E1' },
@@ -2159,6 +2160,7 @@
                     sparkles:       'Cleaning standards, hygiene, or facility presentation issues.',
                     tool:           'Equipment faults, maintenance, or asset requests.',
                     'clipboard-list':'NDIS compliance, participant plans, or regulatory requirements.',
+                    'alert-triangle':'Incidents, accidents, or unexpected events requiring formal reporting.',
                 };
                 return { ...v, label: cat.label, desc: DESC_MAP[v.icon] || '' };
             })();
