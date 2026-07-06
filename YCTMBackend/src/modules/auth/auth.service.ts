@@ -66,7 +66,7 @@ export async function provisionFromGraph(
             NULL::text               AS designation,
             u.azure_oid              AS microsoft_id,
             NULL::text               AS tenant_id,
-            NULL::text               AS profile_photo_url,
+            u.profile_photo_url,
             u.is_bootstrap_admin     AS bootstrap_admin,
             u.is_active              AS active
      FROM yc_tkt_mgmt.users u

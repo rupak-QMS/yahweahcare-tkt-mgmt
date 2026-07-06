@@ -191,6 +191,88 @@
             );
         }
 
+        // ── Shared: resize/compress an uploaded image file into a small square
+        // JPEG data URL (center-cropped). Used by the profile-photo upload UI
+        // on both the My Profile (Settings) page and the Staff Management edit
+        // modal. Keeping this client-side avoids needing any file-storage
+        // service — the resulting data URL (usually 15-40KB) is small enough
+        // to store directly in the users.profile_photo_url TEXT column.
+        function resizeImageToDataUrl(file, maxSize = 200, quality = 0.82) {
+            return new Promise((resolve, reject) => {
+                if (!file || !(file.type || '').startsWith('image/')) return reject(new Error('Please choose an image file.'));
+                if (file.size > 8 * 1024 * 1024) return reject(new Error('Image is too large (max 8MB).'));
+                const reader = new FileReader();
+                reader.onerror = () => reject(new Error('Could not read the selected file.'));
+                reader.onload = () => {
+                    const img = new Image();
+                    img.onerror = () => reject(new Error('Could not decode the selected image.'));
+                    img.onload = () => {
+                        const side = Math.min(img.width, img.height);
+                        const sx = (img.width - side) / 2;
+                        const sy = (img.height - side) / 2;
+                        const canvas = document.createElement('canvas');
+                        canvas.width = maxSize; canvas.height = maxSize;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, sx, sy, side, side, 0, 0, maxSize, maxSize);
+                        resolve(canvas.toDataURL('image/jpeg', quality));
+                    };
+                    img.src = reader.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // Shared circular avatar-with-upload control — shows the current photo
+        // (or initials if none), a small camera-badge button that opens a file
+        // picker, resizes/compresses the chosen image, and calls onPhotoChange
+        // with the resulting data URL (or onError with a message on failure).
+        function AvatarUpload({ name, photoUrl, size = 76, onPhotoChange, onError, disabled = false }) {
+            const fileRef = React.useRef(null);
+            const [busy, setBusy] = React.useState(false);
+            const ini = (name || '').split(' ').slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('');
+            const colors = ['#6D2773', '#0A6ABD', '#689C35', '#874E8C', '#3685C9', '#4E7528'];
+            const bg = colors[(name || '').charCodeAt(0) % colors.length] || '#6D2773';
+            const handleFile = async (e) => {
+                const file = e.target.files && e.target.files[0];
+                e.target.value = ''; // allow re-selecting the same file later
+                if (!file) return;
+                setBusy(true);
+                try {
+                    const dataUrl = await resizeImageToDataUrl(file);
+                    onPhotoChange && onPhotoChange(dataUrl);
+                } catch (err) {
+                    onError && onError(err.message || 'Could not process that image.');
+                } finally {
+                    setBusy(false);
+                }
+            };
+            return (
+                <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
+                    {photoUrl ? (
+                        <img src={photoUrl} alt="" style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', display: 'block' }} />
+                    ) : (
+                        <div style={{ width: size, height: size, borderRadius: '50%', background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.36, fontWeight: 600, letterSpacing: '0.02em', color: 'white' }}>{ini}</div>
+                    )}
+                    {!disabled && (
+                        <button
+                            type="button"
+                            onClick={() => fileRef.current && fileRef.current.click()}
+                            title="Change photo"
+                            style={{
+                                position: 'absolute', bottom: -2, right: -2, width: 28, height: 28, borderRadius: '50%',
+                                background: '#6D2773', border: '2px solid white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                cursor: busy ? 'default' : 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
+                            }}
+                            disabled={busy}
+                        >
+                            {busy ? <Icon name='loader' size={13} color='#fff' /> : <Icon name='pencil' size={13} color='#fff' />}
+                        </button>
+                    )}
+                    <input ref={fileRef} type="file" accept="image/*" onChange={handleFile} style={{ display: 'none' }} disabled={disabled || busy} />
+                </div>
+            );
+        }
+
         // Small inline pill flagging a deactivated staff member wherever their
         // name is shown on a ticket (assignee or requester) — driven by the
         // assigneeActive/requesterActive flags added to the tickets API.
@@ -944,9 +1026,13 @@
                                 border:`1px solid ${userMenuOpen ? '#C77DB8' : border}`,
                                 cursor:'pointer', display:'flex', alignItems:'center', gap:8, padding:'0 10px',
                             }}>
-                            <div style={{width:26,height:26,borderRadius:'50%',background:'#F97316',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:700,fontSize:11,flexShrink:0}}>
-                                {initials}
-                            </div>
+                            {currentUser?.profile_photo_url ? (
+                                <img src={currentUser.profile_photo_url} alt="" style={{width:26,height:26,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/>
+                            ) : (
+                                <div style={{width:26,height:26,borderRadius:'50%',background:'#F97316',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:700,fontSize:11,flexShrink:0}}>
+                                    {initials}
+                                </div>
+                            )}
                             <span className="yc-user-label" style={{fontSize:13,fontWeight:600,color:textC,maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                                 {displayName}
                             </span>
@@ -967,9 +1053,13 @@
                                 zIndex:50, overflow:'hidden',
                             }}>
                                 <div style={{padding:'12px 16px', borderBottom:`1px solid ${border}`, display:'flex', alignItems:'center', gap:10}}>
-                                    <div style={{width:34,height:34,borderRadius:'50%',background:'#F97316',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:700,fontSize:13,flexShrink:0}}>
-                                        {initials}
-                                    </div>
+                                    {currentUser?.profile_photo_url ? (
+                                        <img src={currentUser.profile_photo_url} alt="" style={{width:34,height:34,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/>
+                                    ) : (
+                                        <div style={{width:34,height:34,borderRadius:'50%',background:'#F97316',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:700,fontSize:13,flexShrink:0}}>
+                                            {initials}
+                                        </div>
+                                    )}
                                     <div style={{flex:1,minWidth:0}}>
                                         <p style={{fontSize:13, fontWeight:700, color:textC, margin:0}}>{displayName}</p>
                                         <p style={{fontSize:11, color:subC, margin:'1px 0 3px'}}>{deptLabel}</p>
@@ -1133,9 +1223,13 @@
                                 boxShadow: darkMode ? 'none' : '0 1px 2px rgba(15,23,42,0.04)',
                                 transition:'border-color 0.15s, background 0.15s',
                             }}>
-                            <div style={{width:34,height:34,borderRadius:9,background:'#6D2773',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:700,fontSize:12,flexShrink:0,letterSpacing:'0.02em'}}>
-                                {initials}
-                            </div>
+                            {currentUser?.profile_photo_url ? (
+                                <img src={currentUser.profile_photo_url} alt="" style={{width:34,height:34,borderRadius:9,objectFit:'cover',flexShrink:0}}/>
+                            ) : (
+                                <div style={{width:34,height:34,borderRadius:9,background:'#6D2773',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:700,fontSize:12,flexShrink:0,letterSpacing:'0.02em'}}>
+                                    {initials}
+                                </div>
+                            )}
                             <div style={{flex:1, minWidth:0, textAlign:'left'}}>
                                 <p style={{fontSize:13,fontWeight:700,color:logoText,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',margin:0,letterSpacing:'-0.01em'}}>{displayName}</p>
                                 <p style={{fontSize:11,color:logoSub,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',margin:'1px 0 0',fontWeight:500}}>{deptLabel}</p>
@@ -6701,7 +6795,8 @@
             const EMPTY_FORM = {
                 name:'', email:'', phone:'', address:'', employment_type:'full_time',
                 department_id:'', manager_id:'', start_date:'',
-                profile_notes:'', position_ids:[], auth_provider:'azure_ad'
+                profile_notes:'', position_ids:[], auth_provider:'azure_ad',
+                profile_photo_url:''
             };
 
 
@@ -6785,7 +6880,8 @@
                     start_date: m.start_date ? m.start_date.slice(0,10) : '',
                     profile_notes: m.profile_notes||'',
                     position_ids: (m.positions||[]).map(p=>p.id),
-                    auth_provider: m.auth_provider||'azure_ad'
+                    auth_provider: m.auth_provider||'azure_ad',
+                    profile_photo_url: m.profile_photo_url||''
                 });
                 setSelStaff(m); setModalMode('edit'); setError(''); setShowModal(true);
             };
@@ -6814,6 +6910,7 @@
                         position_ids:    form.position_ids || [],
                         auth_provider:   form.auth_provider   || 'azure_ad',
                         is_active:       true,
+                        profile_photo_url: form.profile_photo_url || null,
                     };
                     const url    = modalMode==='add' ? `${HRMS_API}/users` : `${HRMS_API}/users/${selStaff.id}`;
                     const method = modalMode==='add' ? 'POST' : 'PATCH';
@@ -6887,10 +6984,11 @@
 
             const posTypeColor = { director:'#6D2773', ops:'#0A6ABD', finance:'#5B892E', strategic:'#874E8C', staff:'#3685C9', external:'#99CE64' };
 
-            const Avatar = ({name, size=36}) => {
+            const Avatar = ({name, photoUrl, size=36}) => {
                 const ini=(name||'').split(' ').slice(0,2).map(w=>w[0]?.toUpperCase()||'').join('');
                 const colors=['#6D2773','#0A6ABD','#689C35','#874E8C','#3685C9','#4E7528'];
                 const bg=colors[(name||'').charCodeAt(0)%colors.length];
+                if (photoUrl) return <img src={photoUrl} alt="" style={{width:size,height:size,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/>;
                 return <div style={{width:size,height:size,borderRadius:'50%',background:bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:size*0.36,fontWeight:600,letterSpacing:'0.02em',color:'white',flexShrink:0}}>{ini}</div>;
             };
 
@@ -6972,7 +7070,7 @@
                                             <tr key={m.id} style={{borderBottom:`1px solid ${borderC}`}} className="table-row">
                                                 <td style={{padding:'12px 14px'}}>
                                                     <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
-                                                        <Avatar name={m.name} size={34}/>
+                                                        <Avatar name={m.name} photoUrl={m.profile_photo_url} size={34}/>
                                                         <div>
                                                             <div style={{fontSize:'13px',fontWeight:'700',color:textP,display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}>
                                                                 {m.name}
@@ -7104,6 +7202,17 @@
 
                                 <div style={{padding:'20px 24px'}}>
                                     {error && <div style={{background:dm?'rgba(239,68,68,0.12)':'#FEF2F2',border:`1px solid ${dm?'rgba(239,68,68,0.3)':'#FECACA'}`,borderRadius:'8px',padding:'8px 12px',marginBottom:'14px',fontSize:'12px',color:'#DC2626',display:'flex',alignItems:'center',gap:'6px'}}><Icon name='alert-triangle' size={12} color='#DC2626' />{error}</div>}
+
+                                    {/* Profile photo */}
+                                    <div style={{display:'flex',justifyContent:'center',marginBottom:'18px'}}>
+                                        <AvatarUpload
+                                            name={form.name}
+                                            photoUrl={form.profile_photo_url}
+                                            size={76}
+                                            onPhotoChange={(dataUrl)=>setForm(f=>({...f, profile_photo_url:dataUrl}))}
+                                            onError={(msg)=>setError(msg)}
+                                        />
+                                    </div>
 
                                     {/* Login method notice */}
                                     <div style={{background:dm?'rgba(59,130,246,0.08)':'#EFF6FF',border:`1px solid ${dm?'rgba(59,130,246,0.25)':'#BFDBFE'}`,borderRadius:'8px',padding:'10px 14px',marginBottom:'16px',fontSize:'12px',color:dm?'#93c5fd':'#1E40AF'}}>
@@ -8559,6 +8668,15 @@
                 finally { setSaving(false); }
             };
 
+            const handlePhotoChange = async (dataUrl) => {
+                try {
+                    const d = await API.users.me.update({ profile_photo_url: dataUrl });
+                    setProfile(p => ({ ...p, ...d.user }));
+                    try { window.dispatchEvent(new CustomEvent('yc:profile-updated', { detail: { profile_photo_url: d.user?.profile_photo_url ?? dataUrl } })); } catch(e) {}
+                    showToast('Profile photo updated');
+                } catch (e) { showToast('Failed to update photo: ' + e.message); }
+            };
+
             const initials = (profile?.name || '').split(/\s+/).map(w => w[0] || '').slice(0, 2).join('').toUpperCase();
 
             const fieldRow = (label, value) => (
@@ -8595,9 +8713,13 @@
                         {!loading && !loadError && profile && (
                             <>
                                 <div style={{background:card,border:`1px solid ${bdr}`,borderRadius:12,padding:20,marginBottom:20,display:'flex',alignItems:'center',gap:14}}>
-                                    <div style={{width:52,height:52,borderRadius:'50%',background:'#F97316',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:700,fontSize:18,flexShrink:0}}>
-                                        {initials || '?'}
-                                    </div>
+                                    <AvatarUpload
+                                        name={profile.name}
+                                        photoUrl={profile.profile_photo_url}
+                                        size={52}
+                                        onPhotoChange={handlePhotoChange}
+                                        onError={(msg)=>showToast(msg)}
+                                    />
                                     <div>
                                         <p style={{fontSize:16,fontWeight:700,color:txt,margin:0}}>{profile.name}</p>
                                         <p style={{fontSize:12,color:muted,margin:'2px 0 0'}}>{profile.email}</p>
@@ -9010,8 +9132,9 @@
                 finally { setReactivating(null); }
             };
 
-            const Avatar = ({ name, size = 36 }) => {
+            const Avatar = ({ name, photoUrl, size = 36 }) => {
                 const ini = (name || '').split(' ').slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('');
+                if (photoUrl) return <img src={photoUrl} alt="" style={{width:size,height:size,borderRadius:'50%',objectFit:'cover',flexShrink:0,filter:'grayscale(60%)'}}/>;
                 return <div style={{width:size,height:size,borderRadius:'50%',background:'#94A3B8',display:'flex',alignItems:'center',justifyContent:'center',fontSize:size*0.38,fontWeight:700,color:'white',flexShrink:0}}>{ini}</div>;
             };
 
@@ -9051,7 +9174,7 @@
                                             <tr key={s.id} style={{borderBottom:`1px solid ${bdr}`}}>
                                                 <td style={{padding:'9px 14px',color:txt}}>
                                                     <div style={{display:'flex',alignItems:'center',gap:10}}>
-                                                        <Avatar name={s.name} />
+                                                        <Avatar name={s.name} photoUrl={s.profile_photo_url} />
                                                         <div>
                                                             <div style={{fontWeight:600}}>{s.name}</div>
                                                             <span style={{fontSize:10,fontWeight:700,color:'#991B1B',background:dm?'rgba(239,68,68,0.12)':'#FEF2F2',padding:'1px 6px',borderRadius:10}}>No longer with Yahwehcare</span>
@@ -9629,6 +9752,22 @@
                     return stored ? JSON.parse(stored) : null;
                 } catch(e) { return null; }
             });
+
+            // Listen for self-service profile edits (e.g. a new profile photo saved on the
+            // Settings page) so the sidebar avatar updates immediately without a full reload.
+            // Settings page dispatches this after a successful PATCH /users/me.
+            React.useEffect(() => {
+                const onProfilePatched = (e) => {
+                    setCurrentUser(u => {
+                        if (!u) return u;
+                        const merged = { ...u, ...(e.detail || {}) };
+                        try { sessionStorage.setItem('ms_current_user', JSON.stringify(merged)); } catch(err) {}
+                        return merged;
+                    });
+                };
+                window.addEventListener('yc:profile-updated', onProfilePatched);
+                return () => window.removeEventListener('yc:profile-updated', onProfilePatched);
+            }, []);
 
             // Persist dark mode preference & apply to document
             React.useEffect(() => {

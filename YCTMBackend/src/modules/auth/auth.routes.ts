@@ -145,6 +145,7 @@ router.get('/microsoft/callback', async (req, res, next) => {
       positionType,
       role:            userRole,
       isBootstrapAdmin: !!(user as unknown as Record<string, unknown>).bootstrap_admin,
+      profile_photo_url: user.profile_photo_url || null,
     })).toString('base64url');
 
     // Also pass the access token so the frontend can use Authorization: Bearer
